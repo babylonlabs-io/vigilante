@@ -50,10 +50,11 @@ func (tm *TestManager) getBTCUnbondingTime(t *testing.T) uint64 {
 func (tm *TestManager) CreateFinalityProvider(t *testing.T) (*bstypes.FinalityProvider, *btcec.PrivateKey) {
 	var err error
 	signerAddr := tm.BabylonClient.MustGetAddr()
+	addr := sdk.MustAccAddressFromBech32(signerAddr)
 
 	fpSK, _, err := datagen.GenRandomBTCKeyPair(r)
 	require.NoError(t, err)
-	btcFp, err := datagen.GenRandomFinalityProviderWithBTCSK(r, fpSK)
+	btcFp, err := datagen.GenRandomFinalityProviderWithBTCBabylonSKs(r, fpSK, addr)
 	require.NoError(t, err)
 
 	/*
@@ -78,8 +79,7 @@ func (tm *TestManager) CreateBTCDelegation(
 	fpSK *btcec.PrivateKey,
 ) (*datagen.TestStakingSlashingInfo, *datagen.TestUnbondingSlashingInfo, *btcec.PrivateKey) {
 	signerAddr := tm.BabylonClient.MustGetAddr()
-	addr, err := sdk.AccAddressFromBech32(signerAddr)
-	require.NoError(t, err)
+	addr := sdk.MustAccAddressFromBech32(signerAddr)
 
 	fpPK := fpSK.PubKey()
 
