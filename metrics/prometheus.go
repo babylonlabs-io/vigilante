@@ -5,7 +5,7 @@ import (
 	_ "net/http/pprof"
 	"regexp"
 
-	"github.com/babylonchain/vigilante/config"
+	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"

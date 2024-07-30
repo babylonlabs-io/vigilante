@@ -4,17 +4,17 @@ import (
 	"math/rand"
 	"testing"
 
-	bbndatagen "github.com/babylonchain/babylon/testutil/datagen"
-	bbntypes "github.com/babylonchain/babylon/types"
-	btclctypes "github.com/babylonchain/babylon/x/btclightclient/types"
-	monitortypes "github.com/babylonchain/babylon/x/monitor/types"
+	bbndatagen "github.com/babylonlabs-io/babylon/testutil/datagen"
+	bbntypes "github.com/babylonlabs-io/babylon/types"
+	btclctypes "github.com/babylonlabs-io/babylon/x/btclightclient/types"
+	monitortypes "github.com/babylonlabs-io/babylon/x/monitor/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/babylonchain/vigilante/config"
-	"github.com/babylonchain/vigilante/monitor"
-	"github.com/babylonchain/vigilante/testutil/datagen"
-	"github.com/babylonchain/vigilante/types"
+	"github.com/babylonlabs-io/vigilante/config"
+	"github.com/babylonlabs-io/vigilante/monitor"
+	"github.com/babylonlabs-io/vigilante/testutil/datagen"
+	"github.com/babylonlabs-io/vigilante/types"
 )
 
 func FuzzLivenessChecker(f *testing.F) {

@@ -6,9 +6,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	monitortypes "github.com/babylonchain/babylon/x/monitor/types"
+	monitortypes "github.com/babylonlabs-io/babylon/x/monitor/types"
 
-	"github.com/babylonchain/vigilante/types"
+	"github.com/babylonlabs-io/vigilante/types"
 )
 
 func (m *Monitor) runLivenessChecker() {

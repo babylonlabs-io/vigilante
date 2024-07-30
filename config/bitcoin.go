@@ -7,7 +7,7 @@ import (
 
 	"github.com/lightningnetwork/lnd/lnwallet/chainfee"
 
-	"github.com/babylonchain/vigilante/types"
+	"github.com/babylonlabs-io/vigilante/types"
 )
 
 // BTCConfig defines configuration for the Bitcoin client

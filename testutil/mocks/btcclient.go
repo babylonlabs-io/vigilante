@@ -7,8 +7,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	config "github.com/babylonchain/vigilante/config"
-	types "github.com/babylonchain/vigilante/types"
+	config "github.com/babylonlabs-io/vigilante/config"
+	types "github.com/babylonlabs-io/vigilante/types"
 	btcjson "github.com/btcsuite/btcd/btcjson"
 	btcutil "github.com/btcsuite/btcd/btcutil"
 	chaincfg "github.com/btcsuite/btcd/chaincfg"

@@ -6,12 +6,12 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/babylonchain/babylon/testutil/datagen"
-	checkpointingtypes "github.com/babylonchain/babylon/x/checkpointing/types"
+	"github.com/babylonlabs-io/babylon/testutil/datagen"
+	checkpointingtypes "github.com/babylonlabs-io/babylon/x/checkpointing/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/babylonchain/vigilante/submitter/poller"
+	"github.com/babylonlabs-io/vigilante/submitter/poller"
 )
 
 func FuzzPollingCheckpoints(f *testing.F) {

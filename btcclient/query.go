@@ -3,13 +3,13 @@ package btcclient
 import (
 	"fmt"
 
-	"github.com/babylonchain/babylon/types/retry"
+	"github.com/babylonlabs-io/babylon/types/retry"
 	"github.com/btcsuite/btcd/btcjson"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
 	"go.uber.org/zap"
 
-	"github.com/babylonchain/vigilante/types"
+	"github.com/babylonlabs-io/vigilante/types"
 )
 
 // GetBestBlock provides similar functionality with the btcd.rpcclient.GetBestBlock function

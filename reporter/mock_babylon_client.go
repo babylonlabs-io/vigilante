@@ -8,9 +8,9 @@ import (
 	context "context"
 	reflect "reflect"
 
-	config "github.com/babylonchain/babylon/client/config"
-	types "github.com/babylonchain/babylon/x/btccheckpoint/types"
-	types0 "github.com/babylonchain/babylon/x/btclightclient/types"
+	config "github.com/babylonlabs-io/babylon/client/config"
+	types "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
+	types0 "github.com/babylonlabs-io/babylon/x/btclightclient/types"
 	chainhash "github.com/btcsuite/btcd/chaincfg/chainhash"
 	provider "github.com/cosmos/relayer/v2/relayer/provider"
 	gomock "github.com/golang/mock/gomock"

@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/babylonchain/babylon/types/retry"
+	"github.com/babylonlabs-io/babylon/types/retry"
 	"github.com/btcsuite/btcd/btcutil"
 	"go.uber.org/zap"
 
-	"github.com/babylonchain/vigilante/config"
-	"github.com/babylonchain/vigilante/netparams"
-	"github.com/babylonchain/vigilante/types"
-	"github.com/babylonchain/vigilante/zmq"
+	"github.com/babylonlabs-io/vigilante/config"
+	"github.com/babylonlabs-io/vigilante/netparams"
+	"github.com/babylonlabs-io/vigilante/types"
+	"github.com/babylonlabs-io/vigilante/zmq"
 
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/btcsuite/btcd/wire"
@@ -56,7 +56,7 @@ func NewWithBlockSubscriber(cfg *config.BTCConfig, retrySleepTime, maxRetrySleep
 		if err != nil {
 			return nil, fmt.Errorf("failed to get BTC backend: %v", err)
 		}
-		if backend != rpcclient.BitcoindPost19 {
+		if backend != rpcclient.BitcoindPost25 {
 			return nil, fmt.Errorf("zmq is only supported by bitcoind, but got %v", backend)
 		}
 
@@ -100,7 +100,7 @@ func NewWithBlockSubscriber(cfg *config.BTCConfig, retrySleepTime, maxRetrySleep
 		if err != nil {
 			return nil, fmt.Errorf("failed to get BTC backend: %v", err)
 		}
-		if backend != rpcclient.Btcd {
+		if backend != rpcclient.BtcdPost2401 {
 			return nil, fmt.Errorf("websocket is only supported by btcd, but got %v", backend)
 		}
 

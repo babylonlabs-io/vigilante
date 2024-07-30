@@ -3,13 +3,13 @@ package cmd
 import (
 	"fmt"
 
-	bbnclient "github.com/babylonchain/babylon/client/client"
-	"github.com/babylonchain/vigilante/btcclient"
-	bst "github.com/babylonchain/vigilante/btcstaking-tracker"
-	"github.com/babylonchain/vigilante/config"
-	"github.com/babylonchain/vigilante/metrics"
-	"github.com/babylonchain/vigilante/netparams"
-	"github.com/babylonchain/vigilante/rpcserver"
+	bbnclient "github.com/babylonlabs-io/babylon/client/client"
+	"github.com/babylonlabs-io/vigilante/btcclient"
+	bst "github.com/babylonlabs-io/vigilante/btcstaking-tracker"
+	"github.com/babylonlabs-io/vigilante/config"
+	"github.com/babylonlabs-io/vigilante/metrics"
+	"github.com/babylonlabs-io/vigilante/netparams"
+	"github.com/babylonlabs-io/vigilante/rpcserver"
 	"github.com/spf13/cobra"
 )
 

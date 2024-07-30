@@ -3,7 +3,7 @@ package atomicslasher
 import (
 	"time"
 
-	bstypes "github.com/babylonchain/babylon/x/btcstaking/types"
+	bstypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"go.uber.org/zap"
 )

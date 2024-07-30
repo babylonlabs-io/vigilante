@@ -5,9 +5,9 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/babylonchain/babylon/testutil/datagen"
-	vdatagen "github.com/babylonchain/vigilante/testutil/datagen"
-	"github.com/babylonchain/vigilante/types"
+	"github.com/babylonlabs-io/babylon/testutil/datagen"
+	vdatagen "github.com/babylonlabs-io/vigilante/testutil/datagen"
+	"github.com/babylonlabs-io/vigilante/types"
 )
 
 // FuzzBtcCache fuzzes the BtcCache type

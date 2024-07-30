@@ -12,14 +12,14 @@ import (
 	"go.uber.org/zap"
 
 	sdkerrors "cosmossdk.io/errors"
-	checkpointingtypes "github.com/babylonchain/babylon/x/checkpointing/types"
+	checkpointingtypes "github.com/babylonlabs-io/babylon/x/checkpointing/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/babylonchain/vigilante/btcclient"
-	"github.com/babylonchain/vigilante/config"
-	"github.com/babylonchain/vigilante/metrics"
-	"github.com/babylonchain/vigilante/monitor/btcscanner"
-	"github.com/babylonchain/vigilante/types"
+	"github.com/babylonlabs-io/vigilante/btcclient"
+	"github.com/babylonlabs-io/vigilante/config"
+	"github.com/babylonlabs-io/vigilante/metrics"
+	"github.com/babylonlabs-io/vigilante/monitor/btcscanner"
+	"github.com/babylonlabs-io/vigilante/types"
 )
 
 type Monitor struct {
