@@ -11,7 +11,7 @@ import (
 	"github.com/btcsuite/btcd/wire"
 	secp "github.com/decred/dcrd/dcrec/secp256k1/v4"
 
-	"github.com/babylonchain/vigilante/types"
+	"github.com/babylonlabs-io/vigilante/types"
 )
 
 func isSegWit(addr btcutil.Address) (bool, error) {

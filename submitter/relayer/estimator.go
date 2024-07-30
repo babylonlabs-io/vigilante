@@ -6,8 +6,8 @@ import (
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/lightningnetwork/lnd/lnwallet/chainfee"
 
-	"github.com/babylonchain/vigilante/config"
-	"github.com/babylonchain/vigilante/types"
+	"github.com/babylonlabs-io/vigilante/config"
+	"github.com/babylonlabs-io/vigilante/types"
 )
 
 // NewFeeEstimator creates a fee estimator based on the given backend

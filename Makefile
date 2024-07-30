@@ -8,7 +8,7 @@ TOOLS_DIR := tools
 
 BTCD_PKG := github.com/btcsuite/btcd
 BTCDW_PKG := github.com/btcsuite/btcwallet
-BABYLON_PKG := github.com/babylonchain/babylon/cmd/babylond
+BABYLON_PKG := github.com/babylonlabs-io/babylon/cmd/babylond
 
 GO_BIN := ${GOPATH}/bin
 BTCD_BIN := $(GO_BIN)/btcd

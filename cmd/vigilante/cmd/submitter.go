@@ -3,16 +3,16 @@ package cmd
 import (
 	"fmt"
 
-	bbnqccfg "github.com/babylonchain/babylon/client/config"
-	bbnqc "github.com/babylonchain/babylon/client/query"
+	bbnqccfg "github.com/babylonlabs-io/babylon/client/config"
+	bbnqc "github.com/babylonlabs-io/babylon/client/query"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/spf13/cobra"
 
-	"github.com/babylonchain/vigilante/btcclient"
-	"github.com/babylonchain/vigilante/config"
-	"github.com/babylonchain/vigilante/metrics"
-	"github.com/babylonchain/vigilante/rpcserver"
-	"github.com/babylonchain/vigilante/submitter"
+	"github.com/babylonlabs-io/vigilante/btcclient"
+	"github.com/babylonlabs-io/vigilante/config"
+	"github.com/babylonlabs-io/vigilante/metrics"
+	"github.com/babylonlabs-io/vigilante/rpcserver"
+	"github.com/babylonlabs-io/vigilante/submitter"
 )
 
 // GetSubmitterCmd returns the CLI commands for the submitter

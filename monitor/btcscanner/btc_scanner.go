@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/babylonchain/babylon/btctxformatter"
-	ckpttypes "github.com/babylonchain/babylon/x/checkpointing/types"
+	"github.com/babylonlabs-io/babylon/btctxformatter"
+	ckpttypes "github.com/babylonlabs-io/babylon/x/checkpointing/types"
 	"github.com/btcsuite/btcd/wire"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 
-	"github.com/babylonchain/vigilante/btcclient"
-	"github.com/babylonchain/vigilante/config"
-	"github.com/babylonchain/vigilante/types"
+	"github.com/babylonlabs-io/vigilante/btcclient"
+	"github.com/babylonlabs-io/vigilante/config"
+	"github.com/babylonlabs-io/vigilante/types"
 )
 
 type BtcScanner struct {

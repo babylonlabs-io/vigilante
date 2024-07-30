@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/babylonchain/babylon/app/params"
-	"github.com/babylonchain/vigilante/cmd/vigilante/cmd"
+	"github.com/babylonlabs-io/babylon/app/params"
+	"github.com/babylonlabs-io/vigilante/cmd/vigilante/cmd"
 	"os"
 )
 

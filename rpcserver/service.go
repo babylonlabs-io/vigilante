@@ -4,7 +4,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	pb "github.com/babylonchain/vigilante/rpcserver/api"
+	pb "github.com/babylonlabs-io/vigilante/rpcserver/api"
 )
 
 // Public API version constants

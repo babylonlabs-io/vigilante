@@ -1,7 +1,7 @@
 package e2etest
 
 import (
-	"github.com/babylonchain/vigilante/config"
+	"github.com/babylonlabs-io/vigilante/config"
 )
 
 var (

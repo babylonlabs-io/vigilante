@@ -7,7 +7,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/babylonchain/vigilante/types"
+	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/pebbe/zmq4"
 	"go.uber.org/zap"

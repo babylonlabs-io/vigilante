@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"fmt"
 
-	babylontypes "github.com/babylonchain/babylon/types"
-	btcctypes "github.com/babylonchain/babylon/x/btccheckpoint/types"
+	babylontypes "github.com/babylonlabs-io/babylon/types"
+	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
+	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcd/btcutil"
 )
 
 // IndexedBlock is a BTC block with some extra information compared to wire.MsgBlock, including:

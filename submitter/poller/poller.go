@@ -1,7 +1,7 @@
 package poller
 
 import (
-	checkpointingtypes "github.com/babylonchain/babylon/x/checkpointing/types"
+	checkpointingtypes "github.com/babylonlabs-io/babylon/x/checkpointing/types"
 )
 
 type Poller struct {

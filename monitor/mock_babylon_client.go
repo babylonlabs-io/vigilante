@@ -7,10 +7,10 @@ package monitor
 import (
 	reflect "reflect"
 
-	types "github.com/babylonchain/babylon/x/btclightclient/types"
-	types0 "github.com/babylonchain/babylon/x/checkpointing/types"
-	types1 "github.com/babylonchain/babylon/x/epoching/types"
-	types2 "github.com/babylonchain/babylon/x/monitor/types"
+	types "github.com/babylonlabs-io/babylon/x/btclightclient/types"
+	types0 "github.com/babylonlabs-io/babylon/x/checkpointing/types"
+	types1 "github.com/babylonlabs-io/babylon/x/epoching/types"
+	types2 "github.com/babylonlabs-io/babylon/x/monitor/types"
 	chainhash "github.com/btcsuite/btcd/chaincfg/chainhash"
 	query "github.com/cosmos/cosmos-sdk/types/query"
 	gomock "github.com/golang/mock/gomock"

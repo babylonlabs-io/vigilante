@@ -7,9 +7,9 @@ import (
 
 	"cosmossdk.io/errors"
 	"github.com/avast/retry-go/v4"
-	bbn "github.com/babylonchain/babylon/types"
-	bstypes "github.com/babylonchain/babylon/x/btcstaking/types"
-	"github.com/babylonchain/vigilante/config"
+	bbn "github.com/babylonlabs-io/babylon/types"
+	bstypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
+	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/cosmos/cosmos-sdk/types/query"
 	"go.uber.org/zap"

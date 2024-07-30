@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"sync"
 
-	asig "github.com/babylonchain/babylon/crypto/schnorr-adaptor-signature"
-	bbn "github.com/babylonchain/babylon/types"
-	bstypes "github.com/babylonchain/babylon/x/btcstaking/types"
+	asig "github.com/babylonlabs-io/babylon/crypto/schnorr-adaptor-signature"
+	bbn "github.com/babylonlabs-io/babylon/types"
+	bstypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"

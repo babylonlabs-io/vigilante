@@ -1,4 +1,4 @@
-module github.com/babylonchain/vigilante
+module github.com/babylonlabs-io/vigilante
 
 go 1.21
 
@@ -9,14 +9,14 @@ require (
 	cosmossdk.io/log v1.3.1
 	cosmossdk.io/math v1.3.0
 	github.com/avast/retry-go/v4 v4.5.1
-	github.com/babylonchain/babylon v0.8.6-0.20240605064737-7be9d5c57afb
+	github.com/babylonlabs-io/babylon v0.9.0
 	github.com/boljen/go-bitmap v0.0.0-20151001105940-23cd2fb0ce7d
-	github.com/btcsuite/btcd v0.24.0
+	github.com/btcsuite/btcd v0.24.2
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2
 	github.com/btcsuite/btcd/btcutil v1.1.5
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.1.0
 	github.com/btcsuite/btcwallet v0.16.10-0.20230621165747-9c21f464ce13
-	github.com/cometbft/cometbft v0.38.6
+	github.com/cometbft/cometbft v0.38.7
 	github.com/cosmos/cosmos-sdk v0.50.6
 	github.com/cosmos/relayer/v2 v2.5.1
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0
@@ -64,7 +64,7 @@ require (
 	filippo.io/edwards25519 v1.0.0 // indirect
 	github.com/99designs/keyring v1.2.1 // indirect
 	github.com/CosmWasm/wasmd v0.51.0 // indirect
-	github.com/CosmWasm/wasmvm/v2 v2.0.0 // indirect
+	github.com/CosmWasm/wasmvm/v2 v2.0.1 // indirect
 	github.com/DataDog/datadog-go v3.2.0+incompatible // indirect
 	github.com/DataDog/zstd v1.5.5 // indirect
 	github.com/aead/siphash v1.0.1 // indirect
@@ -103,7 +103,8 @@ require (
 	github.com/cosmos/gogoproto v1.4.12 // indirect
 	github.com/cosmos/iavl v1.1.2 // indirect
 	github.com/cosmos/ibc-go/modules/capability v1.0.0 // indirect
-	github.com/cosmos/ibc-go/v8 v8.0.0 // indirect
+	github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.0.0-20240429153234-e1e6da7e4ead // indirect
+	github.com/cosmos/ibc-go/v8 v8.3.0 // indirect
 	github.com/cosmos/ics23/go v0.10.0 // indirect
 	github.com/cosmos/ledger-cosmos-go v0.13.3 // indirect
 	github.com/crate-crypto/go-kzg-4844 v0.7.0 // indirect
@@ -249,6 +250,7 @@ require (
 	github.com/spf13/cast v1.6.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/strangelove-ventures/cometbft-client v0.1.0 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/supranational/blst v0.3.11 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect

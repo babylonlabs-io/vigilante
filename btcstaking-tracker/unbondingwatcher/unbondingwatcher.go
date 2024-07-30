@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	"github.com/babylonchain/vigilante/config"
-	"github.com/babylonchain/vigilante/metrics"
-	"github.com/babylonchain/vigilante/utils"
+	"github.com/babylonlabs-io/vigilante/config"
+	"github.com/babylonlabs-io/vigilante/metrics"
+	"github.com/babylonlabs-io/vigilante/utils"
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"

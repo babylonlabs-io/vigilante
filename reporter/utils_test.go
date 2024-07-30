@@ -6,18 +6,18 @@ import (
 
 	pv "github.com/cosmos/relayer/v2/relayer/provider"
 
-	"github.com/babylonchain/babylon/testutil/datagen"
-	btcctypes "github.com/babylonchain/babylon/x/btccheckpoint/types"
-	btclctypes "github.com/babylonchain/babylon/x/btclightclient/types"
+	"github.com/babylonlabs-io/babylon/testutil/datagen"
+	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
+	btclctypes "github.com/babylonlabs-io/babylon/x/btclightclient/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/babylonchain/vigilante/config"
-	"github.com/babylonchain/vigilante/metrics"
-	"github.com/babylonchain/vigilante/reporter"
-	vdatagen "github.com/babylonchain/vigilante/testutil/datagen"
-	"github.com/babylonchain/vigilante/testutil/mocks"
-	"github.com/babylonchain/vigilante/types"
+	"github.com/babylonlabs-io/vigilante/config"
+	"github.com/babylonlabs-io/vigilante/metrics"
+	"github.com/babylonlabs-io/vigilante/reporter"
+	vdatagen "github.com/babylonlabs-io/vigilante/testutil/datagen"
+	"github.com/babylonlabs-io/vigilante/testutil/mocks"
+	"github.com/babylonlabs-io/vigilante/types"
 )
 
 func newMockReporter(t *testing.T, ctrl *gomock.Controller) (

@@ -7,7 +7,7 @@ package poller
 import (
 	reflect "reflect"
 
-	types "github.com/babylonchain/babylon/x/checkpointing/types"
+	types "github.com/babylonlabs-io/babylon/x/checkpointing/types"
 	query "github.com/cosmos/cosmos-sdk/types/query"
 	gomock "github.com/golang/mock/gomock"
 )

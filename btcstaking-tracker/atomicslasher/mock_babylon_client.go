@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	errors "cosmossdk.io/errors"
-	types "github.com/babylonchain/babylon/x/btcstaking/types"
+	types "github.com/babylonlabs-io/babylon/x/btcstaking/types"
 	types0 "github.com/cosmos/cosmos-sdk/types"
 	query "github.com/cosmos/cosmos-sdk/types/query"
 	provider "github.com/cosmos/relayer/v2/relayer/provider"

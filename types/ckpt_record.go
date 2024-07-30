@@ -1,7 +1,7 @@
 package types
 
 import (
-	ckpttypes "github.com/babylonchain/babylon/x/checkpointing/types"
+	ckpttypes "github.com/babylonlabs-io/babylon/x/checkpointing/types"
 )
 
 type CheckpointRecord struct {

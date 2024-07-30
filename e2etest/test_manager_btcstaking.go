@@ -12,19 +12,18 @@ import (
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
 
 	sdkmath "cosmossdk.io/math"
-	"github.com/babylonchain/babylon/btcstaking"
-	"github.com/babylonchain/babylon/crypto/eots"
-	asig "github.com/babylonchain/babylon/crypto/schnorr-adaptor-signature"
-	"github.com/babylonchain/babylon/testutil/datagen"
-	bbn "github.com/babylonchain/babylon/types"
-	btcctypes "github.com/babylonchain/babylon/x/btccheckpoint/types"
-	bstypes "github.com/babylonchain/babylon/x/btcstaking/types"
-	ftypes "github.com/babylonchain/babylon/x/finality/types"
-	"github.com/babylonchain/vigilante/types"
+	"github.com/babylonlabs-io/babylon/btcstaking"
+	"github.com/babylonlabs-io/babylon/crypto/eots"
+	asig "github.com/babylonlabs-io/babylon/crypto/schnorr-adaptor-signature"
+	"github.com/babylonlabs-io/babylon/testutil/datagen"
+	bbn "github.com/babylonlabs-io/babylon/types"
+	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
+	bstypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
+	ftypes "github.com/babylonlabs-io/babylon/x/finality/types"
+	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/stretchr/testify/require"
@@ -62,10 +61,9 @@ func (tm *TestManager) CreateFinalityProvider(t *testing.T) (*bstypes.FinalityPr
 	*/
 	commission := sdkmath.LegacyZeroDec()
 	msgNewVal := &bstypes.MsgCreateFinalityProvider{
-		Signer:      signerAddr,
+		Addr:        signerAddr,
 		Description: &stakingtypes.Description{Moniker: datagen.GenRandomHexStr(r, 10)},
 		Commission:  &commission,
-		BabylonPk:   btcFp.BabylonPk,
 		BtcPk:       btcFp.BtcPk,
 		Pop:         btcFp.Pop,
 	}
@@ -80,6 +78,8 @@ func (tm *TestManager) CreateBTCDelegation(
 	fpSK *btcec.PrivateKey,
 ) (*datagen.TestStakingSlashingInfo, *datagen.TestUnbondingSlashingInfo, *btcec.PrivateKey) {
 	signerAddr := tm.BabylonClient.MustGetAddr()
+	addr, err := sdk.AccAddressFromBech32(signerAddr)
+	require.NoError(t, err)
 
 	fpPK := fpSK.PubKey()
 
@@ -165,10 +165,8 @@ func (tm *TestManager) CreateBTCDelegation(
 	stakingOutIdx, err := outIdx(stakingSlashingInfo.StakingTx, stakingSlashingInfo.StakingInfo.StakingOutput)
 	require.NoError(t, err)
 
-	// BTC delegation's Babylon key pair
-	delBabylonSK, delBabylonPK, _ := datagen.GenRandomSecp256k1KeyPair(r)
 	// create PoP
-	pop, err := bstypes.NewPoP(delBabylonSK, wif.PrivKey)
+	pop, err := bstypes.NewPoPBTC(addr, wif.PrivKey)
 	require.NoError(t, err)
 	slashingSpendPath, err := stakingSlashingInfo.StakingInfo.SlashingPathSpendInfo()
 	require.NoError(t, err)
@@ -219,8 +217,7 @@ func (tm *TestManager) CreateBTCDelegation(
 
 	// submit BTC delegation to Babylon
 	msgBTCDel := &bstypes.MsgCreateBTCDelegation{
-		Signer:               signerAddr,
-		BabylonPk:            delBabylonPK.(*secp256k1.PubKey),
+		StakerAddr:           signerAddr,
 		Pop:                  pop,
 		BtcPk:                bbn.NewBIP340PubKeyFromBTCPK(wif.PrivKey.PubKey()),
 		FpBtcPkList:          []bbn.BIP340PubKey{*bbn.NewBIP340PubKeyFromBTCPK(fpPK)},

@@ -6,12 +6,12 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/babylonchain/babylon/testutil/datagen"
+	"github.com/babylonlabs-io/babylon/testutil/datagen"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 
 	"cosmossdk.io/log"
-	"github.com/babylonchain/babylon/app"
-	bbncmd "github.com/babylonchain/babylon/cmd/babylond/cmd"
+	"github.com/babylonlabs-io/babylon/app"
+	bbncmd "github.com/babylonlabs-io/babylon/cmd/babylond/cmd"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/server"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"

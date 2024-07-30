@@ -1,7 +1,7 @@
 package btcscanner
 
 import (
-	"github.com/babylonchain/vigilante/types"
+	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/wire"
 )
 
