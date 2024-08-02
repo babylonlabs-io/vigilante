@@ -4,8 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
-	"os"
-	"path/filepath"
+	"github.com/btcsuite/btcd/integration/rpctest"
 	"testing"
 	"time"
 
@@ -22,7 +21,6 @@ import (
 	"github.com/btcsuite/btcd/btcutil/hdkeychain"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/integration/rpctest"
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/stretchr/testify/require"
@@ -71,9 +69,9 @@ func defaultVigilanteConfig() *config.Config {
 	defaultConfig := config.DefaultConfig()
 	// Config setting necessary to connect btcd daemon
 	defaultConfig.BTC.NetParams = "simnet"
-	defaultConfig.BTC.Endpoint = "127.0.0.1:18556"
+	defaultConfig.BTC.Endpoint = "127.0.0.1:18443"
 	// Config setting necessary to connect btcwallet daemon
-	defaultConfig.BTC.BtcBackend = "btcd"
+	defaultConfig.BTC.BtcBackend = types.Bitcoind
 	defaultConfig.BTC.WalletEndpoint = "127.0.0.1:18554"
 	defaultConfig.BTC.WalletPassword = "pass"
 	defaultConfig.BTC.Username = "user"
@@ -117,6 +115,8 @@ func GetSpendingKeyAndAddress(id uint32) (*btcec.PrivateKey, btcutil.Address, er
 
 type TestManager struct {
 	MinerNode        *rpctest.Harness
+	TestRpcClient    *rpcclient.Client
+	BitcoindHandler  *BitcoindTestHandler
 	BtcWalletHandler *WalletHandler
 	BabylonHandler   *BabylonNodeHandler
 	BabylonClient    *bbnclient.Client
@@ -144,7 +144,7 @@ func initBTCWalletClient(
 
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
-	// lets wait until chain rpc becomes available
+	// let's wait until chain rpc becomes available
 	// poll time is increase here to avoid spamming the btcwallet rpc server
 	require.Eventually(t, func() bool {
 		if _, _, err := client.GetBestBlock(); err != nil {
@@ -162,18 +162,18 @@ func initBTCWalletClient(
 	return client
 }
 
-func initBTCClientWithSubscriber(t *testing.T, cfg *config.Config, rpcClient *rpcclient.Client, connCfg *rpcclient.ConnConfig, blockEventChan chan *types.BlockEvent) *btcclient.Client {
+func initBTCClientWithSubscriber(t *testing.T, cfg *config.Config, rpcClient *rpcclient.Client, blockEventChan chan *types.BlockEvent) *btcclient.Client {
 	btcCfg := &config.BTCConfig{
 		NetParams:        cfg.BTC.NetParams,
-		Username:         connCfg.User,
-		Password:         connCfg.Pass,
-		Endpoint:         connCfg.Host,
-		DisableClientTLS: connCfg.DisableTLS,
+		Username:         cfg.BTC.Username,
+		Password:         cfg.BTC.Password,
+		Endpoint:         cfg.BTC.Endpoint,
+		DisableClientTLS: cfg.BTC.DisableClientTLS,
 	}
 	client, err := btcclient.NewTestClientWithWsSubscriber(rpcClient, btcCfg, cfg.Common.RetrySleepTime, cfg.Common.MaxRetrySleepTime, blockEventChan)
 	require.NoError(t, err)
 
-	// lets wait until chain rpc becomes available
+	// let's wait until chain rpc becomes available
 	// poll time is increase here to avoid spamming the rpc server
 	require.Eventually(t, func() bool {
 		if _, _, err := client.GetBestBlock(); err != nil {
@@ -197,53 +197,75 @@ func StartManager(
 	numbersOfOutputsToWaitForDuringInit int,
 	handlers *rpcclient.NotificationHandlers,
 	blockEventChan chan *types.BlockEvent) *TestManager {
-	args := []string{
-		"--rejectnonstd",
-		"--txindex",
-		"--trickleinterval=100ms",
-		"--debuglevel=debug",
-		"--nowinservice",
-		// The miner will get banned and disconnected from the node if
-		// its requested data are not found. We add a nobanning flag to
-		// make sure they stay connected if it happens.
-		"--nobanning",
-		// Don't disconnect if a reply takes too long.
-		"--nostalldetect",
-	}
 
-	miner, err := rpctest.New(netParams, handlers, args, "")
-	require.NoError(t, err)
+	btcHandler := NewBitcoindHandler(t)
+	btcHandler.Start()
+	passphrase := "pass"
+	_ = btcHandler.CreateWallet("test-wallet", passphrase)
+	//:= btcHandler.GenerateBlocks(int(numMatureOutputsInWallet) + 100)
+
+	//minerAddressDecoded, err := btcutil.DecodeAddress(br.Address, regtestParams)
+	//require.NoError(t, err)
+
+	//args := []string{
+	//	"--rejectnonstd",
+	//	"--txindex",
+	//	"--trickleinterval=100ms",
+	//	"--debuglevel=debug",
+	//	"--nowinservice",
+	//	// The miner will get banned and disconnected from the node if
+	//	// its requested data are not found. We add a nobanning flag to
+	//	// make sure they stay connected if it happens.
+	//	"--nobanning",
+	//	// Don't disconnect if a reply takes too long.
+	//	"--nostalldetect",
+	//}
+
+	//miner, err := rpctest.New(netParams, handlers, args, "")
+	//require.NoError(t, err)
 
 	privkey, _, err := GetSpendingKeyAndAddress(uint32(numTestInstances))
 	require.NoError(t, err)
 
-	if err := miner.SetUp(true, numMatureOutputsInWallet); err != nil {
-		t.Fatalf("unable to set up mining node: %v", err)
-	}
+	//if err := miner.SetUp(true, numMatureOutputsInWallet); err != nil {
+	//	t.Fatalf("unable to set up mining node: %v", err)
+	//}
 
-	minerNodeRpcConfig := miner.RPCConfig()
-	certFile := minerNodeRpcConfig.Certificates
+	//minerNodeRpcConfig := miner.RPCConfig()
+	//certFile := minerNodeRpcConfig.Certificates
 
-	currentDir, err := os.Getwd()
+	//currentDir, err := os.Getwd()
 	require.NoError(t, err)
-	walletPath := filepath.Join(currentDir, existingWalletFile)
+	//walletPath := filepath.Join(currentDir, existingWalletFile)
 
 	// start Bitcoin wallet
-	wh, err := NewWalletHandler(certFile, walletPath, minerNodeRpcConfig.Host)
-	require.NoError(t, err)
-	err = wh.Start()
-	require.NoError(t, err)
+	//wh, err := NewWalletHandler(certFile, walletPath, minerNodeRpcConfig.Host)
+	//require.NoError(t, err)
+	//err = wh.Start()
+	//require.NoError(t, err)
 
 	// Wait for wallet to re-index the outputs
-	time.Sleep(5 * time.Second)
+	//time.Sleep(5 * time.Second)
 
 	cfg := defaultVigilanteConfig()
-	cfg.BTC.Endpoint = minerNodeRpcConfig.Host
+	//cfg.BTC.Endpoint = minerNodeRpcConfig.Host
+
+	testRpcClient, err := rpcclient.New(&rpcclient.ConnConfig{
+		Host:                 cfg.BTC.Endpoint,
+		User:                 cfg.BTC.Username,
+		Pass:                 cfg.BTC.Password,
+		DisableTLS:           true,
+		DisableConnectOnNew:  true,
+		DisableAutoReconnect: false,
+		// we use post mode as it sure it works with either bitcoind or btcwallet
+		// we may need to re-consider it later if we need any notifications
+		HTTPPostMode: true,
+	}, nil)
 
 	var btcClient *btcclient.Client
 	if handlers.OnFilteredBlockConnected != nil && handlers.OnFilteredBlockDisconnected != nil {
 		// BTC client with subscriber
-		btcClient = initBTCClientWithSubscriber(t, cfg, miner.Client, &minerNodeRpcConfig, blockEventChan)
+		btcClient = initBTCClientWithSubscriber(t, cfg, testRpcClient, blockEventChan)
 	}
 	// we always want BTC wallet client for sending txs
 	btcWalletClient := initBTCWalletClient(
@@ -277,21 +299,20 @@ func StartManager(
 	numTestInstances++
 
 	return &TestManager{
-		MinerNode:        miner,
-		BtcWalletHandler: wh,
-		BabylonHandler:   bh,
-		BabylonClient:    babylonClient,
-		BTCClient:        btcClient,
-		BTCWalletClient:  btcWalletClient,
-		Config:           cfg,
+		TestRpcClient:   testRpcClient,
+		BabylonHandler:  bh,
+		BabylonClient:   babylonClient,
+		BTCClient:       btcClient,
+		BTCWalletClient: btcWalletClient,
+		Config:          cfg,
 	}
 }
 
 func (tm *TestManager) Stop(t *testing.T) {
 	err := tm.BtcWalletHandler.Stop()
 	require.NoError(t, err)
-	err = tm.MinerNode.TearDown()
-	require.NoError(t, err)
+	//err = tm.MinerNode.TearDown()
+	//require.NoError(t, err)
 	if tm.BabylonClient.IsRunning() {
 		err = tm.BabylonClient.Stop()
 		require.NoError(t, err)
@@ -323,19 +344,18 @@ func ImportWalletSpendingKey(
 	return nil
 }
 
-// MineBlocksWithTxes mines a single block to include the specifies
-// transactions only.
+// MineBlockWithTxs mines a single block to include the specifies
+// transactions only. // todo Lazar, bitcoind doens't have this, check if we need txs
 func (tm *TestManager) MineBlockWithTxs(t *testing.T, txs []*btcutil.Tx) *wire.MsgBlock {
-	var emptyTime time.Time
+	resp := tm.BitcoindHandler.GenerateBlocks(1)
 
-	// Generate a block.
-	b, err := tm.MinerNode.GenerateAndSubmitBlock(txs, -1, emptyTime)
-	require.NoError(t, err, "unable to mine block")
+	hash, err := chainhash.NewHashFromStr(resp.Blocks[0])
+	require.NoError(t, err)
 
-	block, err := tm.MinerNode.Client.GetBlock(b.Hash())
-	require.NoError(t, err, "unable to get block")
+	header, err := tm.TestRpcClient.GetBlock(hash)
+	require.NoError(t, err)
 
-	return block
+	return header
 }
 
 func (tm *TestManager) MustGetBabylonSigner() string {
@@ -368,18 +388,18 @@ func (tm *TestManager) InsertBTCHeadersToBabylon(headers []*wire.BlockHeader) (*
 }
 
 func (tm *TestManager) CatchUpBTCLightClient(t *testing.T) {
-	_, btcHeight, err := tm.MinerNode.Client.GetBestBlock()
+	_, btcHeight, err := tm.TestRpcClient.GetBestBlock()
 	require.NoError(t, err)
 
 	tipResp, err := tm.BabylonClient.BTCHeaderChainTip()
 	require.NoError(t, err)
 	btclcHeight := tipResp.Header.Height
 
-	headers := []*wire.BlockHeader{}
+	var headers []*wire.BlockHeader
 	for i := int(btclcHeight + 1); i <= int(btcHeight); i++ {
-		hash, err := tm.MinerNode.Client.GetBlockHash(int64(i))
+		hash, err := tm.TestRpcClient.GetBlockHash(int64(i))
 		require.NoError(t, err)
-		header, err := tm.MinerNode.Client.GetBlockHeader(hash)
+		header, err := tm.TestRpcClient.GetBlockHeader(hash)
 		require.NoError(t, err)
 		headers = append(headers, header)
 	}

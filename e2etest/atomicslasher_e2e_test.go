@@ -1,6 +1,3 @@
-//go:build e2e
-// +build e2e
-
 package e2etest
 
 import (
@@ -45,9 +42,9 @@ func TestAtomicSlasher(t *testing.T) {
 
 	tm := StartManager(t, numMatureOutputs, 2, handlers, blockEventChan)
 	// this is necessary to receive notifications about new transactions entering mempool
-	err := tm.MinerNode.Client.NotifyNewTransactions(false)
+	err := tm.TestRpcClient.NotifyNewTransactions(false)
 	require.NoError(t, err)
-	err = tm.MinerNode.Client.NotifyBlocks()
+	err = tm.TestRpcClient.NotifyBlocks()
 	require.NoError(t, err)
 	defer tm.Stop(t)
 	// start WebSocket connection with Babylon for subscriber services
@@ -185,9 +182,9 @@ func TestAtomicSlasher_Unbonding(t *testing.T) {
 
 	tm := StartManager(t, numMatureOutputs, 2, handlers, blockEventChan)
 	// this is necessary to receive notifications about new transactions entering mempool
-	err := tm.MinerNode.Client.NotifyNewTransactions(false)
+	err := tm.TestRpcClient.NotifyNewTransactions(false)
 	require.NoError(t, err)
-	err = tm.MinerNode.Client.NotifyBlocks()
+	err = tm.TestRpcClient.NotifyBlocks()
 	require.NoError(t, err)
 	defer tm.Stop(t)
 	// start WebSocket connection with Babylon for subscriber services
