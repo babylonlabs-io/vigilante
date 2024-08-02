@@ -54,6 +54,10 @@ func (h *BitcoindTestHandler) Start() {
 	_, err = h.m.RunBitcoindResource(tempPath)
 	require.NoError(h.t, err)
 
+	h.t.Cleanup(func() {
+		_ = h.m.ClearResources()
+	})
+
 	require.Eventually(h.t, func() bool {
 		_, err := h.GetBlockCount()
 		h.t.Logf("failed to get block count: %v", err)

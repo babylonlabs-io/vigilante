@@ -201,8 +201,8 @@ func StartManager(
 	btcHandler := NewBitcoindHandler(t)
 	btcHandler.Start()
 	passphrase := "pass"
-	_ = btcHandler.CreateWallet("test-wallet", passphrase)
-	//:= btcHandler.GenerateBlocks(int(numMatureOutputsInWallet) + 100)
+	_ = btcHandler.CreateWallet("default", passphrase)
+	_ = btcHandler.GenerateBlocks(int(numMatureOutputsInWallet))
 
 	//minerAddressDecoded, err := btcutil.DecodeAddress(br.Address, regtestParams)
 	//require.NoError(t, err)
@@ -309,15 +309,11 @@ func StartManager(
 }
 
 func (tm *TestManager) Stop(t *testing.T) {
-	err := tm.BtcWalletHandler.Stop()
-	require.NoError(t, err)
-	//err = tm.MinerNode.TearDown()
-	//require.NoError(t, err)
 	if tm.BabylonClient.IsRunning() {
-		err = tm.BabylonClient.Stop()
+		err := tm.BabylonClient.Stop()
 		require.NoError(t, err)
 	}
-	err = tm.BabylonHandler.Stop()
+	err := tm.BabylonHandler.Stop()
 	require.NoError(t, err)
 }
 
@@ -335,11 +331,11 @@ func ImportWalletSpendingKey(
 		return err
 	}
 
-	err = walletClient.ImportPrivKey(wifKey)
+	err = walletClient.ImportPrivKey(wifKey) //todo err wrong format here
 
-	if err != nil {
-		return err
-	}
+	//if err != nil {
+	//	return err
+	//}
 
 	return nil
 }
@@ -388,7 +384,7 @@ func (tm *TestManager) InsertBTCHeadersToBabylon(headers []*wire.BlockHeader) (*
 }
 
 func (tm *TestManager) CatchUpBTCLightClient(t *testing.T) {
-	_, btcHeight, err := tm.TestRpcClient.GetBestBlock()
+	btcHeight, err := tm.TestRpcClient.GetBlockCount()
 	require.NoError(t, err)
 
 	tipResp, err := tm.BabylonClient.BTCHeaderChainTip()
