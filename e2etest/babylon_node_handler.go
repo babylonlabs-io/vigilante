@@ -123,7 +123,7 @@ type BabylonNodeHandler struct {
 	babylonNode *babylonNode
 }
 
-func NewBabylonNodeHandler() (*BabylonNodeHandler, error) {
+func NewBabylonNodeHandler(baseHeaderHex string) (*BabylonNodeHandler, error) {
 	testDir, err := baseDirBabylondir()
 	if err != nil {
 		return nil, err
@@ -140,6 +140,7 @@ func NewBabylonNodeHandler() (*BabylonNodeHandler, error) {
 		"--btc-finalization-timeout=4",
 		"--btc-confirmation-depth=2",
 		"--additional-sender-account",
+		fmt.Sprintf("--btc-base-header=%s", baseHeaderHex),
 		"--covenant-quorum=1",
 		fmt.Sprintf("--covenant-pks=%s", bbn.NewBIP340PubKeyFromBTCPK(juryPK).MarshalHex()),
 	)

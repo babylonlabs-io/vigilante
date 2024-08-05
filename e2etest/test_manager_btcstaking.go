@@ -95,13 +95,13 @@ func (tm *TestManager) CreateBTCDelegation(
 	// get top UTXO
 	topUnspentResult, _, err := tm.BTCWalletClient.GetHighUTXOAndSum()
 	require.NoError(t, err)
-	topUTXO, err := types.NewUTXO(topUnspentResult, netParams)
+	topUTXO, err := types.NewUTXO(topUnspentResult, regtestParams)
 	require.NoError(t, err)
 	// staking value
 	stakingValue := int64(topUTXO.Amount) / 3
 	// dump SK
-	wif, err := tm.BTCWalletClient.DumpPrivKey(topUTXO.Addr)
-	require.NoError(t, err)
+	//wif, err := tm.BTCWalletClient.DumpPrivKey(topUTXO.Addr)
+	//require.NoError(t, err)
 
 	// generate legitimate BTC del
 	stakingSlashingInfo := datagen.GenBTCStakingSlashingInfoWithOutPoint(
@@ -109,7 +109,7 @@ func (tm *TestManager) CreateBTCDelegation(
 		t,
 		netParams,
 		topUTXO.GetOutPoint(),
-		wif.PrivKey,
+		tm.WalletPrivKey,
 		[]*btcec.PublicKey{fpPK},
 		covenantBtcPks,
 		bsParams.Params.CovenantQuorum,
@@ -121,7 +121,7 @@ func (tm *TestManager) CreateBTCDelegation(
 	)
 	// sign staking tx and overwrite the staking tx to the signed version
 	// NOTE: the tx hash has changed here since stakingMsgTx is pre-segwit
-	stakingMsgTx, signed, err := tm.BTCWalletClient.SignRawTransaction(stakingSlashingInfo.StakingTx)
+	stakingMsgTx, signed, err := tm.BTCWalletClient.SignRawTransactionWithWallet(stakingSlashingInfo.StakingTx)
 	require.NoError(t, err)
 	require.True(t, signed)
 	// overwrite staking tx
@@ -166,7 +166,7 @@ func (tm *TestManager) CreateBTCDelegation(
 	require.NoError(t, err)
 
 	// create PoP
-	pop, err := bstypes.NewPoPBTC(addr, wif.PrivKey)
+	pop, err := bstypes.NewPoPBTC(addr, tm.WalletPrivKey)
 	require.NoError(t, err)
 	slashingSpendPath, err := stakingSlashingInfo.StakingInfo.SlashingPathSpendInfo()
 	require.NoError(t, err)
@@ -176,7 +176,7 @@ func (tm *TestManager) CreateBTCDelegation(
 		stakingMsgTx,
 		stakingOutIdx,
 		slashingSpendPath.GetPkScriptPath(),
-		wif.PrivKey,
+		tm.WalletPrivKey,
 	)
 	require.NoError(t, err)
 
@@ -187,7 +187,7 @@ func (tm *TestManager) CreateBTCDelegation(
 		r,
 		t,
 		netParams,
-		wif.PrivKey,
+		tm.WalletPrivKey,
 		[]*btcec.PublicKey{fpPK},
 		covenantBtcPks,
 		bsParams.Params.CovenantQuorum,
@@ -208,7 +208,7 @@ func (tm *TestManager) CreateBTCDelegation(
 		unbondingSlashingInfo.UnbondingTx,
 		0, // Only one output in the unbonding tx
 		unbondingSlashingPathSpendInfo.GetPkScriptPath(),
-		wif.PrivKey,
+		tm.WalletPrivKey,
 	)
 	require.NoError(t, err)
 
@@ -219,7 +219,7 @@ func (tm *TestManager) CreateBTCDelegation(
 	msgBTCDel := &bstypes.MsgCreateBTCDelegation{
 		StakerAddr:           signerAddr,
 		Pop:                  pop,
-		BtcPk:                bbn.NewBIP340PubKeyFromBTCPK(wif.PrivKey.PubKey()),
+		BtcPk:                bbn.NewBIP340PubKeyFromBTCPK(tm.WalletPrivKey.PubKey()),
 		FpBtcPkList:          []bbn.BIP340PubKey{*bbn.NewBIP340PubKeyFromBTCPK(fpPK)},
 		StakingTime:          uint32(stakingTimeBlocks),
 		StakingValue:         stakingValue,
@@ -288,7 +288,7 @@ func (tm *TestManager) CreateBTCDelegation(
 	require.NoError(t, err)
 	t.Logf("submitted covenant signature")
 
-	return stakingSlashingInfo, unbondingSlashingInfo, wif.PrivKey
+	return stakingSlashingInfo, unbondingSlashingInfo, tm.WalletPrivKey
 }
 
 func (tm *TestManager) Undelegate(

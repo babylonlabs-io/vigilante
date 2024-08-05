@@ -60,8 +60,9 @@ func (h *BitcoindTestHandler) Start() {
 
 	require.Eventually(h.t, func() bool {
 		_, err := h.GetBlockCount()
-		h.t.Logf("failed to get block count: %v", err)
-
+		if err != nil {
+			h.t.Logf("failed to get block count: %v", err)
+		}
 		return err == nil
 	}, startTimeout, 500*time.Millisecond, "bitcoind did not start")
 }
@@ -72,9 +73,9 @@ func (h *BitcoindTestHandler) GetBlockCount() (int, error) {
 		return 0, err
 	}
 
-	parsed := strings.TrimSuffix(buff.String(), "\n")
+	parsedBuffStr := strings.TrimSuffix(buff.String(), "\n")
 
-	return strconv.Atoi(parsed)
+	return strconv.Atoi(parsedBuffStr)
 }
 
 func (h *BitcoindTestHandler) GenerateBlocks(count int) *GenerateBlockResponse {

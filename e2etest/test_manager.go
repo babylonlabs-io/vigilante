@@ -1,6 +1,7 @@
 package e2etest
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/hex"
@@ -53,6 +54,7 @@ var (
 
 	eventuallyWaitTimeOut = 40 * time.Second
 	eventuallyPollTime    = 1 * time.Second
+	regtestParams         = &chaincfg.RegressionNetParams
 )
 
 // keyToAddr maps the passed private to corresponding p2pkh address.
@@ -68,7 +70,7 @@ func keyToAddr(key *btcec.PrivateKey, net *chaincfg.Params) (btcutil.Address, er
 func defaultVigilanteConfig() *config.Config {
 	defaultConfig := config.DefaultConfig()
 	// Config setting necessary to connect btcd daemon
-	defaultConfig.BTC.NetParams = "simnet"
+	defaultConfig.BTC.NetParams = "regtest"
 	defaultConfig.BTC.Endpoint = "127.0.0.1:18443"
 	// Config setting necessary to connect btcwallet daemon
 	defaultConfig.BTC.BtcBackend = types.Bitcoind
@@ -80,6 +82,7 @@ func defaultVigilanteConfig() *config.Config {
 	return defaultConfig
 }
 
+// todo delete this, done bcs of btcd
 func GetSpendingKeyAndAddress(id uint32) (*btcec.PrivateKey, btcutil.Address, error) {
 	var harnessHDSeed [chainhash.HashSize + 4]byte
 	copy(harnessHDSeed[:], hdSeed[:])
@@ -121,8 +124,9 @@ type TestManager struct {
 	BabylonHandler   *BabylonNodeHandler
 	BabylonClient    *bbnclient.Client
 	BTCClient        *btcclient.Client
-	BTCWalletClient  *btcclient.Client
+	BTCWalletClient  *btcclient.Client // todo probably not needed
 	Config           *config.Config
+	WalletPrivKey    *btcec.PrivateKey
 }
 
 func initBTCWalletClient(
@@ -154,8 +158,8 @@ func initBTCWalletClient(
 		return true
 	}, eventuallyWaitTimeOut, 1*time.Second)
 
-	err := ImportWalletSpendingKey(t, client, walletPrivKey)
-	require.NoError(t, err)
+	//err := ImportWalletSpendingKey(t, client, walletPrivKey)
+	//require.NoError(t, err)
 
 	waitForNOutputs(t, client, outputsToWaitFor)
 
@@ -202,7 +206,7 @@ func StartManager(
 	btcHandler.Start()
 	passphrase := "pass"
 	_ = btcHandler.CreateWallet("default", passphrase)
-	_ = btcHandler.GenerateBlocks(int(numMatureOutputsInWallet))
+	blocksResponse := btcHandler.GenerateBlocks(int(numMatureOutputsInWallet))
 
 	//minerAddressDecoded, err := btcutil.DecodeAddress(br.Address, regtestParams)
 	//require.NoError(t, err)
@@ -223,9 +227,9 @@ func StartManager(
 
 	//miner, err := rpctest.New(netParams, handlers, args, "")
 	//require.NoError(t, err)
-
-	privkey, _, err := GetSpendingKeyAndAddress(uint32(numTestInstances))
-	require.NoError(t, err)
+	//
+	//privkey, _, err := GetSpendingKeyAndAddress(uint32(numTestInstances))
+	//require.NoError(t, err)
 
 	//if err := miner.SetUp(true, numMatureOutputsInWallet); err != nil {
 	//	t.Fatalf("unable to set up mining node: %v", err)
@@ -235,7 +239,7 @@ func StartManager(
 	//certFile := minerNodeRpcConfig.Certificates
 
 	//currentDir, err := os.Getwd()
-	require.NoError(t, err)
+	//require.NoError(t, err)
 	//walletPath := filepath.Join(currentDir, existingWalletFile)
 
 	// start Bitcoin wallet
@@ -262,30 +266,34 @@ func StartManager(
 		HTTPPostMode: true,
 	}, nil)
 
-	var btcClient *btcclient.Client
-	if handlers.OnFilteredBlockConnected != nil && handlers.OnFilteredBlockDisconnected != nil {
-		// BTC client with subscriber
-		btcClient = initBTCClientWithSubscriber(t, cfg, testRpcClient, blockEventChan)
-	}
+	btcClient := initBTCClientWithSubscriber(t, cfg, testRpcClient, blockEventChan)
+
 	// we always want BTC wallet client for sending txs
 	btcWalletClient := initBTCWalletClient(
 		t,
 		cfg,
-		privkey,
+		nil,
 		numbersOfOutputsToWaitForDuringInit,
 	)
 
+	var buff bytes.Buffer
+	err = regtestParams.GenesisBlock.Header.Serialize(&buff)
+	require.NoError(t, err)
+	baseHeaderHex := hex.EncodeToString(buff.Bytes())
+
 	// start Babylon node
-	bh, err := NewBabylonNodeHandler()
+	bh, err := NewBabylonNodeHandler(baseHeaderHex)
 	require.NoError(t, err)
 	err = bh.Start()
 	require.NoError(t, err)
 	// create Babylon client
 	cfg.Babylon.KeyDirectory = bh.GetNodeDataDir()
-	cfg.Babylon.Key = "test-spending-key"
+	cfg.Babylon.Key = "test-spending-key" // keyring to bbn node
 	cfg.Babylon.GasAdjustment = 3.0
+
 	babylonClient, err := bbnclient.New(&cfg.Babylon, nil)
 	require.NoError(t, err)
+
 	// wait until Babylon is ready
 	require.Eventually(t, func() bool {
 		resp, err := babylonClient.CurrentEpoch()
@@ -298,25 +306,37 @@ func StartManager(
 
 	numTestInstances++
 
+	err = testRpcClient.WalletPassphrase(passphrase, 600)
+	require.NoError(t, err)
+
+	minerAddressDecoded, err := btcutil.DecodeAddress(blocksResponse.Address, regtestParams)
+	require.NoError(t, err)
+	walletPrivKey, err := testRpcClient.DumpPrivKey(minerAddressDecoded)
+	require.NoError(t, err)
+
 	return &TestManager{
 		TestRpcClient:   testRpcClient,
 		BabylonHandler:  bh,
 		BabylonClient:   babylonClient,
+		BitcoindHandler: btcHandler,
 		BTCClient:       btcClient,
 		BTCWalletClient: btcWalletClient,
 		Config:          cfg,
+		WalletPrivKey:   walletPrivKey.PrivKey,
 	}
 }
 
 func (tm *TestManager) Stop(t *testing.T) {
+	err := tm.BabylonHandler.Stop()
+	require.NoError(t, err)
+
 	if tm.BabylonClient.IsRunning() {
 		err := tm.BabylonClient.Stop()
 		require.NoError(t, err)
 	}
-	err := tm.BabylonHandler.Stop()
-	require.NoError(t, err)
 }
 
+// todo probably to delete, done bcs of btcd
 func ImportWalletSpendingKey(
 	t *testing.T,
 	walletClient *btcclient.Client,
