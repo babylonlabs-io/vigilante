@@ -75,32 +75,12 @@ func TestSlasher_GracefulShutdown(t *testing.T) {
 func TestSlasher_Slasher(t *testing.T) {
 	// segwit is activated at height 300. It's needed by staking/slashing tx
 	numMatureOutputs := uint32(300)
-
-	submittedTxs := []*chainhash.Hash{}
 	blockEventChan := make(chan *types.BlockEvent, 1000)
-	handlers := &rpcclient.NotificationHandlers{
-		OnFilteredBlockConnected: func(height int32, header *wire.BlockHeader, txs []*btcutil.Tx) {
-			log.Debugf("Block %v at height %d has been connected at time %v", header.BlockHash(), height, header.Timestamp)
-			blockEventChan <- types.NewBlockEvent(types.BlockConnected, height, header)
-		},
-		OnFilteredBlockDisconnected: func(height int32, header *wire.BlockHeader) {
-			log.Debugf("Block %v at height %d has been disconnected at time %v", header.BlockHash(), height, header.Timestamp)
-			blockEventChan <- types.NewBlockEvent(types.BlockDisconnected, height, header)
-		},
-		OnTxAccepted: func(hash *chainhash.Hash, amount btcutil.Amount) {
-			submittedTxs = append(submittedTxs, hash)
-		},
-	}
 
-	tm := StartManager(t, numMatureOutputs, 2, handlers, blockEventChan)
-	// this is necessary to receive notifications about new transactions entering mempool
-	err := tm.MinerNode.Client.NotifyNewTransactions(false)
-	require.NoError(t, err)
-	err = tm.MinerNode.Client.NotifyBlocks()
-	require.NoError(t, err)
+	tm := StartManager(t, numMatureOutputs, 2, nil, blockEventChan)
 	defer tm.Stop(t)
 	// start WebSocket connection with Babylon for subscriber services
-	err = tm.BabylonClient.Start()
+	err := tm.BabylonClient.Start()
 	require.NoError(t, err)
 	// Insert all existing BTC headers to babylon node
 	tm.CatchUpBTCLightClient(t)
@@ -110,8 +90,8 @@ func TestSlasher_Slasher(t *testing.T) {
 	// TODO: our config only support btcd wallet tls, not btcd directly
 	tm.Config.BTC.DisableClientTLS = false
 	backend, err := btcclient.NewNodeBackend(
-		btcclient.CfgToBtcNodeBackendConfig(tm.Config.BTC, hex.EncodeToString(tm.MinerNode.RPCConfig().Certificates)),
-		&chaincfg.SimNetParams,
+		btcclient.CfgToBtcNodeBackendConfig(tm.Config.BTC, ""),
+		&chaincfg.RegressionNetParams,
 		&emptyHintCache,
 	)
 	require.NoError(t, err)
@@ -122,10 +102,10 @@ func TestSlasher_Slasher(t *testing.T) {
 	commonCfg := config.DefaultCommonConfig()
 	bstCfg := config.DefaultBTCStakingTrackerConfig()
 	bstCfg.CheckDelegationsInterval = 1 * time.Second
-	logger, err := config.NewRootLogger("auto", "debug")
+	rootLogger, err := config.NewRootLogger("auto", "debug")
 	require.NoError(t, err)
 
-	metrics := metrics.NewBTCStakingTrackerMetrics()
+	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
 
 	bsTracker := bst.NewBTCSTakingTracker(
 		tm.BTCClient,
@@ -133,8 +113,8 @@ func TestSlasher_Slasher(t *testing.T) {
 		tm.BabylonClient,
 		&bstCfg,
 		&commonCfg,
-		logger,
-		metrics,
+		rootLogger,
+		stakingTrackerMetrics,
 	)
 	go bsTracker.Start()
 	defer bsTracker.Stop()
@@ -155,18 +135,22 @@ func TestSlasher_Slasher(t *testing.T) {
 	require.NoError(t, err)
 	slashingMsgTxHash1 := slashingMsgTx.TxHash()
 	slashingMsgTxHash := &slashingMsgTxHash1
+
 	// slashing tx will eventually enter mempool
 	require.Eventually(t, func() bool {
 		_, err := tm.BTCClient.GetRawTransaction(slashingMsgTxHash)
 		t.Logf("err of getting slashingMsgTxHash: %v", err)
 		return err == nil
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
 	// mine a block that includes slashing tx
-	tm.MineBlockWithTxs(t, tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{slashingMsgTxHash}))
-	// ensure 2 txs will eventually be received (staking tx and slashing tx)
 	require.Eventually(t, func() bool {
-		return len(submittedTxs) == 2
+		return len(tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{slashingMsgTxHash})) == 1
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	minedBlock := tm.mineBlock(t)
+	// ensure 2 txs will eventually be received (staking tx and slashing tx)
+	require.Equal(t, 2, len(minedBlock.Transactions))
 }
 
 func TestSlasher_SlashingUnbonding(t *testing.T) {
