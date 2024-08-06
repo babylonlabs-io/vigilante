@@ -2,6 +2,7 @@ package btcclient
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/babylonlabs-io/babylon/types/retry"
@@ -56,7 +57,7 @@ func NewWithBlockSubscriber(cfg *config.BTCConfig, retrySleepTime, maxRetrySleep
 		if err != nil {
 			return nil, fmt.Errorf("failed to get BTC backend: %v", err)
 		}
-		if backend != rpcclient.BitcoindPost25 {
+		if !strings.EqualFold(backend.String(), rpcclient.BitcoindPost25.String()) {
 			return nil, fmt.Errorf("zmq is only supported by bitcoind, but got %v", backend)
 		}
 
