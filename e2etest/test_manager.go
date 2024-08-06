@@ -374,18 +374,33 @@ func (tm *TestManager) MineBlockWithTxs(t *testing.T, txs []*btcutil.Tx) *wire.M
 	return header
 }
 
+// mineBlock mines a single block
+func (tm *TestManager) mineBlock(t *testing.T) *wire.MsgBlock {
+	resp := tm.BitcoindHandler.GenerateBlocks(1)
+
+	hash, err := chainhash.NewHashFromStr(resp.Blocks[0])
+	require.NoError(t, err)
+
+	header, err := tm.TestRpcClient.GetBlock(hash)
+	require.NoError(t, err)
+
+	return header
+}
+
 func (tm *TestManager) MustGetBabylonSigner() string {
 	return tm.BabylonClient.MustGetAddr()
 }
 
+// RetrieveTransactionFromMempool fetches transactions from the mempool for the given hashes
 func (tm *TestManager) RetrieveTransactionFromMempool(t *testing.T, hashes []*chainhash.Hash) []*btcutil.Tx {
-	var txes []*btcutil.Tx
+	var txs []*btcutil.Tx
 	for _, txHash := range hashes {
 		tx, err := tm.BTCClient.GetRawTransaction(txHash)
 		require.NoError(t, err)
-		txes = append(txes, tx)
+		txs = append(txs, tx)
 	}
-	return txes
+
+	return txs
 }
 
 func (tm *TestManager) InsertBTCHeadersToBabylon(headers []*wire.BlockHeader) (*pv.RelayerTxResponse, error) {

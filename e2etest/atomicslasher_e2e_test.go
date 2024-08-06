@@ -23,34 +23,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestAtomicSlasher verifies the behavior of the atomic slasher by setting up delegations,
+// sending slashing transactions, and ensuring that slashing is detected and executed correctly.
 func TestAtomicSlasher(t *testing.T) {
 	// segwit is activated at height 300. It's needed by staking/slashing tx
 	numMatureOutputs := uint32(300)
-
 	//submittedTxs := map[chainhash.Hash]struct{}{}
 	blockEventChan := make(chan *types.BlockEvent, 1000)
 
-	// todo these handlers were used by btcd to notify blockevents and accepted tx, changes this so sync? or if bitcoind has something similar to this for async
-	//handlers := &rpcclient.NotificationHandlers{
-	//	OnFilteredBlockConnected: func(height int32, header *wire.BlockHeader, txs []*btcutil.Tx) {
-	//		log.Debugf("Block %v at height %d has been connected at time %v", header.BlockHash(), height, header.Timestamp)
-	//		blockEventChan <- types.NewBlockEvent(types.BlockConnected, height, header)
-	//	},
-	//	OnFilteredBlockDisconnected: func(height int32, header *wire.BlockHeader) {
-	//		log.Debugf("Block %v at height %d has been disconnected at time %v", header.BlockHash(), height, header.Timestamp)
-	//		blockEventChan <- types.NewBlockEvent(types.BlockDisconnected, height, header)
-	//	},
-	//	OnTxAccepted: func(hash *chainhash.Hash, amount btcutil.Amount) {
-	//		submittedTxs[*hash] = struct{}{}
-	//	},
-	//}
-
 	tm := StartManager(t, numMatureOutputs, 2, nil, blockEventChan)
-	// this is necessary to receive notifications about new transactions entering mempool
-	//err := tm.TestRpcClient.NotifyNewTransactions(false) // todo requires WS connection
-	//require.NoError(t, err)
-	//err = tm.TestRpcClient.NotifyBlocks()
-	//require.NoError(t, err)
 	defer tm.Stop(t)
 
 	// start WebSocket connection with Babylon for subscriber services
@@ -76,7 +57,7 @@ func TestAtomicSlasher(t *testing.T) {
 	commonCfg := config.DefaultCommonConfig()
 	bstCfg := config.DefaultBTCStakingTrackerConfig()
 	bstCfg.CheckDelegationsInterval = 1 * time.Second
-	logger, err := config.NewRootLogger("auto", "debug")
+	rootLogger, err := config.NewRootLogger("auto", "debug")
 	require.NoError(t, err)
 
 	metrics := metrics.NewBTCStakingTrackerMetrics()
@@ -87,14 +68,11 @@ func TestAtomicSlasher(t *testing.T) {
 		tm.BabylonClient,
 		&bstCfg,
 		&commonCfg,
-		logger,
+		rootLogger,
 		metrics,
 	)
 	go bsTracker.Start()
 	defer bsTracker.Stop()
-
-	// wait for bootstrapping
-	time.Sleep(5 * time.Second)
 
 	bsParamsResp, err := tm.BabylonClient.BTCStakingParams()
 	require.NoError(t, err)
@@ -121,17 +99,19 @@ func TestAtomicSlasher(t *testing.T) {
 	require.NoError(t, err)
 	slashingTxHash, err := tm.BTCClient.SendRawTransaction(victimSlashingTx, true)
 	require.NoError(t, err)
+
 	require.Eventually(t, func() bool {
 		_, err := tm.BTCClient.GetRawTransaction(slashingTxHash)
 		return err == nil
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
 	// mine a block that includes slashing tx, which will trigger atomic slasher
-	tm.MineBlockWithTxs(t, tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{slashingTxHash}))
-	// ensure slashing tx will be detected on Bitcoin
-	//require.Eventually(t, func() bool {
-	//	_, ok := submittedTxs[*slashingTxHash]
-	//	return ok
-	//}, eventuallyWaitTimeOut, eventuallyPollTime)
+	require.Eventually(t, func() bool {
+		return len(tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{slashingTxHash})) == 1
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	minedBlock := tm.mineBlock(t)
+	require.Equal(t, 2, len(minedBlock.Transactions))
 
 	/*
 		atomic slasher will detect the selective slashing on victim BTC delegation
@@ -152,18 +132,20 @@ func TestAtomicSlasher(t *testing.T) {
 	slashTx2, err := bstypes.NewBTCSlashingTxFromHex(btcDel2.SlashingTxHex)
 	require.NoError(t, err)
 	slashingTxHash2 := slashTx2.MustGetTxHash()
+
 	require.Eventually(t, func() bool {
 		_, err := tm.BTCClient.GetRawTransaction(slashingTxHash2)
 		t.Logf("err of getting slashingTxHash of the BTC delegation affected by atomic slashing: %v", err)
 		return err == nil
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
 	// mine a block that includes slashing tx, which will trigger atomic slasher
-	tm.MineBlockWithTxs(t, tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{slashingTxHash2}))
-	// ensure slashing tx 2 will be detected on Bitcoin
-	//require.Eventually(t, func() bool {
-	//	_, ok := submittedTxs[*slashingTxHash2]
-	//	return ok
-	//}, eventuallyWaitTimeOut, eventuallyPollTime)
+	require.Eventually(t, func() bool {
+		return len(tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{slashingTxHash2})) == 1
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	minedBlock = tm.mineBlock(t)
+	require.Equal(t, 2, len(minedBlock.Transactions))
 }
 
 func TestAtomicSlasher_Unbonding(t *testing.T) {
