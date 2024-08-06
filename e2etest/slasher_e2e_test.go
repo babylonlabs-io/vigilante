@@ -23,30 +23,10 @@ import (
 )
 
 func TestSlasher_GracefulShutdown(t *testing.T) {
-	numMatureOutputs := uint32(5)
-
-	submittedTxs := []*chainhash.Hash{}
+	numMatureOutputs := uint32(300)
 	blockEventChan := make(chan *types.BlockEvent, 1000)
-	handlers := &rpcclient.NotificationHandlers{
-		OnFilteredBlockConnected: func(height int32, header *wire.BlockHeader, txs []*btcutil.Tx) {
-			log.Debugf("Block %v at height %d has been connected at time %v", header.BlockHash(), height, header.Timestamp)
-			blockEventChan <- types.NewBlockEvent(types.BlockConnected, height, header)
-		},
-		OnFilteredBlockDisconnected: func(height int32, header *wire.BlockHeader) {
-			log.Debugf("Block %v at height %d has been disconnected at time %v", header.BlockHash(), height, header.Timestamp)
-			blockEventChan <- types.NewBlockEvent(types.BlockDisconnected, height, header)
-		},
-		OnTxAccepted: func(hash *chainhash.Hash, amount btcutil.Amount) {
-			submittedTxs = append(submittedTxs, hash)
-		},
-	}
 
-	tm := StartManager(t, numMatureOutputs, 2, handlers, blockEventChan)
-	// this is necessary to receive notifications about new transactions entering mempool
-	err := tm.MinerNode.Client.NotifyNewTransactions(false)
-	require.NoError(t, err)
-	err = tm.MinerNode.Client.NotifyBlocks()
-	require.NoError(t, err)
+	tm := StartManager(t, numMatureOutputs, 2, nil, blockEventChan)
 	defer tm.Stop(t)
 	// Insert all existing BTC headers to babylon node
 	tm.CatchUpBTCLightClient(t)
@@ -56,8 +36,8 @@ func TestSlasher_GracefulShutdown(t *testing.T) {
 	// TODO: our config only support btcd wallet tls, not btcd directly
 	tm.Config.BTC.DisableClientTLS = false
 	backend, err := btcclient.NewNodeBackend(
-		btcclient.CfgToBtcNodeBackendConfig(tm.Config.BTC, hex.EncodeToString(tm.MinerNode.RPCConfig().Certificates)),
-		&chaincfg.SimNetParams,
+		btcclient.CfgToBtcNodeBackendConfig(tm.Config.BTC, ""),
+		&chaincfg.RegressionNetParams,
 		&emptyHintCache,
 	)
 	require.NoError(t, err)
@@ -68,10 +48,10 @@ func TestSlasher_GracefulShutdown(t *testing.T) {
 	commonCfg := config.DefaultCommonConfig()
 	bstCfg := config.DefaultBTCStakingTrackerConfig()
 	bstCfg.CheckDelegationsInterval = 1 * time.Second
-	logger, err := config.NewRootLogger("auto", "debug")
+	rootLogger, err := config.NewRootLogger("auto", "debug")
 	require.NoError(t, err)
 
-	metrics := metrics.NewBTCStakingTrackerMetrics()
+	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
 
 	bsTracker := bst.NewBTCSTakingTracker(
 		tm.BTCClient,
@@ -79,8 +59,8 @@ func TestSlasher_GracefulShutdown(t *testing.T) {
 		tm.BabylonClient,
 		&bstCfg,
 		&commonCfg,
-		logger,
-		metrics,
+		rootLogger,
+		stakingTrackerMetrics,
 	)
 
 	go bsTracker.Start()
