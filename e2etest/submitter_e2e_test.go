@@ -1,6 +1,3 @@
-//go:build e2e
-// +build e2e
-
 package e2etest
 
 import (
@@ -13,7 +10,6 @@ import (
 	checkpointingtypes "github.com/babylonlabs-io/babylon/x/checkpointing/types"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/rpcclient"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
@@ -24,22 +20,9 @@ import (
 
 func TestSubmitterSubmission(t *testing.T) {
 	r := rand.New(rand.NewSource(time.Now().Unix()))
-	numMatureOutputs := uint32(5)
+	numMatureOutputs := uint32(300)
 
-	var submittedTransactions []*chainhash.Hash
-
-	// We are setting handler for transaction hitting the mempool, to be sure we will
-	// pass transaction to the miner, in the same order as they were submitted by submitter
-	handlers := &rpcclient.NotificationHandlers{
-		OnTxAccepted: func(hash *chainhash.Hash, amount btcutil.Amount) {
-			submittedTransactions = append(submittedTransactions, hash)
-		},
-	}
-
-	tm := StartManager(t, numMatureOutputs, 2, handlers, nil)
-	// this is necessary to receive notifications about new transactions entering mempool
-	err := tm.MinerNode.Client.NotifyNewTransactions(false)
-	require.NoError(t, err)
+	tm := StartManager(t, numMatureOutputs, 2, nil, nil)
 	defer tm.Stop(t)
 
 	randomCheckpoint := datagen.GenRandomRawCheckpointWithMeta(r)
@@ -66,6 +49,7 @@ func TestSubmitterSubmission(t *testing.T) {
 		}, nil).AnyTimes()
 
 	tm.Config.Submitter.PollingIntervalSeconds = 2
+
 	// create submitter
 	vigilantSubmitter, _ := submitter.New(
 		&tm.Config.Submitter,
@@ -85,40 +69,32 @@ func TestSubmitterSubmission(t *testing.T) {
 		vigilantSubmitter.WaitForShutdown()
 	}()
 
-	// wait for our 2 op_returns with epoch 1 checkpoint to hit the mempool and then
-	// retrieve them from there
-	//
-	// TODO: to assert that those are really transactions send by submitter, we would
-	// need to expose sentCheckpointInfo from submitter
+	// wait for our 2 op_returns with epoch 1 checkpoint to hit the mempool
+	var mempoolTxs []*chainhash.Hash
 	require.Eventually(t, func() bool {
-		return len(submittedTransactions) == 2
+		var err error
+		mempoolTxs, err = tm.BTCClient.GetRawMempool()
+		require.NoError(t, err)
+		return len(mempoolTxs) > 1
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
-	sendTransactions := tm.RetrieveTransactionFromMempool(t, submittedTransactions)
+	require.NotNil(t, mempoolTxs)
+
+	require.Eventually(t, func() bool {
+		return len(tm.RetrieveTransactionFromMempool(t, mempoolTxs)) == 2
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
 	// mine a block with those transactions
-	blockWithOpReturnTranssactions := tm.MineBlockWithTxs(t, sendTransactions)
+	blockWithOpReturnTransactions := tm.mineBlock(t)
 	// block should have 3 transactions, 2 from submitter and 1 coinbase
-	require.Equal(t, len(blockWithOpReturnTranssactions.Transactions), 3)
+	require.Equal(t, len(blockWithOpReturnTransactions.Transactions), 3)
 }
 
 func TestSubmitterSubmissionReplace(t *testing.T) {
 	r := rand.New(rand.NewSource(time.Now().Unix()))
-	numMatureOutputs := uint32(5)
+	numMatureOutputs := uint32(300)
 
-	var submittedTransactions []*chainhash.Hash
-
-	// We are setting handler for transaction hitting the mempool, to be sure we will
-	// pass transaction to the miner, in the same order as they were submitted by submitter
-	handlers := &rpcclient.NotificationHandlers{
-		OnTxAccepted: func(hash *chainhash.Hash, amount btcutil.Amount) {
-			submittedTransactions = append(submittedTransactions, hash)
-		},
-	}
-
-	tm := StartManager(t, numMatureOutputs, 2, handlers, nil)
-	// this is necessary to receive notifications about new transactions entering mempool
-	err := tm.MinerNode.Client.NotifyNewTransactions(false)
-	require.NoError(t, err)
+	tm := StartManager(t, numMatureOutputs, 2, nil, nil)
 	defer tm.Stop(t)
 
 	randomCheckpoint := datagen.GenRandomRawCheckpointWithMeta(r)
@@ -168,27 +144,27 @@ func TestSubmitterSubmissionReplace(t *testing.T) {
 
 	// wait for our 2 op_returns with epoch 1 checkpoint to hit the mempool and then
 	// retrieve them from there
-	//
-	// TODO: to assert that those are really transactions send by submitter, we would
-	// need to expose sentCheckpointInfo from submitter
+	txsMap := make(map[string]struct{})
+	var sendTransactions []*btcutil.Tx
+
+	var mempoolTxs []*chainhash.Hash
 	require.Eventually(t, func() bool {
-		return len(submittedTransactions) == 2
-	}, eventuallyWaitTimeOut, eventuallyPollTime)
+		var err error
+		mempoolTxs, err = tm.BTCClient.GetRawMempool()
+		require.NoError(t, err)
+		for _, hash := range mempoolTxs {
+			hashStr := hash.String()
+			if _, exists := txsMap[hashStr]; !exists {
+				tx, err := tm.BTCClient.GetRawTransaction(hash)
+				require.NoError(t, err)
+				txsMap[hashStr] = struct{}{}
+				sendTransactions = append(sendTransactions, tx)
+			}
+		}
+		return len(txsMap) == 3
+	}, eventuallyWaitTimeOut, 50*time.Millisecond)
 
-	sendTransactions := tm.RetrieveTransactionFromMempool(t, submittedTransactions)
-
-	// at this point our submitter already sent 2 checkpoint transactions which landed in mempool.
-	// Zero out submittedTransactions, and wait for a new tx2 to be submitted and accepted
-	// it should be replacements for the previous one.
-	submittedTransactions = []*chainhash.Hash{}
-
-	require.Eventually(t, func() bool {
-		// we only replace tx2 of the checkpoint, thus waiting for 1 tx to arrive
-		return len(submittedTransactions) == 1
-	}, eventuallyWaitTimeOut, eventuallyPollTime)
-
-	transactionReplacement := tm.RetrieveTransactionFromMempool(t, submittedTransactions)
-	resendTx2 := transactionReplacement[0]
+	resendTx2 := sendTransactions[2]
 
 	// Here check that sendTransactions1 are replacements for sendTransactions, i.e they should have:
 	// 1. same
@@ -196,11 +172,10 @@ func TestSubmitterSubmissionReplace(t *testing.T) {
 	// 3. different signatures
 	require.Equal(t, sendTransactions[1].MsgTx().TxIn[0].PreviousOutPoint, resendTx2.MsgTx().TxIn[0].PreviousOutPoint)
 	require.Less(t, resendTx2.MsgTx().TxOut[1].Value, sendTransactions[1].MsgTx().TxOut[1].Value)
-	require.NotEqual(t, sendTransactions[1].MsgTx().TxIn[0].SignatureScript, resendTx2.MsgTx().TxIn[0].SignatureScript)
+	require.NotEqual(t, sendTransactions[1].MsgTx().TxIn[0].Witness[0], resendTx2.MsgTx().TxIn[0].Witness[0])
 
 	// mine a block with those replacement transactions just to be sure they execute correctly
-	sendTransactions[1] = resendTx2
-	blockWithOpReturnTransactions := tm.MineBlockWithTxs(t, sendTransactions)
+	blockWithOpReturnTransactions := tm.mineBlock(t)
 	// block should have 2 transactions, 1 from submitter and 1 coinbase
 	require.Equal(t, len(blockWithOpReturnTransactions.Transactions), 3)
 }

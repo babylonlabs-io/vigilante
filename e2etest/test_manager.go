@@ -208,49 +208,6 @@ func StartManager(
 	_ = btcHandler.CreateWallet("default", passphrase)
 	blocksResponse := btcHandler.GenerateBlocks(int(numMatureOutputsInWallet))
 
-	//minerAddressDecoded, err := btcutil.DecodeAddress(br.Address, regtestParams)
-	//require.NoError(t, err)
-
-	//args := []string{
-	//	"--rejectnonstd",
-	//	"--txindex",
-	//	"--trickleinterval=100ms",
-	//	"--debuglevel=debug",
-	//	"--nowinservice",
-	//	// The miner will get banned and disconnected from the node if
-	//	// its requested data are not found. We add a nobanning flag to
-	//	// make sure they stay connected if it happens.
-	//	"--nobanning",
-	//	// Don't disconnect if a reply takes too long.
-	//	"--nostalldetect",
-	//}
-
-	//miner, err := rpctest.New(netParams, handlers, args, "")
-	//require.NoError(t, err)
-	//
-	//privkey, _, err := GetSpendingKeyAndAddress(uint32(numTestInstances))
-	//require.NoError(t, err)
-
-	//if err := miner.SetUp(true, numMatureOutputsInWallet); err != nil {
-	//	t.Fatalf("unable to set up mining node: %v", err)
-	//}
-
-	//minerNodeRpcConfig := miner.RPCConfig()
-	//certFile := minerNodeRpcConfig.Certificates
-
-	//currentDir, err := os.Getwd()
-	//require.NoError(t, err)
-	//walletPath := filepath.Join(currentDir, existingWalletFile)
-
-	// start Bitcoin wallet
-	//wh, err := NewWalletHandler(certFile, walletPath, minerNodeRpcConfig.Host)
-	//require.NoError(t, err)
-	//err = wh.Start()
-	//require.NoError(t, err)
-
-	// Wait for wallet to re-index the outputs
-	//time.Sleep(5 * time.Second)
-
 	cfg := defaultVigilanteConfig()
 	//cfg.BTC.Endpoint = minerNodeRpcConfig.Host
 
@@ -334,30 +291,6 @@ func (tm *TestManager) Stop(t *testing.T) {
 		err := tm.BabylonClient.Stop()
 		require.NoError(t, err)
 	}
-}
-
-// todo probably to delete, done bcs of btcd
-func ImportWalletSpendingKey(
-	t *testing.T,
-	walletClient *btcclient.Client,
-	privKey *btcec.PrivateKey) error {
-
-	wifKey, err := btcutil.NewWIF(privKey, netParams, true)
-	require.NoError(t, err)
-
-	err = walletClient.WalletPassphrase(exisitngWalletPass, int64(walletTimeout))
-
-	if err != nil {
-		return err
-	}
-
-	err = walletClient.ImportPrivKey(wifKey) //todo err wrong format here
-
-	//if err != nil {
-	//	return err
-	//}
-
-	return nil
 }
 
 // MineBlockWithTxs mines a single block to include the specifies
