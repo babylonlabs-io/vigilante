@@ -3,15 +3,15 @@ package monitor
 import (
 	"fmt"
 
-	"github.com/babylonchain/babylon/types/retry"
-	btclctypes "github.com/babylonchain/babylon/x/btclightclient/types"
-	ckpttypes "github.com/babylonchain/babylon/x/checkpointing/types"
-	epochingtypes "github.com/babylonchain/babylon/x/epoching/types"
-	monitortypes "github.com/babylonchain/babylon/x/monitor/types"
+	"github.com/babylonlabs-io/babylon/types/retry"
+	btclctypes "github.com/babylonlabs-io/babylon/x/btclightclient/types"
+	ckpttypes "github.com/babylonlabs-io/babylon/x/checkpointing/types"
+	epochingtypes "github.com/babylonlabs-io/babylon/x/epoching/types"
+	monitortypes "github.com/babylonlabs-io/babylon/x/monitor/types"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"go.uber.org/zap"
 
-	"github.com/babylonchain/vigilante/types"
+	"github.com/babylonlabs-io/vigilante/types"
 )
 
 // QueryInfoForNextEpoch fetches necessary information for verifying the next epoch from Babylon

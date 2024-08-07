@@ -7,12 +7,12 @@ import (
 	"testing"
 
 	sdkmath "cosmossdk.io/math"
-	"github.com/babylonchain/babylon/btcstaking"
-	asig "github.com/babylonchain/babylon/crypto/schnorr-adaptor-signature"
-	"github.com/babylonchain/babylon/testutil/datagen"
-	bbn "github.com/babylonchain/babylon/types"
-	btcctypes "github.com/babylonchain/babylon/x/btccheckpoint/types"
-	bstypes "github.com/babylonchain/babylon/x/btcstaking/types"
+	"github.com/babylonlabs-io/babylon/btcstaking"
+	asig "github.com/babylonlabs-io/babylon/crypto/schnorr-adaptor-signature"
+	"github.com/babylonlabs-io/babylon/testutil/datagen"
+	bbn "github.com/babylonlabs-io/babylon/types"
+	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
+	bstypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcjson"
 	"github.com/btcsuite/btcd/btcutil"
@@ -23,10 +23,10 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/babylonchain/vigilante/btcstaking-tracker/btcslasher"
-	"github.com/babylonchain/vigilante/config"
-	"github.com/babylonchain/vigilante/metrics"
-	"github.com/babylonchain/vigilante/testutil/mocks"
+	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/btcslasher"
+	"github.com/babylonlabs-io/vigilante/config"
+	"github.com/babylonlabs-io/vigilante/metrics"
+	"github.com/babylonlabs-io/vigilante/testutil/mocks"
 )
 
 func FuzzSlasher(f *testing.F) {
@@ -59,14 +59,14 @@ func FuzzSlasher(f *testing.F) {
 			covenantPks = append(covenantPks, *bbn.NewBIP340PubKeyFromBTCPK(btcPubKey))
 		}
 		// mock slashing rate and covenant
-		bsParams := &bstypes.QueryParamsResponse{Params: bstypes.Params{
+		bsParams := &bstypes.QueryParamsByVersionResponse{Params: bstypes.Params{
 			// TODO: Can't use the below value as the datagen functionality only covers one covenant signature
 			// CovenantQuorum: uint32(covQuorum),
 			CovenantQuorum: 1,
 			CovenantPks:    covenantPks,
 			SlashingRate:   sdkmath.LegacyMustNewDecFromStr("0.1"),
 		}}
-		mockBabylonQuerier.EXPECT().BTCStakingParams().Return(bsParams, nil).Times(1)
+		mockBabylonQuerier.EXPECT().BTCStakingParamsByVersion(gomock.Any()).Return(bsParams, nil).AnyTimes()
 
 		logger, err := config.NewRootLogger("auto", "debug")
 		require.NoError(t, err)
@@ -75,10 +75,6 @@ func FuzzSlasher(f *testing.F) {
 		require.NoError(t, err)
 		err = btcSlasher.LoadParams()
 		require.NoError(t, err)
-
-		// mock chain tip
-		randomBTCHeight := uint64(1000)
-		mockBTCClient.EXPECT().GetBestBlock().Return(nil, randomBTCHeight, nil).Times(1)
 
 		// slashing and change address
 		slashingAddr, err := datagen.GenRandomBTCAddress(r, net)
@@ -99,9 +95,11 @@ func FuzzSlasher(f *testing.F) {
 			expiredBTCDel, err := datagen.GenRandomBTCDelegation(
 				r,
 				t,
+				net,
 				[]bbn.BIP340PubKey{*fpBTCPK},
 				delSK,
 				covenantSks,
+				covenantBtcPks,
 				bsParams.Params.CovenantQuorum,
 				slashingAddr.String(),
 				100,
@@ -124,9 +122,11 @@ func FuzzSlasher(f *testing.F) {
 			activeBTCDel, err := datagen.GenRandomBTCDelegation(
 				r,
 				t,
+				net,
 				[]bbn.BIP340PubKey{*fpBTCPK},
 				delSK,
 				covenantSks,
+				covenantBtcPks,
 				bsParams.Params.CovenantQuorum,
 				slashingAddr.String(),
 				100,
@@ -149,9 +149,11 @@ func FuzzSlasher(f *testing.F) {
 			unbondingBTCDel, err := datagen.GenRandomBTCDelegation(
 				r,
 				t,
+				net,
 				[]bbn.BIP340PubKey{*fpBTCPK},
 				delSK,
 				covenantSks,
+				covenantBtcPks,
 				bsParams.Params.CovenantQuorum,
 				slashingAddr.String(),
 				100,
@@ -257,10 +259,10 @@ func FuzzSlasher(f *testing.F) {
 		}
 
 		// mock query to FinalityProviderDelegations
-		dels := []*bstypes.BTCDelegatorDelegations{}
-		dels = append(dels, expiredBTCDelsList...)
-		dels = append(dels, activeBTCDelsList...)
-		dels = append(dels, unbondedBTCDelsList...)
+		dels := make([]*bstypes.BTCDelegatorDelegationsResponse, 0)
+		dels = append(dels, newBTCDelegatorDelegationsResponse(expiredBTCDelsList, bstypes.BTCDelegationStatus_ANY))
+		dels = append(dels, newBTCDelegatorDelegationsResponse(activeBTCDelsList, bstypes.BTCDelegationStatus_ACTIVE))
+		dels = append(dels, newBTCDelegatorDelegationsResponse(unbondedBTCDelsList, bstypes.BTCDelegationStatus_UNBONDED))
 		btcDelsResp := &bstypes.QueryFinalityProviderDelegationsResponse{
 			BtcDelegatorDelegations: dels,
 			Pagination:              &query.PageResponse{NextKey: nil},
@@ -287,4 +289,16 @@ func FuzzSlasher(f *testing.F) {
 
 		btcSlasher.WaitForShutdown()
 	})
+}
+
+func newBTCDelegatorDelegationsResponse(delegations []*bstypes.BTCDelegatorDelegations, status bstypes.BTCDelegationStatus) *bstypes.BTCDelegatorDelegationsResponse {
+	delListResp := make([]*bstypes.BTCDelegationResponse, 0)
+	for _, dels := range delegations {
+		for _, del := range dels.Dels {
+			delListResp = append(delListResp, bstypes.NewBTCDelegationResponse(del, status))
+		}
+	}
+	return &bstypes.BTCDelegatorDelegationsResponse{
+		Dels: delListResp,
+	}
 }

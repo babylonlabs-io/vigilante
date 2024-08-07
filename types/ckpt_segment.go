@@ -1,8 +1,8 @@
 package types
 
 import (
-	"github.com/babylonchain/babylon/btctxformatter"
-	btcctypes "github.com/babylonchain/babylon/x/btccheckpoint/types"
+	"github.com/babylonlabs-io/babylon/btctxformatter"
+	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
 	"github.com/btcsuite/btcd/btcutil"
 )
 
@@ -18,7 +18,10 @@ type CkptSegment struct {
 }
 
 func NewCkptSegment(tag btctxformatter.BabylonTag, version btctxformatter.FormatVersion, block *IndexedBlock, tx *btcutil.Tx) *CkptSegment {
-	opReturnData := btcctypes.ExtractOpReturnData(tx)
+	opReturnData, err := btcctypes.ExtractStandardOpReturnData(tx)
+	if err != nil {
+		return nil
+	}
 	bbnData, err := btctxformatter.IsBabylonCheckpointData(tag, version, opReturnData)
 	if err != nil {
 		return nil

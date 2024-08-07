@@ -3,14 +3,14 @@ package cmd
 import (
 	"fmt"
 
-	bbnclient "github.com/babylonchain/rpc-client/client"
+	bbnclient "github.com/babylonlabs-io/babylon/client/client"
 	"github.com/spf13/cobra"
 
-	"github.com/babylonchain/vigilante/btcclient"
-	"github.com/babylonchain/vigilante/config"
-	"github.com/babylonchain/vigilante/metrics"
-	"github.com/babylonchain/vigilante/reporter"
-	"github.com/babylonchain/vigilante/rpcserver"
+	"github.com/babylonlabs-io/vigilante/btcclient"
+	"github.com/babylonlabs-io/vigilante/config"
+	"github.com/babylonlabs-io/vigilante/metrics"
+	"github.com/babylonlabs-io/vigilante/reporter"
+	"github.com/babylonlabs-io/vigilante/rpcserver"
 )
 
 // GetReporterCmd returns the CLI commands for the reporter

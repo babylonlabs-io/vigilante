@@ -10,12 +10,12 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/babylonchain/babylon/btctxformatter"
+	"github.com/babylonlabs-io/babylon/btctxformatter"
 
-	"github.com/babylonchain/vigilante/config"
-	"github.com/babylonchain/vigilante/metrics"
-	"github.com/babylonchain/vigilante/submitter/relayer"
-	"github.com/babylonchain/vigilante/testutil/mocks"
+	"github.com/babylonlabs-io/vigilante/config"
+	"github.com/babylonlabs-io/vigilante/metrics"
+	"github.com/babylonlabs-io/vigilante/submitter/relayer"
+	"github.com/babylonlabs-io/vigilante/testutil/mocks"
 )
 
 var submitterAddrStr = "bbn1eppc73j56382wjn6nnq3quu5eye4pmm087xfdh"

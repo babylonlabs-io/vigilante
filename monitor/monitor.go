@@ -12,14 +12,14 @@ import (
 	"go.uber.org/zap"
 
 	sdkerrors "cosmossdk.io/errors"
-	checkpointingtypes "github.com/babylonchain/babylon/x/checkpointing/types"
+	checkpointingtypes "github.com/babylonlabs-io/babylon/x/checkpointing/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/babylonchain/vigilante/btcclient"
-	"github.com/babylonchain/vigilante/config"
-	"github.com/babylonchain/vigilante/metrics"
-	"github.com/babylonchain/vigilante/monitor/btcscanner"
-	"github.com/babylonchain/vigilante/types"
+	"github.com/babylonlabs-io/vigilante/btcclient"
+	"github.com/babylonlabs-io/vigilante/config"
+	"github.com/babylonlabs-io/vigilante/metrics"
+	"github.com/babylonlabs-io/vigilante/monitor/btcscanner"
+	"github.com/babylonlabs-io/vigilante/types"
 )
 
 type Monitor struct {
@@ -210,7 +210,10 @@ func (m *Monitor) VerifyCheckpoint(btcCkpt *checkpointingtypes.RawCheckpoint) er
 	if err != nil {
 		return fmt.Errorf("failed to query raw checkpoint from Babylon, epoch %v: %w", btcCkpt.EpochNum, err)
 	}
-	ckpt := res.RawCheckpoint.Ckpt
+	ckpt, err := res.RawCheckpoint.Ckpt.ToRawCheckpoint()
+	if err != nil {
+		return fmt.Errorf("failed to parse raw checkpoint %v: %w", res.RawCheckpoint.Ckpt, err)
+	}
 	// verify BLS sig of the raw checkpoint from Babylon
 	err = m.curEpoch.VerifyMultiSig(ckpt)
 	if err != nil {

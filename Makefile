@@ -8,7 +8,7 @@ TOOLS_DIR := tools
 
 BTCD_PKG := github.com/btcsuite/btcd
 BTCDW_PKG := github.com/btcsuite/btcwallet
-BABYLON_PKG := github.com/babylonchain/babylon/cmd/babylond
+BABYLON_PKG := github.com/babylonlabs-io/babylon/cmd/babylond
 
 GO_BIN := ${GOPATH}/bin
 BTCD_BIN := $(GO_BIN)/btcd
@@ -30,6 +30,14 @@ endif
 BUILD_TARGETS := build install
 BUILD_FLAGS := --tags "$(build_tags)" --ldflags '$(ldflags)'
 
+# Update changelog vars
+ifneq (,$(SINCE_TAG))
+       sinceTag := --since-tag $(SINCE_TAG)
+endif
+ifneq (,$(UPCOMING_TAG))
+       upcomingTag := --future-release $(UPCOMING_TAG)
+endif
+
 all: build install
 
 build: BUILD_ARGS := $(build_args) -o $(BUILDDIR)
@@ -48,11 +56,11 @@ test-e2e:
 	go test -mod=readonly -timeout=25m -v $(PACKAGES_E2E) -count=1 --tags=e2e
 
 build-docker:
-	$(DOCKER) build --tag babylonchain/vigilante -f Dockerfile \
+	$(DOCKER) build --tag babylonlabs-io/vigilante -f Dockerfile \
 		$(shell git rev-parse --show-toplevel)
 
 rm-docker:
-	$(DOCKER) rmi babylonchain/vigilante 2>/dev/null; true
+	$(DOCKER) rmi babylonlabs-io/vigilante 2>/dev/null; true
 
 mocks:
 	mkdir -p $(MOCKS_DIR)
@@ -65,4 +73,8 @@ mocks:
 	$(MOCKGEN_CMD) -source=btcstaking-tracker/atomicslasher/expected_babylon_client.go -package atomicslasher -destination btcstaking-tracker/atomicslasher/mock_babylon_client.go
 	$(MOCKGEN_CMD) -source=btcstaking-tracker/unbondingwatcher/expected_babylon_client.go -package unbondingwatcher -destination btcstaking-tracker/unbondingwatcher/mock_babylon_client.go
 
-.PHONY: build test test-e2e build-docker rm-docker mocks
+update-changelog:
+	@echo ./scripts/update_changelog.sh $(sinceTag) $(upcomingTag)
+	./scripts/update_changelog.sh $(sinceTag) $(upcomingTag)
+
+.PHONY: build test test-e2e build-docker rm-docker mocks update-changelog

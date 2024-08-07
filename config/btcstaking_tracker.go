@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/babylonchain/vigilante/types"
+	"github.com/babylonlabs-io/vigilante/types"
 )
 
 const maxBatchSize = 10000

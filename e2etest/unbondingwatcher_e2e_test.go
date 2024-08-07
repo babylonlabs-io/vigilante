@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/babylonchain/babylon/btcstaking"
-	"github.com/babylonchain/vigilante/btcclient"
-	bst "github.com/babylonchain/vigilante/btcstaking-tracker"
-	"github.com/babylonchain/vigilante/config"
-	"github.com/babylonchain/vigilante/metrics"
-	"github.com/babylonchain/vigilante/types"
+	"github.com/babylonlabs-io/babylon/btcstaking"
+	"github.com/babylonlabs-io/vigilante/btcclient"
+	bst "github.com/babylonlabs-io/vigilante/btcstaking-tracker"
+	"github.com/babylonlabs-io/vigilante/config"
+	"github.com/babylonlabs-io/vigilante/metrics"
+	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
@@ -109,7 +109,7 @@ func TestUnbondingWatcher(t *testing.T) {
 	require.NoError(t, err)
 	resp, err := tm.BabylonClient.BTCDelegation(stakingSlashingInfo.StakingTx.TxHash().String())
 	require.NoError(t, err)
-	covenantSigs := resp.UndelegationInfo.CovenantUnbondingSigList
+	covenantSigs := resp.BtcDelegation.UndelegationResponse.CovenantUnbondingSigList
 	witness, err := unbondingPathSpendInfo.CreateUnbondingPathWitness(
 		[]*schnorr.Signature{covenantSigs[0].Sig.MustToBTCSig()},
 		unbondingTxSchnorrSig,
@@ -131,7 +131,7 @@ func TestUnbondingWatcher(t *testing.T) {
 		// TODO: Add field for staker signature in BTCDelegation query to check it directly,
 		// for now it is enough to check that delegation is not active, as if unbonding was reported
 		// delegation will be deactivated
-		return !resp.Active
+		return !resp.BtcDelegation.Active
 
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 }

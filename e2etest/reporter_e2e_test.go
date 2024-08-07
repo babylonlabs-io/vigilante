@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/babylonchain/babylon/testutil/datagen"
-	"github.com/babylonchain/vigilante/metrics"
-	"github.com/babylonchain/vigilante/reporter"
-	"github.com/babylonchain/vigilante/types"
+	"github.com/babylonlabs-io/babylon/testutil/datagen"
+	"github.com/babylonlabs-io/vigilante/metrics"
+	"github.com/babylonlabs-io/vigilante/reporter"
+	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/integration/rpctest"
 	"github.com/btcsuite/btcd/rpcclient"
@@ -28,7 +28,7 @@ func (tm *TestManager) BabylonBTCChainMatchesBtc(t *testing.T) bool {
 	require.NoError(t, err)
 	bbnBtcLcTip, err := tm.BabylonClient.BTCHeaderChainTip()
 	require.NoError(t, err)
-	return uint64(tipHeight) == bbnBtcLcTip.Header.Height && tipHash.String() == bbnBtcLcTip.Header.Hash.String()
+	return uint64(tipHeight) == bbnBtcLcTip.Header.Height && tipHash.String() == bbnBtcLcTip.Header.HashHex
 }
 
 func (tm *TestManager) GenerateAndSubmitsNBlocksFromTip(N int) {

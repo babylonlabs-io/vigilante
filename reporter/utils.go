@@ -8,10 +8,10 @@ import (
 	pv "github.com/cosmos/relayer/v2/relayer/provider"
 
 	sdkmath "cosmossdk.io/math"
-	"github.com/babylonchain/babylon/types/retry"
-	btcctypes "github.com/babylonchain/babylon/x/btccheckpoint/types"
-	btclctypes "github.com/babylonchain/babylon/x/btclightclient/types"
-	"github.com/babylonchain/vigilante/types"
+	"github.com/babylonlabs-io/babylon/types/retry"
+	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
+	btclctypes "github.com/babylonlabs-io/babylon/x/btclightclient/types"
+	"github.com/babylonlabs-io/vigilante/types"
 )
 
 func chunkBy[T any](items []T, chunkSize int) (chunks [][]T) {

@@ -4,17 +4,17 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/babylonchain/babylon/crypto/bls12381"
-	"github.com/babylonchain/babylon/testutil/datagen"
-	ckpttypes "github.com/babylonchain/babylon/x/checkpointing/types"
+	"github.com/babylonlabs-io/babylon/crypto/bls12381"
+	"github.com/babylonlabs-io/babylon/testutil/datagen"
+	ckpttypes "github.com/babylonlabs-io/babylon/x/checkpointing/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/golang/mock/gomock"
 	"github.com/jinzhu/copier"
 	"github.com/stretchr/testify/require"
 
-	"github.com/babylonchain/vigilante/config"
-	"github.com/babylonchain/vigilante/monitor"
-	"github.com/babylonchain/vigilante/types"
+	"github.com/babylonlabs-io/vigilante/config"
+	"github.com/babylonlabs-io/vigilante/monitor"
+	"github.com/babylonlabs-io/vigilante/types"
 )
 
 func GetMsgBytes(epoch uint64, hash *ckpttypes.BlockHash) []byte {
@@ -51,8 +51,8 @@ func FuzzVerifyCheckpoint(f *testing.F) {
 		btcCheckpoint := datagen.GenerateLegitimateRawCheckpoint(r, privKeys)
 		mockBabylonClient.EXPECT().RawCheckpoint(gomock.Eq(btcCheckpoint.EpochNum)).Return(
 			&ckpttypes.QueryRawCheckpointResponse{
-				RawCheckpoint: &ckpttypes.RawCheckpointWithMeta{
-					Ckpt: btcCheckpoint,
+				RawCheckpoint: &ckpttypes.RawCheckpointWithMetaResponse{
+					Ckpt: btcCheckpoint.ToResponse(),
 				},
 			}, nil).AnyTimes()
 		// generate case 1, same checkpoints

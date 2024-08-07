@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/babylonchain/babylon/app"
-	btccheckpointtypes "github.com/babylonchain/babylon/x/btccheckpoint/types"
-	btclightclienttypes "github.com/babylonchain/babylon/x/btclightclient/types"
-	checkpointingtypes "github.com/babylonchain/babylon/x/checkpointing/types"
-	epochingtypes "github.com/babylonchain/babylon/x/epoching/types"
+	"github.com/babylonlabs-io/babylon/app"
+	btccheckpointtypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
+	btclightclienttypes "github.com/babylonlabs-io/babylon/x/btclightclient/types"
+	checkpointingtypes "github.com/babylonlabs-io/babylon/x/checkpointing/types"
+	epochingtypes "github.com/babylonlabs-io/babylon/x/epoching/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/genutil"
@@ -94,7 +94,7 @@ func GetGenesisInfoFromFile(filePath string) (*GenesisInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid btclightclient genesis %w", err)
 	}
-	baseBTCHeight = btclightclientGenState.BaseBtcHeader.Height
+	baseBTCHeight = btclightclientGenState.BtcHeaders[0].Height
 
 	epochingGenState := GetEpochingGenesisStateFromAppState(tmpBabylon.AppCodec(), appState)
 	err = epochingGenState.Validate()

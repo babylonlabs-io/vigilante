@@ -4,16 +4,16 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/babylonchain/babylon/testutil/datagen"
+	"github.com/babylonlabs-io/babylon/testutil/datagen"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 
-	"github.com/babylonchain/vigilante/config"
-	"github.com/babylonchain/vigilante/monitor/btcscanner"
-	vdatagen "github.com/babylonchain/vigilante/testutil/datagen"
-	"github.com/babylonchain/vigilante/testutil/mocks"
-	"github.com/babylonchain/vigilante/types"
+	"github.com/babylonlabs-io/vigilante/config"
+	"github.com/babylonlabs-io/vigilante/monitor/btcscanner"
+	vdatagen "github.com/babylonlabs-io/vigilante/testutil/datagen"
+	"github.com/babylonlabs-io/vigilante/testutil/mocks"
+	"github.com/babylonlabs-io/vigilante/types"
 )
 
 func FuzzBootStrap(f *testing.F) {

@@ -7,9 +7,9 @@ import (
 
 	"cosmossdk.io/errors"
 	"github.com/avast/retry-go/v4"
-	bbn "github.com/babylonchain/babylon/types"
-	bstypes "github.com/babylonchain/babylon/x/btcstaking/types"
-	"github.com/babylonchain/vigilante/config"
+	bbn "github.com/babylonlabs-io/babylon/types"
+	bstypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
+	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/cosmos/cosmos-sdk/types/query"
 	"go.uber.org/zap"
@@ -39,11 +39,11 @@ func NewBabylonAdapter(
 	}
 }
 
-func (ba *BabylonAdapter) BTCStakingParams(ctx context.Context) (*bstypes.Params, error) {
+func (ba *BabylonAdapter) BTCStakingParams(ctx context.Context, version uint32) (*bstypes.Params, error) {
 	var bsParams *bstypes.Params
 	err := retry.Do(
 		func() error {
-			resp, err := ba.bbnClient.BTCStakingParams()
+			resp, err := ba.bbnClient.BTCStakingParamsByVersion(version)
 			if err != nil {
 				return err
 			}
@@ -78,7 +78,7 @@ func (ba *BabylonAdapter) BTCDelegation(ctx context.Context, stakingTxHashHex st
 }
 
 // TODO: avoid getting expired BTC delegations
-func (ba *BabylonAdapter) HandleAllBTCDelegations(handleFunc func(btcDel *bstypes.BTCDelegation) error) error {
+func (ba *BabylonAdapter) HandleAllBTCDelegations(handleFunc func(btcDel *bstypes.BTCDelegationResponse) error) error {
 	pagination := query.PageRequest{Limit: ba.cfg.NewDelegationsBatchSize}
 
 	for {
@@ -111,7 +111,7 @@ func (ba *BabylonAdapter) IsFPSlashed(
 		return false, err
 	}
 
-	return fpResp.FinalityProvider.IsSlashed(), nil
+	return fpResp.FinalityProvider.SlashedBabylonHeight > 0, nil
 }
 
 func (ba *BabylonAdapter) ReportSelectiveSlashing(

@@ -5,8 +5,8 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/babylonchain/babylon/btctxformatter"
-	"github.com/babylonchain/vigilante/types"
+	"github.com/babylonlabs-io/babylon/btctxformatter"
+	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/stretchr/testify/require"

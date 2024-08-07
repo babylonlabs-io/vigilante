@@ -1,8 +1,8 @@
 package datagen
 
 import (
-	"github.com/babylonchain/babylon/testutil/datagen"
-	"github.com/babylonchain/vigilante/types"
+	"github.com/babylonlabs-io/babylon/testutil/datagen"
+	"github.com/babylonlabs-io/vigilante/types"
 	"math/rand"
 )
 

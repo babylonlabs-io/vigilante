@@ -11,12 +11,12 @@ import (
 
 	pv "github.com/cosmos/relayer/v2/relayer/provider"
 
-	bbn "github.com/babylonchain/babylon/types"
-	btclctypes "github.com/babylonchain/babylon/x/btclightclient/types"
-	bbnclient "github.com/babylonchain/rpc-client/client"
-	"github.com/babylonchain/vigilante/btcclient"
-	"github.com/babylonchain/vigilante/config"
-	"github.com/babylonchain/vigilante/types"
+	bbnclient "github.com/babylonlabs-io/babylon/client/client"
+	bbn "github.com/babylonlabs-io/babylon/types"
+	btclctypes "github.com/babylonlabs-io/babylon/x/btclightclient/types"
+	"github.com/babylonlabs-io/vigilante/btcclient"
+	"github.com/babylonlabs-io/vigilante/config"
+	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/btcutil/hdkeychain"

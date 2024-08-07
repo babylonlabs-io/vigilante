@@ -3,7 +3,7 @@ package btcslasher
 import (
 	"fmt"
 
-	ftypes "github.com/babylonchain/babylon/x/finality/types"
+	ftypes "github.com/babylonlabs-io/babylon/x/finality/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
 	"github.com/hashicorp/go-multierror"
 )

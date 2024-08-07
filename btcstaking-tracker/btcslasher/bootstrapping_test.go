@@ -8,15 +8,15 @@ import (
 	sdkmath "cosmossdk.io/math"
 	"github.com/btcsuite/btcd/btcec/v2"
 
-	datagen "github.com/babylonchain/babylon/testutil/datagen"
-	bbn "github.com/babylonchain/babylon/types"
-	btcctypes "github.com/babylonchain/babylon/x/btccheckpoint/types"
-	bstypes "github.com/babylonchain/babylon/x/btcstaking/types"
-	ftypes "github.com/babylonchain/babylon/x/finality/types"
-	"github.com/babylonchain/vigilante/btcstaking-tracker/btcslasher"
-	"github.com/babylonchain/vigilante/config"
-	"github.com/babylonchain/vigilante/metrics"
-	"github.com/babylonchain/vigilante/testutil/mocks"
+	datagen "github.com/babylonlabs-io/babylon/testutil/datagen"
+	bbn "github.com/babylonlabs-io/babylon/types"
+	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
+	bstypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
+	ftypes "github.com/babylonlabs-io/babylon/x/finality/types"
+	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/btcslasher"
+	"github.com/babylonlabs-io/vigilante/config"
+	"github.com/babylonlabs-io/vigilante/metrics"
+	"github.com/babylonlabs-io/vigilante/testutil/mocks"
 	"github.com/btcsuite/btcd/btcjson"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
@@ -39,6 +39,7 @@ func FuzzSlasher_Bootstrapping(f *testing.F) {
 		// mock k, w
 		btccParams := &btcctypes.QueryParamsResponse{Params: btcctypes.Params{BtcConfirmationDepth: 10, CheckpointFinalizationTimeout: 100}}
 		mockBabylonQuerier.EXPECT().BTCCheckpointParams().Return(btccParams, nil).Times(1)
+
 		unbondingTime := uint16(btccParams.Params.CheckpointFinalizationTimeout + 1)
 
 		// covenant secret key
@@ -51,15 +52,11 @@ func FuzzSlasher_Bootstrapping(f *testing.F) {
 			covenantSks = append(covenantSks, covenantSk)
 			covenantPks = append(covenantPks, *bbn.NewBIP340PubKeyFromBTCPK(covenantSk.PubKey()))
 		}
-		// mock slashing rate and covenant
-		bsParams := &bstypes.QueryParamsResponse{Params: bstypes.Params{
-			// TODO: Can't use the below value as the datagen functionality only covers one covenant signature
-			// CovenantQuorum: uint32(covQuorum),
-			CovenantQuorum: 1,
-			CovenantPks:    covenantPks,
-			SlashingRate:   sdkmath.LegacyMustNewDecFromStr("0.1"),
-		}}
-		mockBabylonQuerier.EXPECT().BTCStakingParams().Return(bsParams, nil).Times(1)
+		var covPks []*btcec.PublicKey
+
+		for _, pk := range covenantPks {
+			covPks = append(covPks, pk.MustToBTCPK())
+		}
 
 		logger, err := config.NewRootLogger("auto", "debug")
 		require.NoError(t, err)
@@ -67,13 +64,19 @@ func FuzzSlasher_Bootstrapping(f *testing.F) {
 		btcSlasher, err := btcslasher.New(logger, mockBTCClient, mockBabylonQuerier, &chaincfg.SimNetParams, commonCfg.RetrySleepTime, commonCfg.MaxRetrySleepTime, slashedFPSKChan, metrics.NewBTCStakingTrackerMetrics().SlasherMetrics)
 		require.NoError(t, err)
 
-		// mock chain tip
-		randomBTCHeight := uint64(1000)
-		mockBTCClient.EXPECT().GetBestBlock().Return(nil, randomBTCHeight, nil).Times(1)
-
 		// slashing address
 		slashingAddr, err := datagen.GenRandomBTCAddress(r, net)
 		require.NoError(t, err)
+
+		// mock BTC staking parameters
+		bsParams := &bstypes.QueryParamsByVersionResponse{Params: bstypes.Params{
+			// TODO: Can't use the below value as the datagen functionality only covers one covenant signature
+			// CovenantQuorum: uint32(covQuorum),
+			CovenantQuorum: 1,
+			CovenantPks:    covenantPks,
+			SlashingRate:   sdkmath.LegacyMustNewDecFromStr("0.1"),
+		}}
+		mockBabylonQuerier.EXPECT().BTCStakingParamsByVersion(gomock.Any()).Return(bsParams, nil).AnyTimes()
 
 		// generate BTC key pair for slashed finality provider
 		fpSK, fpPK, err := datagen.GenRandomBTCKeyPair(r)
@@ -88,7 +91,7 @@ func FuzzSlasher_Bootstrapping(f *testing.F) {
 		}, nil).Times(1)
 
 		// mock a list of active BTC delegations whose staking tx output is still spendable on Bitcoin
-		slashableBTCDelsList := []*bstypes.BTCDelegatorDelegations{}
+		slashableBTCDelsList := []*bstypes.BTCDelegatorDelegationsResponse{}
 		for i := uint64(0); i < datagen.RandomInt(r, 30)+5; i++ {
 			delSK, _, err := datagen.GenRandomBTCKeyPair(r)
 			require.NoError(t, err)
@@ -97,9 +100,11 @@ func FuzzSlasher_Bootstrapping(f *testing.F) {
 			activeBTCDel, err := datagen.GenRandomBTCDelegation(
 				r,
 				t,
+				net,
 				[]bbn.BIP340PubKey{*fpBTCPK},
 				delSK,
 				covenantSks,
+				covPks,
 				bsParams.Params.CovenantQuorum,
 				slashingAddr.String(),
 				100,
@@ -109,12 +114,14 @@ func FuzzSlasher_Bootstrapping(f *testing.F) {
 				unbondingTime,
 			)
 			require.NoError(t, err)
-			activeBTCDels := &bstypes.BTCDelegatorDelegations{Dels: []*bstypes.BTCDelegation{activeBTCDel}}
+
+			resp := bstypes.NewBTCDelegationResponse(activeBTCDel, bstypes.BTCDelegationStatus_ACTIVE)
+			activeBTCDels := &bstypes.BTCDelegatorDelegationsResponse{Dels: []*bstypes.BTCDelegationResponse{resp}}
 			slashableBTCDelsList = append(slashableBTCDelsList, activeBTCDels)
 		}
 
 		// mock a set of unslashableBTCDelsList whose staking tx output is no longer spendable on Bitcoin
-		unslashableBTCDelsList := []*bstypes.BTCDelegatorDelegations{}
+		unslashableBTCDelsList := []*bstypes.BTCDelegatorDelegationsResponse{}
 		for i := uint64(0); i < datagen.RandomInt(r, 30)+5; i++ {
 			delSK, _, err := datagen.GenRandomBTCKeyPair(r)
 			require.NoError(t, err)
@@ -123,9 +130,11 @@ func FuzzSlasher_Bootstrapping(f *testing.F) {
 			activeBTCDel, err := datagen.GenRandomBTCDelegation(
 				r,
 				t,
+				net,
 				[]bbn.BIP340PubKey{*fpBTCPK},
 				delSK,
 				covenantSks,
+				covPks,
 				bsParams.Params.CovenantQuorum,
 				slashingAddr.String(),
 				100,
@@ -135,7 +144,9 @@ func FuzzSlasher_Bootstrapping(f *testing.F) {
 				unbondingTime,
 			)
 			require.NoError(t, err)
-			activeBTCDels := &bstypes.BTCDelegatorDelegations{Dels: []*bstypes.BTCDelegation{activeBTCDel}}
+
+			resp := bstypes.NewBTCDelegationResponse(activeBTCDel, bstypes.BTCDelegationStatus_ACTIVE)
+			activeBTCDels := &bstypes.BTCDelegatorDelegationsResponse{Dels: []*bstypes.BTCDelegationResponse{resp}}
 			unslashableBTCDelsList = append(unslashableBTCDelsList, activeBTCDels)
 		}
 

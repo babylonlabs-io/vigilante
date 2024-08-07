@@ -3,7 +3,7 @@ package atomicslasher
 import (
 	"time"
 
-	bstypes "github.com/babylonchain/babylon/x/btcstaking/types"
+	bstypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"go.uber.org/zap"
 )
@@ -19,7 +19,7 @@ func (as *AtomicSlasher) btcDelegationTracker() {
 	for {
 		select {
 		case <-ticker.C:
-			err := as.bbnAdapter.HandleAllBTCDelegations(func(btcDel *bstypes.BTCDelegation) error {
+			err := as.bbnAdapter.HandleAllBTCDelegations(func(btcDel *bstypes.BTCDelegationResponse) error {
 				trackedDel, err := NewTrackedBTCDelegation(btcDel)
 				if err != nil {
 					return err
@@ -93,13 +93,6 @@ func (as *AtomicSlasher) slashingTxTracker() {
 func (as *AtomicSlasher) selectiveSlashingReporter() {
 	defer as.wg.Done()
 
-	ctx, cancel := as.quitContext()
-	bsParams, err := as.bbnAdapter.BTCStakingParams(ctx)
-	cancel()
-	if err != nil {
-		as.logger.Fatal("failed to get BTC staking module parameters", zap.Error(err))
-	}
-
 	for {
 		select {
 		case slashingTxInfo, ok := <-as.slashingTxChan:
@@ -120,12 +113,25 @@ func (as *AtomicSlasher) selectiveSlashingReporter() {
 				)
 				continue
 			}
+			// get parameter at the version of this BTC delegation
+			ctx, cancel = as.quitContext()
+			paramsVersion := btcDelResp.BtcDelegation.ParamsVersion
+			bsParams, err := as.bbnAdapter.BTCStakingParams(ctx, paramsVersion)
+			cancel()
+			if err != nil {
+				as.logger.Error(
+					"failed to get BTC staking paramter at version",
+					zap.Uint32("version", paramsVersion),
+					zap.Error(err),
+				)
+				continue
+			}
 			// get covenant Schnorr signature in tx
 			witnessStack := slashingTxInfo.SlashingMsgTx.TxIn[0].Witness
 			covSigMap, fpIdx, fpPK, err := parseSlashingTxWitness(
 				witnessStack,
 				bsParams.CovenantPks,
-				btcDelResp.FpBtcPkList,
+				btcDelResp.BtcDelegation.FpBtcPkList,
 			)
 			if err != nil {
 				as.logger.Error(
@@ -163,9 +169,9 @@ func (as *AtomicSlasher) selectiveSlashingReporter() {
 			// covenant adaptor signatures and covenant Schnorr signatures
 			var fpSK *btcec.PrivateKey
 			if slashingTxInfo.IsSlashStakingTx() {
-				fpSK, err = tryExtractFPSK(covSigMap, fpIdx, fpPK, btcDelResp.CovenantSigs)
+				fpSK, err = tryExtractFPSK(covSigMap, fpIdx, fpPK, btcDelResp.BtcDelegation.CovenantSigs)
 			} else {
-				covUnbondingSlashingSigList := btcDelResp.UndelegationInfo.CovenantSlashingSigs
+				covUnbondingSlashingSigList := btcDelResp.BtcDelegation.UndelegationResponse.CovenantSlashingSigs
 				fpSK, err = tryExtractFPSK(covSigMap, fpIdx, fpPK, covUnbondingSlashingSigList)
 			}
 			if err != nil {

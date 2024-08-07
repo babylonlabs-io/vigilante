@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/babylonchain/babylon/btctxformatter"
+	"github.com/babylonlabs-io/babylon/btctxformatter"
 )
 
 type CheckpointCache struct {

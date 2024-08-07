@@ -10,11 +10,11 @@ import (
 
 	"github.com/btcsuite/btcd/chaincfg"
 
-	"github.com/babylonchain/vigilante/btcclient"
-	bst "github.com/babylonchain/vigilante/btcstaking-tracker"
-	"github.com/babylonchain/vigilante/config"
-	"github.com/babylonchain/vigilante/metrics"
-	"github.com/babylonchain/vigilante/types"
+	"github.com/babylonlabs-io/vigilante/btcclient"
+	bst "github.com/babylonlabs-io/vigilante/btcstaking-tracker"
+	"github.com/babylonlabs-io/vigilante/config"
+	"github.com/babylonlabs-io/vigilante/metrics"
+	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/rpcclient"

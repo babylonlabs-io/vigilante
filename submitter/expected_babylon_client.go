@@ -1,9 +1,9 @@
 package submitter
 
 import (
-	"github.com/babylonchain/vigilante/submitter/poller"
+	"github.com/babylonlabs-io/vigilante/submitter/poller"
 
-	btcctypes "github.com/babylonchain/babylon/x/btccheckpoint/types"
+	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
 )
 
 type BabylonQueryClient interface {

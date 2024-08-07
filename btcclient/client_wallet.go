@@ -11,9 +11,9 @@ import (
 	"github.com/btcsuite/btcd/wire"
 	"go.uber.org/zap"
 
-	"github.com/babylonchain/vigilante/config"
-	"github.com/babylonchain/vigilante/netparams"
-	"github.com/babylonchain/vigilante/types"
+	"github.com/babylonlabs-io/vigilante/config"
+	"github.com/babylonlabs-io/vigilante/netparams"
+	"github.com/babylonlabs-io/vigilante/types"
 )
 
 // NewWallet creates a new BTC wallet

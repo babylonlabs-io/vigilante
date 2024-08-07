@@ -6,10 +6,10 @@ import (
 	"sync"
 	"time"
 
-	bbn "github.com/babylonchain/babylon/types"
-	bstypes "github.com/babylonchain/babylon/x/btcstaking/types"
-	"github.com/babylonchain/vigilante/btcclient"
-	"github.com/babylonchain/vigilante/metrics"
+	bbn "github.com/babylonlabs-io/babylon/types"
+	bstypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
+	"github.com/babylonlabs-io/vigilante/btcclient"
+	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/chaincfg"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
@@ -33,7 +33,6 @@ type BTCSlasher struct {
 	// parameters
 	netParams              *chaincfg.Params
 	btcFinalizationTimeout uint64
-	bsParams               *bstypes.Params
 	retrySleepTime         time.Duration
 	maxRetrySleepTime      time.Duration
 
@@ -97,7 +96,7 @@ func (bs *BTCSlasher) quitContext() (context.Context, func()) {
 }
 
 func (bs *BTCSlasher) LoadParams() error {
-	if bs.btcFinalizationTimeout != 0 && bs.bsParams != nil {
+	if bs.btcFinalizationTimeout != 0 {
 		// already loaded, skip
 		return nil
 	}
@@ -107,12 +106,6 @@ func (bs *BTCSlasher) LoadParams() error {
 		return err
 	}
 	bs.btcFinalizationTimeout = btccParamsResp.Params.CheckpointFinalizationTimeout
-
-	bsParamsResp, err := bs.BBNQuerier.BTCStakingParams()
-	if err != nil {
-		return err
-	}
-	bs.bsParams = &bsParamsResp.Params
 
 	return nil
 }
@@ -179,14 +172,14 @@ func (bs *BTCSlasher) slashingEnforcer() {
 			if slashRes.Err != nil {
 				bs.logger.Errorf(
 					"failed to slash BTC delegation with staking tx hash %s under finality provider %s: %v",
-					slashRes.Del.MustGetStakingTxHash().String(),
+					slashRes.Del.StakingTxHex,
 					slashRes.Del.FpBtcPkList[0].MarshalHex(), // TODO: work with restaking
 					slashRes.Err,
 				)
 			} else {
 				bs.logger.Infof(
 					"successfully slash BTC delegation with staking tx hash %s under finality provider %s",
-					slashRes.Del.MustGetStakingTxHash().String(),
+					slashRes.Del.StakingTxHex,
 					slashRes.Del.FpBtcPkList[0].MarshalHex(), // TODO: work with restaking
 				)
 
@@ -256,7 +249,7 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedfpBTCSK *btcec.PrivateKey) 
 	// TODO: use semaphore to prevent spamming BTC node
 	for _, del := range activeBTCDels {
 		bs.wg.Add(1)
-		go func(d *bstypes.BTCDelegation) {
+		go func(d *bstypes.BTCDelegationResponse) {
 			defer bs.wg.Done()
 			bs.slashBTCDelegation(fpBTCPK, extractedfpBTCSK, d)
 		}(del)
@@ -265,7 +258,7 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedfpBTCSK *btcec.PrivateKey) 
 	// TODO: use semaphore to prevent spamming BTC node
 	for _, del := range unbondedBTCDels {
 		bs.wg.Add(1)
-		go func(d *bstypes.BTCDelegation) {
+		go func(d *bstypes.BTCDelegationResponse) {
 			defer bs.wg.Done()
 			bs.slashBTCDelegation(fpBTCPK, extractedfpBTCSK, d)
 		}(del)

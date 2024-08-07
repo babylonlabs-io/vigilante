@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"cosmossdk.io/errors"
-	bbn "github.com/babylonchain/babylon/types"
-	btcstakingtypes "github.com/babylonchain/babylon/x/btcstaking/types"
-	bbnclient "github.com/babylonchain/rpc-client/client"
+	bbnclient "github.com/babylonlabs-io/babylon/client/client"
+	bbn "github.com/babylonlabs-io/babylon/types"
+	btcstakingtypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
@@ -61,14 +61,12 @@ func (bca *BabylonClientAdapter) ActiveBtcDelegations(offset uint64, limit uint6
 	delegations := make([]Delegation, len(resp.BtcDelegations))
 
 	for i, delegation := range resp.BtcDelegations {
-		stakingTx, err := bbn.NewBTCTxFromBytes(delegation.StakingTx)
-
+		stakingTx, _, err := bbn.NewBTCTxFromHex(delegation.StakingTxHex)
 		if err != nil {
 			return nil, err
 		}
 
-		unbondingTx, err := bbn.NewBTCTxFromBytes(delegation.BtcUndelegation.UnbondingTx)
-
+		unbondingTx, _, err := bbn.NewBTCTxFromHex(delegation.UndelegationResponse.UnbondingTxHex)
 		if err != nil {
 			return nil, err
 		}
@@ -93,7 +91,7 @@ func (bca *BabylonClientAdapter) IsDelegationActive(stakingTxHash chainhash.Hash
 		return false, fmt.Errorf("failed to retrieve delegation from babyln: %w", err)
 	}
 
-	return resp.Active, nil
+	return resp.BtcDelegation.Active, nil
 }
 
 // ReportUnbonding method for BabylonClientAdapter

@@ -22,11 +22,11 @@ import (
 
 	"go.uber.org/zap"
 
-	bst "github.com/babylonchain/vigilante/btcstaking-tracker"
-	"github.com/babylonchain/vigilante/config"
-	"github.com/babylonchain/vigilante/monitor"
-	"github.com/babylonchain/vigilante/reporter"
-	"github.com/babylonchain/vigilante/submitter"
+	bst "github.com/babylonlabs-io/vigilante/btcstaking-tracker"
+	"github.com/babylonlabs-io/vigilante/config"
+	"github.com/babylonlabs-io/vigilante/monitor"
+	"github.com/babylonlabs-io/vigilante/reporter"
+	"github.com/babylonlabs-io/vigilante/submitter"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"google.golang.org/grpc"

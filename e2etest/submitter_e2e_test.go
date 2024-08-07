@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/babylonchain/babylon/testutil/datagen"
-	btcctypes "github.com/babylonchain/babylon/x/btccheckpoint/types"
-	checkpointingtypes "github.com/babylonchain/babylon/x/checkpointing/types"
+	"github.com/babylonlabs-io/babylon/testutil/datagen"
+	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
+	checkpointingtypes "github.com/babylonlabs-io/babylon/x/checkpointing/types"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/rpcclient"
@@ -18,8 +18,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/babylonchain/vigilante/metrics"
-	"github.com/babylonchain/vigilante/submitter"
+	"github.com/babylonlabs-io/vigilante/metrics"
+	"github.com/babylonlabs-io/vigilante/submitter"
 )
 
 func TestSubmitterSubmission(t *testing.T) {
@@ -60,8 +60,8 @@ func TestSubmitterSubmission(t *testing.T) {
 		}, nil)
 	mockBabylonClient.EXPECT().RawCheckpointList(gomock.Any(), gomock.Any()).Return(
 		&checkpointingtypes.QueryRawCheckpointListResponse{
-			RawCheckpoints: []*checkpointingtypes.RawCheckpointWithMeta{
-				randomCheckpoint,
+			RawCheckpoints: []*checkpointingtypes.RawCheckpointWithMetaResponse{
+				randomCheckpoint.ToResponse(),
 			},
 		}, nil).AnyTimes()
 
@@ -139,8 +139,8 @@ func TestSubmitterSubmissionReplace(t *testing.T) {
 		}, nil)
 	mockBabylonClient.EXPECT().RawCheckpointList(gomock.Any(), gomock.Any()).Return(
 		&checkpointingtypes.QueryRawCheckpointListResponse{
-			RawCheckpoints: []*checkpointingtypes.RawCheckpointWithMeta{
-				randomCheckpoint,
+			RawCheckpoints: []*checkpointingtypes.RawCheckpointWithMetaResponse{
+				randomCheckpoint.ToResponse(),
 			},
 		}, nil).AnyTimes()
 
