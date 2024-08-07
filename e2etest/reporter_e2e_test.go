@@ -1,6 +1,3 @@
-//go:build e2e
-// +build e2e
-
 package e2etest
 
 import (
@@ -24,19 +21,49 @@ var (
 )
 
 func (tm *TestManager) BabylonBTCChainMatchesBtc(t *testing.T) bool {
-	tipHash, tipHeight, err := tm.BTCClient.GetBestBlock()
+	tipHeight, err := tm.TestRpcClient.GetBlockCount()
 	require.NoError(t, err)
+	tipHash, err := tm.TestRpcClient.GetBlockHash(tipHeight)
+	require.NoError(t, err)
+	//tipHash, tipHeight, err := tm.BTCClient.GetBestBlock()
 	bbnBtcLcTip, err := tm.BabylonClient.BTCHeaderChainTip()
 	require.NoError(t, err)
+
 	return uint64(tipHeight) == bbnBtcLcTip.Header.Height && tipHash.String() == bbnBtcLcTip.Header.HashHex
 }
 
-func (tm *TestManager) GenerateAndSubmitsNBlocksFromTip(N int) {
+func (tm *TestManager) GenerateAndSubmitsNBlocksFromTip(t *testing.T, N int) {
 	var ut time.Time
 
 	for i := 0; i < N; i++ {
-		tm.MinerNode.GenerateAndSubmitBlock(nil, -1, ut)
+		//tm.MinerNode.GenerateAndSubmitBlock(nil, -1, ut)
+		tm.generateAndSubmitBlock(t, ut)
 	}
+}
+
+func (tm *TestManager) generateAndSubmitBlock(t *testing.T, bt time.Time) {
+	height, err := tm.TestRpcClient.GetBlockCount()
+	hash, err := tm.TestRpcClient.GetBlockHash(height)
+	require.NoError(t, err)
+	block, err := tm.TestRpcClient.GetBlock(hash)
+	require.NoError(t, err)
+	require.NoError(t, err)
+	mBlock, err := tm.TestRpcClient.GetBlock(&block.Header.PrevBlock)
+	require.NoError(t, err)
+	prevBlock := btcutil.NewBlock(mBlock)
+	prevBlock.SetHeight(int32(height))
+
+	arr := datagen.GenRandomByteArray(r, 20)
+	add, err := btcutil.NewAddressScriptHashFromHash(arr, regtestParams)
+	require.NoError(t, err)
+	// Create a new block including the specified transactions
+	newBlock, err := rpctest.CreateBlock(prevBlock, nil, rpctest.BlockVersion,
+		bt, add, nil, regtestParams)
+	require.NoError(t, err)
+
+	err = tm.TestRpcClient.SubmitBlock(newBlock, nil)
+
+	require.NoError(t, err)
 }
 
 func (tm *TestManager) GenerateAndSubmitBlockNBlockStartingFromDepth(t *testing.T, N int, depth uint32) {
@@ -44,26 +71,28 @@ func (tm *TestManager) GenerateAndSubmitBlockNBlockStartingFromDepth(t *testing.
 
 	if depth == 0 {
 		// depth 0 means we are starting from tip
-		tm.GenerateAndSubmitsNBlocksFromTip(N)
+		tm.GenerateAndSubmitsNBlocksFromTip(t, N)
 		return
 	}
 
-	_, bestHeight, err := tm.MinerNode.Client.GetBestBlock()
+	height, err := tm.TestRpcClient.GetBlockCount()
+	require.NoError(t, err)
+	//_, bestHeight, err := tm.TestRpcClient.GetBestBlock()
+	//require.NoError(t, err)
+
+	startingBlockHeight := height - int64(depth)
+
+	blockHash, err := tm.TestRpcClient.GetBlockHash(int64(startingBlockHeight))
 	require.NoError(t, err)
 
-	startingBlockHeight := bestHeight - int32(depth)
-
-	blockHash, err := tm.MinerNode.Client.GetBlockHash(int64(startingBlockHeight))
-	require.NoError(t, err)
-
-	startingBlockMsg, err := tm.MinerNode.Client.GetBlock(blockHash)
+	startingBlockMsg, err := tm.TestRpcClient.GetBlock(blockHash)
 	require.NoError(t, err)
 
 	startingBlock := btcutil.NewBlock(startingBlockMsg)
-	startingBlock.SetHeight(startingBlockHeight)
+	startingBlock.SetHeight(int32(startingBlockHeight))
 
 	arr := datagen.GenRandomByteArray(r, 20)
-	add, err := btcutil.NewAddressScriptHashFromHash(arr, tm.MinerNode.ActiveNet)
+	add, err := btcutil.NewAddressScriptHashFromHash(arr, regtestParams)
 	require.NoError(t, err)
 
 	var lastSubmittedBlock *btcutil.Block
@@ -75,16 +104,16 @@ func (tm *TestManager) GenerateAndSubmitBlockNBlockStartingFromDepth(t *testing.
 		if lastSubmittedBlock == nil {
 			// first block to submit start from starting block
 			newBlock, err := rpctest.CreateBlock(startingBlock, nil, rpctest.BlockVersion,
-				ut, add, nil, tm.MinerNode.ActiveNet)
+				ut, add, nil, regtestParams)
 			require.NoError(t, err)
 			blockToSubmit = newBlock
 		} else {
 			newBlock, err := rpctest.CreateBlock(lastSubmittedBlock, nil, rpctest.BlockVersion,
-				ut, add, nil, tm.MinerNode.ActiveNet)
+				ut, add, nil, regtestParams)
 			require.NoError(t, err)
 			blockToSubmit = newBlock
 		}
-		err = tm.MinerNode.Client.SubmitBlock(blockToSubmit, nil)
+		err = tm.TestRpcClient.SubmitBlock(blockToSubmit, nil)
 		require.NoError(t, err)
 		lastSubmittedBlock = blockToSubmit
 	}
@@ -92,19 +121,19 @@ func (tm *TestManager) GenerateAndSubmitBlockNBlockStartingFromDepth(t *testing.
 
 func TestReporter_BoostrapUnderFrequentBTCHeaders(t *testing.T) {
 	// no need to much mature outputs, we are not going to submit transactions in this test
-	numMatureOutputs := uint32(2)
+	numMatureOutputs := uint32(300)
 
 	blockEventChan := make(chan *types.BlockEvent, 1000)
-	handlers := &rpcclient.NotificationHandlers{
-		OnFilteredBlockConnected: func(height int32, header *wire.BlockHeader, txs []*btcutil.Tx) {
-			blockEventChan <- types.NewBlockEvent(types.BlockConnected, height, header)
-		},
-		OnFilteredBlockDisconnected: func(height int32, header *wire.BlockHeader) {
-			blockEventChan <- types.NewBlockEvent(types.BlockDisconnected, height, header)
-		},
-	}
+	//handlers := &rpcclient.NotificationHandlers{
+	//	OnFilteredBlockConnected: func(height int32, header *wire.BlockHeader, txs []*btcutil.Tx) {
+	//		blockEventChan <- types.NewBlockEvent(types.BlockConnected, height, header)
+	//	},
+	//	OnFilteredBlockDisconnected: func(height int32, header *wire.BlockHeader) {
+	//		blockEventChan <- types.NewBlockEvent(types.BlockDisconnected, height, header)
+	//	},
+	//}
 
-	tm := StartManager(t, numMatureOutputs, 2, handlers, blockEventChan)
+	tm := StartManager(t, numMatureOutputs, 2, nil, blockEventChan)
 	defer tm.Stop(t)
 
 	reporterMetrics := metrics.NewReporterMetrics()
@@ -123,12 +152,12 @@ func TestReporter_BoostrapUnderFrequentBTCHeaders(t *testing.T) {
 	go func() {
 		ticker := time.NewTicker(10 * time.Second)
 		for range ticker.C {
-			tm.GenerateAndSubmitsNBlocksFromTip(1)
+			tm.GenerateAndSubmitsNBlocksFromTip(t, 1)
 		}
 	}()
 
 	// mine some BTC headers
-	tm.GenerateAndSubmitsNBlocksFromTip(2)
+	tm.GenerateAndSubmitsNBlocksFromTip(t, 2)
 
 	// start reporter
 	vigilantReporter.Start()
@@ -178,7 +207,7 @@ func TestRelayHeadersAndHandleRollbacks(t *testing.T) {
 	}, longEventuallyWaitTimeOut, eventuallyPollTime)
 
 	// generate 3, we are submitting headers 1 by 1 so we use small amount as this is slow process
-	tm.GenerateAndSubmitsNBlocksFromTip(3)
+	tm.GenerateAndSubmitsNBlocksFromTip(t, 3)
 
 	require.Eventually(t, func() bool {
 		return tm.BabylonBTCChainMatchesBtc(t)
