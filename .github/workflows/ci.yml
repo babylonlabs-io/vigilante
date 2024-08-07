@@ -7,7 +7,7 @@ on:
 
 jobs:
   lint_test:
-    uses: babylonlabs-io/.github/.github/workflows/reusable_go_lint_test.yml@v0.3.0
+    uses: babylonlabs-io/.github/.github/workflows/reusable_go_lint_test.yml@dependencies
     with:
      run-unit-tests: true
      run-integration-tests: true
@@ -15,7 +15,7 @@ jobs:
      install-dependencies-command: sudo apt-get install libzmq3-dev
 
   docker_pipeline:
-    uses: babylonlabs-io/.github/.github/workflows/reusable_docker_pipeline.yml@v0.3.0
+    uses: babylonlabs-io/.github/.github/workflows/reusable_docker_pipeline.yml@dependencies
     secrets: inherit
     with:
      publish: false
