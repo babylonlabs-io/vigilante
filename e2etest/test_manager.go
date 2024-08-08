@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"github.com/btcsuite/btcd/integration/rpctest"
-	"github.com/cometbft/cometbft/libs/sync"
 	"testing"
 	"time"
 
@@ -128,7 +127,6 @@ type TestManager struct {
 	BTCWalletClient  *btcclient.Client // todo probably not needed
 	Config           *config.Config
 	WalletPrivKey    *btcec.PrivateKey
-	mu               sync.Mutex
 }
 
 func initBTCWalletClient(

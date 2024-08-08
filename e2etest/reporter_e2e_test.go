@@ -33,39 +33,11 @@ func (tm *TestManager) BabylonBTCChainMatchesBtc(t *testing.T) bool {
 }
 
 func (tm *TestManager) GenerateAndSubmitsNBlocksFromTip(t *testing.T, N int) {
-	var ut time.Time
 
 	for i := 0; i < N; i++ {
 		//tm.MinerNode.GenerateAndSubmitBlock(nil, -1, ut)
-		tm.generateAndSubmitBlock(t, ut)
+		//tm.generateAndSubmitBlock(t, ut)
 	}
-}
-
-func (tm *TestManager) generateAndSubmitBlock(t *testing.T, bt time.Time) {
-	tm.mu.Lock()
-	defer tm.mu.Unlock()
-	height, err := tm.TestRpcClient.GetBlockCount()
-	hash, err := tm.TestRpcClient.GetBlockHash(height)
-	require.NoError(t, err)
-	block, err := tm.TestRpcClient.GetBlock(hash)
-	require.NoError(t, err)
-	require.NoError(t, err)
-	mBlock, err := tm.TestRpcClient.GetBlock(&block.Header.PrevBlock)
-	require.NoError(t, err)
-	prevBlock := btcutil.NewBlock(mBlock)
-	prevBlock.SetHeight(int32(height))
-
-	arr := datagen.GenRandomByteArray(r, 20)
-	add, err := btcutil.NewAddressScriptHashFromHash(arr, regtestParams)
-	require.NoError(t, err)
-	// Create a new block including the specified transactions
-	newBlock, err := rpctest.CreateBlock(prevBlock, nil, rpctest.BlockVersion,
-		bt, add, nil, regtestParams)
-	require.NoError(t, err)
-
-	err = tm.TestRpcClient.SubmitBlock(newBlock, nil)
-
-	require.NoError(t, err)
 }
 
 func (tm *TestManager) GenerateAndSubmitBlockNBlockStartingFromDepth(t *testing.T, N int, depth uint32) {
@@ -129,6 +101,7 @@ func TestReporter_BoostrapUnderFrequentBTCHeaders(t *testing.T) {
 	defer tm.Stop(t)
 
 	reporterMetrics := metrics.NewReporterMetrics()
+
 	vigilantReporter, err := reporter.New(
 		&tm.Config.Reporter,
 		logger,
@@ -141,15 +114,17 @@ func TestReporter_BoostrapUnderFrequentBTCHeaders(t *testing.T) {
 	require.NoError(t, err)
 
 	// start a routine that mines BTC blocks very fast
-	//go func() {
-	//	ticker := time.NewTicker(10 * time.Second)
-	//	for range ticker.C {
-	//		tm.GenerateAndSubmitsNBlocksFromTip(t, 1)
-	//	}
-	//}()
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		for range ticker.C {
+			tm.BitcoindHandler.GenerateBlocks(1)
+
+		}
+	}()
 
 	// mine some BTC headers
-	tm.GenerateAndSubmitsNBlocksFromTip(t, 1)
+	//tm.GenerateAndSubmitsNBlocksFromTip(t, 1)
+	tm.BitcoindHandler.GenerateBlocks(1)
 
 	// start reporter
 	vigilantReporter.Start()
