@@ -57,7 +57,7 @@ func NewWithBlockSubscriber(cfg *config.BTCConfig, retrySleepTime, maxRetrySleep
 		if err != nil {
 			return nil, fmt.Errorf("failed to get BTC backend: %v", err)
 		}
-		if !strings.EqualFold(backend.String(), rpcclient.BitcoindPost25.String()) {
+		if !strings.Contains(backend.String(), "bitcoind") {
 			return nil, fmt.Errorf("zmq is only supported by bitcoind, but got %v", backend)
 		}
 
