@@ -51,15 +51,6 @@ func NewWithBlockSubscriber(cfg *config.BTCConfig, retrySleepTime, maxRetrySleep
 			return nil, err
 		}
 
-		// ensure we are using bitcoind as Bitcoin node, as zmq is only supported by bitcoind
-		//backend, err := rpcClient.BackendVersion()
-		//if err != nil {
-		//	return nil, fmt.Errorf("failed to get BTC backend: %v", err)
-		//}
-		//if backend != rpcclient.BitcoindPost25 {
-		//	return nil, fmt.Errorf("zmq is only supported by bitcoind, but got %v", backend)
-		//}
-
 		zmqClient, err := zmq.New(logger, cfg.ZmqSeqEndpoint, client.blockEventChan, rpcClient)
 		if err != nil {
 			return nil, err
