@@ -156,6 +156,7 @@ func (m *Manager) RunBitcoindResource(
 				"-rpcpassword=pass",
 				"-rpcallowip=0.0.0.0/0",
 				"-rpcbind=0.0.0.0",
+				"-zmqpubsequence=tcp://0.0.0.0:28333",
 			},
 		},
 		noRestart,

@@ -173,14 +173,19 @@ func initBTCClientWithSubscriber(t *testing.T, cfg *config.Config, rpcClient *rp
 		Password:         cfg.BTC.Password,
 		Endpoint:         cfg.BTC.Endpoint,
 		DisableClientTLS: cfg.BTC.DisableClientTLS,
+		BtcBackend:       types.Bitcoind,
+		ZmqSeqEndpoint:   config.DefaultZmqSeqEndpoint,
 	}
-	client, err := btcclient.NewTestClientWithWsSubscriber(rpcClient, btcCfg, cfg.Common.RetrySleepTime, cfg.Common.MaxRetrySleepTime, blockEventChan)
+	rootLogger, err := cfg.CreateLogger()
+	require.NoError(t, err)
+
+	client, err := btcclient.NewWithBlockSubscriber(btcCfg, cfg.Common.RetrySleepTime, cfg.Common.MaxRetrySleepTime, rootLogger)
 	require.NoError(t, err)
 
 	// let's wait until chain rpc becomes available
 	// poll time is increase here to avoid spamming the rpc server
 	require.Eventually(t, func() bool {
-		if _, _, err := client.GetBestBlock(); err != nil {
+		if _, err := client.GetBlockCount(); err != nil {
 			log.Errorf("failed to get best block: %v", err)
 			return false
 		}

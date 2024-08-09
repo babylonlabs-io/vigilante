@@ -95,7 +95,7 @@ func (tm *TestManager) GenerateAndSubmitBlockNBlockStartingFromDepth(t *testing.
 
 func TestReporter_BoostrapUnderFrequentBTCHeaders(t *testing.T) {
 	// no need to much mature outputs, we are not going to submit transactions in this test
-	numMatureOutputs := uint32(300)
+	numMatureOutputs := uint32(150)
 
 	tm := StartManager(t, numMatureOutputs, 1, nil, nil)
 	defer tm.Stop(t)
@@ -118,12 +118,10 @@ func TestReporter_BoostrapUnderFrequentBTCHeaders(t *testing.T) {
 		ticker := time.NewTicker(10 * time.Second)
 		for range ticker.C {
 			tm.BitcoindHandler.GenerateBlocks(1)
-
 		}
 	}()
 
 	// mine some BTC headers
-	//tm.GenerateAndSubmitsNBlocksFromTip(t, 1)
 	tm.BitcoindHandler.GenerateBlocks(1)
 
 	// start reporter
@@ -141,16 +139,16 @@ func TestRelayHeadersAndHandleRollbacks(t *testing.T) {
 	numMatureOutputs := uint32(2)
 
 	blockEventChan := make(chan *types.BlockEvent, 1000)
-	handlers := &rpcclient.NotificationHandlers{
-		OnFilteredBlockConnected: func(height int32, header *wire.BlockHeader, txs []*btcutil.Tx) {
-			blockEventChan <- types.NewBlockEvent(types.BlockConnected, height, header)
-		},
-		OnFilteredBlockDisconnected: func(height int32, header *wire.BlockHeader) {
-			blockEventChan <- types.NewBlockEvent(types.BlockDisconnected, height, header)
-		},
-	}
+	//handlers := &rpcclient.NotificationHandlers{
+	//	OnFilteredBlockConnected: func(height int32, header *wire.BlockHeader, txs []*btcutil.Tx) {
+	//		blockEventChan <- types.NewBlockEvent(types.BlockConnected, height, header)
+	//	},
+	//	OnFilteredBlockDisconnected: func(height int32, header *wire.BlockHeader) {
+	//		blockEventChan <- types.NewBlockEvent(types.BlockDisconnected, height, header)
+	//	},
+	//}
 
-	tm := StartManager(t, numMatureOutputs, 2, handlers, blockEventChan)
+	tm := StartManager(t, numMatureOutputs, 2, nil, blockEventChan)
 	// this is necessary to receive notifications about new transactions entering mempool
 	defer tm.Stop(t)
 
@@ -174,7 +172,8 @@ func TestRelayHeadersAndHandleRollbacks(t *testing.T) {
 	}, longEventuallyWaitTimeOut, eventuallyPollTime)
 
 	// generate 3, we are submitting headers 1 by 1 so we use small amount as this is slow process
-	tm.GenerateAndSubmitsNBlocksFromTip(t, 3)
+	//tm.GenerateAndSubmitsNBlocksFromTip(t, 3)
+	tm.BitcoindHandler.GenerateBlocks(3)
 
 	require.Eventually(t, func() bool {
 		return tm.BabylonBTCChainMatchesBtc(t)
