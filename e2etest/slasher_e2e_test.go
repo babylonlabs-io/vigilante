@@ -13,14 +13,12 @@ import (
 	bst "github.com/babylonlabs-io/vigilante/btcstaking-tracker"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"
-	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/stretchr/testify/require"
 )
 
 func TestSlasher_GracefulShutdown(t *testing.T) {
 	numMatureOutputs := uint32(300)
-	blockEventChan := make(chan *types.BlockEvent, 1000)
 
 	tm := StartManager(t, numMatureOutputs, 2)
 	defer tm.Stop(t)
@@ -71,7 +69,6 @@ func TestSlasher_GracefulShutdown(t *testing.T) {
 func TestSlasher_Slasher(t *testing.T) {
 	// segwit is activated at height 300. It's needed by staking/slashing tx
 	numMatureOutputs := uint32(300)
-	blockEventChan := make(chan *types.BlockEvent, 1000)
 
 	tm := StartManager(t, numMatureOutputs, 2)
 	defer tm.Stop(t)
@@ -152,7 +149,6 @@ func TestSlasher_Slasher(t *testing.T) {
 func TestSlasher_SlashingUnbonding(t *testing.T) {
 	// segwit is activated at height 300. It's needed by staking/slashing tx
 	numMatureOutputs := uint32(300)
-	blockEventChan := make(chan *types.BlockEvent, 1000)
 
 	tm := StartManager(t, numMatureOutputs, 2)
 	defer tm.Stop(t)
@@ -244,7 +240,6 @@ func TestSlasher_SlashingUnbonding(t *testing.T) {
 func TestSlasher_Bootstrapping(t *testing.T) {
 	// segwit is activated at height 300. It's needed by staking/slashing tx
 	numMatureOutputs := uint32(300)
-	blockEventChan := make(chan *types.BlockEvent, 1000)
 
 	tm := StartManager(t, numMatureOutputs, 2)
 	defer tm.Stop(t)
