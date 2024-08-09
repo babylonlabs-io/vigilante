@@ -3,9 +3,7 @@ package e2etest
 import (
 	"bytes"
 	"context"
-	"encoding/binary"
 	"encoding/hex"
-	"github.com/btcsuite/btcd/integration/rpctest"
 	"testing"
 	"time"
 
@@ -19,7 +17,6 @@ import (
 	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcutil"
-	"github.com/btcsuite/btcd/btcutil/hdkeychain"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/rpcclient"
@@ -33,24 +30,6 @@ var (
 	submitterAddrStr = "bbn1eppc73j56382wjn6nnq3quu5eye4pmm087xfdh" //nolint:unused
 	babylonTag       = []byte{1, 2, 3, 4}                           //nolint:unused
 	babylonTagHex    = hex.EncodeToString(babylonTag)               //nolint:unused
-
-	// copy of the seed from btcd/integration/rpctest memWallet, this way we can
-	// import the same wallet in the btcd wallet
-	hdSeed = [chainhash.HashSize]byte{
-		0x79, 0xa6, 0x1a, 0xdb, 0xc6, 0xe5, 0xa2, 0xe1,
-		0x39, 0xd2, 0x71, 0x3a, 0x54, 0x6e, 0xc7, 0xc8,
-		0x75, 0x63, 0x2e, 0x75, 0xf1, 0xdf, 0x9c, 0x3f,
-		0xa6, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	}
-
-	// current number of active test nodes. This is necessary to replicate btcd rpctest.Harness
-	// methods of generating keys i.e with each started btcd node we increment this number
-	// by 1, and then use hdSeed || numTestInstances as the seed for generating keys
-	numTestInstances = 0
-
-	existingWalletFile = "wallet.db"
-	exisitngWalletPass = "pass"
-	walletTimeout      = 86400
 
 	eventuallyWaitTimeOut = 40 * time.Second
 	eventuallyPollTime    = 1 * time.Second
@@ -82,42 +61,7 @@ func defaultVigilanteConfig() *config.Config {
 	return defaultConfig
 }
 
-// todo delete this, done bcs of btcd
-func GetSpendingKeyAndAddress(id uint32) (*btcec.PrivateKey, btcutil.Address, error) {
-	var harnessHDSeed [chainhash.HashSize + 4]byte
-	copy(harnessHDSeed[:], hdSeed[:])
-	// id used for our test wallet is always 0
-	binary.BigEndian.PutUint32(harnessHDSeed[:chainhash.HashSize], id)
-
-	hdRoot, err := hdkeychain.NewMaster(harnessHDSeed[:], netParams)
-
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// The first child key from the hd root is reserved as the coinbase
-	// generation address.
-	coinbaseChild, err := hdRoot.Derive(0)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	coinbaseKey, err := coinbaseChild.ECPrivKey()
-
-	if err != nil {
-		return nil, nil, err
-	}
-
-	coinbaseAddr, err := keyToAddr(coinbaseKey, netParams)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return coinbaseKey, coinbaseAddr, nil
-}
-
 type TestManager struct {
-	MinerNode        *rpctest.Harness
 	TestRpcClient    *rpcclient.Client
 	BitcoindHandler  *BitcoindTestHandler
 	BtcWalletHandler *WalletHandler
@@ -132,7 +76,6 @@ type TestManager struct {
 func initBTCWalletClient(
 	t *testing.T,
 	cfg *config.Config,
-	walletPrivKey *btcec.PrivateKey,
 	outputsToWaitFor int) *btcclient.Client {
 
 	var client *btcclient.Client
@@ -154,19 +97,15 @@ func initBTCWalletClient(
 		if _, _, err := client.GetBestBlock(); err != nil {
 			return false
 		}
-
 		return true
 	}, eventuallyWaitTimeOut, 1*time.Second)
-
-	//err := ImportWalletSpendingKey(t, client, walletPrivKey)
-	//require.NoError(t, err)
 
 	waitForNOutputs(t, client, outputsToWaitFor)
 
 	return client
 }
 
-func initBTCClientWithSubscriber(t *testing.T, cfg *config.Config, rpcClient *rpcclient.Client, blockEventChan chan *types.BlockEvent) *btcclient.Client {
+func initBTCClientWithSubscriber(t *testing.T, cfg *config.Config) *btcclient.Client {
 	btcCfg := &config.BTCConfig{
 		NetParams:        cfg.BTC.NetParams,
 		Username:         cfg.BTC.Username,
@@ -203,9 +142,7 @@ func initBTCClientWithSubscriber(t *testing.T, cfg *config.Config, rpcClient *rp
 func StartManager(
 	t *testing.T,
 	numMatureOutputsInWallet uint32,
-	numbersOfOutputsToWaitForDuringInit int,
-	handlers *rpcclient.NotificationHandlers,
-	blockEventChan chan *types.BlockEvent) *TestManager {
+	numbersOfOutputsToWaitForDuringInit int) *TestManager {
 
 	btcHandler := NewBitcoindHandler(t)
 	btcHandler.Start()
@@ -228,13 +165,12 @@ func StartManager(
 		HTTPPostMode: true,
 	}, nil)
 
-	btcClient := initBTCClientWithSubscriber(t, cfg, testRpcClient, blockEventChan)
+	btcClient := initBTCClientWithSubscriber(t, cfg)
 
 	// we always want BTC wallet client for sending txs
 	btcWalletClient := initBTCWalletClient(
 		t,
 		cfg,
-		nil,
 		numbersOfOutputsToWaitForDuringInit,
 	)
 
@@ -248,6 +184,7 @@ func StartManager(
 	require.NoError(t, err)
 	err = bh.Start()
 	require.NoError(t, err)
+
 	// create Babylon client
 	cfg.Babylon.KeyDirectory = bh.GetNodeDataDir()
 	cfg.Babylon.Key = "test-spending-key" // keyring to bbn node
@@ -265,8 +202,6 @@ func StartManager(
 		log.Infof("Babylon is ready: %v", resp)
 		return true
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
-
-	numTestInstances++
 
 	err = testRpcClient.WalletPassphrase(passphrase, 600)
 	require.NoError(t, err)

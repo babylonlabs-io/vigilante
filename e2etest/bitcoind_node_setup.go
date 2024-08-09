@@ -102,3 +102,9 @@ func (h *BitcoindTestHandler) CreateWallet(walletName string, passphrase string)
 
 	return &response
 }
+
+// InvalidateBlock invalidates blocks starting from specified block hash
+func (h *BitcoindTestHandler) InvalidateBlock(blockHash string) {
+	_, _, err := h.m.ExecBitcoindCliCmd(h.t, []string{"invalidateblock", blockHash})
+	require.NoError(h.t, err)
+}

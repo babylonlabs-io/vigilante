@@ -150,6 +150,7 @@ func (m *Manager) RunBitcoindResource(
 				"18444/tcp": {{HostIP: "", HostPort: "18444"}},
 			},
 			Cmd: []string{
+				"-debug=1",
 				"-regtest",
 				"-txindex",
 				"-rpcuser=user",

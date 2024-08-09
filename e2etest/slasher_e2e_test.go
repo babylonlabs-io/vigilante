@@ -22,7 +22,7 @@ func TestSlasher_GracefulShutdown(t *testing.T) {
 	numMatureOutputs := uint32(300)
 	blockEventChan := make(chan *types.BlockEvent, 1000)
 
-	tm := StartManager(t, numMatureOutputs, 2, nil, blockEventChan)
+	tm := StartManager(t, numMatureOutputs, 2)
 	defer tm.Stop(t)
 	// Insert all existing BTC headers to babylon node
 	tm.CatchUpBTCLightClient(t)
@@ -73,7 +73,7 @@ func TestSlasher_Slasher(t *testing.T) {
 	numMatureOutputs := uint32(300)
 	blockEventChan := make(chan *types.BlockEvent, 1000)
 
-	tm := StartManager(t, numMatureOutputs, 2, nil, blockEventChan)
+	tm := StartManager(t, numMatureOutputs, 2)
 	defer tm.Stop(t)
 	// start WebSocket connection with Babylon for subscriber services
 	err := tm.BabylonClient.Start()
@@ -154,7 +154,7 @@ func TestSlasher_SlashingUnbonding(t *testing.T) {
 	numMatureOutputs := uint32(300)
 	blockEventChan := make(chan *types.BlockEvent, 1000)
 
-	tm := StartManager(t, numMatureOutputs, 2, nil, blockEventChan)
+	tm := StartManager(t, numMatureOutputs, 2)
 	defer tm.Stop(t)
 	// start WebSocket connection with Babylon for subscriber services
 	err := tm.BabylonClient.Start()
@@ -246,7 +246,7 @@ func TestSlasher_Bootstrapping(t *testing.T) {
 	numMatureOutputs := uint32(300)
 	blockEventChan := make(chan *types.BlockEvent, 1000)
 
-	tm := StartManager(t, numMatureOutputs, 2, nil, blockEventChan)
+	tm := StartManager(t, numMatureOutputs, 2)
 	defer tm.Stop(t)
 	// start WebSocket connection with Babylon for subscriber services
 	err := tm.BabylonClient.Start()

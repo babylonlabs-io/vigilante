@@ -13,7 +13,6 @@ import (
 	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/btcslasher"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"
-	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/stretchr/testify/require"
@@ -24,10 +23,8 @@ import (
 func TestAtomicSlasher(t *testing.T) {
 	// segwit is activated at height 300. It's needed by staking/slashing tx
 	numMatureOutputs := uint32(300)
-	//submittedTxs := map[chainhash.Hash]struct{}{}
-	blockEventChan := make(chan *types.BlockEvent, 1000)
 
-	tm := StartManager(t, numMatureOutputs, 2, nil, blockEventChan)
+	tm := StartManager(t, numMatureOutputs, 2)
 	defer tm.Stop(t)
 
 	// start WebSocket connection with Babylon for subscriber services
@@ -149,10 +146,8 @@ func TestAtomicSlasher(t *testing.T) {
 func TestAtomicSlasher_Unbonding(t *testing.T) {
 	// segwit is activated at height 300. It's needed by staking/slashing tx
 	numMatureOutputs := uint32(300)
-	//submittedTxs := map[chainhash.Hash]struct{}{}
-	blockEventChan := make(chan *types.BlockEvent, 1000)
 
-	tm := StartManager(t, numMatureOutputs, 2, nil, blockEventChan)
+	tm := StartManager(t, numMatureOutputs, 2)
 	defer tm.Stop(t)
 
 	// start WebSocket connection with Babylon for subscriber services
