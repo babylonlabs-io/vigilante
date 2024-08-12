@@ -12,7 +12,9 @@ jobs:
      run-unit-tests: true
      run-integration-tests: true
      run-lint: true
-     install-dependencies-command: sudo apt-get install libzmq3-dev
+     install-dependencies-command: |
+       sudo apt-get update
+       sudo apt-get install -y libzmq3-dev
 
   docker_pipeline:
     uses: babylonlabs-io/.github/.github/workflows/reusable_docker_pipeline.yml@v0.3.1
