@@ -36,16 +36,6 @@ var (
 	regtestParams         = &chaincfg.RegressionNetParams
 )
 
-// keyToAddr maps the passed private to corresponding p2pkh address.
-func keyToAddr(key *btcec.PrivateKey, net *chaincfg.Params) (btcutil.Address, error) {
-	serializedKey := key.PubKey().SerializeCompressed()
-	pubKeyAddr, err := btcutil.NewAddressPubKey(serializedKey, net)
-	if err != nil {
-		return nil, err
-	}
-	return pubKeyAddr.AddressPubKeyHash(), nil
-}
-
 func defaultVigilanteConfig() *config.Config {
 	defaultConfig := config.DefaultConfig()
 	// Config setting necessary to connect btcd daemon
@@ -118,6 +108,7 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32) *TestManager {
 		DisableAutoReconnect: false,
 		HTTPPostMode:         true,
 	}, nil)
+	require.NoError(t, err)
 
 	btcClient := initBTCClientWithSubscriber(t, cfg)
 
@@ -243,16 +234,4 @@ func (tm *TestManager) CatchUpBTCLightClient(t *testing.T) {
 
 	_, err = tm.InsertBTCHeadersToBabylon(headers)
 	require.NoError(t, err)
-}
-
-func waitForNOutputs(t *testing.T, walletClient *btcclient.Client, n int) {
-	require.Eventually(t, func() bool {
-		outputs, err := walletClient.ListUnspent()
-
-		if err != nil {
-			return false
-		}
-
-		return len(outputs) >= n
-	}, eventuallyWaitTimeOut, eventuallyPollTime)
 }
