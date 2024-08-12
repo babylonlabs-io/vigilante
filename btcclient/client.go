@@ -60,4 +60,10 @@ func (c *Client) Stop() {
 	if c.blockEventChan != nil {
 		close(c.blockEventChan)
 	}
+
+	if c.zmqClient != nil {
+		if err := c.zmqClient.Close(); err != nil {
+			c.logger.Debug(err)
+		}
+	}
 }

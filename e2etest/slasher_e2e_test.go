@@ -62,6 +62,7 @@ func TestSlasher_GracefulShutdown(t *testing.T) {
 	// wait for bootstrapping
 	time.Sleep(10 * time.Second)
 
+	tm.BTCClient.Stop()
 	// gracefully shut down
 	defer bsTracker.Stop()
 }

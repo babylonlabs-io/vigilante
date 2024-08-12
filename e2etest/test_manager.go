@@ -60,7 +60,6 @@ type TestManager struct {
 	BabylonHandler   *BabylonNodeHandler
 	BabylonClient    *bbnclient.Client
 	BTCClient        *btcclient.Client
-	BTCWalletClient  *btcclient.Client // todo probably not needed
 	Config           *config.Config
 	WalletPrivKey    *btcec.PrivateKey
 }
