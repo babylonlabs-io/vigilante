@@ -6,8 +6,6 @@ toolchain go1.21.4
 
 require (
 	github.com/babylonlabs-io/babylon v0.9.1
-	github.com/btcsuite/btcd v0.24.2
-	github.com/btcsuite/btcwallet v0.16.9
 )
 
 require (
