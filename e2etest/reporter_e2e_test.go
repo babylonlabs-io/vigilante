@@ -4,6 +4,7 @@
 package e2etest
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -71,10 +72,21 @@ func TestReporter_BoostrapUnderFrequentBTCHeaders(t *testing.T) {
 	require.NoError(t, err)
 
 	// start a routine that mines BTC blocks very fast
+	var wg sync.WaitGroup
+	stopChan := make(chan struct{})
+
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		ticker := time.NewTicker(10 * time.Second)
-		for range ticker.C {
-			tm.BitcoindHandler.GenerateBlocks(1)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				tm.BitcoindHandler.GenerateBlocks(1)
+			case <-stopChan:
+				return
+			}
 		}
 	}()
 
@@ -89,6 +101,9 @@ func TestReporter_BoostrapUnderFrequentBTCHeaders(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return tm.BabylonBTCChainMatchesBtc(t)
 	}, longEventuallyWaitTimeOut, eventuallyPollTime)
+
+	close(stopChan)
+	wg.Wait()
 }
 
 func TestRelayHeadersAndHandleRollbacks(t *testing.T) {
