@@ -58,6 +58,8 @@ func defaultVigilanteConfig() *config.Config {
 	defaultConfig.BTC.Username = "user"
 	defaultConfig.BTC.Password = "pass"
 	defaultConfig.BTC.DisableClientTLS = true
+	defaultConfig.BTC.ZmqSeqEndpoint = config.DefaultZmqSeqEndpoint
+
 	return defaultConfig
 }
 
@@ -73,51 +75,11 @@ type TestManager struct {
 	WalletPrivKey    *btcec.PrivateKey
 }
 
-func initBTCWalletClient(
-	t *testing.T,
-	cfg *config.Config) *btcclient.Client {
-
-	var client *btcclient.Client
-
-	require.Eventually(t, func() bool {
-		btcWallet, err := btcclient.NewWallet(&cfg.BTC, logger)
-		if err != nil {
-			return false
-		}
-
-		client = btcWallet
-		return true
-
-	}, eventuallyWaitTimeOut, eventuallyPollTime)
-
-	// let's wait until chain rpc becomes available
-	// poll time is increase here to avoid spamming the btcwallet rpc server
-	require.Eventually(t, func() bool {
-		if _, _, err := client.GetBestBlock(); err != nil {
-			return false
-		}
-		return true
-	}, eventuallyWaitTimeOut, 1*time.Second)
-
-	//waitForNOutputs(t, client, outputsToWaitFor)
-
-	return client
-}
-
 func initBTCClientWithSubscriber(t *testing.T, cfg *config.Config) *btcclient.Client {
-	btcCfg := &config.BTCConfig{
-		NetParams:        cfg.BTC.NetParams,
-		Username:         cfg.BTC.Username,
-		Password:         cfg.BTC.Password,
-		Endpoint:         cfg.BTC.Endpoint,
-		DisableClientTLS: cfg.BTC.DisableClientTLS,
-		BtcBackend:       types.Bitcoind,
-		ZmqSeqEndpoint:   config.DefaultZmqSeqEndpoint,
-	}
 	rootLogger, err := cfg.CreateLogger()
 	require.NoError(t, err)
 
-	client, err := btcclient.NewWithBlockSubscriber(btcCfg, cfg.Common.RetrySleepTime, cfg.Common.MaxRetrySleepTime, rootLogger)
+	client, err := btcclient.NewWithBlockSubscriber(&cfg.BTC, cfg.Common.RetrySleepTime, cfg.Common.MaxRetrySleepTime, rootLogger)
 	require.NoError(t, err)
 
 	// let's wait until chain rpc becomes available
@@ -154,15 +116,10 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32) *TestManager {
 		DisableTLS:           true,
 		DisableConnectOnNew:  true,
 		DisableAutoReconnect: false,
-		// we use post mode as it sure it works with either bitcoind or btcwallet
-		// we may need to re-consider it later if we need any notifications
-		HTTPPostMode: true,
+		HTTPPostMode:         true,
 	}, nil)
 
 	btcClient := initBTCClientWithSubscriber(t, cfg)
-
-	// we always want BTC wallet client for sending txs
-	btcWalletClient := initBTCWalletClient(t, cfg)
 
 	var buff bytes.Buffer
 	err = regtestParams.GenesisBlock.Header.Serialize(&buff)
@@ -208,7 +165,6 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32) *TestManager {
 		BabylonClient:   babylonClient,
 		BitcoindHandler: btcHandler,
 		BTCClient:       btcClient,
-		BTCWalletClient: btcWalletClient,
 		Config:          cfg,
 		WalletPrivKey:   walletPrivKey.PrivKey,
 	}

@@ -57,7 +57,7 @@ func TestSubmitterSubmission(t *testing.T) {
 	vigilantSubmitter, _ := submitter.New(
 		&tm.Config.Submitter,
 		logger,
-		tm.BTCWalletClient,
+		tm.BTCClient,
 		mockBabylonClient,
 		subAddr,
 		tm.Config.Common.RetrySleepTime,
@@ -130,7 +130,7 @@ func TestSubmitterSubmissionReplace(t *testing.T) {
 	vigilantSubmitter, _ := submitter.New(
 		&tm.Config.Submitter,
 		logger,
-		tm.BTCWalletClient,
+		tm.BTCClient,
 		mockBabylonClient,
 		subAddr,
 		tm.Config.Common.RetrySleepTime,
