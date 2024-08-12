@@ -54,7 +54,7 @@ func TestReporter_BoostrapUnderFrequentBTCHeaders(t *testing.T) {
 	// no need to much mature outputs, we are not going to submit transactions in this test
 	numMatureOutputs := uint32(150)
 
-	tm := StartManager(t, numMatureOutputs, 2)
+	tm := StartManager(t, numMatureOutputs)
 	defer tm.Stop(t)
 
 	reporterMetrics := metrics.NewReporterMetrics()
@@ -95,7 +95,7 @@ func TestRelayHeadersAndHandleRollbacks(t *testing.T) {
 	// no need to much mature outputs, we are not going to submit transactions in this test
 	numMatureOutputs := uint32(150)
 
-	tm := StartManager(t, numMatureOutputs, 2)
+	tm := StartManager(t, numMatureOutputs)
 	// this is necessary to receive notifications about new transactions entering mempool
 	defer tm.Stop(t)
 
@@ -120,7 +120,6 @@ func TestRelayHeadersAndHandleRollbacks(t *testing.T) {
 	}, longEventuallyWaitTimeOut, eventuallyPollTime)
 
 	// generate 3, we are submitting headers 1 by 1 so we use small amount as this is slow process
-	//tm.GenerateAndSubmitsNBlocksFromTip(t, 3)
 	tm.BitcoindHandler.GenerateBlocks(3)
 
 	require.Eventually(t, func() bool {
@@ -140,7 +139,7 @@ func TestHandleReorgAfterRestart(t *testing.T) {
 	// no need to much mature outputs, we are not going to submit transactions in this test
 	numMatureOutputs := uint32(150)
 
-	tm := StartManager(t, numMatureOutputs, 2)
+	tm := StartManager(t, numMatureOutputs)
 	// this is necessary to receive notifications about new transactions entering mempool
 	defer tm.Stop(t)
 

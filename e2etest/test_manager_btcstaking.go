@@ -93,7 +93,7 @@ func (tm *TestManager) CreateBTCDelegation(
 	require.NoError(t, err)
 	stakingTimeBlocks := uint16(math.MaxUint16)
 	// get top UTXO
-	topUnspentResult, _, err := tm.BTCWalletClient.GetHighUTXOAndSum()
+	topUnspentResult, _, err := tm.BTCClient.GetHighUTXOAndSum()
 	require.NoError(t, err)
 	topUTXO, err := types.NewUTXO(topUnspentResult, regtestParams)
 	require.NoError(t, err)
@@ -121,7 +121,7 @@ func (tm *TestManager) CreateBTCDelegation(
 	)
 	// sign staking tx and overwrite the staking tx to the signed version
 	// NOTE: the tx hash has changed here since stakingMsgTx is pre-segwit
-	stakingMsgTx, signed, err := tm.BTCWalletClient.SignRawTransactionWithWallet(stakingSlashingInfo.StakingTx)
+	stakingMsgTx, signed, err := tm.BTCClient.SignRawTransactionWithWallet(stakingSlashingInfo.StakingTx)
 	require.NoError(t, err)
 	require.True(t, signed)
 	// overwrite staking tx
@@ -140,7 +140,7 @@ func (tm *TestManager) CreateBTCDelegation(
 	require.NoError(t, err)
 
 	// send staking tx to Bitcoin node's mempool
-	_, err = tm.BTCWalletClient.SendRawTransaction(stakingMsgTx, true)
+	_, err = tm.BTCClient.SendRawTransaction(stakingMsgTx, true)
 	require.NoError(t, err)
 
 	// mine a block with this tx, and insert it to Bitcoin / Babylon
@@ -334,7 +334,7 @@ func (tm *TestManager) Undelegate(
 	unbondingSlashingInfo.UnbondingTx.TxIn[0].Witness = witness
 
 	// send unbonding tx to Bitcoin node's mempool
-	unbondingTxHash, err := tm.BTCWalletClient.SendRawTransaction(unbondingSlashingInfo.UnbondingTx, true)
+	unbondingTxHash, err := tm.BTCClient.SendRawTransaction(unbondingSlashingInfo.UnbondingTx, true)
 	require.NoError(t, err)
 	require.Eventually(t, func() bool {
 		_, err := tm.BTCClient.GetRawTransaction(unbondingTxHash)

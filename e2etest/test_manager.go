@@ -75,8 +75,7 @@ type TestManager struct {
 
 func initBTCWalletClient(
 	t *testing.T,
-	cfg *config.Config,
-	outputsToWaitFor int) *btcclient.Client {
+	cfg *config.Config) *btcclient.Client {
 
 	var client *btcclient.Client
 
@@ -100,7 +99,7 @@ func initBTCWalletClient(
 		return true
 	}, eventuallyWaitTimeOut, 1*time.Second)
 
-	waitForNOutputs(t, client, outputsToWaitFor)
+	//waitForNOutputs(t, client, outputsToWaitFor)
 
 	return client
 }
@@ -139,11 +138,7 @@ func initBTCClientWithSubscriber(t *testing.T, cfg *config.Config) *btcclient.Cl
 // NOTE: if handlers.OnFilteredBlockConnected, handlers.OnFilteredBlockDisconnected
 // and blockEventChan are all not nil, then the test manager will create a BTC
 // client with a WebSocket subscriber
-func StartManager(
-	t *testing.T,
-	numMatureOutputsInWallet uint32,
-	numbersOfOutputsToWaitForDuringInit int) *TestManager {
-
+func StartManager(t *testing.T, numMatureOutputsInWallet uint32) *TestManager {
 	btcHandler := NewBitcoindHandler(t)
 	btcHandler.Start()
 	passphrase := "pass"
@@ -151,7 +146,6 @@ func StartManager(
 	blocksResponse := btcHandler.GenerateBlocks(int(numMatureOutputsInWallet))
 
 	cfg := defaultVigilanteConfig()
-	//cfg.BTC.Endpoint = minerNodeRpcConfig.Host
 
 	testRpcClient, err := rpcclient.New(&rpcclient.ConnConfig{
 		Host:                 cfg.BTC.Endpoint,
@@ -168,11 +162,7 @@ func StartManager(
 	btcClient := initBTCClientWithSubscriber(t, cfg)
 
 	// we always want BTC wallet client for sending txs
-	btcWalletClient := initBTCWalletClient(
-		t,
-		cfg,
-		numbersOfOutputsToWaitForDuringInit,
-	)
+	btcWalletClient := initBTCWalletClient(t, cfg)
 
 	var buff bytes.Buffer
 	err = regtestParams.GenesisBlock.Header.Serialize(&buff)
@@ -208,6 +198,7 @@ func StartManager(
 
 	minerAddressDecoded, err := btcutil.DecodeAddress(blocksResponse.Address, regtestParams)
 	require.NoError(t, err)
+
 	walletPrivKey, err := testRpcClient.DumpPrivKey(minerAddressDecoded)
 	require.NoError(t, err)
 

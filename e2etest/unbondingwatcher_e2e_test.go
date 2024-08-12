@@ -22,7 +22,7 @@ func TestUnbondingWatcher(t *testing.T) {
 	// segwit is activated at height 300. It's needed by staking/slashing tx
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, numMatureOutputs, 2)
+	tm := StartManager(t, numMatureOutputs)
 	defer tm.Stop(t)
 	// Insert all existing BTC headers to babylon node
 	tm.CatchUpBTCLightClient(t)
@@ -94,7 +94,7 @@ func TestUnbondingWatcher(t *testing.T) {
 	unbondingSlashingInfo.UnbondingTx.TxIn[0].Witness = witness
 
 	// Send unbonding tx to Bitcoin
-	_, err = tm.BTCWalletClient.SendRawTransaction(unbondingSlashingInfo.UnbondingTx, true)
+	_, err = tm.BTCClient.SendRawTransaction(unbondingSlashingInfo.UnbondingTx, true)
 	require.NoError(t, err)
 
 	// mine a block with this tx, and insert it to Bitcoin

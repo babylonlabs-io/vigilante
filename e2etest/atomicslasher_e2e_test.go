@@ -24,7 +24,7 @@ func TestAtomicSlasher(t *testing.T) {
 	// segwit is activated at height 300. It's needed by staking/slashing tx
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, numMatureOutputs, 2)
+	tm := StartManager(t, numMatureOutputs)
 	defer tm.Stop(t)
 
 	// start WebSocket connection with Babylon for subscriber services
@@ -147,7 +147,7 @@ func TestAtomicSlasher_Unbonding(t *testing.T) {
 	// segwit is activated at height 300. It's needed by staking/slashing tx
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, numMatureOutputs, 2)
+	tm := StartManager(t, numMatureOutputs)
 	defer tm.Stop(t)
 
 	// start WebSocket connection with Babylon for subscriber services
