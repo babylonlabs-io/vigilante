@@ -104,7 +104,7 @@ func (tm *TestManager) CreateBTCDelegation(
 	stakingSlashingInfo := datagen.GenBTCStakingSlashingInfoWithOutPoint(
 		r,
 		t,
-		netParams,
+		regtestParams,
 		topUTXO.GetOutPoint(),
 		tm.WalletPrivKey,
 		[]*btcec.PublicKey{fpPK},
@@ -188,7 +188,7 @@ func (tm *TestManager) CreateBTCDelegation(
 	unbondingSlashingInfo := datagen.GenBTCUnbondingSlashingInfo(
 		r,
 		t,
-		netParams,
+		regtestParams,
 		tm.WalletPrivKey,
 		[]*btcec.PublicKey{fpPK},
 		covenantBtcPks,

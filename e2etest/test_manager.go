@@ -26,7 +26,6 @@ import (
 
 // bticoin params used for testing
 var (
-	netParams        = &chaincfg.SimNetParams
 	submitterAddrStr = "bbn1eppc73j56382wjn6nnq3quu5eye4pmm087xfdh" //nolint:unused
 	babylonTag       = []byte{1, 2, 3, 4}                           //nolint:unused
 	babylonTagHex    = hex.EncodeToString(babylonTag)               //nolint:unused
@@ -39,7 +38,7 @@ var (
 func defaultVigilanteConfig() *config.Config {
 	defaultConfig := config.DefaultConfig()
 	// Config setting necessary to connect btcd daemon
-	defaultConfig.BTC.NetParams = "regtest"
+	defaultConfig.BTC.NetParams = regtestParams.Name
 	defaultConfig.BTC.Endpoint = "127.0.0.1:18443"
 	// Config setting necessary to connect btcwallet daemon
 	defaultConfig.BTC.BtcBackend = types.Bitcoind
@@ -113,8 +112,11 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32) *TestManager {
 	require.NoError(t, err)
 	baseHeaderHex := hex.EncodeToString(buff.Bytes())
 
+	minerAddressDecoded, err := btcutil.DecodeAddress(blocksResponse.Address, regtestParams)
+	require.NoError(t, err)
+
 	// start Babylon node
-	bh, err := NewBabylonNodeHandler(baseHeaderHex)
+	bh, err := NewBabylonNodeHandler(baseHeaderHex, minerAddressDecoded.EncodeAddress())
 	require.NoError(t, err)
 	err = bh.Start()
 	require.NoError(t, err)
@@ -138,9 +140,6 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32) *TestManager {
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
 	err = testRpcClient.WalletPassphrase(passphrase, 600)
-	require.NoError(t, err)
-
-	minerAddressDecoded, err := btcutil.DecodeAddress(blocksResponse.Address, regtestParams)
 	require.NoError(t, err)
 
 	walletPrivKey, err := testRpcClient.DumpPrivKey(minerAddressDecoded)

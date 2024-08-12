@@ -87,7 +87,7 @@ func TestAtomicSlasher(t *testing.T) {
 		finality provider builds slashing tx witness and sends slashing tx to Bitcoin
 	*/
 	victimBTCDel := btcDels[0]
-	victimSlashingTx, err := btcslasher.BuildSlashingTxWithWitness(victimBTCDel, &bsParams, netParams, fpSK)
+	victimSlashingTx, err := btcslasher.BuildSlashingTxWithWitness(victimBTCDel, &bsParams, regtestParams, fpSK)
 	// send slashing tx to Bitcoin
 	require.NoError(t, err)
 	slashingTxHash, err := tm.BTCClient.SendRawTransaction(victimSlashingTx, true)
@@ -230,7 +230,7 @@ func TestAtomicSlasher_Unbonding(t *testing.T) {
 	/*
 		finality provider builds unbonding slashing tx witness and sends it to Bitcoin
 	*/
-	victimUnbondingSlashingTx, err := btcslasher.BuildUnbondingSlashingTxWithWitness(victimBTCDel, &bsParams, netParams, fpSK)
+	victimUnbondingSlashingTx, err := btcslasher.BuildUnbondingSlashingTxWithWitness(victimBTCDel, &bsParams, regtestParams, fpSK)
 	require.NoError(t, err)
 
 	// send slashing tx to Bitcoin
