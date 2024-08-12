@@ -54,14 +54,13 @@ func defaultVigilanteConfig() *config.Config {
 }
 
 type TestManager struct {
-	TestRpcClient    *rpcclient.Client
-	BitcoindHandler  *BitcoindTestHandler
-	BtcWalletHandler *WalletHandler
-	BabylonHandler   *BabylonNodeHandler
-	BabylonClient    *bbnclient.Client
-	BTCClient        *btcclient.Client
-	Config           *config.Config
-	WalletPrivKey    *btcec.PrivateKey
+	TestRpcClient   *rpcclient.Client
+	BitcoindHandler *BitcoindTestHandler
+	BabylonHandler  *BabylonNodeHandler
+	BabylonClient   *bbnclient.Client
+	BTCClient       *btcclient.Client
+	Config          *config.Config
+	WalletPrivKey   *btcec.PrivateKey
 }
 
 func initBTCClientWithSubscriber(t *testing.T, cfg *config.Config) *btcclient.Client {
@@ -86,9 +85,7 @@ func initBTCClientWithSubscriber(t *testing.T, cfg *config.Config) *btcclient.Cl
 }
 
 // StartManager creates a test manager
-// NOTE: if handlers.OnFilteredBlockConnected, handlers.OnFilteredBlockDisconnected
-// and blockEventChan are all not nil, then the test manager will create a BTC
-// client with a WebSocket subscriber
+// NOTE: uses btc client with zmq
 func StartManager(t *testing.T, numMatureOutputsInWallet uint32) *TestManager {
 	btcHandler := NewBitcoindHandler(t)
 	btcHandler.Start()

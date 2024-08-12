@@ -107,9 +107,6 @@ func TestUnbondingWatcher(t *testing.T) {
 	minedBlock := tm.mineBlock(t)
 	require.Equal(t, 2, len(minedBlock.Transactions))
 
-	//mBlock := tm.MineBlockWithTxs(t, tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{&unbondingTxHash}))
-	//require.Equal(t, 2, len(mBlock.Transactions))
-
 	require.Eventually(t, func() bool {
 		resp, err := tm.BabylonClient.BTCDelegation(stakingSlashingInfo.StakingTx.TxHash().String())
 		require.NoError(t, err)

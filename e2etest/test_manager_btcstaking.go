@@ -140,10 +140,6 @@ func (tm *TestManager) CreateBTCDelegation(
 	_, err = tm.BTCClient.SendRawTransaction(stakingMsgTx, true)
 	require.NoError(t, err)
 
-	// mine a block with this tx, and insert it to Bitcoin / Babylon
-	//mBlock := tm.MineBlockWithTxs(t, tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{stakingMsgTxHash}))
-	//require.Equal(t, 2, len(mBlock.Transactions))
-
 	require.Eventually(t, func() bool {
 		return len(tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{stakingMsgTxHash})) == 1
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
