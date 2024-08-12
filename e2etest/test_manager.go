@@ -180,20 +180,6 @@ func (tm *TestManager) Stop(t *testing.T) {
 	}
 }
 
-// MineBlockWithTxs mines a single block to include the specifies
-// transactions only. // todo Lazar, bitcoind doens't have this, check if we need txs
-func (tm *TestManager) MineBlockWithTxs(t *testing.T, txs []*btcutil.Tx) *wire.MsgBlock {
-	resp := tm.BitcoindHandler.GenerateBlocks(1)
-
-	hash, err := chainhash.NewHashFromStr(resp.Blocks[0])
-	require.NoError(t, err)
-
-	header, err := tm.TestRpcClient.GetBlock(hash)
-	require.NoError(t, err)
-
-	return header
-}
-
 // mineBlock mines a single block
 func (tm *TestManager) mineBlock(t *testing.T) *wire.MsgBlock {
 	resp := tm.BitcoindHandler.GenerateBlocks(1)

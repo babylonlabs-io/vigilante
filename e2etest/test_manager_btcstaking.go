@@ -99,9 +99,6 @@ func (tm *TestManager) CreateBTCDelegation(
 	require.NoError(t, err)
 	// staking value
 	stakingValue := int64(topUTXO.Amount) / 3
-	// dump SK
-	//wif, err := tm.BTCWalletClient.DumpPrivKey(topUTXO.Addr)
-	//require.NoError(t, err)
 
 	// generate legitimate BTC del
 	stakingSlashingInfo := datagen.GenBTCStakingSlashingInfoWithOutPoint(
@@ -144,8 +141,16 @@ func (tm *TestManager) CreateBTCDelegation(
 	require.NoError(t, err)
 
 	// mine a block with this tx, and insert it to Bitcoin / Babylon
-	mBlock := tm.MineBlockWithTxs(t, tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{stakingMsgTxHash}))
+	//mBlock := tm.MineBlockWithTxs(t, tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{stakingMsgTxHash}))
+	//require.Equal(t, 2, len(mBlock.Transactions))
+
+	require.Eventually(t, func() bool {
+		return len(tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{stakingMsgTxHash})) == 1
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	mBlock := tm.mineBlock(t)
 	require.Equal(t, 2, len(mBlock.Transactions))
+
 	// wait until staking tx is on Bitcoin
 	require.Eventually(t, func() bool {
 		_, err := tm.BTCClient.GetRawTransaction(stakingMsgTxHash)
@@ -159,7 +164,8 @@ func (tm *TestManager) CreateBTCDelegation(
 	require.NoError(t, err)
 	btccParams := btccParamsResp.Params
 	for i := 0; i < int(btccParams.BtcConfirmationDepth); i++ {
-		tm.MineBlockWithTxs(t, tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{}))
+		//tm.MineBlockWithTxs(t, tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{}))
+		tm.mineBlock(t)
 	}
 
 	stakingOutIdx, err := outIdx(stakingSlashingInfo.StakingTx, stakingSlashingInfo.StakingInfo.StakingOutput)
@@ -341,9 +347,15 @@ func (tm *TestManager) Undelegate(
 		return err == nil
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 	t.Logf("submitted unbonding tx with hash %s", unbondingTxHash.String())
+
 	// mine a block with this tx, and insert it to Bitcoin
-	mBlock := tm.MineBlockWithTxs(t, tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{unbondingTxHash}))
+	require.Eventually(t, func() bool {
+		return len(tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{unbondingTxHash})) == 1
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	mBlock := tm.mineBlock(t)
 	require.Equal(t, 2, len(mBlock.Transactions))
+
 	// wait until unbonding tx is on Bitcoin
 	require.Eventually(t, func() bool {
 		resp, err := tm.BTCClient.GetRawTransactionVerbose(unbondingTxHash)
