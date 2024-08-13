@@ -48,7 +48,7 @@ func DefaultBitcoindConfig() Bitcoind {
 		RPCHost:              config.DefaultRpcBtcNodeHost,
 		RPCUser:              config.DefaultBtcNodeRpcUser,
 		RPCPass:              config.DefaultBtcNodeRpcPass,
-		RPCPolling:           false,
+		RPCPolling:           true,
 		BlockPollingInterval: 30 * time.Second,
 		TxPollingInterval:    30 * time.Second,
 		EstimateMode:         config.DefaultBtcNodeEstimateMode,
@@ -81,7 +81,6 @@ func CfgToBtcNodeBackendConfig(cfg config.BTCConfig, rawCert string) *BtcNodeBac
 			ActiveNodeBackend: types.Bitcoind,
 			Bitcoind:          &defaultBitcoindCfg,
 		}
-
 	case types.Btcd:
 		return &BtcNodeBackendConfig{
 			ActiveNodeBackend: types.Btcd,

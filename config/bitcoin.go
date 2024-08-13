@@ -102,7 +102,7 @@ const (
 	DefaultBtcNodeRpcPass      = "rpcpass"
 	DefaultBtcNodeEstimateMode = "CONSERVATIVE"
 	DefaultBtcblockCacheSize   = 20 * 1024 * 1024 // 20 MB
-	DefaultZmqSeqEndpoint      = "tcp://127.0.0.1:29000"
+	DefaultZmqSeqEndpoint      = "tcp://127.0.0.1:28333"
 	DefaultZmqBlockEndpoint    = "tcp://127.0.0.1:29001"
 	DefaultZmqTxEndpoint       = "tcp://127.0.0.1:29002"
 )
