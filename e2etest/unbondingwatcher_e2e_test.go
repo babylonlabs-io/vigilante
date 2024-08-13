@@ -4,6 +4,7 @@
 package e2etest
 
 import (
+	"go.uber.org/zap"
 	"testing"
 	"time"
 
@@ -60,10 +61,8 @@ func TestUnbondingWatcher(t *testing.T) {
 
 	// set up a finality provider
 	_, fpSK := tm.CreateFinalityProvider(t)
-	rootLogger.Info("created finality provider")
 	// set up a BTC delegation
 	stakingSlashingInfo, unbondingSlashingInfo, delSK := tm.CreateBTCDelegation(t, fpSK)
-	rootLogger.Info("created BTC delegation")
 
 	// Staker unbonds by directly sending tx to btc network. Watcher should detect it and report to babylon.
 	unbondingPathSpendInfo, err := stakingSlashingInfo.StakingInfo.UnbondingPathSpendInfo()
