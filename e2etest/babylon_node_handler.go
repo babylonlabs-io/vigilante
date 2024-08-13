@@ -22,7 +22,7 @@ var (
 func baseDirBabylondir() (string, error) {
 	tempPath := os.TempDir()
 
-	tempName, err := os.MkdirTemp(tempPath, "zBabylonTestVigilante")
+	tempName, err := os.MkdirTemp(tempPath, "BabylonTestVigilante")
 	if err != nil {
 		return "", err
 	}

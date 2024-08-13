@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"go.uber.org/zap"
 	"testing"
 	"time"
 
@@ -24,7 +25,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// bticoin params used for testing
 var (
 	submitterAddrStr = "bbn1eppc73j56382wjn6nnq3quu5eye4pmm087xfdh" //nolint:unused
 	babylonTag       = []byte{1, 2, 3, 4}                           //nolint:unused
@@ -63,10 +63,7 @@ type TestManager struct {
 }
 
 func initBTCClientWithSubscriber(t *testing.T, cfg *config.Config) *btcclient.Client {
-	rootLogger, err := cfg.CreateLogger()
-	require.NoError(t, err)
-
-	client, err := btcclient.NewWithBlockSubscriber(&cfg.BTC, cfg.Common.RetrySleepTime, cfg.Common.MaxRetrySleepTime, rootLogger)
+	client, err := btcclient.NewWithBlockSubscriber(&cfg.BTC, cfg.Common.RetrySleepTime, cfg.Common.MaxRetrySleepTime, zap.NewNop())
 	require.NoError(t, err)
 
 	// let's wait until chain rpc becomes available

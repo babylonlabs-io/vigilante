@@ -4,6 +4,7 @@
 package e2etest
 
 import (
+	"go.uber.org/zap"
 	"testing"
 	"time"
 
@@ -42,8 +43,6 @@ func TestSlasher_GracefulShutdown(t *testing.T) {
 	commonCfg := config.DefaultCommonConfig()
 	bstCfg := config.DefaultBTCStakingTrackerConfig()
 	bstCfg.CheckDelegationsInterval = 1 * time.Second
-	rootLogger, err := config.NewRootLogger("auto", "debug")
-	require.NoError(t, err)
 
 	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
 
@@ -53,7 +52,7 @@ func TestSlasher_GracefulShutdown(t *testing.T) {
 		tm.BabylonClient,
 		&bstCfg,
 		&commonCfg,
-		rootLogger,
+		zap.NewNop(),
 		stakingTrackerMetrics,
 	)
 
@@ -96,9 +95,6 @@ func TestSlasher_Slasher(t *testing.T) {
 	commonCfg := config.DefaultCommonConfig()
 	bstCfg := config.DefaultBTCStakingTrackerConfig()
 	bstCfg.CheckDelegationsInterval = 1 * time.Second
-	rootLogger, err := config.NewRootLogger("auto", "debug")
-	require.NoError(t, err)
-
 	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
 
 	bsTracker := bst.NewBTCSTakingTracker(
@@ -107,7 +103,7 @@ func TestSlasher_Slasher(t *testing.T) {
 		tm.BabylonClient,
 		&bstCfg,
 		&commonCfg,
-		rootLogger,
+		zap.NewNop(),
 		stakingTrackerMetrics,
 	)
 	go bsTracker.Start()
@@ -169,9 +165,6 @@ func TestSlasher_SlashingUnbonding(t *testing.T) {
 	commonCfg := config.DefaultCommonConfig()
 	bstCfg := config.DefaultBTCStakingTrackerConfig()
 	bstCfg.CheckDelegationsInterval = 1 * time.Second
-	rootLogger, err := config.NewRootLogger("auto", "debug")
-	require.NoError(t, err)
-
 	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
 
 	bsTracker := bst.NewBTCSTakingTracker(
@@ -180,7 +173,7 @@ func TestSlasher_SlashingUnbonding(t *testing.T) {
 		tm.BabylonClient,
 		&bstCfg,
 		&commonCfg,
-		rootLogger,
+		zap.NewNop(),
 		stakingTrackerMetrics,
 	)
 	go bsTracker.Start()
@@ -267,9 +260,6 @@ func TestSlasher_Bootstrapping(t *testing.T) {
 	commonCfg := config.DefaultCommonConfig()
 	bstCfg := config.DefaultBTCStakingTrackerConfig()
 	bstCfg.CheckDelegationsInterval = 1 * time.Second
-	rootLogger, err := config.NewRootLogger("auto", "debug")
-	require.NoError(t, err)
-
 	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
 
 	bsTracker := bst.NewBTCSTakingTracker(
@@ -278,7 +268,7 @@ func TestSlasher_Bootstrapping(t *testing.T) {
 		tm.BabylonClient,
 		&bstCfg,
 		&commonCfg,
-		rootLogger,
+		zap.NewNop(),
 		stakingTrackerMetrics,
 	)
 

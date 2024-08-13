@@ -44,9 +44,6 @@ func TestUnbondingWatcher(t *testing.T) {
 	commonCfg := config.DefaultCommonConfig()
 	bstCfg := config.DefaultBTCStakingTrackerConfig()
 	bstCfg.CheckDelegationsInterval = 1 * time.Second
-	rootLogger, err := config.NewRootLogger("auto", "debug")
-	require.NoError(t, err)
-
 	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
 
 	bsTracker := bst.NewBTCSTakingTracker(
@@ -55,7 +52,7 @@ func TestUnbondingWatcher(t *testing.T) {
 		tm.BabylonClient,
 		&bstCfg,
 		&commonCfg,
-		rootLogger,
+		zap.NewNop(),
 		stakingTrackerMetrics,
 	)
 	bsTracker.Start()
