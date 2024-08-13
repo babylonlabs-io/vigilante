@@ -15,7 +15,10 @@ jobs:
      run-unit-tests: true
      run-integration-tests: true
      run-lint: true
-     install-dependencies-command: sudo apt-get install libzmq3-dev
+     install-dependencies-command: |
+       sudo apt-get update
+       sudo apt-get install -y libzmq3-dev
+
 
   docker_pipeline:
     needs: ["lint_test"]
