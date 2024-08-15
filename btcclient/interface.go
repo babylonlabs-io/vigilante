@@ -39,7 +39,6 @@ type BTCWallet interface {
 	WalletPassphrase(passphrase string, timeoutSecs int64) error
 	DumpPrivKey(address btcutil.Address) (*btcutil.WIF, error)
 	GetHighUTXOAndSum() (*btcjson.ListUnspentResult, float64, error)
-	SignRawTransactionWithWallet2(tx *wire.MsgTx, inputs []btcjson.RawTxWitnessInput) (*wire.MsgTx, bool, error)
 	FundRawTransaction(tx *wire.MsgTx, opts btcjson.FundRawTransactionOpts, isWitness *bool) (*btcjson.FundRawTransactionResult, error)
 	SignRawTransactionWithWallet(tx *wire.MsgTx) (*wire.MsgTx, bool, error)
 }
