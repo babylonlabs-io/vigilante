@@ -4,6 +4,7 @@
 package e2etest
 
 import (
+	"github.com/babylonlabs-io/vigilante/submitter/relayer"
 	"math/rand"
 	"testing"
 	"time"
@@ -174,7 +175,13 @@ func TestSubmitterSubmissionReplace(t *testing.T) {
 	// 2. outputs with different values
 	// 3. different signatures
 	require.Equal(t, sendTransactions[1].MsgTx().TxIn[0].PreviousOutPoint, resendTx2.MsgTx().TxIn[0].PreviousOutPoint)
-	require.Less(t, resendTx2.MsgTx().TxOut[1].Value, sendTransactions[1].MsgTx().TxOut[1].Value)
+
+	const addrSize = 22
+	resendTxOutIdx, f := relayer.IndexOfTxOut(resendTx2.MsgTx().TxOut, addrSize)
+	require.True(t, f)
+	ogTxOutIdx, f := relayer.IndexOfTxOut(sendTransactions[1].MsgTx().TxOut, addrSize)
+	require.True(t, f)
+	require.Less(t, resendTx2.MsgTx().TxOut[resendTxOutIdx].Value, sendTransactions[1].MsgTx().TxOut[ogTxOutIdx].Value)
 	require.NotEqual(t, sendTransactions[1].MsgTx().TxIn[0].Witness[0], resendTx2.MsgTx().TxIn[0].Witness[0])
 
 	// mine a block with those replacement transactions just to be sure they execute correctly

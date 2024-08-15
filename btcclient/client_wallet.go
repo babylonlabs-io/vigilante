@@ -137,3 +137,15 @@ func (c *Client) GetHighUTXOAndSum() (*btcjson.ListUnspentResult, float64, error
 func CalculateTxFee(feeRateAmount btcutil.Amount, size uint64) (uint64, error) {
 	return uint64(feeRateAmount.MulF64(float64(size) / 1024)), nil
 }
+
+func (c *Client) SignRawTransactionWithWallet2(tx *wire.MsgTx, inputs []btcjson.RawTxWitnessInput) (*wire.MsgTx, bool, error) {
+	return c.Client.SignRawTransactionWithWallet2(tx, inputs)
+}
+
+func (c *Client) FundRawTransaction(tx *wire.MsgTx, opts btcjson.FundRawTransactionOpts, isWitness *bool) (*btcjson.FundRawTransactionResult, error) {
+	return c.Client.FundRawTransaction(tx, opts, isWitness)
+}
+
+func (c *Client) SignRawTransactionWithWallet(tx *wire.MsgTx) (*wire.MsgTx, bool, error) {
+	return c.Client.SignRawTransactionWithWallet(tx)
+}

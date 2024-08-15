@@ -11,11 +11,12 @@ import (
 )
 
 type UTXO struct {
-	TxID     *chainhash.Hash
-	Vout     uint32
-	ScriptPK []byte
-	Amount   btcutil.Amount
-	Addr     btcutil.Address
+	TxID         *chainhash.Hash
+	Vout         uint32
+	ScriptPK     []byte
+	Amount       btcutil.Amount
+	Addr         btcutil.Address
+	RedeemScript string
 }
 
 func NewUTXO(r *btcjson.ListUnspentResult, net *chaincfg.Params) (*UTXO, error) {
@@ -37,11 +38,12 @@ func NewUTXO(r *btcjson.ListUnspentResult, net *chaincfg.Params) (*UTXO, error) 
 	}
 
 	utxo := &UTXO{
-		TxID:     txID,
-		Vout:     r.Vout,
-		ScriptPK: prevPKScript,
-		Amount:   amount,
-		Addr:     prevAddr,
+		TxID:         txID,
+		Vout:         r.Vout,
+		ScriptPK:     prevPKScript,
+		Amount:       amount,
+		Addr:         prevAddr,
+		RedeemScript: r.RedeemScript,
 	}
 	return utxo, nil
 }
