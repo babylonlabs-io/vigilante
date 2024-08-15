@@ -9,17 +9,6 @@ import (
 	"github.com/btcsuite/btcd/wire"
 )
 
-func isSegWit(addr btcutil.Address) (bool, error) {
-	switch addr.(type) {
-	case *btcutil.AddressPubKeyHash, *btcutil.AddressScriptHash, *btcutil.AddressPubKey:
-		return false, nil
-	case *btcutil.AddressWitnessPubKeyHash, *btcutil.AddressWitnessScriptHash:
-		return true, nil
-	default:
-		return false, errors.New("non-supported address type")
-	}
-}
-
 func calculateTxVirtualSize(tx *wire.MsgTx) (int64, error) {
 	var txBytes bytes.Buffer
 	if err := tx.Serialize(&txBytes); err != nil {

@@ -428,9 +428,14 @@ func (rl *Relayer) buildTxWithData(
 
 	// TODO: Lazar check this with Konrad, do we need to set the change address from the
 	idxTxOut, err := IndexOfTxOut(rawTxResult.Transaction.TxOut, addrSize)
+	if err != nil {
+		return nil, err
+	}
+
 	_, addresses, _, err := txscript.ExtractPkScriptAddrs(
 		rawTxResult.Transaction.TxOut[idxTxOut].PkScript,
-		rl.GetNetParams())
+		rl.GetNetParams(),
+	)
 
 	if err != nil {
 		return nil, err

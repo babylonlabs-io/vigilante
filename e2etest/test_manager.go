@@ -257,6 +257,10 @@ func importPrivateKey(btcHandler *BitcoindTestHandler) (*btcec.PrivateKey, error
 		},
 	})
 
+	if err != nil {
+		return nil, err
+	}
+
 	btcHandler.ImportDescriptors(string(descJSON))
 
 	return privKey, nil
