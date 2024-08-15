@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	addrSize = 22
+	addrSize = 34
 )
 
 type Relayer struct {
@@ -327,7 +327,7 @@ func (rl *Relayer) ChainTwoTxAndSend(
 	}
 
 	var txOut *wire.TxOut
-	if len(tx1.Tx.TxOut[0].PkScript) == 22 {
+	if len(tx1.Tx.TxOut[0].PkScript) == addrSize {
 		txOut = tx1.Tx.TxOut[0]
 	} else {
 		txOut = tx1.Tx.TxOut[1]
@@ -417,10 +417,9 @@ func (rl *Relayer) buildTxWithData(
 	//	return nil, err
 	//}
 
-	//segwit := false
-	fr := float64(rl.getFeeRate()) / 100000000.0 // todo decide what to use
+	feeRate := btcutil.Amount(rl.getFeeRate()).ToBTC() // todo decide what to use estimate of feeRate
 	rawTxResult, err := rl.BTCWallet.FundRawTransaction(tx, btcjson.FundRawTransactionOpts{
-		FeeRate: &fr,
+		FeeRate: &feeRate,
 		//EstimateMode: &btcjson.EstimateModeConservative,
 	}, nil)
 	if err != nil {

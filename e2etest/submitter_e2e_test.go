@@ -176,7 +176,7 @@ func TestSubmitterSubmissionReplace(t *testing.T) {
 	// 3. different signatures
 	require.Equal(t, sendTransactions[1].MsgTx().TxIn[0].PreviousOutPoint, resendTx2.MsgTx().TxIn[0].PreviousOutPoint)
 
-	const addrSize = 22
+	const addrSize = 34
 	resendTxOutIdx, err := relayer.IndexOfTxOut(resendTx2.MsgTx().TxOut, addrSize)
 	require.NoError(t, err)
 	ogTxOutIdx, err := relayer.IndexOfTxOut(sendTransactions[1].MsgTx().TxOut, addrSize)

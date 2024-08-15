@@ -93,7 +93,7 @@ func (h *BitcoindTestHandler) CreateWallet(walletName string, passphrase string)
 	// last false on the list will create legacy wallet. This is needed, as currently
 	// we are signing all taproot transactions by dumping the private key and signing it
 	// on app level. Descriptor wallets do not allow dumping private keys.
-	buff, _, err := h.m.ExecBitcoindCliCmd(h.t, []string{"createwallet", walletName, "false", "false", passphrase, "false", "false"})
+	buff, _, err := h.m.ExecBitcoindCliCmd(h.t, []string{"createwallet", walletName, "false", "false", passphrase, "false", "true"})
 	require.NoError(h.t, err)
 
 	var response CreateWalletResponse
@@ -106,5 +106,11 @@ func (h *BitcoindTestHandler) CreateWallet(walletName string, passphrase string)
 // InvalidateBlock invalidates blocks starting from specified block hash
 func (h *BitcoindTestHandler) InvalidateBlock(blockHash string) {
 	_, _, err := h.m.ExecBitcoindCliCmd(h.t, []string{"invalidateblock", blockHash})
+	require.NoError(h.t, err)
+}
+
+// ImportDescriptors - todo
+func (h *BitcoindTestHandler) ImportDescriptors(descriptor string) {
+	_, _, err := h.m.ExecBitcoindCliCmd(h.t, []string{"importdescriptors", descriptor})
 	require.NoError(h.t, err)
 }
