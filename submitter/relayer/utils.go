@@ -4,11 +4,8 @@ import (
 	"bytes"
 	"errors"
 
-	"github.com/babylonlabs-io/vigilante/types"
-	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/mempool"
-	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 )
 
@@ -37,52 +34,18 @@ func calculateTxVirtualSize(tx *wire.MsgTx) (int64, error) {
 	return mempool.GetTxVirtualSize(btcTx), nil
 }
 
-func completeTxIn(tx *wire.MsgTx, isSegWit bool, privKey *btcec.PrivateKey, utxo *types.UTXO) (*wire.MsgTx, error) {
-	if !isSegWit {
-		sig, err := txscript.SignatureScript(
-			tx,
-			0,
-			utxo.ScriptPK,
-			txscript.SigHashAll,
-			privKey,
-			true,
-		)
-		if err != nil {
-			return nil, err
-		}
-		tx.TxIn[0].SignatureScript = sig
-	} else {
-		sighashes := txscript.NewTxSigHashes(
-			tx,
-			// Use the CannedPrevOutputFetcher which is only able to return information about a single UTXO
-			// See https://github.com/btcsuite/btcd/commit/e781b66e2fb9a354a14bfa7fbdd44038450cc13f
-			// for details on the output fetchers
-			txscript.NewCannedPrevOutputFetcher(utxo.ScriptPK, int64(utxo.Amount)))
-		wit, err := txscript.WitnessSignature(
-			tx,
-			sighashes,
-			0,
-			int64(utxo.Amount),
-			utxo.ScriptPK,
-			txscript.SigHashAll,
-			privKey,
-			true,
-		)
-		if err != nil {
-			return nil, err
-		}
-		tx.TxIn[0].Witness = wit
+// IndexOfTxOut searches for the first TxOut with a PkScript of the given length.
+// It returns the index of the first match and true if found, otherwise 0 and false.
+func IndexOfTxOut(outs []*wire.TxOut, searchLen int) (uint, error) {
+	if outs == nil {
+		return 0, errors.New("nil outs param")
 	}
 
-	return tx, nil
-}
-
-func IndexOfTxOut(outs []*wire.TxOut, searchLen int) (uint, bool) {
 	for index, out := range outs {
 		if len(out.PkScript) == searchLen {
-			return uint(index), true
+			return uint(index), nil
 		}
 	}
 
-	return 0, false
+	return 0, errors.New("no TxOut with PkScript of search len found")
 }
