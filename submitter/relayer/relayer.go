@@ -326,18 +326,16 @@ func (rl *Relayer) ChainTwoTxAndSend(
 		return nil, nil, fmt.Errorf("failed to send tx1 to BTC: %w", err)
 	}
 
-	var txOut *wire.TxOut
-	if len(tx1.Tx.TxOut[0].PkScript) == addrSize {
-		txOut = tx1.Tx.TxOut[0]
-	} else {
-		txOut = tx1.Tx.TxOut[1]
+	changeIdx, err := IndexOfTxOut(tx1.Tx.TxOut, addrSize)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	changeUtxo := &types.UTXO{
 		TxID:     tx1.TxId,
 		Vout:     1,
-		ScriptPK: txOut.PkScript,
-		Amount:   btcutil.Amount(txOut.Value),
+		ScriptPK: tx1.Tx.TxOut[changeIdx].PkScript,
+		Amount:   btcutil.Amount(tx1.Tx.TxOut[changeIdx].Value),
 		Addr:     tx1.ChangeAddress,
 	}
 
@@ -391,14 +389,7 @@ func (rl *Relayer) buildTxWithData(
 	rl.logger.Debugf("Building a BTC tx using %v with data %x", utxo.TxID.String(), data)
 	tx := wire.NewMsgTx(wire.TxVersion)
 
-	//outPoint := wire.NewOutPoint(utxo.TxID, utxo.Vout)
-	//txIn := wire.NewTxIn(outPoint, nil, nil)
-	// Enable replace-by-fee
-	// See https://river.com/learn/terms/r/replace-by-fee-rbf
-	//txIn.Sequence = math.MaxUint32 - 2
-	//tx.AddTxIn(txIn)
-
-	// build txout for data
+	// build txOut for data
 	builder := txscript.NewScriptBuilder()
 	dataScript, err := builder.AddOp(txscript.OP_RETURN).AddData(data).Script()
 	if err != nil {
@@ -406,7 +397,7 @@ func (rl *Relayer) buildTxWithData(
 	}
 	tx.AddTxOut(wire.NewTxOut(0, dataScript))
 
-	// build txout for change
+	// build txOut for change
 	changeAddr, err := rl.GetChangeAddress()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get change address: %w", err)
