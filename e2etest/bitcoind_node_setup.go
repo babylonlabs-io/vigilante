@@ -67,6 +67,7 @@ func (h *BitcoindTestHandler) Start() {
 	}, startTimeout, 500*time.Millisecond, "bitcoind did not start")
 }
 
+// GetBlockCount retrieves the current number of blocks in the blockchain from the Bitcoind.
 func (h *BitcoindTestHandler) GetBlockCount() (int, error) {
 	buff, _, err := h.m.ExecBitcoindCliCmd(h.t, []string{"getblockcount"})
 	if err != nil {
@@ -78,6 +79,7 @@ func (h *BitcoindTestHandler) GetBlockCount() (int, error) {
 	return strconv.Atoi(parsedBuffStr)
 }
 
+// GenerateBlocks mines a specified number of blocks in the Bitcoind.
 func (h *BitcoindTestHandler) GenerateBlocks(count int) *GenerateBlockResponse {
 	buff, _, err := h.m.ExecBitcoindCliCmd(h.t, []string{"-generate", fmt.Sprintf("%d", count)})
 	require.NoError(h.t, err)
@@ -89,10 +91,9 @@ func (h *BitcoindTestHandler) GenerateBlocks(count int) *GenerateBlockResponse {
 	return &response
 }
 
+// CreateWallet creates a new wallet with the specified name and passphrase in the Bitcoind
 func (h *BitcoindTestHandler) CreateWallet(walletName string, passphrase string) *CreateWalletResponse {
-	// last false on the list will create legacy wallet. This is needed, as currently
-	// we are signing all taproot transactions by dumping the private key and signing it
-	// on app level. Descriptor wallets do not allow dumping private keys.
+	// last arg is true which indicates we are using descriptor wallets they do not allow dumping private keys.
 	buff, _, err := h.m.ExecBitcoindCliCmd(h.t, []string{"createwallet", walletName, "false", "false", passphrase, "false", "true"})
 	require.NoError(h.t, err)
 
@@ -109,7 +110,7 @@ func (h *BitcoindTestHandler) InvalidateBlock(blockHash string) {
 	require.NoError(h.t, err)
 }
 
-// ImportDescriptors - todo
+// ImportDescriptors imports a given Bitcoin address descriptor into the Bitcoind
 func (h *BitcoindTestHandler) ImportDescriptors(descriptor string) {
 	_, _, err := h.m.ExecBitcoindCliCmd(h.t, []string{"importdescriptors", descriptor})
 	require.NoError(h.t, err)
