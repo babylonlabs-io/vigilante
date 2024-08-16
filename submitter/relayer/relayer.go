@@ -175,12 +175,7 @@ func (rl *Relayer) resendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bumpedF
 		bumpedFee = balance
 	}
 
-	idx, err := IndexOfChangeAddr(tx2.Tx.TxOut)
-	if err != nil {
-		return nil, err
-	}
-
-	tx2.Tx.TxOut[idx].Value = int64(balance - bumpedFee)
+	tx2.Tx.TxOut[1].Value = int64(balance - bumpedFee)
 
 	// resign the tx as the output is changed
 	tx, err := rl.signTx(tx2.Tx)
@@ -273,7 +268,6 @@ func (rl *Relayer) convertCkptToTwoTxAndSubmit(ckpt *ckpttypes.RawCheckpointResp
 
 	// this is to wait for btcwallet to update utxo database so that
 	// the tx that tx1 consumes will not appear in the next unspent txs lit
-	// todo: Lazar chech if this needed?
 	time.Sleep(1 * time.Second)
 
 	rl.logger.Infof("Sent two txs to BTC for checkpointing epoch %v, first txid: %s, second txid: %s",
@@ -323,16 +317,11 @@ func (rl *Relayer) ChainTwoTxAndSend(
 		return nil, nil, fmt.Errorf("failed to send tx1 to BTC: %w", err)
 	}
 
-	changeIdx, err := IndexOfChangeAddr(tx1.Tx.TxOut)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	changeUtxo := &types.UTXO{
 		TxID:     tx1.TxId,
 		Vout:     1,
-		ScriptPK: tx1.Tx.TxOut[changeIdx].PkScript,
-		Amount:   btcutil.Amount(tx1.Tx.TxOut[changeIdx].Value),
+		ScriptPK: tx1.Tx.TxOut[1].PkScript,
+		Amount:   btcutil.Amount(tx1.Tx.TxOut[1].Value),
 		Addr:     tx1.ChangeAddress,
 	}
 
@@ -395,21 +384,17 @@ func (rl *Relayer) buildTxWithData(
 	tx.AddTxOut(wire.NewTxOut(0, dataScript))
 
 	feeRate := btcutil.Amount(rl.getFeeRate()).ToBTC()
+	changePosition := 1
 	rawTxResult, err := rl.BTCWallet.FundRawTransaction(tx, btcjson.FundRawTransactionOpts{
-		FeeRate: &feeRate,
-		//EstimateMode: &btcjson.EstimateModeConservative,
+		FeeRate:        &feeRate,
+		ChangePosition: &changePosition,
 	}, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	idxTxOut, err := IndexOfChangeAddr(rawTxResult.Transaction.TxOut)
-	if err != nil {
-		return nil, err
-	}
-
 	_, addresses, _, err := txscript.ExtractPkScriptAddrs(
-		rawTxResult.Transaction.TxOut[idxTxOut].PkScript,
+		rawTxResult.Transaction.TxOut[1].PkScript,
 		rl.GetNetParams(),
 	)
 

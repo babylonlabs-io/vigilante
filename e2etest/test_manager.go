@@ -144,9 +144,6 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32) *TestManager {
 		return true
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
-	//walletPrivKey, err := testRpcClient.DumpPrivKey(minerAddressDecoded)
-	//require.NoError(t, err)
-
 	return &TestManager{
 		TestRpcClient:   testRpcClient,
 		BabylonHandler:  bh,
@@ -154,8 +151,7 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32) *TestManager {
 		BitcoindHandler: btcHandler,
 		BTCClient:       btcClient,
 		Config:          cfg,
-		//WalletPrivKey:   walletPrivKey.PrivKey,
-		WalletPrivKey: walletPrivKey,
+		WalletPrivKey:   walletPrivKey,
 	}
 }
 
@@ -245,6 +241,7 @@ func importPrivateKey(btcHandler *BitcoindTestHandler) (*btcec.PrivateKey, error
 		return nil, err
 	}
 
+	// "combo" allows us to import a key and handle multiple types of btc scripts with a single descriptor command.
 	descriptor := fmt.Sprintf("combo(%s)", wif.String())
 
 	// Create the JSON descriptor object.
@@ -252,7 +249,7 @@ func importPrivateKey(btcHandler *BitcoindTestHandler) (*btcec.PrivateKey, error
 		{
 			"desc":      descriptor,
 			"active":    true,
-			"timestamp": "now",
+			"timestamp": "now", // tells Bitcoind to start scanning from the current blockchain height
 			"label":     "test key",
 		},
 	})
