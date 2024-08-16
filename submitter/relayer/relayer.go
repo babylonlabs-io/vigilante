@@ -25,10 +25,6 @@ import (
 	"github.com/babylonlabs-io/vigilante/types"
 )
 
-const (
-	addrSize = 34
-)
-
 type Relayer struct {
 	chainfee.Estimator
 	btcclient.BTCWallet
