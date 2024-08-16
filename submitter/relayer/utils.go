@@ -23,18 +23,19 @@ func calculateTxVirtualSize(tx *wire.MsgTx) (int64, error) {
 	return mempool.GetTxVirtualSize(btcTx), nil
 }
 
-// IndexOfTxOut searches for the first TxOut with a PkScript of the given length.
-// It returns the index of the first match and true if found, otherwise 0 and false.
-func IndexOfTxOut(outs []*wire.TxOut, searchLen int) (uint, error) {
+// IndexOfChangeAddr returns the index of the first transaction output with a non-zero value,
+// indicating a change address, or an error if none is found.
+func IndexOfChangeAddr(outs []*wire.TxOut) (uint, error) {
 	if outs == nil {
 		return 0, errors.New("nil outs param")
 	}
 
 	for index, out := range outs {
-		if len(out.PkScript) == searchLen {
+		// A change address output must have a non-zero value.
+		if out.Value != 0 {
 			return uint(index), nil
 		}
 	}
 
-	return 0, errors.New("no TxOut with PkScript of search len found")
+	return 0, errors.New("no TxOut with change addr found")
 }

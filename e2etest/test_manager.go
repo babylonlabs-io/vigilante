@@ -245,7 +245,7 @@ func importPrivateKey(btcHandler *BitcoindTestHandler) (*btcec.PrivateKey, error
 		return nil, err
 	}
 
-	descriptor := fmt.Sprintf("combo(%s)#%s", wif.String(), "timestamp")
+	descriptor := fmt.Sprintf("combo(%s)", wif.String())
 
 	// Create the JSON descriptor object.
 	descJSON, err := json.Marshal([]map[string]interface{}{

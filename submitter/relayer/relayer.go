@@ -3,6 +3,7 @@ package relayer
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"github.com/btcsuite/btcd/btcjson"
 	"strconv"
@@ -178,7 +179,7 @@ func (rl *Relayer) resendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bumpedF
 		bumpedFee = balance
 	}
 
-	idx, err := IndexOfTxOut(tx2.Tx.TxOut, addrSize)
+	idx, err := IndexOfChangeAddr(tx2.Tx.TxOut)
 	if err != nil {
 		return nil, err
 	}
@@ -326,7 +327,7 @@ func (rl *Relayer) ChainTwoTxAndSend(
 		return nil, nil, fmt.Errorf("failed to send tx1 to BTC: %w", err)
 	}
 
-	changeIdx, err := IndexOfTxOut(tx1.Tx.TxOut, addrSize)
+	changeIdx, err := IndexOfChangeAddr(tx1.Tx.TxOut)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -397,18 +398,7 @@ func (rl *Relayer) buildTxWithData(
 	}
 	tx.AddTxOut(wire.NewTxOut(0, dataScript))
 
-	// build txOut for change
-	changeAddr, err := rl.GetChangeAddress()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get change address: %w", err)
-	}
-	rl.logger.Debugf("Got a change address %v", changeAddr.String())
-	//changeScript, err := txscript.PayToAddrScript(changeAddr)
-	//if err != nil {
-	//	return nil, err
-	//}
-
-	feeRate := btcutil.Amount(rl.getFeeRate()).ToBTC() // todo decide what to use estimate of feeRate
+	feeRate := btcutil.Amount(rl.getFeeRate()).ToBTC()
 	rawTxResult, err := rl.BTCWallet.FundRawTransaction(tx, btcjson.FundRawTransactionOpts{
 		FeeRate: &feeRate,
 		//EstimateMode: &btcjson.EstimateModeConservative,
@@ -417,8 +407,7 @@ func (rl *Relayer) buildTxWithData(
 		return nil, err
 	}
 
-	// TODO: Lazar check this with Konrad, do we need to set the change address from the
-	idxTxOut, err := IndexOfTxOut(rawTxResult.Transaction.TxOut, addrSize)
+	idxTxOut, err := IndexOfChangeAddr(rawTxResult.Transaction.TxOut)
 	if err != nil {
 		return nil, err
 	}
@@ -432,9 +421,12 @@ func (rl *Relayer) buildTxWithData(
 		return nil, err
 	}
 
-	if len(addresses) > 0 {
-		changeAddr = addresses[0]
+	if len(addresses) == 0 {
+		return nil, errors.New("no change address found")
 	}
+
+	changeAddr := addresses[0]
+	rl.logger.Debugf("Got a change address %v", changeAddr.String())
 
 	txSize, err := calculateTxVirtualSize(rawTxResult.Transaction)
 	if err != nil {
@@ -445,6 +437,7 @@ func (rl *Relayer) buildTxWithData(
 	if utxo.Amount < minRelayFee {
 		return nil, fmt.Errorf("the value of the utxo is not sufficient for relaying the tx. Require: %v. Have: %v", minRelayFee, utxo.Amount)
 	}
+
 	txFee := rl.getFeeRate().FeeForVSize(txSize)
 	// ensuring the tx fee is not lower than the minimum relay fee
 	if txFee < minRelayFee {
@@ -455,7 +448,6 @@ func (rl *Relayer) buildTxWithData(
 		return nil, fmt.Errorf("the value of the utxo is not sufficient for paying the calculated fee of the tx. Calculated: %v. Have: %v", txFee, utxo.Amount)
 	}
 	change := utxo.Amount - txFee
-	//tx.AddTxOut(wire.NewTxOut(int64(change), changeScript))
 
 	// sign tx
 	tx, err = rl.signTx(rawTxResult.Transaction)
