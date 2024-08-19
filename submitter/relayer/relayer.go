@@ -155,13 +155,7 @@ func (rl *Relayer) shouldResendCheckpoint(ckptInfo *types.CheckpointInfo, bumped
 // based on the current BTC load, considering both tx sizes
 // the result is multiplied by ResubmitFeeMultiplier set in config
 func (rl *Relayer) calculateBumpedFee(ckptInfo *types.CheckpointInfo) btcutil.Amount {
-	feeRate := rl.getFeeRate()
-	newTx1Fee := feeRate.FeeForVSize(ckptInfo.Tx1.Size)
-	newTx2Fee := feeRate.FeeForVSize(ckptInfo.Tx2.Size)
-	// minus the old fee of the first transaction because we do not want to pay again for the first transaction
-	bumpedFee := newTx1Fee + newTx2Fee - ckptInfo.Tx1.Fee
-
-	return bumpedFee.MulF64(rl.config.ResubmitFeeMultiplier)
+	return ckptInfo.Tx2.Fee.MulF64(rl.config.ResubmitFeeMultiplier)
 }
 
 // resendSecondTxOfCheckpointToBTC resends the second tx of the checkpoint with bumpedFee
@@ -169,8 +163,7 @@ func (rl *Relayer) resendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bumpedF
 	// set output value of the second tx to be the balance minus the bumped fee
 	// if the bumped fee is higher than the balance, then set the bumped fee to
 	// be equal to the balance to ensure the output value is not negative
-	//balance := tx2.Utxo.Amount
-	balance := btcutil.Amount(tx2.Tx.TxOut[1].Value) // todo Lazar check this as well
+	balance := btcutil.Amount(tx2.Tx.TxOut[1].Value)
 
 	if bumpedFee > balance {
 		rl.logger.Debugf("the bumped fee %v Satoshis for the second tx is more than UTXO amount %v Satoshis",
@@ -330,8 +323,7 @@ func (rl *Relayer) buildTxWithData(data []byte, firstTx *wire.MsgTx) (*types.Btc
 		txID := firstTx.TxHash()
 		outPoint := wire.NewOutPoint(&txID, 1)
 		txIn := wire.NewTxIn(outPoint, nil, nil)
-		// Enable replace-by-fee
-		// See https://river.com/learn/terms/r/replace-by-fee-rbf
+		// Enable replace-by-fee, see https://river.com/learn/terms/r/replace-by-fee-rbf
 		txIn.Sequence = math.MaxUint32 - 2
 		tx.AddTxIn(txIn)
 	}
@@ -354,7 +346,7 @@ func (rl *Relayer) buildTxWithData(data []byte, firstTx *wire.MsgTx) (*types.Btc
 		return nil, err
 	}
 
-	rl.logger.Debugf("Building a BTC tx using %s with data %x", rawTxResult.Transaction.TxID, data)
+	rl.logger.Debugf("Building a BTC tx using %s with data %x", rawTxResult.Transaction.TxID(), data)
 
 	_, addresses, _, err := txscript.ExtractPkScriptAddrs(
 		rawTxResult.Transaction.TxOut[1].PkScript,
@@ -384,8 +376,7 @@ func (rl *Relayer) buildTxWithData(data []byte, firstTx *wire.MsgTx) (*types.Btc
 		return nil, fmt.Errorf("the value of the utxo is not sufficient for relaying the tx. Require: %v. Have: %v", minRelayFee, changeAmount)
 	}
 
-	//txFee := rl.getFeeRate().FeeForVSize(txSize)
-	txFee := rawTxResult.Fee // todo Lazar, check with Konrad if we should use the calcd fee from FundRawTransaction or manually calc it
+	txFee := rawTxResult.Fee
 	// ensuring the tx fee is not lower than the minimum relay fee
 	if txFee < minRelayFee {
 		txFee = minRelayFee
