@@ -27,7 +27,8 @@ import (
 )
 
 const (
-	changePosition = 1
+	changePosition                = 1
+	dustThreshold  btcutil.Amount = 546
 )
 
 type Relayer struct {
@@ -289,7 +290,7 @@ func (rl *Relayer) convertCkptToTwoTxAndSubmit(ckpt *ckpttypes.RawCheckpointResp
 	}, nil
 }
 
-// ChainTwoTxAndSend consumes one utxo and build two chaining txs:
+// ChainTwoTxAndSend builds two chaining txs with the given data:
 // the second tx consumes the output of the first tx
 func (rl *Relayer) ChainTwoTxAndSend(data1 []byte, data2 []byte) (*types.BtcTxInfo, *types.BtcTxInfo, error) {
 	// recipient is a change address that all the
@@ -321,16 +322,23 @@ func (rl *Relayer) ChainTwoTxAndSend(data1 []byte, data2 []byte) (*types.BtcTxIn
 	return tx1, tx2, nil
 }
 
-// buildTxWithData builds a tx with data inserted as OP_RETURN
-// note that OP_RETURN is set as the first output of the tx (index 0)
-// and the rest of the balance is sent to a new change address
-// as the second output with index 1
+// buildTxWithData constructs a Bitcoin transaction with custom data inserted as an OP_RETURN output.
+// If `firstTx` is provided, it uses its transaction ID and a predefined output index (`changePosition`)
+// to create an input for the new transaction. The OP_RETURN output is added as the first output (index 0).
+//
+// This function also ensures that the transaction fee is sufficient and signs the transaction before returning it.
+// If the UTXO value is insufficient to cover the fee or if the change amount falls below the dust threshold,
+// an error is returned.
+//
+// Parameters:
+//   - data: The custom data to be inserted into the transaction as an OP_RETURN output.
+//   - firstTx: An optional transaction used to create an input for the new transaction.
 func (rl *Relayer) buildTxWithData(data []byte, firstTx *wire.MsgTx) (*types.BtcTxInfo, error) {
 	tx := wire.NewMsgTx(wire.TxVersion)
 
 	if firstTx != nil {
 		txID := firstTx.TxHash()
-		outPoint := wire.NewOutPoint(&txID, 1)
+		outPoint := wire.NewOutPoint(&txID, changePosition)
 		txIn := wire.NewTxIn(outPoint, nil, nil)
 		// Enable replace-by-fee, see https://river.com/learn/terms/r/replace-by-fee-rbf
 		txIn.Sequence = math.MaxUint32 - 2
@@ -409,9 +417,12 @@ func (rl *Relayer) buildTxWithData(data []byte, firstTx *wire.MsgTx) (*types.Btc
 
 	change := changeAmount - txFee
 
-	rl.logger.Debugf("Successfully composed a BTC tx with balance of input: %v, "+
-		"tx fee: %v, output value: %v, tx size: %v, hex: %v",
-		change, txFee, changeAmount, txSize, hex.EncodeToString(signedTxBytes.Bytes()))
+	if change < dustThreshold {
+		return nil, fmt.Errorf("change amount is %v less then dust treshold %v", change, dustThreshold)
+	}
+
+	rl.logger.Debugf("Successfully composed a BTC tx: tx fee: %v, output value: %v, tx size: %v, hex: %v",
+		txFee, changeAmount, txSize, hex.EncodeToString(signedTxBytes.Bytes()))
 
 	return &types.BtcTxInfo{
 		Tx:            tx,
