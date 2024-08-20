@@ -19,7 +19,6 @@ require (
 	github.com/cometbft/cometbft v0.38.7
 	github.com/cosmos/cosmos-sdk v0.50.6
 	github.com/cosmos/relayer/v2 v2.5.1
-	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0
 	github.com/gogo/protobuf v1.3.3
 	github.com/golang/mock v1.6.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
@@ -118,6 +117,7 @@ require (
 	github.com/danieljoos/wincred v1.1.2 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/decred/dcrd/crypto/blake256 v1.0.1 // indirect
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/decred/dcrd/lru v1.0.0 // indirect
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
 	github.com/dgraph-io/badger/v2 v2.2007.4 // indirect
@@ -133,7 +133,7 @@ require (
 	github.com/dvsekhvalnov/jose2go v1.6.0 // indirect
 	github.com/emicklei/dot v1.6.1 // indirect
 	github.com/ethereum/c-kzg-4844 v0.4.0 // indirect
-	github.com/ethereum/go-ethereum v1.13.14 // indirect
+	github.com/ethereum/go-ethereum v1.13.15 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fergusstrange/embedded-postgres v1.10.0 // indirect
