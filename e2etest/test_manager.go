@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"go.uber.org/zap"
 	"testing"
 	"time"
@@ -87,7 +89,6 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32) *TestManager {
 	btcHandler.Start()
 	passphrase := "pass"
 	_ = btcHandler.CreateWallet("default", passphrase)
-	blocksResponse := btcHandler.GenerateBlocks(int(numMatureOutputsInWallet))
 
 	cfg := defaultVigilanteConfig()
 
@@ -101,6 +102,13 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32) *TestManager {
 		HTTPPostMode:         true,
 	}, nil)
 	require.NoError(t, err)
+
+	err = testRpcClient.WalletPassphrase(passphrase, 600)
+	require.NoError(t, err)
+
+	walletPrivKey, err := importPrivateKey(btcHandler)
+	require.NoError(t, err)
+	blocksResponse := btcHandler.GenerateBlocks(int(numMatureOutputsInWallet))
 
 	btcClient := initBTCClientWithSubscriber(t, cfg)
 
@@ -136,12 +144,6 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32) *TestManager {
 		return true
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
-	err = testRpcClient.WalletPassphrase(passphrase, 600)
-	require.NoError(t, err)
-
-	walletPrivKey, err := testRpcClient.DumpPrivKey(minerAddressDecoded)
-	require.NoError(t, err)
-
 	return &TestManager{
 		TestRpcClient:   testRpcClient,
 		BabylonHandler:  bh,
@@ -149,7 +151,7 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32) *TestManager {
 		BitcoindHandler: btcHandler,
 		BTCClient:       btcClient,
 		Config:          cfg,
-		WalletPrivKey:   walletPrivKey.PrivKey,
+		WalletPrivKey:   walletPrivKey,
 	}
 }
 
@@ -226,4 +228,37 @@ func (tm *TestManager) CatchUpBTCLightClient(t *testing.T) {
 
 	_, err = tm.InsertBTCHeadersToBabylon(headers)
 	require.NoError(t, err)
+}
+
+func importPrivateKey(btcHandler *BitcoindTestHandler) (*btcec.PrivateKey, error) {
+	privKey, err := btcec.NewPrivateKey()
+	if err != nil {
+		return nil, err
+	}
+
+	wif, err := btcutil.NewWIF(privKey, regtestParams, true)
+	if err != nil {
+		return nil, err
+	}
+
+	// "combo" allows us to import a key and handle multiple types of btc scripts with a single descriptor command.
+	descriptor := fmt.Sprintf("combo(%s)", wif.String())
+
+	// Create the JSON descriptor object.
+	descJSON, err := json.Marshal([]map[string]interface{}{
+		{
+			"desc":      descriptor,
+			"active":    true,
+			"timestamp": "now", // tells Bitcoind to start scanning from the current blockchain height
+			"label":     "test key",
+		},
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	btcHandler.ImportDescriptors(string(descJSON))
+
+	return privKey, nil
 }

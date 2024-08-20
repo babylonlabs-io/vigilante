@@ -251,6 +251,21 @@ func (mr *MockBTCWalletMockRecorder) DumpPrivKey(address interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DumpPrivKey", reflect.TypeOf((*MockBTCWallet)(nil).DumpPrivKey), address)
 }
 
+// FundRawTransaction mocks base method.
+func (m *MockBTCWallet) FundRawTransaction(tx *wire.MsgTx, opts btcjson.FundRawTransactionOpts, isWitness *bool) (*btcjson.FundRawTransactionResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FundRawTransaction", tx, opts, isWitness)
+	ret0, _ := ret[0].(*btcjson.FundRawTransactionResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FundRawTransaction indicates an expected call of FundRawTransaction.
+func (mr *MockBTCWalletMockRecorder) FundRawTransaction(tx, opts, isWitness interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FundRawTransaction", reflect.TypeOf((*MockBTCWallet)(nil).FundRawTransaction), tx, opts, isWitness)
+}
+
 // GetBTCConfig mocks base method.
 func (m *MockBTCWallet) GetBTCConfig() *config.BTCConfig {
 	m.ctrl.T.Helper()
@@ -381,6 +396,22 @@ func (m *MockBTCWallet) SendRawTransaction(tx *wire.MsgTx, allowHighFees bool) (
 func (mr *MockBTCWalletMockRecorder) SendRawTransaction(tx, allowHighFees interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendRawTransaction", reflect.TypeOf((*MockBTCWallet)(nil).SendRawTransaction), tx, allowHighFees)
+}
+
+// SignRawTransactionWithWallet mocks base method.
+func (m *MockBTCWallet) SignRawTransactionWithWallet(tx *wire.MsgTx) (*wire.MsgTx, bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SignRawTransactionWithWallet", tx)
+	ret0, _ := ret[0].(*wire.MsgTx)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// SignRawTransactionWithWallet indicates an expected call of SignRawTransactionWithWallet.
+func (mr *MockBTCWalletMockRecorder) SignRawTransactionWithWallet(tx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SignRawTransactionWithWallet", reflect.TypeOf((*MockBTCWallet)(nil).SignRawTransactionWithWallet), tx)
 }
 
 // Stop mocks base method.

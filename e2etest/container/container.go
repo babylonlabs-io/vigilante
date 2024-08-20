@@ -158,6 +158,7 @@ func (m *Manager) RunBitcoindResource(
 				"-rpcallowip=0.0.0.0/0",
 				"-rpcbind=0.0.0.0",
 				"-zmqpubsequence=tcp://0.0.0.0:28333",
+				"-fallbackfee=0.0002",
 			},
 		},
 		noRestart,

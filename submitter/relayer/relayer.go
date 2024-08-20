@@ -3,7 +3,9 @@ package relayer
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"github.com/btcsuite/btcd/btcjson"
 	"math"
 	"strconv"
 	"time"
@@ -15,7 +17,6 @@ import (
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/jinzhu/copier"
 	"github.com/lightningnetwork/lnd/lnwallet/chainfee"
 	"go.uber.org/zap"
 
@@ -23,6 +24,11 @@ import (
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/types"
+)
+
+const (
+	changePosition                = 1
+	dustThreshold  btcutil.Amount = 546
 )
 
 type Relayer struct {
@@ -154,13 +160,7 @@ func (rl *Relayer) shouldResendCheckpoint(ckptInfo *types.CheckpointInfo, bumped
 // based on the current BTC load, considering both tx sizes
 // the result is multiplied by ResubmitFeeMultiplier set in config
 func (rl *Relayer) calculateBumpedFee(ckptInfo *types.CheckpointInfo) btcutil.Amount {
-	feeRate := rl.getFeeRate()
-	newTx1Fee := feeRate.FeeForVSize(ckptInfo.Tx1.Size)
-	newTx2Fee := feeRate.FeeForVSize(ckptInfo.Tx2.Size)
-	// minus the old fee of the first transaction because we do not want to pay again for the first transaction
-	bumpedFee := newTx1Fee + newTx2Fee - ckptInfo.Tx1.Fee
-
-	return bumpedFee.MulF64(float64(rl.config.ResubmitFeeMultiplier))
+	return ckptInfo.Tx2.Fee.MulF64(rl.config.ResubmitFeeMultiplier)
 }
 
 // resendSecondTxOfCheckpointToBTC resends the second tx of the checkpoint with bumpedFee
@@ -168,28 +168,31 @@ func (rl *Relayer) resendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bumpedF
 	// set output value of the second tx to be the balance minus the bumped fee
 	// if the bumped fee is higher than the balance, then set the bumped fee to
 	// be equal to the balance to ensure the output value is not negative
-	balance := tx2.Utxo.Amount
+	balance := btcutil.Amount(tx2.Tx.TxOut[changePosition].Value)
+
+	// todo: revise this as this means we will end up with output with value 0 that will be rejected by bitcoind as dust output.
 	if bumpedFee > balance {
 		rl.logger.Debugf("the bumped fee %v Satoshis for the second tx is more than UTXO amount %v Satoshis",
 			bumpedFee, balance)
 		bumpedFee = balance
 	}
-	tx2.Tx.TxOut[1].Value = int64(balance - bumpedFee)
+
+	tx2.Tx.TxOut[changePosition].Value = int64(balance - bumpedFee)
 
 	// resign the tx as the output is changed
-	tx, err := rl.dumpPrivKeyAndSignTx(tx2.Tx, tx2.Utxo)
+	tx, err := rl.signTx(tx2.Tx)
 	if err != nil {
 		return nil, err
 	}
 
-	txid, err := rl.sendTxToBTC(tx)
+	txID, err := rl.sendTxToBTC(tx)
 	if err != nil {
 		return nil, err
 	}
 
 	// update tx info
 	tx2.Fee = bumpedFee
-	tx2.TxId = txid
+	tx2.TxId = txID
 
 	return tx2, nil
 }
@@ -217,29 +220,22 @@ func (rl *Relayer) calcMinRelayFee(txVirtualSize int64) btcutil.Amount {
 	return minRelayFee
 }
 
-func (rl *Relayer) dumpPrivKeyAndSignTx(tx *wire.MsgTx, utxo *types.UTXO) (*wire.MsgTx, error) {
-	// get private key
-	err := rl.WalletPassphrase(rl.GetWalletPass(), rl.GetWalletLockTime())
-	if err != nil {
+func (rl *Relayer) signTx(tx *wire.MsgTx) (*wire.MsgTx, error) {
+	// unlock the wallet
+	if err := rl.WalletPassphrase(rl.GetWalletPass(), rl.GetWalletLockTime()); err != nil {
 		return nil, err
 	}
-	wif, err := rl.DumpPrivKey(utxo.Addr)
-	if err != nil {
-		return nil, err
-	}
-	// add signature/witness depending on the type of the previous address
-	// if not segwit, add signature; otherwise, add witness
-	segwit, err := isSegWit(utxo.Addr)
-	if err != nil {
-		return nil, err
-	}
-	// add unlocking script into the input of the tx
-	tx, err = completeTxIn(tx, segwit, wif.PrivKey, utxo)
+
+	signedTx, allSigned, err := rl.BTCWallet.SignRawTransactionWithWallet(tx)
 	if err != nil {
 		return nil, err
 	}
 
-	return tx, nil
+	if !allSigned {
+		return nil, errors.New("transaction is only partially signed")
+	}
+
+	return signedTx, nil
 }
 
 func (rl *Relayer) convertCkptToTwoTxAndSubmit(ckpt *ckpttypes.RawCheckpointResponse) (*types.CheckpointInfo, error) {
@@ -260,18 +256,7 @@ func (rl *Relayer) convertCkptToTwoTxAndSubmit(ckpt *ckpttypes.RawCheckpointResp
 		return nil, err
 	}
 
-	utxo, err := rl.PickHighUTXO()
-	if err != nil {
-		return nil, err
-	}
-
-	rl.logger.Debugf("Found one unspent tx with sufficient amount: %v", utxo.TxID)
-
-	tx1, tx2, err := rl.ChainTwoTxAndSend(
-		utxo,
-		data1,
-		data2,
-	)
+	tx1, tx2, err := rl.ChainTwoTxAndSend(data1, data2)
 	if err != nil {
 		return nil, err
 	}
@@ -305,20 +290,12 @@ func (rl *Relayer) convertCkptToTwoTxAndSubmit(ckpt *ckpttypes.RawCheckpointResp
 	}, nil
 }
 
-// ChainTwoTxAndSend consumes one utxo and build two chaining txs:
+// ChainTwoTxAndSend builds two chaining txs with the given data:
 // the second tx consumes the output of the first tx
-func (rl *Relayer) ChainTwoTxAndSend(
-	utxo *types.UTXO,
-	data1 []byte,
-	data2 []byte,
-) (*types.BtcTxInfo, *types.BtcTxInfo, error) {
-
+func (rl *Relayer) ChainTwoTxAndSend(data1 []byte, data2 []byte) (*types.BtcTxInfo, *types.BtcTxInfo, error) {
 	// recipient is a change address that all the
 	// remaining balance of the utxo is sent to
-	tx1, err := rl.buildTxWithData(
-		utxo,
-		data1,
-	)
+	tx1, err := rl.buildTxWithData(data1, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to add data to tx1: %w", err)
 	}
@@ -328,20 +305,9 @@ func (rl *Relayer) ChainTwoTxAndSend(
 		return nil, nil, fmt.Errorf("failed to send tx1 to BTC: %w", err)
 	}
 
-	changeUtxo := &types.UTXO{
-		TxID:     tx1.TxId,
-		Vout:     1,
-		ScriptPK: tx1.Tx.TxOut[1].PkScript,
-		Amount:   btcutil.Amount(tx1.Tx.TxOut[1].Value),
-		Addr:     tx1.ChangeAddress,
-	}
-
 	// the second tx consumes the second output (index 1)
 	// of the first tx, as the output at index 0 is OP_RETURN
-	tx2, err := rl.buildTxWithData(
-		changeUtxo,
-		data2,
-	)
+	tx2, err := rl.buildTxWithData(data2, tx1.Tx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to add data to tx2: %w", err)
 	}
@@ -356,44 +322,30 @@ func (rl *Relayer) ChainTwoTxAndSend(
 	return tx1, tx2, nil
 }
 
-// PickHighUTXO picks a UTXO that has the highest amount
-func (rl *Relayer) PickHighUTXO() (*types.UTXO, error) {
-	// get the highest UTXO and UTXOs' sum in the list
-	topUTXO, sum, err := rl.BTCWallet.GetHighUTXOAndSum()
-	if err != nil {
-		return nil, err
-	}
-	utxo, err := types.NewUTXO(topUTXO, rl.GetNetParams())
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert ListUnspentResult to UTXO: %w", err)
-	}
-	rl.logger.Debugf("pick utxo with id: %v, amount: %v, confirmations: %v", utxo.TxID, utxo.Amount, topUTXO.Confirmations)
-
-	// record metrics of UTXOs' sum
-	rl.metrics.AvailableBTCBalance.Set(sum)
-
-	return utxo, nil
-}
-
-// buildTxWithData builds a tx with data inserted as OP_RETURN
-// note that OP_RETURN is set as the first output of the tx (index 0)
-// and the rest of the balance is sent to a new change address
-// as the second output with index 1
-func (rl *Relayer) buildTxWithData(
-	utxo *types.UTXO,
-	data []byte,
-) (*types.BtcTxInfo, error) {
-	rl.logger.Debugf("Building a BTC tx using %v with data %x", utxo.TxID.String(), data)
+// buildTxWithData constructs a Bitcoin transaction with custom data inserted as an OP_RETURN output.
+// If `firstTx` is provided, it uses its transaction ID and a predefined output index (`changePosition`)
+// to create an input for the new transaction. The OP_RETURN output is added as the first output (index 0).
+//
+// This function also ensures that the transaction fee is sufficient and signs the transaction before returning it.
+// If the UTXO value is insufficient to cover the fee or if the change amount falls below the dust threshold,
+// an error is returned.
+//
+// Parameters:
+//   - data: The custom data to be inserted into the transaction as an OP_RETURN output.
+//   - firstTx: An optional transaction used to create an input for the new transaction.
+func (rl *Relayer) buildTxWithData(data []byte, firstTx *wire.MsgTx) (*types.BtcTxInfo, error) {
 	tx := wire.NewMsgTx(wire.TxVersion)
 
-	outPoint := wire.NewOutPoint(utxo.TxID, utxo.Vout)
-	txIn := wire.NewTxIn(outPoint, nil, nil)
-	// Enable replace-by-fee
-	// See https://river.com/learn/terms/r/replace-by-fee-rbf
-	txIn.Sequence = math.MaxUint32 - 2
-	tx.AddTxIn(txIn)
+	if firstTx != nil {
+		txID := firstTx.TxHash()
+		outPoint := wire.NewOutPoint(&txID, changePosition)
+		txIn := wire.NewTxIn(outPoint, nil, nil)
+		// Enable replace-by-fee, see https://river.com/learn/terms/r/replace-by-fee-rbf
+		txIn.Sequence = math.MaxUint32 - 2
+		tx.AddTxIn(txIn)
+	}
 
-	// build txout for data
+	// build txOut for data
 	builder := txscript.NewScriptBuilder()
 	dataScript, err := builder.AddOp(txscript.OP_RETURN).AddData(data).Script()
 	if err != nil {
@@ -401,61 +353,79 @@ func (rl *Relayer) buildTxWithData(
 	}
 	tx.AddTxOut(wire.NewTxOut(0, dataScript))
 
-	// build txout for change
-	changeAddr, err := rl.GetChangeAddress()
+	changePosition := 1 // must declare here as you cannot take address of const needed bellow
+	feeRate := btcutil.Amount(rl.getFeeRate()).ToBTC()
+	rawTxResult, err := rl.BTCWallet.FundRawTransaction(tx, btcjson.FundRawTransactionOpts{
+		FeeRate:        &feeRate,
+		ChangePosition: &changePosition,
+	}, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get change address: %w", err)
+		return nil, err
 	}
+
+	rl.logger.Debugf("Building a BTC tx using %s with data %x", rawTxResult.Transaction.TxID(), data)
+
+	_, addresses, _, err := txscript.ExtractPkScriptAddrs(
+		rawTxResult.Transaction.TxOut[changePosition].PkScript,
+		rl.GetNetParams(),
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(addresses) == 0 {
+		return nil, errors.New("no change address found")
+	}
+
+	changeAddr := addresses[0]
 	rl.logger.Debugf("Got a change address %v", changeAddr.String())
-	changeScript, err := txscript.PayToAddrScript(changeAddr)
+
+	txSize, err := calculateTxVirtualSize(rawTxResult.Transaction)
 	if err != nil {
 		return nil, err
 	}
-	copiedTx := &wire.MsgTx{}
-	err = copier.Copy(copiedTx, tx)
-	if err != nil {
-		return nil, err
-	}
-	txSize, err := calculateTxVirtualSize(copiedTx, utxo, changeScript)
-	if err != nil {
-		return nil, err
-	}
+
+	changeAmount := btcutil.Amount(rawTxResult.Transaction.TxOut[changePosition].Value)
 	minRelayFee := rl.calcMinRelayFee(txSize)
-	if utxo.Amount < minRelayFee {
-		return nil, fmt.Errorf("the value of the utxo is not sufficient for relaying the tx. Require: %v. Have: %v", minRelayFee, utxo.Amount)
+
+	if changeAmount < minRelayFee {
+		return nil, fmt.Errorf("the value of the utxo is not sufficient for relaying the tx. Require: %v. Have: %v", minRelayFee, changeAmount)
 	}
-	txFee := rl.getFeeRate().FeeForVSize(txSize)
+
+	txFee := rawTxResult.Fee
 	// ensuring the tx fee is not lower than the minimum relay fee
 	if txFee < minRelayFee {
 		txFee = minRelayFee
 	}
 	// ensuring the tx fee is not higher than the utxo value
-	if utxo.Amount < txFee {
-		return nil, fmt.Errorf("the value of the utxo is not sufficient for paying the calculated fee of the tx. Calculated: %v. Have: %v", txFee, utxo.Amount)
+	if changeAmount < txFee {
+		return nil, fmt.Errorf("the value of the utxo is not sufficient for paying the calculated fee of the tx. Calculated: %v. Have: %v", txFee, changeAmount)
 	}
-	change := utxo.Amount - txFee
-	tx.AddTxOut(wire.NewTxOut(int64(change), changeScript))
 
 	// sign tx
-	tx, err = rl.dumpPrivKeyAndSignTx(tx, utxo)
+	tx, err = rl.signTx(rawTxResult.Transaction)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign tx: %w", err)
 	}
 
 	// serialization
 	var signedTxBytes bytes.Buffer
-	err = tx.Serialize(&signedTxBytes)
-	if err != nil {
+	if err := tx.Serialize(&signedTxBytes); err != nil {
 		return nil, err
 	}
 
-	rl.logger.Debugf("Successfully composed a BTC tx with balance of input: %v, "+
-		"tx fee: %v, output value: %v, tx size: %v, hex: %v",
-		utxo.Amount, txFee, change, txSize, hex.EncodeToString(signedTxBytes.Bytes()))
+	change := changeAmount - txFee
+
+	if change < dustThreshold {
+		return nil, fmt.Errorf("change amount is %v less then dust treshold %v", change, dustThreshold)
+	}
+
+	rl.logger.Debugf("Successfully composed a BTC tx: tx fee: %v, output value: %v, tx size: %v, hex: %v",
+		txFee, changeAmount, txSize, hex.EncodeToString(signedTxBytes.Bytes()))
 
 	return &types.BtcTxInfo{
 		Tx:            tx,
-		Utxo:          utxo,
 		ChangeAddress: changeAddr,
 		Size:          txSize,
 		Fee:           txFee,
@@ -490,10 +460,12 @@ func (rl *Relayer) getFeeRate() chainfee.SatPerKVByte {
 
 func (rl *Relayer) sendTxToBTC(tx *wire.MsgTx) (*chainhash.Hash, error) {
 	rl.logger.Debugf("Sending tx %v to BTC", tx.TxHash().String())
+
 	ha, err := rl.SendRawTransaction(tx, true)
 	if err != nil {
 		return nil, err
 	}
 	rl.logger.Debugf("Successfully sent tx %v to BTC", tx.TxHash().String())
+
 	return ha, nil
 }

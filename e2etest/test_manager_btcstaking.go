@@ -160,7 +160,6 @@ func (tm *TestManager) CreateBTCDelegation(
 	require.NoError(t, err)
 	btccParams := btccParamsResp.Params
 	for i := 0; i < int(btccParams.BtcConfirmationDepth); i++ {
-		//tm.MineBlockWithTxs(t, tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{}))
 		tm.mineBlock(t)
 	}
 
