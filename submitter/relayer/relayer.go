@@ -26,6 +26,10 @@ import (
 	"github.com/babylonlabs-io/vigilante/types"
 )
 
+const (
+	changePosition = 1
+)
+
 type Relayer struct {
 	chainfee.Estimator
 	btcclient.BTCWallet
@@ -163,15 +167,16 @@ func (rl *Relayer) resendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bumpedF
 	// set output value of the second tx to be the balance minus the bumped fee
 	// if the bumped fee is higher than the balance, then set the bumped fee to
 	// be equal to the balance to ensure the output value is not negative
-	balance := btcutil.Amount(tx2.Tx.TxOut[1].Value)
+	balance := btcutil.Amount(tx2.Tx.TxOut[changePosition].Value)
 
+	// todo: revise this as this means we will end up with output with value 0 that will be rejected by bitcoind as dust output.
 	if bumpedFee > balance {
 		rl.logger.Debugf("the bumped fee %v Satoshis for the second tx is more than UTXO amount %v Satoshis",
 			bumpedFee, balance)
 		bumpedFee = balance
 	}
 
-	tx2.Tx.TxOut[1].Value = int64(balance - bumpedFee)
+	tx2.Tx.TxOut[changePosition].Value = int64(balance - bumpedFee)
 
 	// resign the tx as the output is changed
 	tx, err := rl.signTx(tx2.Tx)
@@ -220,9 +225,13 @@ func (rl *Relayer) signTx(tx *wire.MsgTx) (*wire.MsgTx, error) {
 		return nil, err
 	}
 
-	signedTx, _, err := rl.BTCWallet.SignRawTransactionWithWallet(tx)
+	signedTx, allSigned, err := rl.BTCWallet.SignRawTransactionWithWallet(tx)
 	if err != nil {
 		return nil, err
+	}
+
+	if !allSigned {
+		return nil, errors.New("transaction is only partially signed")
 	}
 
 	return signedTx, nil
@@ -336,8 +345,8 @@ func (rl *Relayer) buildTxWithData(data []byte, firstTx *wire.MsgTx) (*types.Btc
 	}
 	tx.AddTxOut(wire.NewTxOut(0, dataScript))
 
+	changePosition := 1 // must declare here as you cannot take address of const needed bellow
 	feeRate := btcutil.Amount(rl.getFeeRate()).ToBTC()
-	changePosition := 1
 	rawTxResult, err := rl.BTCWallet.FundRawTransaction(tx, btcjson.FundRawTransactionOpts{
 		FeeRate:        &feeRate,
 		ChangePosition: &changePosition,
@@ -349,7 +358,7 @@ func (rl *Relayer) buildTxWithData(data []byte, firstTx *wire.MsgTx) (*types.Btc
 	rl.logger.Debugf("Building a BTC tx using %s with data %x", rawTxResult.Transaction.TxID(), data)
 
 	_, addresses, _, err := txscript.ExtractPkScriptAddrs(
-		rawTxResult.Transaction.TxOut[1].PkScript,
+		rawTxResult.Transaction.TxOut[changePosition].PkScript,
 		rl.GetNetParams(),
 	)
 
@@ -369,7 +378,7 @@ func (rl *Relayer) buildTxWithData(data []byte, firstTx *wire.MsgTx) (*types.Btc
 		return nil, err
 	}
 
-	changeAmount := btcutil.Amount(rawTxResult.Transaction.TxOut[1].Value)
+	changeAmount := btcutil.Amount(rawTxResult.Transaction.TxOut[changePosition].Value)
 	minRelayFee := rl.calcMinRelayFee(txSize)
 
 	if changeAmount < minRelayFee {
@@ -385,7 +394,6 @@ func (rl *Relayer) buildTxWithData(data []byte, firstTx *wire.MsgTx) (*types.Btc
 	if changeAmount < txFee {
 		return nil, fmt.Errorf("the value of the utxo is not sufficient for paying the calculated fee of the tx. Calculated: %v. Have: %v", txFee, changeAmount)
 	}
-	change := changeAmount - txFee
 
 	// sign tx
 	tx, err = rl.signTx(rawTxResult.Transaction)
@@ -399,9 +407,11 @@ func (rl *Relayer) buildTxWithData(data []byte, firstTx *wire.MsgTx) (*types.Btc
 		return nil, err
 	}
 
+	change := changeAmount - txFee
+
 	rl.logger.Debugf("Successfully composed a BTC tx with balance of input: %v, "+
 		"tx fee: %v, output value: %v, tx size: %v, hex: %v",
-		changeAmount, txFee, change, txSize, hex.EncodeToString(signedTxBytes.Bytes()))
+		change, txFee, changeAmount, txSize, hex.EncodeToString(signedTxBytes.Bytes()))
 
 	return &types.BtcTxInfo{
 		Tx:            tx,
