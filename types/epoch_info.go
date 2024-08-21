@@ -2,8 +2,6 @@ package types
 
 import (
 	"bytes"
-	"fmt"
-
 	"github.com/babylonlabs-io/babylon/crypto/bls12381"
 	ckpttypes "github.com/babylonlabs-io/babylon/x/checkpointing/types"
 	"github.com/boljen/go-bitmap"
@@ -65,10 +63,10 @@ func (ei *EpochInfo) Equal(epochInfo *EpochInfo) bool {
 func (ei *EpochInfo) VerifyMultiSig(ckpt *ckpttypes.RawCheckpoint) error {
 	signerKeySet, sumPower, err := ei.GetSignersKeySetWithPowerSum(ckpt.Bitmap)
 	if sumPower*3 <= ei.GetTotalPower()*2 {
-		return errors.Wrapf(ErrInsufficientPower, fmt.Sprintf("expected to be greater than %v, got %v", ei.GetTotalPower()*2/3, sumPower))
+		return errors.Wrapf(ErrInsufficientPower, "expected to be greater than %v, got %v", ei.GetTotalPower()*2/3, sumPower)
 	}
 	if err != nil {
-		return errors.Wrapf(ErrInvalidMultiSig, fmt.Sprintf("failed to get signer set: %s", err.Error()))
+		return errors.Wrapf(ErrInvalidMultiSig, "failed to get signer set: %s", err.Error())
 	}
 	msgBytes := ckpt.SignedMsg()
 	valid, err := bls12381.VerifyMultiSig(*ckpt.BlsMultiSig, signerKeySet, msgBytes)

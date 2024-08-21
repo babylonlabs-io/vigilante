@@ -1,8 +1,6 @@
 module github.com/babylonlabs-io/vigilante/tools
 
-go 1.21
-
-toolchain go1.21.4
+go 1.23
 
 require github.com/babylonlabs-io/babylon v0.9.1
 
