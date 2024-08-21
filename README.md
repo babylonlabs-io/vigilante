@@ -11,7 +11,7 @@ There are four vigilante programs:
 
 ## Requirements
 
-- Go 1.21
+- Go 1.23
 - Package [libzmq](https://github.com/zeromq/libzmq)
 - [btcd](https://github.com/btcsuite/btcd/tree/master?tab=readme-ov-file#installation) binaries (only for testing)
 
