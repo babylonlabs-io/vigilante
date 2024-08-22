@@ -14,8 +14,6 @@ import (
 type BTCClient interface {
 	Stop()
 	WaitForShutdown()
-	MustSubscribeBlocks()
-	BlockEventChan() <-chan *types.BlockEvent
 	GetBestBlock() (*chainhash.Hash, uint64, error)
 	GetBlockByHash(blockHash *chainhash.Hash) (*types.IndexedBlock, *wire.MsgBlock, error)
 	FindTailBlocksByHeight(height uint64) ([]*types.IndexedBlock, error)
