@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/babylonlabs-io/vigilante/netparams"
 
 	bbnclient "github.com/babylonlabs-io/babylon/client/client"
 	"github.com/spf13/cobra"
@@ -62,12 +63,24 @@ func GetReporterCmd() *cobra.Command {
 			// register reporter metrics
 			reporterMetrics := metrics.NewReporterMetrics()
 
+			// create the chain notifier
+			btcParams, err := netparams.GetBTCParams(cfg.BTC.NetParams)
+			if err != nil {
+				panic(fmt.Errorf("failed to get BTC net params: %w", err))
+			}
+			btcCfg := btcclient.CfgToBtcNodeBackendConfig(cfg.BTC, "")
+			btcNotifier, err := btcclient.NewNodeBackend(btcCfg, btcParams, &btcclient.EmptyHintCache{}) // todo Lazar check if we should use concrete cache here?
+			if err != nil {
+				panic(fmt.Errorf("failed to initialize notifier: %w", err))
+			}
+
 			// create reporter
 			vigilantReporter, err = reporter.New(
 				&cfg.Reporter,
 				rootLogger,
 				btcClient,
 				babylonClient,
+				btcNotifier,
 				cfg.Common.RetrySleepTime,
 				cfg.Common.MaxRetrySleepTime,
 				reporterMetrics,

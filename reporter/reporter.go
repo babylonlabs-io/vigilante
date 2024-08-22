@@ -3,6 +3,7 @@ package reporter
 import (
 	"encoding/hex"
 	"fmt"
+	notifier "github.com/lightningnetwork/lnd/chainntnfs"
 	"sync"
 	"time"
 
@@ -22,6 +23,7 @@ type Reporter struct {
 
 	btcClient     btcclient.BTCClient
 	babylonClient BabylonClient
+	btcNotifier   notifier.ChainNotifier
 
 	// retry attributes
 	retrySleepTime    time.Duration
@@ -45,6 +47,7 @@ func New(
 	parentLogger *zap.Logger,
 	btcClient btcclient.BTCClient,
 	babylonClient BabylonClient,
+	btcNotifier notifier.ChainNotifier,
 	retrySleepTime,
 	maxRetrySleepTime time.Duration,
 	metrics *metrics.ReporterMetrics,
@@ -81,6 +84,7 @@ func New(
 		maxRetrySleepTime:             maxRetrySleepTime,
 		btcClient:                     btcClient,
 		babylonClient:                 babylonClient,
+		btcNotifier:                   btcNotifier,
 		CheckpointCache:               ckptCache,
 		reorgList:                     newReorgList(),
 		btcConfirmationDepth:          k,

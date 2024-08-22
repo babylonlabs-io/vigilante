@@ -2,8 +2,8 @@ package reporter
 
 import (
 	"fmt"
-
 	"github.com/babylonlabs-io/vigilante/types"
+	"github.com/btcsuite/btcd/wire"
 )
 
 // blockEventHandler handles connected and disconnected blocks from the BTC client.
@@ -11,26 +11,50 @@ func (r *Reporter) blockEventHandler() {
 	defer r.wg.Done()
 	quit := r.quitChan()
 
+	if err := r.btcNotifier.Start(); err != nil {
+		r.logger.Errorf("Failed starting notifier")
+		return
+	}
+
+	blockNotifier, err := r.btcNotifier.RegisterBlockEpochNtfn(nil)
+	if err != nil {
+		r.logger.Errorf("Failed registering block epoch notifier")
+		return
+	}
+
+	defer blockNotifier.Cancel()
+
 	for {
 		select {
-		case event, open := <-r.btcClient.BlockEventChan():
+		case epoch, open := <-blockNotifier.Epochs:
 			if !open {
 				r.logger.Errorf("Block event channel is closed")
 				return // channel closed
 			}
 
+			tip := r.btcCache.Tip()
+
+			// Determine if a reorg happened to we know which flow to continue
+			// if the new block has the same height but a different hash.
+			reorg := false
+			if tip != nil {
+				if epoch.Height < tip.Height ||
+					(epoch.Height == tip.Height && epoch.BlockHeader.BlockHash() != tip.Header.BlockHash()) {
+					reorg = true
+				}
+			}
+
 			var errorRequiringBootstrap error
-			if event.EventType == types.BlockConnected {
-				errorRequiringBootstrap = r.handleConnectedBlocks(event)
-			} else if event.EventType == types.BlockDisconnected {
-				errorRequiringBootstrap = r.handleDisconnectedBlocks(event)
+			if !reorg {
+				errorRequiringBootstrap = r.handleConnectedBlocks(epoch.Height, epoch.BlockHeader)
+			} else {
+				errorRequiringBootstrap = r.handleDisconnectedBlocks(epoch.BlockHeader)
 			}
 
 			if errorRequiringBootstrap != nil {
 				r.logger.Warnf("Due to error in event processing: %v, bootstrap process need to be restarted", errorRequiringBootstrap)
 				r.bootstrapWithRetries(true)
 			}
-
 		case <-quit:
 			// We have been asked to stop
 			return
@@ -39,7 +63,7 @@ func (r *Reporter) blockEventHandler() {
 }
 
 // handleConnectedBlocks handles connected blocks from the BTC client.
-func (r *Reporter) handleConnectedBlocks(event *types.BlockEvent) error {
+func (r *Reporter) handleConnectedBlocks(height int32, header *wire.BlockHeader) error {
 	// if the header is too early, ignore it
 	// NOTE: this might happen when bootstrapping is triggered after the reporter
 	// has subscribed to the BTC blocks
@@ -47,11 +71,11 @@ func (r *Reporter) handleConnectedBlocks(event *types.BlockEvent) error {
 	if firstCacheBlock == nil {
 		return fmt.Errorf("cache is empty, restart bootstrap process")
 	}
-	if event.Height < firstCacheBlock.Height {
+	if height < firstCacheBlock.Height {
 		r.logger.Debugf(
 			"the connecting block (height: %d, hash: %s) is too early, skipping the block",
-			event.Height,
-			event.Header.BlockHash().String(),
+			height,
+			header.BlockHash().String(),
 		)
 		return nil
 	}
@@ -61,8 +85,8 @@ func (r *Reporter) handleConnectedBlocks(event *types.BlockEvent) error {
 	// then ignore the block, otherwise there is an inconsistency and redo bootstrap
 	// NOTE: this might happen when bootstrapping is triggered after the reporter
 	// has subscribed to the BTC blocks
-	if b := r.btcCache.FindBlock(uint64(event.Height)); b != nil {
-		if b.BlockHash() == event.Header.BlockHash() {
+	if b := r.btcCache.FindBlock(uint64(height)); b != nil {
+		if b.BlockHash() == header.BlockHash() {
 			r.logger.Debugf(
 				"the connecting block (height: %d, hash: %s) is known to cache, skipping the block",
 				b.Height,
@@ -72,18 +96,18 @@ func (r *Reporter) handleConnectedBlocks(event *types.BlockEvent) error {
 		}
 		return fmt.Errorf(
 			"the connecting block (height: %d, hash: %s) is different from the header (height: %d, hash: %s) at the same height in cache",
-			event.Height,
-			event.Header.BlockHash().String(),
+			height,
+			header.BlockHash().String(),
 			b.Height,
 			b.BlockHash().String(),
 		)
 	}
 
 	// get the block from hash
-	blockHash := event.Header.BlockHash()
+	blockHash := header.BlockHash()
 	ib, mBlock, err := r.btcClient.GetBlockByHash(&blockHash)
 	if err != nil {
-		return fmt.Errorf("failed to get block %v with number %d ,from BTC client: %w", blockHash, event.Height, err)
+		return fmt.Errorf("failed to get block %v with number %d ,from BTC client: %w", blockHash, height, err)
 	}
 
 	// if the parent of the block is not the tip of the cache, then the cache is not up-to-date,
@@ -102,7 +126,7 @@ func (r *Reporter) handleConnectedBlocks(event *types.BlockEvent) error {
 	if r.reorgList.size() > 0 {
 		// we are in the middle of reorg, we need to check whether we already have all blocks of better chain
 		// as reorgs in btc nodes happen only when better chain is available.
-		// 1. First we get oldest header from our reorg branch
+		// 1. First we get the oldest header from our reorg branch
 		// 2. Then we get all headers from our cache starting the height of the oldest header of new branch
 		// 3. then we calculate if work on new branch starting from the first reorged height is larger
 		// than removed branch work.
@@ -141,11 +165,12 @@ func (r *Reporter) handleConnectedBlocks(event *types.BlockEvent) error {
 	if err != nil {
 		r.logger.Warnf("Failed to submit checkpoint: %v", err)
 	}
+
 	return nil
 }
 
 // handleDisconnectedBlocks handles disconnected blocks from the BTC client.
-func (r *Reporter) handleDisconnectedBlocks(event *types.BlockEvent) error {
+func (r *Reporter) handleDisconnectedBlocks(header *wire.BlockHeader) error {
 	// get cache tip
 	cacheTip := r.btcCache.Tip()
 	if cacheTip == nil {
@@ -153,11 +178,11 @@ func (r *Reporter) handleDisconnectedBlocks(event *types.BlockEvent) error {
 	}
 
 	// if the block to be disconnected is not the tip of the cache, then the cache is not up-to-date,
-	if event.Header.BlockHash() != cacheTip.BlockHash() {
+	if header.BlockHash() != cacheTip.BlockHash() {
 		return fmt.Errorf("cache is not up-to-date while disconnecting block, restart bootstrap process")
 	}
 
-	// at this point, the block to be disconnected is the tip of the cache so we can
+	// at this point, the block to be disconnected is the tip of the cache, so we can
 	// add it to our reorg list
 	r.reorgList.addRemovedBlock(
 		uint64(cacheTip.Height),
