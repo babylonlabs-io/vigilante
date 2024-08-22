@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/babylonlabs-io/vigilante/netparams"
 
 	bbnqccfg "github.com/babylonlabs-io/babylon/client/config"
 	bbnqc "github.com/babylonlabs-io/babylon/client/query"
@@ -80,8 +81,28 @@ func GetMonitorCmd() *cobra.Command {
 			// register monitor metrics
 			monitorMetrics := metrics.NewMonitorMetrics()
 
+			// create the chain notifier
+			btcParams, err := netparams.GetBTCParams(cfg.BTC.NetParams)
+			if err != nil {
+				panic(fmt.Errorf("failed to get BTC net params: %w", err))
+			}
+			btcCfg := btcclient.CfgToBtcNodeBackendConfig(cfg.BTC, "")
+			btcNotifier, err := btcclient.NewNodeBackend(btcCfg, btcParams, &btcclient.EmptyHintCache{}) // todo(lazar955): check if we should use real cache
+			if err != nil {
+				panic(fmt.Errorf("failed to initialize notifier: %w", err))
+			}
+
 			// create monitor
-			vigilanteMonitor, err = monitor.New(&cfg.Monitor, &cfg.Common, rootLogger, genesisInfo, bbnQueryClient, btcClient, monitorMetrics)
+			vigilanteMonitor, err = monitor.New(
+				&cfg.Monitor,
+				&cfg.Common,
+				rootLogger,
+				genesisInfo,
+				bbnQueryClient,
+				btcClient,
+				btcNotifier,
+				monitorMetrics,
+			)
 			if err != nil {
 				panic(fmt.Errorf("failed to create vigilante monitor: %w", err))
 			}

@@ -2,6 +2,7 @@ package btcscanner
 
 import (
 	"fmt"
+	notifier "github.com/lightningnetwork/lnd/chainntnfs"
 	"sync"
 
 	"github.com/babylonlabs-io/babylon/btctxformatter"
@@ -19,7 +20,8 @@ type BtcScanner struct {
 	logger *zap.SugaredLogger
 
 	// connect to BTC node
-	BtcClient btcclient.BTCClient
+	BtcClient   btcclient.BTCClient
+	btcNotifier notifier.ChainNotifier
 
 	// the BTC height the scanner starts
 	BaseHeight uint64
@@ -49,7 +51,8 @@ func New(
 	monitorCfg *config.MonitorConfig,
 	parentLogger *zap.Logger,
 	btcClient btcclient.BTCClient,
-	btclightclientBaseHeight uint64,
+	btcNotifier notifier.ChainNotifier,
+	btcLightClientBaseHeight uint64,
 	checkpointTag []byte,
 ) (*BtcScanner, error) {
 	headersChan := make(chan *wire.BlockHeader, monitorCfg.BtcBlockBufferSize)
@@ -64,7 +67,8 @@ func New(
 	return &BtcScanner{
 		logger:                parentLogger.With(zap.String("module", "btcscanner")).Sugar(),
 		BtcClient:             btcClient,
-		BaseHeight:            btclightclientBaseHeight,
+		btcNotifier:           btcNotifier,
+		BaseHeight:            btcLightClientBaseHeight,
 		K:                     monitorCfg.BtcConfirmationDepth,
 		ckptCache:             ckptCache,
 		UnconfirmedBlockCache: unconfirmedBlockCache,

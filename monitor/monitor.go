@@ -3,6 +3,7 @@ package monitor
 import (
 	"encoding/hex"
 	"fmt"
+	notifier "github.com/lightningnetwork/lnd/chainntnfs"
 	"sort"
 	"sync"
 
@@ -52,6 +53,7 @@ func New(
 	genesisInfo *types.GenesisInfo,
 	bbnQueryClient BabylonQueryClient,
 	btcClient btcclient.BTCClient,
+	btcNotifier notifier.ChainNotifier,
 	monitorMetrics *metrics.MonitorMetrics,
 ) (*Monitor, error) {
 	logger := parentLogger.With(zap.String("module", "monitor"))
@@ -64,6 +66,7 @@ func New(
 		cfg,
 		logger,
 		btcClient,
+		btcNotifier,
 		genesisInfo.GetBaseBTCHeight(),
 		checkpointTagBytes,
 	)

@@ -3,38 +3,61 @@ package btcscanner
 import (
 	"errors"
 	"fmt"
-
-	"github.com/babylonlabs-io/vigilante/types"
+	"github.com/btcsuite/btcd/wire"
 )
 
 // blockEventHandler handles connected and disconnected blocks from the BTC client.
 func (bs *BtcScanner) blockEventHandler() {
 	defer bs.wg.Done()
 
+	if err := bs.btcNotifier.Start(); err != nil {
+		bs.logger.Errorf("Failed starting notifier")
+		return
+	}
+
+	blockNotifier, err := bs.btcNotifier.RegisterBlockEpochNtfn(nil)
+	if err != nil {
+		bs.logger.Errorf("Failed registering block epoch notifier")
+		return
+	}
+
+	defer blockNotifier.Cancel()
+
 	for {
 		select {
 		case <-bs.quit:
 			bs.BtcClient.Stop()
 			return
-		case event, open := <-bs.BtcClient.BlockEventChan():
+		case epoch, open := <-blockNotifier.Epochs:
 			if !open {
 				bs.logger.Errorf("Block event channel is closed")
 				return // channel closed
 			}
-			if event.EventType == types.BlockConnected {
-				err := bs.handleConnectedBlocks(event)
-				if err != nil {
+
+			tip := bs.UnconfirmedBlockCache.Tip()
+
+			// Determine if a reorg happened to we know which flow to continue
+			// if the new block has the same height but a different hash.
+			reorg := false
+			if tip != nil {
+				if epoch.Height < tip.Height ||
+					(epoch.Height == tip.Height && epoch.BlockHeader.BlockHash() != tip.Header.BlockHash()) {
+					reorg = true
+				}
+			}
+
+			if !reorg {
+				if err := bs.handleConnectedBlocks(epoch.BlockHeader); err != nil {
 					bs.logger.Warnf("failed to handle a connected block at height %d: %s, "+
-						"need to restart the bootstrapping process", event.Height, err.Error())
+						"need to restart the bootstrapping process", epoch.Height, err.Error())
 					if bs.Synced.Swap(false) {
 						bs.Bootstrap()
 					}
 				}
-			} else if event.EventType == types.BlockDisconnected {
-				err := bs.handleDisconnectedBlocks(event)
-				if err != nil {
+			} else {
+				if err := bs.handleDisconnectedBlocks(epoch.BlockHeader); err != nil {
 					bs.logger.Warnf("failed to handle a disconnected block at height %d: %s,"+
-						"need to restart the bootstrapping process", event.Height, err.Error())
+						"need to restart the bootstrapping process", epoch.Height, err.Error())
 					if bs.Synced.Swap(false) {
 						bs.Bootstrap()
 					}
@@ -46,13 +69,13 @@ func (bs *BtcScanner) blockEventHandler() {
 
 // handleConnectedBlocks handles connected blocks from the BTC client
 // if new confirmed blocks are found, send them through the channel
-func (bs *BtcScanner) handleConnectedBlocks(event *types.BlockEvent) error {
+func (bs *BtcScanner) handleConnectedBlocks(header *wire.BlockHeader) error {
 	if !bs.Synced.Load() {
 		return errors.New("the btc scanner is not synced")
 	}
 
 	// get the block from hash
-	blockHash := event.Header.BlockHash()
+	blockHash := header.BlockHash()
 	ib, _, err := bs.BtcClient.GetBlockByHash(&blockHash)
 	if err != nil {
 		// failing to request the block, which means a bug
@@ -96,7 +119,7 @@ func (bs *BtcScanner) handleConnectedBlocks(event *types.BlockEvent) error {
 }
 
 // handleDisconnectedBlocks handles disconnected blocks from the BTC client.
-func (bs *BtcScanner) handleDisconnectedBlocks(event *types.BlockEvent) error {
+func (bs *BtcScanner) handleDisconnectedBlocks(header *wire.BlockHeader) error {
 	// get cache tip
 	cacheTip := bs.UnconfirmedBlockCache.Tip()
 	if cacheTip == nil {
@@ -104,7 +127,7 @@ func (bs *BtcScanner) handleDisconnectedBlocks(event *types.BlockEvent) error {
 	}
 
 	// if the block to be disconnected is not the tip of the cache, then the cache is not up-to-date,
-	if event.Header.BlockHash() != cacheTip.BlockHash() {
+	if header.BlockHash() != cacheTip.BlockHash() {
 		return errors.New("cache is out-of-sync")
 	}
 
