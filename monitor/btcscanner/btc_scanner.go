@@ -91,8 +91,6 @@ func (bs *BtcScanner) Start() {
 	// the bootstrapping should not block the main thread
 	go bs.Bootstrap()
 
-	bs.BtcClient.MustSubscribeBlocks()
-
 	bs.Started.Store(true)
 	bs.logger.Info("the BTC scanner is started")
 

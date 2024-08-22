@@ -84,7 +84,7 @@ func (r *Reporter) bootstrap(skipBlockSubscription bool) error {
 	// Subscribe new blocks right after initialising BTC cache, in order to ensure subscribed blocks and cached blocks do not have overlap.
 	// Otherwise, if we subscribe too early, then they will have overlap, leading to duplicated header/ckpt submissions.
 	if !skipBlockSubscription {
-		r.btcClient.MustSubscribeBlocks()
+		//r.btcClient.MustSubscribeBlocks() // todo(lazar): check if we need to handle this
 	}
 
 	consistencyInfo, err := r.checkConsistency()

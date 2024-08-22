@@ -65,7 +65,7 @@ type TestManager struct {
 }
 
 func initBTCClientWithSubscriber(t *testing.T, cfg *config.Config) *btcclient.Client {
-	client, err := btcclient.NewWithBlockSubscriber(&cfg.BTC, cfg.Common.RetrySleepTime, cfg.Common.MaxRetrySleepTime, zap.NewNop())
+	client, err := btcclient.NewWallet(&cfg.BTC, zap.NewNop())
 	require.NoError(t, err)
 
 	// let's wait until chain rpc becomes available
