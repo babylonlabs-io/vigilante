@@ -40,20 +40,6 @@ func (m *MockBTCClient) EXPECT() *MockBTCClientMockRecorder {
 	return m.recorder
 }
 
-// BlockEventChan mocks base method.
-func (m *MockBTCClient) BlockEventChan() <-chan *types.BlockEvent {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockEventChan")
-	ret0, _ := ret[0].(<-chan *types.BlockEvent)
-	return ret0
-}
-
-// BlockEventChan indicates an expected call of BlockEventChan.
-func (mr *MockBTCClientMockRecorder) BlockEventChan() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockEventChan", reflect.TypeOf((*MockBTCClient)(nil).BlockEventChan))
-}
-
 // FindTailBlocksByHeight mocks base method.
 func (m *MockBTCClient) FindTailBlocksByHeight(height uint64) ([]*types.IndexedBlock, error) {
 	m.ctrl.T.Helper()
@@ -160,18 +146,6 @@ func (m *MockBTCClient) GetTxOut(txHash *chainhash.Hash, index uint32, mempool b
 func (mr *MockBTCClientMockRecorder) GetTxOut(txHash, index, mempool interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTxOut", reflect.TypeOf((*MockBTCClient)(nil).GetTxOut), txHash, index, mempool)
-}
-
-// MustSubscribeBlocks mocks base method.
-func (m *MockBTCClient) MustSubscribeBlocks() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "MustSubscribeBlocks")
-}
-
-// MustSubscribeBlocks indicates an expected call of MustSubscribeBlocks.
-func (mr *MockBTCClientMockRecorder) MustSubscribeBlocks() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MustSubscribeBlocks", reflect.TypeOf((*MockBTCClient)(nil).MustSubscribeBlocks))
 }
 
 // SendRawTransaction mocks base method.
