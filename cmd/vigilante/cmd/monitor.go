@@ -81,7 +81,7 @@ func GetMonitorCmd() *cobra.Command {
 				panic(fmt.Errorf("failed to get BTC net params: %w", err))
 			}
 			btcCfg := btcclient.CfgToBtcNodeBackendConfig(cfg.BTC, "")
-			btcNotifier, err := btcclient.NewNodeBackend(btcCfg, btcParams, &btcclient.EmptyHintCache{}) // todo(lazar955): check if we should use real cache
+			btcNotifier, err := btcclient.NewNodeBackend(btcCfg, btcParams, &btcclient.EmptyHintCache{})
 			if err != nil {
 				panic(fmt.Errorf("failed to initialize notifier: %w", err))
 			}
