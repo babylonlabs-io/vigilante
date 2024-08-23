@@ -81,14 +81,7 @@ func (r *Reporter) bootstrap(skipBlockSubscription bool) error {
 	}
 	r.logger.Debugf("BTC cache size: %d", r.btcCache.Size())
 
-	// Subscribe new blocks right after initialising BTC cache, in order to ensure subscribed blocks and cached blocks do not have overlap.
-	// Otherwise, if we subscribe too early, then they will have overlap, leading to duplicated header/ckpt submissions.
-	//if !skipBlockSubscription {
-	//	//r.btcClient.MustSubscribeBlocks() // todo(lazar): check if we need to handle this
-	//}
-
 	consistencyInfo, err := r.checkConsistency()
-
 	if err != nil {
 		return err
 	}
@@ -132,6 +125,7 @@ func (r *Reporter) bootstrap(skipBlockSubscription bool) error {
 	}
 
 	r.logger.Info("Successfully finished bootstrapping")
+
 	return nil
 }
 
@@ -226,6 +220,7 @@ func (r *Reporter) initBTCCache() error {
 	if err = r.btcCache.Init(ibs); err != nil {
 		panic(err)
 	}
+
 	return nil
 }
 
@@ -316,5 +311,6 @@ func (r *Reporter) checkHeaderConsistency(consistencyCheckHeight uint64) error {
 		err = fmt.Errorf("BTC main chain is inconsistent with BBN header chain: k-deep block in BBN header chain: %v", consistencyCheckHash)
 		panic(err)
 	}
+
 	return nil
 }
