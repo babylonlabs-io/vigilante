@@ -30,7 +30,6 @@ func FuzzBootStrap(f *testing.F) {
 		ctl := gomock.NewController(t)
 		mockBtcClient := mocks.NewMockBTCClient(ctl)
 		confirmedBlocks := chainIndexedBlocks[:numBlocks-k]
-		mockBtcClient.EXPECT().MustSubscribeBlocks().Return().AnyTimes()
 		mockBtcClient.EXPECT().GetBestBlock().Return(nil, uint64(bestHeight), nil)
 		for i := 0; i < int(numBlocks); i++ {
 			mockBtcClient.EXPECT().GetBlockByHeight(gomock.Eq(uint64(chainIndexedBlocks[i].Height))).
