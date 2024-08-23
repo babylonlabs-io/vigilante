@@ -15,7 +15,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/babylonlabs-io/vigilante/config"
-	"github.com/babylonlabs-io/vigilante/types"
 )
 
 var _ BTCClient = &Client{}
@@ -25,16 +24,13 @@ var _ BTCClient = &Client{}
 type Client struct {
 	*rpcclient.Client
 
-	Params *chaincfg.Params
-	Cfg    *config.BTCConfig
+	params *chaincfg.Params
+	cfg    *config.BTCConfig
 	logger *zap.SugaredLogger
 
 	// retry attributes
 	retrySleepTime    time.Duration
 	maxRetrySleepTime time.Duration
-
-	// channel for notifying new BTC blocks to reporter
-	blockEventChan chan *types.BlockEvent
 }
 
 func (c *Client) GetTipBlockVerbose() (*btcjson.GetBlockVerboseResult, error) {

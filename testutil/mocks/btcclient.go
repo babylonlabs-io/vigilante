@@ -210,21 +210,6 @@ func (m *MockBTCWallet) EXPECT() *MockBTCWalletMockRecorder {
 	return m.recorder
 }
 
-// DumpPrivKey mocks base method.
-func (m *MockBTCWallet) DumpPrivKey(address btcutil.Address) (*btcutil.WIF, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DumpPrivKey", address)
-	ret0, _ := ret[0].(*btcutil.WIF)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// DumpPrivKey indicates an expected call of DumpPrivKey.
-func (mr *MockBTCWalletMockRecorder) DumpPrivKey(address interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DumpPrivKey", reflect.TypeOf((*MockBTCWallet)(nil).DumpPrivKey), address)
-}
-
 // FundRawTransaction mocks base method.
 func (m *MockBTCWallet) FundRawTransaction(tx *wire.MsgTx, opts btcjson.FundRawTransactionOpts, isWitness *bool) (*btcjson.FundRawTransactionResult, error) {
 	m.ctrl.T.Helper()
