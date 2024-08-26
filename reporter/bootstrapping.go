@@ -60,15 +60,12 @@ func (r *Reporter) checkConsistency() (*consistencyCheckInfo, error) {
 	}, nil
 }
 
-func (r *Reporter) bootstrap(skipBlockSubscription bool) error {
+func (r *Reporter) bootstrap() error {
 	var (
 		btcLatestBlockHeight uint64
 		ibs                  []*types.IndexedBlock
 		err                  error
 	)
-
-	// if we are bootstraping, we will definitely not handle reorgs
-	r.reorgList.clear()
 
 	// ensure BTC has caught up with BBN header chain
 	if err := r.waitUntilBTCSync(); err != nil {
@@ -147,12 +144,12 @@ func (r *Reporter) reporterQuitCtx() (context.Context, func()) {
 	return ctx, cancel
 }
 
-func (r *Reporter) bootstrapWithRetries(skipBlockSubscription bool) {
+func (r *Reporter) bootstrapWithRetries() {
 	// if we are exiting, we need to cancel this process
 	ctx, cancel := r.reporterQuitCtx()
 	defer cancel()
 	if err := retry.Do(func() error {
-		return r.bootstrap(skipBlockSubscription)
+		return r.bootstrap()
 	},
 		retry.Context(ctx),
 		bootstrapAttemptsAtt,

@@ -32,7 +32,6 @@ type Reporter struct {
 	// Internal states of the reporter
 	CheckpointCache               *types.CheckpointCache
 	btcCache                      *types.BTCCache
-	reorgList                     *reorgList
 	btcConfirmationDepth          uint64
 	checkpointFinalizationTimeout uint64
 	metrics                       *metrics.ReporterMetrics
@@ -86,7 +85,6 @@ func New(
 		babylonClient:                 babylonClient,
 		btcNotifier:                   btcNotifier,
 		CheckpointCache:               ckptCache,
-		reorgList:                     newReorgList(),
 		btcConfirmationDepth:          k,
 		checkpointFinalizationTimeout: w,
 		metrics:                       metrics,
@@ -112,10 +110,21 @@ func (r *Reporter) Start() {
 	}
 	r.quitMu.Unlock()
 
-	r.bootstrapWithRetries(false)
+	r.bootstrapWithRetries()
+
+	if err := r.btcNotifier.Start(); err != nil {
+		r.logger.Errorf("Failed starting notifier")
+		return
+	}
+
+	blockNotifier, err := r.btcNotifier.RegisterBlockEpochNtfn(nil)
+	if err != nil {
+		r.logger.Errorf("Failed registering block epoch notifier")
+		return
+	}
 
 	r.wg.Add(1)
-	go r.blockEventHandler()
+	go r.blockEventHandler(blockNotifier)
 
 	// start record time-related metrics
 	r.metrics.RecordMetrics()

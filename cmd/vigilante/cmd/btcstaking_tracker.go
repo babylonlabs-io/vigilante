@@ -8,7 +8,6 @@ import (
 	bst "github.com/babylonlabs-io/vigilante/btcstaking-tracker"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"
-	"github.com/babylonlabs-io/vigilante/netparams"
 	"github.com/babylonlabs-io/vigilante/rpcserver"
 	"github.com/spf13/cobra"
 )
@@ -69,14 +68,9 @@ func GetBTCStakingTracker() *cobra.Command {
 
 			// create BTC notifier
 			// TODO: is it possible to merge BTC client and BTC notifier?
-			btcParams, err := netparams.GetBTCParams(cfg.BTC.NetParams)
+			btcNotifier, err := btcclient.NewNodeBackendWithParams(cfg.BTC, "")
 			if err != nil {
-				panic(fmt.Errorf("failed to get BTC parameter: %w", err))
-			}
-			btcCfg := btcclient.CfgToBtcNodeBackendConfig(cfg.BTC, "") // we will read certifcates from file
-			btcNotifier, err := btcclient.NewNodeBackend(btcCfg, btcParams, &btcclient.EmptyHintCache{})
-			if err != nil {
-				panic(fmt.Errorf("failed to create btc chain notifier: %w", err))
+				panic(err)
 			}
 
 			bsMetrics := metrics.NewBTCStakingTrackerMetrics()

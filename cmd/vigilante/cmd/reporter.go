@@ -2,8 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/babylonlabs-io/vigilante/netparams"
-
 	bbnclient "github.com/babylonlabs-io/babylon/client/client"
 	"github.com/spf13/cobra"
 
@@ -64,14 +62,9 @@ func GetReporterCmd() *cobra.Command {
 			reporterMetrics := metrics.NewReporterMetrics()
 
 			// create the chain notifier
-			btcParams, err := netparams.GetBTCParams(cfg.BTC.NetParams)
+			btcNotifier, err := btcclient.NewNodeBackendWithParams(cfg.BTC, "")
 			if err != nil {
-				panic(fmt.Errorf("failed to get BTC net params: %w", err))
-			}
-			btcCfg := btcclient.CfgToBtcNodeBackendConfig(cfg.BTC, "")
-			btcNotifier, err := btcclient.NewNodeBackend(btcCfg, btcParams, &btcclient.EmptyHintCache{})
-			if err != nil {
-				panic(fmt.Errorf("failed to initialize notifier: %w", err))
+				panic(err)
 			}
 
 			// create reporter
