@@ -94,9 +94,20 @@ func (bs *BtcScanner) Start() {
 	bs.Started.Store(true)
 	bs.logger.Info("the BTC scanner is started")
 
+	if err := bs.btcNotifier.Start(); err != nil {
+		bs.logger.Errorf("Failed starting notifier")
+		return
+	}
+
+	blockNotifier, err := bs.btcNotifier.RegisterBlockEpochNtfn(nil)
+	if err != nil {
+		bs.logger.Errorf("Failed registering block epoch notifier")
+		return
+	}
+
 	// start handling new blocks
 	bs.wg.Add(1)
-	go bs.blockEventHandler()
+	go bs.blockEventHandler(blockNotifier)
 
 	for bs.Started.Load() {
 		select {
