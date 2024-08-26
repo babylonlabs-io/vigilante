@@ -7,7 +7,6 @@ import (
 
 	pv "github.com/cosmos/relayer/v2/relayer/provider"
 
-	sdkmath "cosmossdk.io/math"
 	"github.com/babylonlabs-io/babylon/types/retry"
 	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
 	btclctypes "github.com/babylonlabs-io/babylon/x/btclightclient/types"
@@ -222,15 +221,6 @@ func (r *Reporter) ProcessCheckpoints(signer string, ibs []*types.IndexedBlock) 
 	numMatchedCkpts, err := r.matchAndSubmitCheckpoints(signer)
 
 	return numCkptSegs, numMatchedCkpts, err
-}
-
-func calculateBranchWork(branch []*types.IndexedBlock) sdkmath.Uint {
-	var currenWork = sdkmath.ZeroUint()
-	for _, h := range branch {
-		headerWork := btclctypes.CalcHeaderWork(h.Header)
-		currenWork = btclctypes.CumulativeWork(headerWork, currenWork)
-	}
-	return currenWork
 }
 
 // push msg to channel c, or quit if quit channel is closed
