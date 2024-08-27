@@ -4,6 +4,8 @@
 package e2etest
 
 import (
+	"github.com/babylonlabs-io/vigilante/btcclient"
+	"github.com/babylonlabs-io/vigilante/netparams"
 	"sync"
 	"testing"
 	"time"
@@ -60,11 +62,19 @@ func TestReporter_BoostrapUnderFrequentBTCHeaders(t *testing.T) {
 
 	reporterMetrics := metrics.NewReporterMetrics()
 
+	// create the chain notifier
+	btcParams, err := netparams.GetBTCParams(tm.Config.BTC.NetParams)
+	require.NoError(t, err)
+	btcCfg := btcclient.CfgToBtcNodeBackendConfig(tm.Config.BTC, "")
+	btcNotifier, err := btcclient.NewNodeBackend(btcCfg, btcParams, &btcclient.EmptyHintCache{})
+	require.NoError(t, err)
+
 	vigilantReporter, err := reporter.New(
 		&tm.Config.Reporter,
 		logger,
 		tm.BTCClient,
 		tm.BabylonClient,
+		btcNotifier,
 		tm.Config.Common.RetrySleepTime,
 		tm.Config.Common.MaxRetrySleepTime,
 		reporterMetrics,
@@ -116,11 +126,18 @@ func TestRelayHeadersAndHandleRollbacks(t *testing.T) {
 
 	reporterMetrics := metrics.NewReporterMetrics()
 
+	btcParams, err := netparams.GetBTCParams(tm.Config.BTC.NetParams)
+	require.NoError(t, err)
+	btcCfg := btcclient.CfgToBtcNodeBackendConfig(tm.Config.BTC, "")
+	btcNotifier, err := btcclient.NewNodeBackend(btcCfg, btcParams, &btcclient.EmptyHintCache{})
+	require.NoError(t, err)
+
 	vigilantReporter, err := reporter.New(
 		&tm.Config.Reporter,
 		logger,
 		tm.BTCClient,
 		tm.BabylonClient,
+		btcNotifier,
 		tm.Config.Common.RetrySleepTime,
 		tm.Config.Common.MaxRetrySleepTime,
 		reporterMetrics,
@@ -160,11 +177,18 @@ func TestHandleReorgAfterRestart(t *testing.T) {
 
 	reporterMetrics := metrics.NewReporterMetrics()
 
+	btcParams, err := netparams.GetBTCParams(tm.Config.BTC.NetParams)
+	require.NoError(t, err)
+	btcCfg := btcclient.CfgToBtcNodeBackendConfig(tm.Config.BTC, "")
+	btcNotifier, err := btcclient.NewNodeBackend(btcCfg, btcParams, &btcclient.EmptyHintCache{})
+	require.NoError(t, err)
+
 	vigilantReporter, err := reporter.New(
 		&tm.Config.Reporter,
 		logger,
 		tm.BTCClient,
 		tm.BabylonClient,
+		btcNotifier,
 		tm.Config.Common.RetrySleepTime,
 		tm.Config.Common.MaxRetrySleepTime,
 		reporterMetrics,
@@ -199,6 +223,7 @@ func TestHandleReorgAfterRestart(t *testing.T) {
 		logger,
 		btcClient,
 		tm.BabylonClient,
+		btcNotifier,
 		tm.Config.Common.RetrySleepTime,
 		tm.Config.Common.MaxRetrySleepTime,
 		reporterMetrics,

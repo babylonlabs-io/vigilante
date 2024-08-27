@@ -3,6 +3,7 @@ package btcclient
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/babylonlabs-io/vigilante/netparams"
 	"net"
 	"os"
 	"time"
@@ -247,4 +248,19 @@ func NewNodeBackend(
 	default:
 		return nil, fmt.Errorf("unknown node backend: %v", cfg.ActiveNodeBackend)
 	}
+}
+
+// NewNodeBackendWithParams creates a new NodeBackend by incorporating parameter retrieval and config conversion.
+func NewNodeBackendWithParams(cfg config.BTCConfig, rawCert string) (*NodeBackend, error) {
+	btcParams, err := netparams.GetBTCParams(cfg.NetParams)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get BTC net params: %w", err)
+	}
+
+	btcNotifier, err := NewNodeBackend(CfgToBtcNodeBackendConfig(cfg, rawCert), btcParams, &EmptyHintCache{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize notifier: %w", err)
+	}
+
+	return btcNotifier, nil
 }

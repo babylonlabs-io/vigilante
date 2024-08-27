@@ -26,8 +26,8 @@ func NewWallet(cfg *config.BTCConfig, parentLogger *zap.Logger) (*Client, error)
 		return nil, err
 	}
 	wallet := &Client{}
-	wallet.Cfg = cfg
-	wallet.Params = params
+	wallet.cfg = cfg
+	wallet.params = params
 	wallet.logger = parentLogger.With(zap.String("module", "btcclient_wallet")).Sugar()
 
 	connCfg := &rpcclient.ConnConfig{}
@@ -69,15 +69,15 @@ func NewWallet(cfg *config.BTCConfig, parentLogger *zap.Logger) (*Client, error)
 }
 
 func (c *Client) GetWalletPass() string {
-	return c.Cfg.WalletPassword
+	return c.cfg.WalletPassword
 }
 
 func (c *Client) GetWalletLockTime() int64 {
-	return c.Cfg.WalletLockTime
+	return c.cfg.WalletLockTime
 }
 
 func (c *Client) GetNetParams() *chaincfg.Params {
-	net, err := netparams.GetBTCParams(c.Cfg.NetParams)
+	net, err := netparams.GetBTCParams(c.cfg.NetParams)
 	if err != nil {
 		panic(fmt.Errorf("failed to get BTC network params: %w", err))
 	}
@@ -85,7 +85,7 @@ func (c *Client) GetNetParams() *chaincfg.Params {
 }
 
 func (c *Client) GetBTCConfig() *config.BTCConfig {
-	return c.Cfg
+	return c.cfg
 }
 
 func (c *Client) ListUnspent() ([]btcjson.ListUnspentResult, error) {

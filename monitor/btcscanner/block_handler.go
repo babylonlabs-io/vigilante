@@ -3,73 +3,88 @@ package btcscanner
 import (
 	"errors"
 	"fmt"
-
-	"github.com/babylonlabs-io/vigilante/types"
+	"github.com/btcsuite/btcd/wire"
+	"github.com/lightningnetwork/lnd/chainntnfs"
 )
 
-// blockEventHandler handles connected and disconnected blocks from the BTC client.
-func (bs *BtcScanner) blockEventHandler() {
+// bootstrapAndBlockEventHandler handles connected and disconnected blocks from the BTC client.
+func (bs *BtcScanner) bootstrapAndBlockEventHandler() {
 	defer bs.wg.Done()
+
+	bs.Bootstrap()
+
+	var blockEpoch *chainntnfs.BlockEpoch
+	bestKnownBlock := bs.UnconfirmedBlockCache.Tip()
+	if bestKnownBlock != nil {
+		hash := bestKnownBlock.BlockHash()
+		blockEpoch = &chainntnfs.BlockEpoch{
+			Hash:        &hash,
+			Height:      bestKnownBlock.Height,
+			BlockHeader: bestKnownBlock.Header,
+		}
+	}
+	// register the notifier with the best known tip
+	blockNotifier, err := bs.btcNotifier.RegisterBlockEpochNtfn(blockEpoch)
+	if err != nil {
+		bs.logger.Errorf("Failed registering block epoch notifier")
+		return
+	}
+	defer blockNotifier.Cancel()
 
 	for {
 		select {
 		case <-bs.quit:
 			bs.BtcClient.Stop()
 			return
-		case event, open := <-bs.BtcClient.BlockEventChan():
+		case epoch, open := <-blockNotifier.Epochs:
 			if !open {
 				bs.logger.Errorf("Block event channel is closed")
 				return // channel closed
 			}
-			if event.EventType == types.BlockConnected {
-				err := bs.handleConnectedBlocks(event)
-				if err != nil {
-					bs.logger.Warnf("failed to handle a connected block at height %d: %s, "+
-						"need to restart the bootstrapping process", event.Height, err.Error())
-					if bs.Synced.Swap(false) {
-						bs.Bootstrap()
-					}
-				}
-			} else if event.EventType == types.BlockDisconnected {
-				err := bs.handleDisconnectedBlocks(event)
-				if err != nil {
-					bs.logger.Warnf("failed to handle a disconnected block at height %d: %s,"+
-						"need to restart the bootstrapping process", event.Height, err.Error())
-					if bs.Synced.Swap(false) {
-						bs.Bootstrap()
-					}
-				}
+
+			if err := bs.handleNewBlock(epoch.Height, epoch.BlockHeader); err != nil {
+				bs.logger.Warnf("failed to handle block at height %d: %s, "+
+					"need to restart the bootstrapping process", epoch.Height, err.Error())
+				bs.Bootstrap()
 			}
 		}
 	}
 }
 
-// handleConnectedBlocks handles connected blocks from the BTC client
+// handleNewBlock handles blocks from the BTC client
 // if new confirmed blocks are found, send them through the channel
-func (bs *BtcScanner) handleConnectedBlocks(event *types.BlockEvent) error {
-	if !bs.Synced.Load() {
-		return errors.New("the btc scanner is not synced")
-	}
-
-	// get the block from hash
-	blockHash := event.Header.BlockHash()
-	ib, _, err := bs.BtcClient.GetBlockByHash(&blockHash)
-	if err != nil {
-		// failing to request the block, which means a bug
-		panic(err)
-	}
-
+func (bs *BtcScanner) handleNewBlock(height int32, header *wire.BlockHeader) error {
 	// get cache tip
 	cacheTip := bs.UnconfirmedBlockCache.Tip()
 	if cacheTip == nil {
 		return errors.New("no unconfirmed blocks found")
 	}
 
-	parentHash := ib.Header.PrevBlock
+	if cacheTip.Height >= height {
+		bs.logger.Debugf(
+			"the connecting block (height: %d, hash: %s) is too early, skipping the block",
+			height,
+			header.BlockHash().String(),
+		)
+		return nil
+	}
 
+	if cacheTip.Height+1 < height {
+		return fmt.Errorf("missing blocks, expected block height: %d, got: %d", cacheTip.Height+1, height)
+	}
+
+	parentHash := header.PrevBlock
 	// if the parent of the block is not the tip of the cache, then the cache is not up-to-date
 	if parentHash != cacheTip.BlockHash() {
 		return errors.New("cache is not up-to-date")
+	}
+
+	// get the block from hash
+	blockHash := header.BlockHash()
+	ib, _, err := bs.BtcClient.GetBlockByHash(&blockHash)
+	if err != nil {
+		// failing to request the block, which means a bug
+		panic(fmt.Errorf("failed to request block by hash: %s", blockHash.String()))
 	}
 
 	// otherwise, add the block to the cache
@@ -91,27 +106,6 @@ func (bs *BtcScanner) handleConnectedBlocks(event *types.BlockEvent) error {
 	}
 
 	bs.sendConfirmedBlocksToChan(confirmedBlocks)
-
-	return nil
-}
-
-// handleDisconnectedBlocks handles disconnected blocks from the BTC client.
-func (bs *BtcScanner) handleDisconnectedBlocks(event *types.BlockEvent) error {
-	// get cache tip
-	cacheTip := bs.UnconfirmedBlockCache.Tip()
-	if cacheTip == nil {
-		return errors.New("cache is empty")
-	}
-
-	// if the block to be disconnected is not the tip of the cache, then the cache is not up-to-date,
-	if event.Header.BlockHash() != cacheTip.BlockHash() {
-		return errors.New("cache is out-of-sync")
-	}
-
-	// otherwise, remove the block from the cache
-	if err := bs.UnconfirmedBlockCache.RemoveLast(); err != nil {
-		return fmt.Errorf("failed to remove last block from cache: %v", err)
-	}
 
 	return nil
 }

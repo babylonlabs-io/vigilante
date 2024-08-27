@@ -40,20 +40,6 @@ func (m *MockBTCClient) EXPECT() *MockBTCClientMockRecorder {
 	return m.recorder
 }
 
-// BlockEventChan mocks base method.
-func (m *MockBTCClient) BlockEventChan() <-chan *types.BlockEvent {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockEventChan")
-	ret0, _ := ret[0].(<-chan *types.BlockEvent)
-	return ret0
-}
-
-// BlockEventChan indicates an expected call of BlockEventChan.
-func (mr *MockBTCClientMockRecorder) BlockEventChan() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockEventChan", reflect.TypeOf((*MockBTCClient)(nil).BlockEventChan))
-}
-
 // FindTailBlocksByHeight mocks base method.
 func (m *MockBTCClient) FindTailBlocksByHeight(height uint64) ([]*types.IndexedBlock, error) {
 	m.ctrl.T.Helper()
@@ -162,18 +148,6 @@ func (mr *MockBTCClientMockRecorder) GetTxOut(txHash, index, mempool interface{}
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTxOut", reflect.TypeOf((*MockBTCClient)(nil).GetTxOut), txHash, index, mempool)
 }
 
-// MustSubscribeBlocks mocks base method.
-func (m *MockBTCClient) MustSubscribeBlocks() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "MustSubscribeBlocks")
-}
-
-// MustSubscribeBlocks indicates an expected call of MustSubscribeBlocks.
-func (mr *MockBTCClientMockRecorder) MustSubscribeBlocks() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MustSubscribeBlocks", reflect.TypeOf((*MockBTCClient)(nil).MustSubscribeBlocks))
-}
-
 // SendRawTransaction mocks base method.
 func (m *MockBTCClient) SendRawTransaction(tx *wire.MsgTx, allowHighFees bool) (*chainhash.Hash, error) {
 	m.ctrl.T.Helper()
@@ -234,21 +208,6 @@ func NewMockBTCWallet(ctrl *gomock.Controller) *MockBTCWallet {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockBTCWallet) EXPECT() *MockBTCWalletMockRecorder {
 	return m.recorder
-}
-
-// DumpPrivKey mocks base method.
-func (m *MockBTCWallet) DumpPrivKey(address btcutil.Address) (*btcutil.WIF, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DumpPrivKey", address)
-	ret0, _ := ret[0].(*btcutil.WIF)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// DumpPrivKey indicates an expected call of DumpPrivKey.
-func (mr *MockBTCWalletMockRecorder) DumpPrivKey(address interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DumpPrivKey", reflect.TypeOf((*MockBTCWallet)(nil).DumpPrivKey), address)
 }
 
 // FundRawTransaction mocks base method.

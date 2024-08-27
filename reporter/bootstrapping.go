@@ -60,15 +60,12 @@ func (r *Reporter) checkConsistency() (*consistencyCheckInfo, error) {
 	}, nil
 }
 
-func (r *Reporter) bootstrap(skipBlockSubscription bool) error {
+func (r *Reporter) bootstrap() error {
 	var (
 		btcLatestBlockHeight uint64
 		ibs                  []*types.IndexedBlock
 		err                  error
 	)
-
-	// if we are bootstraping, we will definitely not handle reorgs
-	r.reorgList.clear()
 
 	// ensure BTC has caught up with BBN header chain
 	if err := r.waitUntilBTCSync(); err != nil {
@@ -81,14 +78,7 @@ func (r *Reporter) bootstrap(skipBlockSubscription bool) error {
 	}
 	r.logger.Debugf("BTC cache size: %d", r.btcCache.Size())
 
-	// Subscribe new blocks right after initialising BTC cache, in order to ensure subscribed blocks and cached blocks do not have overlap.
-	// Otherwise, if we subscribe too early, then they will have overlap, leading to duplicated header/ckpt submissions.
-	if !skipBlockSubscription {
-		r.btcClient.MustSubscribeBlocks()
-	}
-
 	consistencyInfo, err := r.checkConsistency()
-
 	if err != nil {
 		return err
 	}
@@ -132,6 +122,7 @@ func (r *Reporter) bootstrap(skipBlockSubscription bool) error {
 	}
 
 	r.logger.Info("Successfully finished bootstrapping")
+
 	return nil
 }
 
@@ -153,12 +144,12 @@ func (r *Reporter) reporterQuitCtx() (context.Context, func()) {
 	return ctx, cancel
 }
 
-func (r *Reporter) bootstrapWithRetries(skipBlockSubscription bool) {
+func (r *Reporter) bootstrapWithRetries() {
 	// if we are exiting, we need to cancel this process
 	ctx, cancel := r.reporterQuitCtx()
 	defer cancel()
 	if err := retry.Do(func() error {
-		return r.bootstrap(skipBlockSubscription)
+		return r.bootstrap()
 	},
 		retry.Context(ctx),
 		bootstrapAttemptsAtt,
@@ -226,6 +217,7 @@ func (r *Reporter) initBTCCache() error {
 	if err = r.btcCache.Init(ibs); err != nil {
 		panic(err)
 	}
+
 	return nil
 }
 
@@ -316,5 +308,6 @@ func (r *Reporter) checkHeaderConsistency(consistencyCheckHeight uint64) error {
 		err = fmt.Errorf("BTC main chain is inconsistent with BBN header chain: k-deep block in BBN header chain: %v", consistencyCheckHash)
 		panic(err)
 	}
+
 	return nil
 }
