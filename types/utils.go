@@ -1,13 +1,12 @@
 package types
 
 import (
-	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/btcd/btcutil"
+	"github.com/btcsuite/btcd/wire"
 )
 
 type (
 	SupportedBtcNetwork string
-	SupportedBtcBackend string
 )
 
 const (
@@ -16,16 +15,9 @@ const (
 	BtcSimnet  SupportedBtcNetwork = "simnet"
 	BtcRegtest SupportedBtcNetwork = "regtest"
 	BtcSignet  SupportedBtcNetwork = "signet"
-
-	Btcd     SupportedBtcBackend = "btcd"
-	Bitcoind SupportedBtcBackend = "bitcoind"
 )
 
 func (c SupportedBtcNetwork) String() string {
-	return string(c)
-}
-
-func (c SupportedBtcBackend) String() string {
 	return string(c)
 }
 
@@ -52,13 +44,4 @@ func GetValidNetParams() map[string]bool {
 	}
 
 	return params
-}
-
-func GetValidBtcBackends() map[SupportedBtcBackend]bool {
-	validBtcBackends := map[SupportedBtcBackend]bool{
-		Bitcoind: true,
-		Btcd:     true,
-	}
-
-	return validBtcBackends
 }

@@ -65,7 +65,7 @@ func TestReporter_BoostrapUnderFrequentBTCHeaders(t *testing.T) {
 	// create the chain notifier
 	btcParams, err := netparams.GetBTCParams(tm.Config.BTC.NetParams)
 	require.NoError(t, err)
-	btcCfg := btcclient.CfgToBtcNodeBackendConfig(tm.Config.BTC, "")
+	btcCfg := btcclient.ToBitcoindConfig(tm.Config.BTC)
 	btcNotifier, err := btcclient.NewNodeBackend(btcCfg, btcParams, &btcclient.EmptyHintCache{})
 	require.NoError(t, err)
 
@@ -128,7 +128,7 @@ func TestRelayHeadersAndHandleRollbacks(t *testing.T) {
 
 	btcParams, err := netparams.GetBTCParams(tm.Config.BTC.NetParams)
 	require.NoError(t, err)
-	btcCfg := btcclient.CfgToBtcNodeBackendConfig(tm.Config.BTC, "")
+	btcCfg := btcclient.ToBitcoindConfig(tm.Config.BTC)
 	btcNotifier, err := btcclient.NewNodeBackend(btcCfg, btcParams, &btcclient.EmptyHintCache{})
 	require.NoError(t, err)
 
@@ -179,7 +179,7 @@ func TestHandleReorgAfterRestart(t *testing.T) {
 
 	btcParams, err := netparams.GetBTCParams(tm.Config.BTC.NetParams)
 	require.NoError(t, err)
-	btcCfg := btcclient.CfgToBtcNodeBackendConfig(tm.Config.BTC, "")
+	btcCfg := btcclient.ToBitcoindConfig(tm.Config.BTC)
 	btcNotifier, err := btcclient.NewNodeBackend(btcCfg, btcParams, &btcclient.EmptyHintCache{})
 	require.NoError(t, err)
 
