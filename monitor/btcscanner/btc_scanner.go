@@ -40,8 +40,6 @@ type BtcScanner struct {
 	blockHeaderChan chan *wire.BlockHeader
 	checkpointsChan chan *types.CheckpointRecord
 
-	Synced *atomic.Bool
-
 	wg      sync.WaitGroup
 	Started *atomic.Bool
 	quit    chan struct{}
@@ -75,7 +73,6 @@ func New(
 		ConfirmedBlocksChan:   confirmedBlocksChan,
 		blockHeaderChan:       headersChan,
 		checkpointsChan:       ckptsChan,
-		Synced:                atomic.NewBool(false),
 		Started:               atomic.NewBool(false),
 		quit:                  make(chan struct{}),
 	}, nil
@@ -88,9 +85,6 @@ func (bs *BtcScanner) Start() {
 		return
 	}
 
-	// the bootstrapping should not block the main thread
-	go bs.Bootstrap()
-
 	bs.Started.Store(true)
 	bs.logger.Info("the BTC scanner is started")
 
@@ -99,15 +93,9 @@ func (bs *BtcScanner) Start() {
 		return
 	}
 
-	blockNotifier, err := bs.btcNotifier.RegisterBlockEpochNtfn(nil)
-	if err != nil {
-		bs.logger.Errorf("Failed registering block epoch notifier")
-		return
-	}
-
 	// start handling new blocks
 	bs.wg.Add(1)
-	go bs.blockEventHandler(blockNotifier)
+	go bs.bootstrapAndBlockEventHandler()
 
 	for bs.Started.Load() {
 		select {
@@ -140,12 +128,6 @@ func (bs *BtcScanner) Bootstrap() {
 		confirmedBlock         *types.IndexedBlock
 		err                    error
 	)
-
-	if bs.Synced.Load() {
-		// the scanner is already synced
-		return
-	}
-	defer bs.Synced.Store(true)
 
 	if bs.confirmedTipBlock != nil {
 		firstUnconfirmedHeight = uint64(bs.confirmedTipBlock.Height + 1)

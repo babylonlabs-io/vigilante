@@ -7,9 +7,28 @@ import (
 	"github.com/lightningnetwork/lnd/chainntnfs"
 )
 
-// blockEventHandler handles connected and disconnected blocks from the BTC client.
-func (bs *BtcScanner) blockEventHandler(blockNotifier *chainntnfs.BlockEpochEvent) {
+// bootstrapAndBlockEventHandler handles connected and disconnected blocks from the BTC client.
+func (bs *BtcScanner) bootstrapAndBlockEventHandler() {
 	defer bs.wg.Done()
+
+	bs.Bootstrap()
+
+	var blockEpoch *chainntnfs.BlockEpoch
+	bestKnownBlock := bs.UnconfirmedBlockCache.Tip()
+	if bestKnownBlock != nil {
+		hash := bestKnownBlock.BlockHash()
+		blockEpoch = &chainntnfs.BlockEpoch{
+			Hash:        &hash,
+			Height:      bestKnownBlock.Height,
+			BlockHeader: bestKnownBlock.Header,
+		}
+	}
+	// register the notifier with the best known tip
+	blockNotifier, err := bs.btcNotifier.RegisterBlockEpochNtfn(blockEpoch)
+	if err != nil {
+		bs.logger.Errorf("Failed registering block epoch notifier")
+		return
+	}
 	defer blockNotifier.Cancel()
 
 	for {
@@ -26,9 +45,7 @@ func (bs *BtcScanner) blockEventHandler(blockNotifier *chainntnfs.BlockEpochEven
 			if err := bs.handleNewBlock(epoch.Height, epoch.BlockHeader); err != nil {
 				bs.logger.Warnf("failed to handle block at height %d: %s, "+
 					"need to restart the bootstrapping process", epoch.Height, err.Error())
-				if bs.Synced.Swap(false) {
-					bs.Bootstrap()
-				}
+				bs.Bootstrap()
 			}
 		}
 	}
@@ -37,10 +54,6 @@ func (bs *BtcScanner) blockEventHandler(blockNotifier *chainntnfs.BlockEpochEven
 // handleNewBlock handles blocks from the BTC client
 // if new confirmed blocks are found, send them through the channel
 func (bs *BtcScanner) handleNewBlock(height int32, header *wire.BlockHeader) error {
-	if !bs.Synced.Load() {
-		return errors.New("the btc scanner is not synced")
-	}
-
 	// get cache tip
 	cacheTip := bs.UnconfirmedBlockCache.Tip()
 	if cacheTip == nil {
@@ -71,7 +84,7 @@ func (bs *BtcScanner) handleNewBlock(height int32, header *wire.BlockHeader) err
 	ib, _, err := bs.BtcClient.GetBlockByHash(&blockHash)
 	if err != nil {
 		// failing to request the block, which means a bug
-		panic(err)
+		panic(fmt.Errorf("failed to request block by hash: %s", blockHash.String()))
 	}
 
 	// otherwise, add the block to the cache
