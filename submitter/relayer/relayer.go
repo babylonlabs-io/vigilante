@@ -80,8 +80,14 @@ func (rl *Relayer) SendCheckpointToBTC(ckpt *ckpttypes.RawCheckpointWithMetaResp
 		return nil
 	}
 
-	if rl.lastSubmittedCheckpoint == nil || rl.lastSubmittedCheckpoint.Epoch < ckptEpoch {
+	if rl.lastSubmittedCheckpoint == nil ||
+		rl.lastSubmittedCheckpoint.Tx1 == nil ||
+		rl.lastSubmittedCheckpoint.Epoch < ckptEpoch {
 		rl.logger.Infof("Submitting a raw checkpoint for epoch %v for the first time", ckptEpoch)
+
+		if rl.lastSubmittedCheckpoint == nil {
+			rl.lastSubmittedCheckpoint = &types.CheckpointInfo{}
+		}
 
 		submittedCheckpoint, err := rl.convertCkptToTwoTxAndSubmit(ckpt.Ckpt)
 		if err != nil {
@@ -295,14 +301,21 @@ func (rl *Relayer) convertCkptToTwoTxAndSubmit(ckpt *ckpttypes.RawCheckpointResp
 func (rl *Relayer) ChainTwoTxAndSend(data1 []byte, data2 []byte) (*types.BtcTxInfo, *types.BtcTxInfo, error) {
 	// recipient is a change address that all the
 	// remaining balance of the utxo is sent to
-	tx1, err := rl.buildTxWithData(data1, nil)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to add data to tx1: %w", err)
-	}
+	tx1 := rl.lastSubmittedCheckpoint.Tx1
+	// prevent resending tx1 if it was successful
+	if rl.lastSubmittedCheckpoint.Tx1 == nil {
+		var err error
+		tx1, err = rl.buildTxWithData(data1, nil)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to add data to tx1: %w", err)
+		}
 
-	tx1.TxId, err = rl.sendTxToBTC(tx1.Tx)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to send tx1 to BTC: %w", err)
+		tx1.TxId, err = rl.sendTxToBTC(tx1.Tx)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to send tx1 to BTC: %w", err)
+		}
+		// cache a successful tx1 submission
+		rl.lastSubmittedCheckpoint.Tx1 = tx1
 	}
 
 	// the second tx consumes the second output (index 1)
@@ -316,8 +329,6 @@ func (rl *Relayer) ChainTwoTxAndSend(data1 []byte, data2 []byte) (*types.BtcTxIn
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to send tx2 to BTC: %w", err)
 	}
-
-	// TODO: if tx1 succeeds but tx2 fails, we should not resent tx1
 
 	return tx1, tx2, nil
 }
