@@ -12,7 +12,7 @@ There are four vigilante programs:
 ## Requirements
 
 - Go 1.23
-- Docker
+- Bitcoind
 - Package [libzmq](https://github.com/zeromq/libzmq)
 
 ## Building
