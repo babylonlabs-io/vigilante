@@ -10,7 +10,6 @@ import (
 
 // BTCConfig defines configuration for the Bitcoin client
 type BTCConfig struct {
-	DisableClientTLS  bool                  `mapstructure:"no-client-tls"`
 	Endpoint          string                `mapstructure:"endpoint"`
 	WalletPassword    string                `mapstructure:"wallet-password"`
 	WalletName        string                `mapstructure:"wallet-name"`
@@ -97,7 +96,6 @@ const (
 
 func DefaultBTCConfig() BTCConfig {
 	return BTCConfig{
-		DisableClientTLS:  false,
 		Endpoint:          DefaultRpcBtcNodeHost,
 		WalletPassword:    "walletpass",
 		WalletName:        "default",

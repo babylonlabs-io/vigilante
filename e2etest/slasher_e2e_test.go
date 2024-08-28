@@ -28,7 +28,6 @@ func TestSlasher_GracefulShutdown(t *testing.T) {
 
 	emptyHintCache := btcclient.EmptyHintCache{}
 
-	tm.Config.BTC.DisableClientTLS = false
 	backend, err := btcclient.NewNodeBackend(
 		btcclient.ToBitcoindConfig(tm.Config.BTC),
 		&chaincfg.RegressionNetParams,
@@ -79,7 +78,6 @@ func TestSlasher_Slasher(t *testing.T) {
 
 	emptyHintCache := btcclient.EmptyHintCache{}
 
-	tm.Config.BTC.DisableClientTLS = false
 	backend, err := btcclient.NewNodeBackend(
 		btcclient.ToBitcoindConfig(tm.Config.BTC),
 		&chaincfg.RegressionNetParams,
@@ -148,7 +146,6 @@ func TestSlasher_SlashingUnbonding(t *testing.T) {
 
 	emptyHintCache := btcclient.EmptyHintCache{}
 
-	tm.Config.BTC.DisableClientTLS = false
 	backend, err := btcclient.NewNodeBackend(
 		btcclient.ToBitcoindConfig(tm.Config.BTC),
 		&chaincfg.RegressionNetParams,
@@ -243,7 +240,6 @@ func TestSlasher_Bootstrapping(t *testing.T) {
 
 	emptyHintCache := btcclient.EmptyHintCache{}
 
-	tm.Config.BTC.DisableClientTLS = false
 	backend, err := btcclient.NewNodeBackend(
 		btcclient.ToBitcoindConfig(tm.Config.BTC),
 		&chaincfg.RegressionNetParams,

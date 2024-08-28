@@ -30,7 +30,6 @@ func TestUnbondingWatcher(t *testing.T) {
 
 	emptyHintCache := btcclient.EmptyHintCache{}
 
-	tm.Config.BTC.DisableClientTLS = false
 	backend, err := btcclient.NewNodeBackend(
 		btcclient.ToBitcoindConfig(tm.Config.BTC),
 		&chaincfg.RegressionNetParams,

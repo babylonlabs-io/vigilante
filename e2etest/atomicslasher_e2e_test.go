@@ -36,7 +36,6 @@ func TestAtomicSlasher(t *testing.T) {
 
 	emptyHintCache := btcclient.EmptyHintCache{}
 
-	tm.Config.BTC.DisableClientTLS = false
 	backend, err := btcclient.NewNodeBackend(
 		btcclient.ToBitcoindConfig(tm.Config.BTC),
 		&chaincfg.RegressionNetParams,
@@ -155,7 +154,6 @@ func TestAtomicSlasher_Unbonding(t *testing.T) {
 
 	emptyHintCache := btcclient.EmptyHintCache{}
 
-	tm.Config.BTC.DisableClientTLS = false
 	backend, err := btcclient.NewNodeBackend(
 		btcclient.ToBitcoindConfig(tm.Config.BTC),
 		&chaincfg.RegressionNetParams,

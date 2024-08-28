@@ -44,7 +44,6 @@ func defaultVigilanteConfig() *config.Config {
 	defaultConfig.BTC.WalletPassword = "pass"
 	defaultConfig.BTC.Username = "user"
 	defaultConfig.BTC.Password = "pass"
-	defaultConfig.BTC.DisableClientTLS = true
 	defaultConfig.BTC.ZmqSeqEndpoint = config.DefaultZmqSeqEndpoint
 
 	return defaultConfig
