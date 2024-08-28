@@ -11,8 +11,8 @@ There are four vigilante programs:
 
 ## Requirements
 
-- Go 1.23
-- [Bitcoind](https://bitcoincore.org/en/download/)
+- [Go 1.23](https://go.dev/dl/go1.23.0.src.tar.gz)
+- [Bitcoind](https://bitcoincore.org/bin)
 - Package [libzmq](https://github.com/zeromq/libzmq)
 
 ## Building
@@ -42,7 +42,7 @@ for an arbitrary number of nodes.
 ```shell
 $BABYLON_PATH/build/babylond testnet \
     --v                     1 \
-    --output-dir            /Users/lazar/work/test \
+    --output-dir            $TESTNET_PATH \
     --starting-ip-address   192.168.10.2 \
     --keyring-backend       test \
     --chain-id              chain-test
@@ -66,19 +66,16 @@ This will be later used to retrieve the certificate required for RPC connections
 mkdir $TESTNET_PATH/bitcoin
 ```
 
-#### Running a Bitcoin regtest with an arbitrary mining address
+```bash
+# Download Bitcoin Core binary
+wget https://bitcoincore.org/bin/bitcoin-core-27.0/bitcoin-27.0-x86_64-linux-gnu.tar.gz # or choose a version depending on your os
 
-Launch a regtest Bitcoind node which listens for RPC connections at port `18443`.
+# Extract the downloaded archive
+tar -xvf bitcoin-27.0-x86_64-linux-gnu.tar.gz
 
-```shell
-bitcoind -regtest \
-         -txindex \
-         -rpcuser=rpcuser \
-         -rpcpassword=rpcpass \
-         -rpcbind=0.0.0.0:18443 \
-         -zmqpubsequence=tcp://0.0.0.0:28333 \
-         -datadir=/data/.bitcoin \
-
+# Provide execution permissions to binaries
+chmod +x bitcoin-27.0/bin/bitcoind
+chmod +x bitcoin-27.0/bin/bitcoin-cli
 ```
 
 #### Running a Bitcoin regtest with a wallet
@@ -88,8 +85,8 @@ Launch a regtest Bitcoind node which listens for RPC connections at port `18443`
 ```shell
 bitcoind -regtest \
          -txindex \
-         -rpcuser=rpcuser \
-         -rpcpassword=rpcpass \
+         -rpcuser=<rpc_user> \
+         -rpcpassword=<rpc_password> \
          -rpcbind=0.0.0.0:18443 \
          -zmqpubsequence=tcp://0.0.0.0:28333 \
          -datadir=/data/.bitcoin \
@@ -103,13 +100,23 @@ If you want to use the default vigilante file, then give the password `walletpas
 Otherwise, make sure to edit the `vigilante.yaml` to reflect the correct password.
 
 ```shell
-bitcoin-cli -chain=regtest -rpcuser=rpcuser -rpcpassword=rpcpass createwallet default false false pass false true
+bitcoin-cli -regtest \
+    -rpcuser=<rpc_user> \
+    -rpcpassword=<rpc_password> \
+    -named createwallet \
+    wallet_name="<wallet_name>" \
+    passphrase="<passphrase>" \
+    load_on_startup=true \
+    descriptors=true
 ```
+You can generate a btc address through the `getnewaddress` command:
 
-Leave this process running. If you get an error that a wallet already exists and you still want
-to create one, delete the `wallet.db` file located in the path displayed by the error message.
-
-Create an address that will be later used for mining. The output below is a sample one.
+```bash
+bitcoin-cli -regtest \
+    -rpcuser=<rpc_user> \
+    -rpcpassword=<rpc_password> \
+    getnewaddress
+```
 
 #### Generating BTC blocks
 
@@ -118,7 +125,10 @@ We accomplish that through the `bitcoin-cli` utility and the use
 of the parameters we defined above.
 
 ```shell
-bitcoin-cli -chain=regtest -rpcuser=rpcuser -rpcpassword=rpcpass -generate $NUM_BLOCKS
+bitcoin-cli -chain=regtest \
+      -rpcuser=<rpc_user \
+      -rpcpassword=<rpc_password> \
+      -generate $NUM_BLOCKS
 ```
 
 where `$NUM_BLOCKS` is the number of blocks you want to generate.
