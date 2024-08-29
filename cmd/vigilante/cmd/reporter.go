@@ -62,7 +62,7 @@ func GetReporterCmd() *cobra.Command {
 			reporterMetrics := metrics.NewReporterMetrics()
 
 			// create the chain notifier
-			btcNotifier, err := btcclient.NewNodeBackendWithParams(cfg.BTC, "")
+			btcNotifier, err := btcclient.NewNodeBackendWithParams(cfg.BTC)
 			if err != nil {
 				panic(err)
 			}

@@ -68,7 +68,7 @@ func GetBTCStakingTracker() *cobra.Command {
 
 			// create BTC notifier
 			// TODO: is it possible to merge BTC client and BTC notifier?
-			btcNotifier, err := btcclient.NewNodeBackendWithParams(cfg.BTC, "")
+			btcNotifier, err := btcclient.NewNodeBackendWithParams(cfg.BTC)
 			if err != nil {
 				panic(err)
 			}

@@ -17,7 +17,6 @@ import (
 	btclctypes "github.com/babylonlabs-io/babylon/x/btclightclient/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/config"
-	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
@@ -39,16 +38,12 @@ var (
 
 func defaultVigilanteConfig() *config.Config {
 	defaultConfig := config.DefaultConfig()
-	// Config setting necessary to connect btcd daemon
 	defaultConfig.BTC.NetParams = regtestParams.Name
 	defaultConfig.BTC.Endpoint = "127.0.0.1:18443"
 	// Config setting necessary to connect btcwallet daemon
-	defaultConfig.BTC.BtcBackend = types.Bitcoind
-	defaultConfig.BTC.WalletEndpoint = "127.0.0.1:18554"
 	defaultConfig.BTC.WalletPassword = "pass"
 	defaultConfig.BTC.Username = "user"
 	defaultConfig.BTC.Password = "pass"
-	defaultConfig.BTC.DisableClientTLS = true
 	defaultConfig.BTC.ZmqSeqEndpoint = config.DefaultZmqSeqEndpoint
 
 	return defaultConfig
