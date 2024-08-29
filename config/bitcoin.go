@@ -3,8 +3,6 @@ package config
 import (
 	"errors"
 	"fmt"
-	"os"
-
 	"github.com/lightningnetwork/lnd/lnwallet/chainfee"
 
 	"github.com/babylonlabs-io/vigilante/types"
@@ -12,13 +10,9 @@ import (
 
 // BTCConfig defines configuration for the Bitcoin client
 type BTCConfig struct {
-	DisableClientTLS  bool                  `mapstructure:"no-client-tls"`
-	CAFile            string                `mapstructure:"ca-file"`
 	Endpoint          string                `mapstructure:"endpoint"`
-	WalletEndpoint    string                `mapstructure:"wallet-endpoint"`
 	WalletPassword    string                `mapstructure:"wallet-password"`
 	WalletName        string                `mapstructure:"wallet-name"`
-	WalletCAFile      string                `mapstructure:"wallet-ca-file"`
 	WalletLockTime    int64                 `mapstructure:"wallet-lock-time"` // time duration in which the wallet remains unlocked, in seconds
 	TxFeeMin          chainfee.SatPerKVByte `mapstructure:"tx-fee-min"`       // minimum tx fee, sat/kvb
 	TxFeeMax          chainfee.SatPerKVByte `mapstructure:"tx-fee-max"`       // maximum tx fee, sat/kvb
@@ -102,13 +96,9 @@ const (
 
 func DefaultBTCConfig() BTCConfig {
 	return BTCConfig{
-		DisableClientTLS:  false,
-		CAFile:            defaultBtcCAFile,
 		Endpoint:          DefaultRpcBtcNodeHost,
-		WalletEndpoint:    "localhost:18554",
 		WalletPassword:    "walletpass",
 		WalletName:        "default",
-		WalletCAFile:      defaultBtcWalletCAFile,
 		WalletLockTime:    10,
 		TxFeeMax:          chainfee.SatPerKVByte(20 * 1000), // 20,000sat/kvb = 20sat/vbyte
 		TxFeeMin:          chainfee.SatPerKVByte(1 * 1000),  // 1,000sat/kvb = 1sat/vbyte
@@ -123,36 +113,4 @@ func DefaultBTCConfig() BTCConfig {
 		ZmqBlockEndpoint:  DefaultZmqBlockEndpoint,
 		ZmqTxEndpoint:     DefaultZmqTxEndpoint,
 	}
-}
-
-func (cfg *BTCConfig) ReadCAFile() []byte {
-	if cfg.DisableClientTLS {
-		return nil
-	}
-
-	// Read certificate file if TLS is not disabled.
-	certs, err := os.ReadFile(cfg.CAFile)
-	if err != nil {
-		// If there's an error reading the CA file, continue
-		// with nil certs and without the client connection.
-		return nil
-	}
-
-	return certs
-}
-
-func (cfg *BTCConfig) ReadWalletCAFile() []byte {
-	if cfg.DisableClientTLS {
-		// Chain server RPC TLS is disabled
-		return nil
-	}
-
-	// Read certificate file if TLS is not disabled.
-	certs, err := os.ReadFile(cfg.WalletCAFile)
-	if err != nil {
-		// If there's an error reading the CA file, continue
-		// with nil certs and without the client connection.
-		return nil
-	}
-	return certs
 }

@@ -14,16 +14,6 @@ import (
 	"github.com/lightningnetwork/lnd/chainntnfs/bitcoindnotify"
 )
 
-type Btcd struct {
-	RPCHost        string
-	RPCUser        string
-	RPCPass        string
-	RPCCert        string
-	RawCert        string
-	DisableTLS     bool
-	BlockCacheSize uint64
-}
-
 type Bitcoind struct {
 	RPCHost              string
 	RPCUser              string

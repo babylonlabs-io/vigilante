@@ -126,7 +126,7 @@ of the parameters we defined above.
 
 ```shell
 bitcoin-cli -chain=regtest \
-      -rpcuser=<rpc_user \
+      -rpcuser=<rpc_user> \
       -rpcpassword=<rpc_password> \
       -generate $NUM_BLOCKS
 ```

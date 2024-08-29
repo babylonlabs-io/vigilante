@@ -38,15 +38,12 @@ var (
 
 func defaultVigilanteConfig() *config.Config {
 	defaultConfig := config.DefaultConfig()
-	// Config setting necessary to connect btcd daemon
 	defaultConfig.BTC.NetParams = regtestParams.Name
 	defaultConfig.BTC.Endpoint = "127.0.0.1:18443"
 	// Config setting necessary to connect btcwallet daemon
-	defaultConfig.BTC.WalletEndpoint = "127.0.0.1:18554"
 	defaultConfig.BTC.WalletPassword = "pass"
 	defaultConfig.BTC.Username = "user"
 	defaultConfig.BTC.Password = "pass"
-	defaultConfig.BTC.DisableClientTLS = true
 	defaultConfig.BTC.ZmqSeqEndpoint = config.DefaultZmqSeqEndpoint
 
 	return defaultConfig

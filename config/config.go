@@ -18,12 +18,10 @@ const (
 )
 
 var (
-	defaultBtcCAFile       = filepath.Join(btcutil.AppDataDir("btcd", false), "rpc.cert")
-	defaultBtcWalletCAFile = filepath.Join(btcutil.AppDataDir("btcwallet", false), "rpc.cert")
-	defaultAppDataDir      = btcutil.AppDataDir("babylon-vigilante", false)
-	defaultConfigFile      = filepath.Join(defaultAppDataDir, defaultConfigFilename)
-	defaultRPCKeyFile      = filepath.Join(defaultAppDataDir, "rpc.key")
-	defaultRPCCertFile     = filepath.Join(defaultAppDataDir, "rpc.cert")
+	defaultAppDataDir  = btcutil.AppDataDir("babylon-vigilante", false)
+	defaultConfigFile  = filepath.Join(defaultAppDataDir, defaultConfigFilename)
+	defaultRPCKeyFile  = filepath.Join(defaultAppDataDir, "rpc.key")
+	defaultRPCCertFile = filepath.Join(defaultAppDataDir, "rpc.cert")
 )
 
 // Config defines the server's top level configuration
