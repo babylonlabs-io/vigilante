@@ -301,33 +301,38 @@ func (rl *Relayer) convertCkptToTwoTxAndSubmit(ckpt *ckpttypes.RawCheckpointResp
 func (rl *Relayer) ChainTwoTxAndSend(data1 []byte, data2 []byte) (*types.BtcTxInfo, *types.BtcTxInfo, error) {
 	// recipient is a change address that all the
 	// remaining balance of the utxo is sent to
+
+	// helper function to build and send a transaction
+	buildAndSendTx := func(data []byte, parentTx *wire.MsgTx) (*types.BtcTxInfo, error) {
+		tx, err := rl.buildTxWithData(data, parentTx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to add data to tx: %w", err)
+		}
+
+		tx.TxId, err = rl.sendTxToBTC(tx.Tx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to send tx to BTC: %w", err)
+		}
+
+		return tx, nil
+	}
+
 	tx1 := rl.lastSubmittedCheckpoint.Tx1
 	// prevent resending tx1 if it was successful
 	if rl.lastSubmittedCheckpoint.Tx1 == nil {
 		var err error
-		tx1, err = rl.buildTxWithData(data1, nil)
+		tx1, err = buildAndSendTx(data1, nil)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to add data to tx1: %w", err)
+			return nil, nil, err
 		}
 
-		tx1.TxId, err = rl.sendTxToBTC(tx1.Tx)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to send tx1 to BTC: %w", err)
-		}
-		// cache a successful tx1 submission
 		rl.lastSubmittedCheckpoint.Tx1 = tx1
 	}
 
-	// the second tx consumes the second output (index 1)
-	// of the first tx, as the output at index 0 is OP_RETURN
-	tx2, err := rl.buildTxWithData(data2, tx1.Tx)
+	// Build and send tx2, using tx1 as the parent
+	tx2, err := buildAndSendTx(data2, tx1.Tx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to add data to tx2: %w", err)
-	}
-
-	tx2.TxId, err = rl.sendTxToBTC(tx2.Tx)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to send tx2 to BTC: %w", err)
+		return nil, nil, err
 	}
 
 	return tx1, tx2, nil
