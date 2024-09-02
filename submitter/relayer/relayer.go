@@ -81,15 +81,8 @@ func (rl *Relayer) SendCheckpointToBTC(ckpt *ckpttypes.RawCheckpointWithMetaResp
 		return nil
 	}
 
-	sendCompleteCkpt := rl.lastSubmittedCheckpoint.Tx1 == nil ||
-		rl.lastSubmittedCheckpoint.Epoch < ckptEpoch
-
-	// we want to avoid resending tx1 if only tx2 submission has failed
-	shouldSendTx2 := (rl.lastSubmittedCheckpoint.Tx1 != nil || rl.lastSubmittedCheckpoint.Epoch < ckptEpoch) &&
-		rl.lastSubmittedCheckpoint.Tx2 == nil
-
-	if sendCompleteCkpt {
-		rl.logger.Infof("Submitting a raw checkpoint for epoch %v for the first time", ckptEpoch)
+	if rl.shouldSendCompleteCkpt(ckptEpoch) {
+		rl.logger.Infof("Submitting a raw checkpoint for epoch %v", ckptEpoch)
 
 		submittedCheckpoint, err := rl.convertCkptToTwoTxAndSubmit(ckpt.Ckpt)
 		if err != nil {
@@ -99,7 +92,7 @@ func (rl *Relayer) SendCheckpointToBTC(ckpt *ckpttypes.RawCheckpointWithMetaResp
 		rl.lastSubmittedCheckpoint = submittedCheckpoint
 
 		return nil
-	} else if shouldSendTx2 {
+	} else if rl.shouldSendTx2(ckptEpoch) {
 		rl.logger.Infof("Retrying to send tx2 for epoch %v, tx1 %s", ckptEpoch, rl.lastSubmittedCheckpoint.Tx1.TxId)
 		submittedCheckpoint, err := rl.retrySendTx2(ckpt.Ckpt)
 		if err != nil {
@@ -160,6 +153,16 @@ func (rl *Relayer) SendCheckpointToBTC(ckpt *ckpttypes.RawCheckpointWithMetaResp
 	}
 
 	return nil
+}
+
+func (rl *Relayer) shouldSendCompleteCkpt(ckptEpoch uint64) bool {
+	return rl.lastSubmittedCheckpoint.Tx1 == nil || rl.lastSubmittedCheckpoint.Epoch < ckptEpoch
+}
+
+// shouldSendTx2 - we want to avoid resending tx1 if only tx2 submission has failed
+func (rl *Relayer) shouldSendTx2(ckptEpoch uint64) bool {
+	return (rl.lastSubmittedCheckpoint.Tx1 != nil || rl.lastSubmittedCheckpoint.Epoch < ckptEpoch) &&
+		rl.lastSubmittedCheckpoint.Tx2 == nil
 }
 
 // shouldResendCheckpoint checks whether the bumpedFee is effective for replacement
@@ -284,11 +287,6 @@ func (rl *Relayer) encodeCheckpointData(ckpt *ckpttypes.RawCheckpointResponse) (
 }
 
 func (rl *Relayer) logAndRecordCheckpointMetrics(tx1, tx2 *types.BtcTxInfo, epochNum uint64) {
-	// this is to wait for btcwallet to update utxo database so that
-	// the tx that tx1 consumes will not appear in the next unspent txs lit
-	// todo(Lazar): is the arbitrary timeout here necessary?
-	time.Sleep(1 * time.Second)
-
 	// Log the transactions sent for checkpointing
 	rl.logger.Infof("Sent two txs to BTC for checkpointing epoch %v, first txid: %s, second txid: %s",
 		epochNum, tx1.Tx.TxHash().String(), tx2.Tx.TxHash().String())
@@ -331,6 +329,8 @@ func (rl *Relayer) convertCkptToTwoTxAndSubmit(ckpt *ckpttypes.RawCheckpointResp
 	}, nil
 }
 
+// retrySendTx2 - rebuilds the tx2 and sends it, expects that tx1 has been sent and
+// lastSubmittedCheckpoint.Tx1 is not nil
 func (rl *Relayer) retrySendTx2(ckpt *ckpttypes.RawCheckpointResponse) (*types.CheckpointInfo, error) {
 	_, data2, err := rl.encodeCheckpointData(ckpt)
 	if err != nil {
