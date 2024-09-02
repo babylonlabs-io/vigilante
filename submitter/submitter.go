@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/avast/retry-go/v4"
 	"github.com/babylonlabs-io/babylon/btctxformatter"
-	"github.com/babylonlabs-io/babylon/types/retry"
 	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"go.uber.org/zap"
@@ -48,10 +48,13 @@ func New(
 		btccheckpointParams *btcctypes.QueryParamsResponse
 		err                 error
 	)
-	err = retry.Do(retrySleepTime, maxRetrySleepTime, func() error {
+	err = retry.Do(func() error {
 		btccheckpointParams, err = queryClient.BTCCheckpointParams()
 		return err
-	})
+	},
+		retry.Delay(retrySleepTime),
+		retry.MaxDelay(maxRetrySleepTime),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get checkpoint params: %w", err)
 	}
