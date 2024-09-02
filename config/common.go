@@ -23,6 +23,8 @@ type CommonConfig struct {
 	// Maximum backoff interval between retries. Exponential backoff leads to interval increase.
 	// This value is the cap of the interval, when exceeded the retries stop.
 	MaxRetrySleepTime time.Duration `mapstructure:"max-retry-sleep-time"`
+	// Only used in testing no need to populate otherwise
+	TestMode bool
 }
 
 func isOneOf(v string, list []string) bool {
