@@ -69,7 +69,7 @@ func New(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create fee estimator: %w", err)
 	}
-	logger.Sugar().Infof("Successfully started fee estimator for %s backend", btcCfg.BtcBackend)
+	logger.Sugar().Infof("Successfully started fee estimator for bitcoind")
 
 	r := relayer.New(
 		btcWallet,

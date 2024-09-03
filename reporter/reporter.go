@@ -3,6 +3,7 @@ package reporter
 import (
 	"encoding/hex"
 	"fmt"
+	notifier "github.com/lightningnetwork/lnd/chainntnfs"
 	"sync"
 	"time"
 
@@ -22,6 +23,7 @@ type Reporter struct {
 
 	btcClient     btcclient.BTCClient
 	babylonClient BabylonClient
+	btcNotifier   notifier.ChainNotifier
 
 	// retry attributes
 	retrySleepTime    time.Duration
@@ -30,7 +32,6 @@ type Reporter struct {
 	// Internal states of the reporter
 	CheckpointCache               *types.CheckpointCache
 	btcCache                      *types.BTCCache
-	reorgList                     *reorgList
 	btcConfirmationDepth          uint64
 	checkpointFinalizationTimeout uint64
 	metrics                       *metrics.ReporterMetrics
@@ -45,6 +46,7 @@ func New(
 	parentLogger *zap.Logger,
 	btcClient btcclient.BTCClient,
 	babylonClient BabylonClient,
+	btcNotifier notifier.ChainNotifier,
 	retrySleepTime,
 	maxRetrySleepTime time.Duration,
 	metrics *metrics.ReporterMetrics,
@@ -81,8 +83,8 @@ func New(
 		maxRetrySleepTime:             maxRetrySleepTime,
 		btcClient:                     btcClient,
 		babylonClient:                 babylonClient,
+		btcNotifier:                   btcNotifier,
 		CheckpointCache:               ckptCache,
-		reorgList:                     newReorgList(),
 		btcConfirmationDepth:          k,
 		checkpointFinalizationTimeout: w,
 		metrics:                       metrics,
@@ -108,10 +110,21 @@ func (r *Reporter) Start() {
 	}
 	r.quitMu.Unlock()
 
-	r.bootstrapWithRetries(false)
+	r.bootstrapWithRetries()
+
+	if err := r.btcNotifier.Start(); err != nil {
+		r.logger.Errorf("Failed starting notifier")
+		return
+	}
+
+	blockNotifier, err := r.btcNotifier.RegisterBlockEpochNtfn(nil)
+	if err != nil {
+		r.logger.Errorf("Failed registering block epoch notifier")
+		return
+	}
 
 	r.wg.Add(1)
-	go r.blockEventHandler()
+	go r.blockEventHandler(blockNotifier)
 
 	// start record time-related metrics
 	r.metrics.RecordMetrics()

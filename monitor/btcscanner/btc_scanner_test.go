@@ -5,15 +5,13 @@ import (
 	"testing"
 
 	"github.com/babylonlabs-io/babylon/testutil/datagen"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
-
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/monitor/btcscanner"
 	vdatagen "github.com/babylonlabs-io/vigilante/testutil/datagen"
 	"github.com/babylonlabs-io/vigilante/testutil/mocks"
 	"github.com/babylonlabs-io/vigilante/types"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/require"
 )
 
 func FuzzBootStrap(f *testing.F) {
@@ -30,7 +28,6 @@ func FuzzBootStrap(f *testing.F) {
 		ctl := gomock.NewController(t)
 		mockBtcClient := mocks.NewMockBTCClient(ctl)
 		confirmedBlocks := chainIndexedBlocks[:numBlocks-k]
-		mockBtcClient.EXPECT().MustSubscribeBlocks().Return().AnyTimes()
 		mockBtcClient.EXPECT().GetBestBlock().Return(nil, uint64(bestHeight), nil)
 		for i := 0; i < int(numBlocks); i++ {
 			mockBtcClient.EXPECT().GetBlockByHeight(gomock.Eq(uint64(chainIndexedBlocks[i].Height))).
@@ -45,7 +42,6 @@ func FuzzBootStrap(f *testing.F) {
 			K:                     k,
 			ConfirmedBlocksChan:   make(chan *types.IndexedBlock),
 			UnconfirmedBlockCache: cache,
-			Synced:                atomic.NewBool(false),
 		}
 		logger, err := config.NewRootLogger("auto", "debug")
 		require.NoError(t, err)
@@ -58,6 +54,5 @@ func FuzzBootStrap(f *testing.F) {
 			}
 		}()
 		btcScanner.Bootstrap()
-		require.True(t, btcScanner.Synced.Load())
 	})
 }

@@ -2,6 +2,7 @@ package btcscanner
 
 import (
 	"fmt"
+	notifier "github.com/lightningnetwork/lnd/chainntnfs"
 	"sync"
 
 	"github.com/babylonlabs-io/babylon/btctxformatter"
@@ -19,7 +20,8 @@ type BtcScanner struct {
 	logger *zap.SugaredLogger
 
 	// connect to BTC node
-	BtcClient btcclient.BTCClient
+	BtcClient   btcclient.BTCClient
+	btcNotifier notifier.ChainNotifier
 
 	// the BTC height the scanner starts
 	BaseHeight uint64
@@ -38,8 +40,6 @@ type BtcScanner struct {
 	blockHeaderChan chan *wire.BlockHeader
 	checkpointsChan chan *types.CheckpointRecord
 
-	Synced *atomic.Bool
-
 	wg      sync.WaitGroup
 	Started *atomic.Bool
 	quit    chan struct{}
@@ -49,7 +49,8 @@ func New(
 	monitorCfg *config.MonitorConfig,
 	parentLogger *zap.Logger,
 	btcClient btcclient.BTCClient,
-	btclightclientBaseHeight uint64,
+	btcNotifier notifier.ChainNotifier,
+	btcLightClientBaseHeight uint64,
 	checkpointTag []byte,
 ) (*BtcScanner, error) {
 	headersChan := make(chan *wire.BlockHeader, monitorCfg.BtcBlockBufferSize)
@@ -64,14 +65,14 @@ func New(
 	return &BtcScanner{
 		logger:                parentLogger.With(zap.String("module", "btcscanner")).Sugar(),
 		BtcClient:             btcClient,
-		BaseHeight:            btclightclientBaseHeight,
+		btcNotifier:           btcNotifier,
+		BaseHeight:            btcLightClientBaseHeight,
 		K:                     monitorCfg.BtcConfirmationDepth,
 		ckptCache:             ckptCache,
 		UnconfirmedBlockCache: unconfirmedBlockCache,
 		ConfirmedBlocksChan:   confirmedBlocksChan,
 		blockHeaderChan:       headersChan,
 		checkpointsChan:       ckptsChan,
-		Synced:                atomic.NewBool(false),
 		Started:               atomic.NewBool(false),
 		quit:                  make(chan struct{}),
 	}, nil
@@ -84,17 +85,17 @@ func (bs *BtcScanner) Start() {
 		return
 	}
 
-	// the bootstrapping should not block the main thread
-	go bs.Bootstrap()
-
-	bs.BtcClient.MustSubscribeBlocks()
-
 	bs.Started.Store(true)
 	bs.logger.Info("the BTC scanner is started")
 
+	if err := bs.btcNotifier.Start(); err != nil {
+		bs.logger.Errorf("Failed starting notifier")
+		return
+	}
+
 	// start handling new blocks
 	bs.wg.Add(1)
-	go bs.blockEventHandler()
+	go bs.bootstrapAndBlockEventHandler()
 
 	for bs.Started.Load() {
 		select {
@@ -127,12 +128,6 @@ func (bs *BtcScanner) Bootstrap() {
 		confirmedBlock         *types.IndexedBlock
 		err                    error
 	)
-
-	if bs.Synced.Load() {
-		// the scanner is already synced
-		return
-	}
-	defer bs.Synced.Store(true)
 
 	if bs.confirmedTipBlock != nil {
 		firstUnconfirmedHeight = uint64(bs.confirmedTipBlock.Height + 1)

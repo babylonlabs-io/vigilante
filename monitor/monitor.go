@@ -3,6 +3,7 @@ package monitor
 import (
 	"encoding/hex"
 	"fmt"
+	notifier "github.com/lightningnetwork/lnd/chainntnfs"
 	"sort"
 	"sync"
 
@@ -52,6 +53,7 @@ func New(
 	genesisInfo *types.GenesisInfo,
 	bbnQueryClient BabylonQueryClient,
 	btcClient btcclient.BTCClient,
+	btcNotifier notifier.ChainNotifier,
 	monitorMetrics *metrics.MonitorMetrics,
 ) (*Monitor, error) {
 	logger := parentLogger.With(zap.String("module", "monitor"))
@@ -64,6 +66,7 @@ func New(
 		cfg,
 		logger,
 		btcClient,
+		btcNotifier,
 		genesisInfo.GetBaseBTCHeight(),
 		checkpointTagBytes,
 	)
@@ -197,8 +200,10 @@ func (m *Monitor) GetCurrentEpoch() uint64 {
 func (m *Monitor) VerifyCheckpoint(btcCkpt *checkpointingtypes.RawCheckpoint) error {
 	// check whether the epoch number of the checkpoint equals to the current epoch number
 	if m.GetCurrentEpoch() != btcCkpt.EpochNum {
-		return errors.Wrapf(types.ErrInvalidEpochNum, fmt.Sprintf("found a checkpoint with epoch %v, but the monitor expects epoch %v",
-			btcCkpt.EpochNum, m.GetCurrentEpoch()))
+		return errors.Wrapf(types.ErrInvalidEpochNum,
+			"found a checkpoint with epoch %v, but the monitor expects epoch %v",
+			btcCkpt.EpochNum, m.GetCurrentEpoch())
+
 	}
 	// verify BLS sig of the BTC checkpoint
 	err := m.curEpoch.VerifyMultiSig(btcCkpt)
@@ -221,8 +226,9 @@ func (m *Monitor) VerifyCheckpoint(btcCkpt *checkpointingtypes.RawCheckpoint) er
 	}
 	// check whether the checkpoint from Babylon has the same BlockHash of the BTC checkpoint
 	if !ckpt.BlockHash.Equal(*btcCkpt.BlockHash) {
-		return errors.Wrapf(types.ErrInconsistentBlockHash, fmt.Sprintf("Babylon checkpoint's BlockHash %s, BTC checkpoint's BlockHash %s",
-			ckpt.BlockHash.String(), btcCkpt.BlockHash))
+		return errors.Wrapf(types.ErrInconsistentBlockHash,
+			"Babylon checkpoint's BlockHash %s, BTC checkpoint's BlockHash %s",
+			ckpt.BlockHash.String(), btcCkpt.BlockHash)
 	}
 	return nil
 }

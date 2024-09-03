@@ -93,23 +93,20 @@ func (tm *TestManager) CreateBTCDelegation(
 	require.NoError(t, err)
 	stakingTimeBlocks := uint16(math.MaxUint16)
 	// get top UTXO
-	topUnspentResult, _, err := tm.BTCWalletClient.GetHighUTXOAndSum()
+	topUnspentResult, _, err := tm.BTCClient.GetHighUTXOAndSum()
 	require.NoError(t, err)
-	topUTXO, err := types.NewUTXO(topUnspentResult, netParams)
+	topUTXO, err := types.NewUTXO(topUnspentResult, regtestParams)
 	require.NoError(t, err)
 	// staking value
 	stakingValue := int64(topUTXO.Amount) / 3
-	// dump SK
-	wif, err := tm.BTCWalletClient.DumpPrivKey(topUTXO.Addr)
-	require.NoError(t, err)
 
 	// generate legitimate BTC del
 	stakingSlashingInfo := datagen.GenBTCStakingSlashingInfoWithOutPoint(
 		r,
 		t,
-		netParams,
+		regtestParams,
 		topUTXO.GetOutPoint(),
-		wif.PrivKey,
+		tm.WalletPrivKey,
 		[]*btcec.PublicKey{fpPK},
 		covenantBtcPks,
 		bsParams.Params.CovenantQuorum,
@@ -121,7 +118,7 @@ func (tm *TestManager) CreateBTCDelegation(
 	)
 	// sign staking tx and overwrite the staking tx to the signed version
 	// NOTE: the tx hash has changed here since stakingMsgTx is pre-segwit
-	stakingMsgTx, signed, err := tm.BTCWalletClient.SignRawTransaction(stakingSlashingInfo.StakingTx)
+	stakingMsgTx, signed, err := tm.BTCClient.SignRawTransactionWithWallet(stakingSlashingInfo.StakingTx)
 	require.NoError(t, err)
 	require.True(t, signed)
 	// overwrite staking tx
@@ -140,12 +137,16 @@ func (tm *TestManager) CreateBTCDelegation(
 	require.NoError(t, err)
 
 	// send staking tx to Bitcoin node's mempool
-	_, err = tm.BTCWalletClient.SendRawTransaction(stakingMsgTx, true)
+	_, err = tm.BTCClient.SendRawTransaction(stakingMsgTx, true)
 	require.NoError(t, err)
 
-	// mine a block with this tx, and insert it to Bitcoin / Babylon
-	mBlock := tm.MineBlockWithTxs(t, tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{stakingMsgTxHash}))
+	require.Eventually(t, func() bool {
+		return len(tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{stakingMsgTxHash})) == 1
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	mBlock := tm.mineBlock(t)
 	require.Equal(t, 2, len(mBlock.Transactions))
+
 	// wait until staking tx is on Bitcoin
 	require.Eventually(t, func() bool {
 		_, err := tm.BTCClient.GetRawTransaction(stakingMsgTxHash)
@@ -159,14 +160,14 @@ func (tm *TestManager) CreateBTCDelegation(
 	require.NoError(t, err)
 	btccParams := btccParamsResp.Params
 	for i := 0; i < int(btccParams.BtcConfirmationDepth); i++ {
-		tm.MineBlockWithTxs(t, tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{}))
+		tm.mineBlock(t)
 	}
 
 	stakingOutIdx, err := outIdx(stakingSlashingInfo.StakingTx, stakingSlashingInfo.StakingInfo.StakingOutput)
 	require.NoError(t, err)
 
 	// create PoP
-	pop, err := bstypes.NewPoPBTC(addr, wif.PrivKey)
+	pop, err := bstypes.NewPoPBTC(addr, tm.WalletPrivKey)
 	require.NoError(t, err)
 	slashingSpendPath, err := stakingSlashingInfo.StakingInfo.SlashingPathSpendInfo()
 	require.NoError(t, err)
@@ -176,7 +177,7 @@ func (tm *TestManager) CreateBTCDelegation(
 		stakingMsgTx,
 		stakingOutIdx,
 		slashingSpendPath.GetPkScriptPath(),
-		wif.PrivKey,
+		tm.WalletPrivKey,
 	)
 	require.NoError(t, err)
 
@@ -186,8 +187,8 @@ func (tm *TestManager) CreateBTCDelegation(
 	unbondingSlashingInfo := datagen.GenBTCUnbondingSlashingInfo(
 		r,
 		t,
-		netParams,
-		wif.PrivKey,
+		regtestParams,
+		tm.WalletPrivKey,
 		[]*btcec.PublicKey{fpPK},
 		covenantBtcPks,
 		bsParams.Params.CovenantQuorum,
@@ -208,7 +209,7 @@ func (tm *TestManager) CreateBTCDelegation(
 		unbondingSlashingInfo.UnbondingTx,
 		0, // Only one output in the unbonding tx
 		unbondingSlashingPathSpendInfo.GetPkScriptPath(),
-		wif.PrivKey,
+		tm.WalletPrivKey,
 	)
 	require.NoError(t, err)
 
@@ -219,7 +220,7 @@ func (tm *TestManager) CreateBTCDelegation(
 	msgBTCDel := &bstypes.MsgCreateBTCDelegation{
 		StakerAddr:           signerAddr,
 		Pop:                  pop,
-		BtcPk:                bbn.NewBIP340PubKeyFromBTCPK(wif.PrivKey.PubKey()),
+		BtcPk:                bbn.NewBIP340PubKeyFromBTCPK(tm.WalletPrivKey.PubKey()),
 		FpBtcPkList:          []bbn.BIP340PubKey{*bbn.NewBIP340PubKeyFromBTCPK(fpPK)},
 		StakingTime:          uint32(stakingTimeBlocks),
 		StakingValue:         stakingValue,
@@ -288,7 +289,7 @@ func (tm *TestManager) CreateBTCDelegation(
 	require.NoError(t, err)
 	t.Logf("submitted covenant signature")
 
-	return stakingSlashingInfo, unbondingSlashingInfo, wif.PrivKey
+	return stakingSlashingInfo, unbondingSlashingInfo, tm.WalletPrivKey
 }
 
 func (tm *TestManager) Undelegate(
@@ -334,16 +335,22 @@ func (tm *TestManager) Undelegate(
 	unbondingSlashingInfo.UnbondingTx.TxIn[0].Witness = witness
 
 	// send unbonding tx to Bitcoin node's mempool
-	unbondingTxHash, err := tm.BTCWalletClient.SendRawTransaction(unbondingSlashingInfo.UnbondingTx, true)
+	unbondingTxHash, err := tm.BTCClient.SendRawTransaction(unbondingSlashingInfo.UnbondingTx, true)
 	require.NoError(t, err)
 	require.Eventually(t, func() bool {
 		_, err := tm.BTCClient.GetRawTransaction(unbondingTxHash)
 		return err == nil
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 	t.Logf("submitted unbonding tx with hash %s", unbondingTxHash.String())
+
 	// mine a block with this tx, and insert it to Bitcoin
-	mBlock := tm.MineBlockWithTxs(t, tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{unbondingTxHash}))
+	require.Eventually(t, func() bool {
+		return len(tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{unbondingTxHash})) == 1
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	mBlock := tm.mineBlock(t)
 	require.Equal(t, 2, len(mBlock.Transactions))
+
 	// wait until unbonding tx is on Bitcoin
 	require.Eventually(t, func() bool {
 		resp, err := tm.BTCClient.GetRawTransactionVerbose(unbondingTxHash)

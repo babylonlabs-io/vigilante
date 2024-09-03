@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-
 	bbnqccfg "github.com/babylonlabs-io/babylon/client/config"
 	bbnqc "github.com/babylonlabs-io/babylon/client/query"
 	"github.com/spf13/cobra"
@@ -62,13 +61,7 @@ func GetMonitorCmd() *cobra.Command {
 			}
 
 			// create BTC client and connect to BTC server
-			// Note that monitor needs to subscribe to new BTC blocks
-			btcClient, err = btcclient.NewWithBlockSubscriber(
-				&cfg.BTC,
-				cfg.Common.RetrySleepTime,
-				cfg.Common.MaxRetrySleepTime,
-				rootLogger,
-			)
+			btcClient, err = btcclient.NewWallet(&cfg.BTC, rootLogger)
 			if err != nil {
 				panic(fmt.Errorf("failed to open BTC client: %w", err))
 			}
@@ -80,8 +73,23 @@ func GetMonitorCmd() *cobra.Command {
 			// register monitor metrics
 			monitorMetrics := metrics.NewMonitorMetrics()
 
+			// create the chain notifier
+			btcNotifier, err := btcclient.NewNodeBackendWithParams(cfg.BTC)
+			if err != nil {
+				panic(err)
+			}
+
 			// create monitor
-			vigilanteMonitor, err = monitor.New(&cfg.Monitor, &cfg.Common, rootLogger, genesisInfo, bbnQueryClient, btcClient, monitorMetrics)
+			vigilanteMonitor, err = monitor.New(
+				&cfg.Monitor,
+				&cfg.Common,
+				rootLogger,
+				genesisInfo,
+				bbnQueryClient,
+				btcClient,
+				btcNotifier,
+				monitorMetrics,
+			)
 			if err != nil {
 				panic(fmt.Errorf("failed to create vigilante monitor: %w", err))
 			}
