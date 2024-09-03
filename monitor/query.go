@@ -157,15 +157,6 @@ func (m *Monitor) queryEndedEpochBTCHeightWithRetry(epoch uint64) (*monitortypes
 func (m *Monitor) queryReportedCheckpointBTCHeightWithRetry(hashStr string) (*monitortypes.QueryReportedCheckpointBtcHeightResponse, error) {
 	var reportedCheckpointBtcHeightRes monitortypes.QueryReportedCheckpointBtcHeightResponse
 
-	retryOptions := []retry.Option{
-		retry.Delay(m.ComCfg.RetrySleepTime),
-		retry.MaxDelay(m.ComCfg.MaxRetrySleepTime),
-	}
-
-	if m.ComCfg.TestMode {
-		retryOptions = append(retryOptions, retry.Attempts(1))
-	}
-
 	if err := retry.Do(func() error {
 		res, err := m.BBNQuerier.ReportedCheckpointBTCHeight(hashStr)
 		if err != nil {
@@ -175,7 +166,10 @@ func (m *Monitor) queryReportedCheckpointBTCHeightWithRetry(hashStr string) (*mo
 		reportedCheckpointBtcHeightRes = *res
 		return nil
 	},
-		retryOptions...); err != nil {
+		retry.Delay(m.ComCfg.RetrySleepTime),
+		retry.MaxDelay(m.ComCfg.MaxRetrySleepTime),
+		retry.Attempts(m.ComCfg.MaxRetryTimes),
+	); err != nil {
 		m.logger.Debug(
 			"failed to query the reported checkpoint BTC height", zap.Error(err))
 

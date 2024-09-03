@@ -31,7 +31,7 @@ func FuzzLivenessChecker(f *testing.F) {
 			ComCfg: &config.CommonConfig{
 				RetrySleepTime:    1,
 				MaxRetrySleepTime: 0,
-				TestMode:          true,
+				MaxRetryTimes:     1,
 			},
 			BBNQuerier: mockBabylonClient,
 		}
