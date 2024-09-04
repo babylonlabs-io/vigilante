@@ -31,6 +31,7 @@ type Client struct {
 	// retry attributes
 	retrySleepTime    time.Duration
 	maxRetrySleepTime time.Duration
+	maxRetryTimes     uint
 }
 
 func (c *Client) GetTipBlockVerbose() (*btcjson.GetBlockVerboseResult, error) {
