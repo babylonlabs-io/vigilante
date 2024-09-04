@@ -3,6 +3,7 @@ package reporter
 import (
 	"context"
 	"fmt"
+	"github.com/babylonlabs-io/vigilante/retrywrap"
 	"strconv"
 
 	pv "github.com/cosmos/relayer/v2/relayer/provider"
@@ -33,7 +34,7 @@ func (r *Reporter) getHeaderMsgsToSubmit(signer string, ibs []*types.IndexedBloc
 	for i, header := range ibs {
 		blockHash := header.BlockHash()
 		var res *btclctypes.QueryContainsBytesResponse
-		err = retry.Do(func() error {
+		err = retrywrap.Do(func() error {
 			res, err = r.babylonClient.ContainsBTCBlock(&blockHash)
 			return err
 		},
@@ -72,7 +73,7 @@ func (r *Reporter) getHeaderMsgsToSubmit(signer string, ibs []*types.IndexedBloc
 
 func (r *Reporter) submitHeaderMsgs(msg *btclctypes.MsgInsertHeaders) error {
 	// submit the headers
-	err := retry.Do(func() error {
+	err := retrywrap.Do(func() error {
 		res, err := r.babylonClient.InsertHeaders(context.Background(), msg)
 		if err != nil {
 			return err

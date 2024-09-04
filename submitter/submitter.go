@@ -3,6 +3,7 @@ package submitter
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/babylonlabs-io/vigilante/retrywrap"
 	"sync"
 	"time"
 
@@ -48,7 +49,7 @@ func New(
 		btccheckpointParams *btcctypes.QueryParamsResponse
 		err                 error
 	)
-	err = retry.Do(func() error {
+	err = retrywrap.Do(func() error {
 		btccheckpointParams, err = queryClient.BTCCheckpointParams()
 		return err
 	},

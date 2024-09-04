@@ -3,6 +3,7 @@ package reporter
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/babylonlabs-io/vigilante/retrywrap"
 	notifier "github.com/lightningnetwork/lnd/chainntnfs"
 	"sync"
 	"time"
@@ -57,7 +58,7 @@ func New(
 		btccParamsRes *btcctypes.QueryParamsResponse
 		err           error
 	)
-	err = retry.Do(func() error {
+	err = retrywrap.Do(func() error {
 		btccParamsRes, err = babylonClient.BTCCheckpointParams()
 		return err
 	},
