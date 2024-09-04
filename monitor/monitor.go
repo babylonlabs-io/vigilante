@@ -167,7 +167,16 @@ func (m *Monitor) runBTCScanner() {
 }
 
 func (m *Monitor) handleNewConfirmedHeader(header *wire.BlockHeader) error {
-	return m.checkHeaderConsistency(header)
+	if err := m.checkHeaderConsistency(header); err != nil {
+		return err
+	}
+
+	// todo(lazar): save the new height here
+	if err := m.store.PutLatestHeight(123); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (m *Monitor) handleNewConfirmedCheckpoint(ckpt *types.CheckpointRecord) error {
