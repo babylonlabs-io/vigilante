@@ -61,7 +61,7 @@ func GetMonitorCmd() *cobra.Command {
 			}
 
 			// create BTC client and connect to BTC server
-			btcClient, err = btcclient.NewWallet(&cfg.BTC, rootLogger)
+			btcClient, err = btcclient.NewWallet(&cfg, rootLogger)
 			if err != nil {
 				panic(fmt.Errorf("failed to open BTC client: %w", err))
 			}

@@ -2,8 +2,9 @@ package monitor
 
 import (
 	"fmt"
+	"github.com/avast/retry-go/v4"
+	"github.com/babylonlabs-io/vigilante/retrywrap"
 
-	"github.com/babylonlabs-io/babylon/types/retry"
 	btclctypes "github.com/babylonlabs-io/babylon/x/btclightclient/types"
 	ckpttypes "github.com/babylonlabs-io/babylon/x/checkpointing/types"
 	epochingtypes "github.com/babylonlabs-io/babylon/x/epoching/types"
@@ -61,7 +62,7 @@ func (m *Monitor) FindTipConfirmedEpoch() (uint64, error) {
 func (m *Monitor) queryCurrentEpochWithRetry() (*epochingtypes.QueryCurrentEpochResponse, error) {
 	var currentEpochRes epochingtypes.QueryCurrentEpochResponse
 
-	if err := retry.Do(m.ComCfg.RetrySleepTime, m.ComCfg.MaxRetrySleepTime, func() error {
+	if err := retrywrap.Do(func() error {
 		res, err := m.BBNQuerier.CurrentEpoch()
 		if err != nil {
 			return err
@@ -69,7 +70,11 @@ func (m *Monitor) queryCurrentEpochWithRetry() (*epochingtypes.QueryCurrentEpoch
 
 		currentEpochRes = *res
 		return nil
-	}); err != nil {
+	},
+		retry.Delay(m.ComCfg.RetrySleepTime),
+		retry.MaxDelay(m.ComCfg.MaxRetrySleepTime),
+		retry.Attempts(m.ComCfg.MaxRetryTimes),
+	); err != nil {
 		m.logger.Debug(
 			"failed to query the current epoch", zap.Error(err))
 
@@ -82,7 +87,7 @@ func (m *Monitor) queryCurrentEpochWithRetry() (*epochingtypes.QueryCurrentEpoch
 func (m *Monitor) queryRawCheckpointWithRetry(epoch uint64) (*ckpttypes.QueryRawCheckpointResponse, error) {
 	var rawCheckpointRes ckpttypes.QueryRawCheckpointResponse
 
-	if err := retry.Do(m.ComCfg.RetrySleepTime, m.ComCfg.MaxRetrySleepTime, func() error {
+	if err := retrywrap.Do(func() error {
 		res, err := m.BBNQuerier.RawCheckpoint(epoch)
 		if err != nil {
 			return err
@@ -90,7 +95,11 @@ func (m *Monitor) queryRawCheckpointWithRetry(epoch uint64) (*ckpttypes.QueryRaw
 
 		rawCheckpointRes = *res
 		return nil
-	}); err != nil {
+	},
+		retry.Delay(m.ComCfg.RetrySleepTime),
+		retry.MaxDelay(m.ComCfg.MaxRetrySleepTime),
+		retry.Attempts(m.ComCfg.MaxRetryTimes),
+	); err != nil {
 		m.logger.Debug(
 			"failed to query the raw checkpoint", zap.Error(err))
 
@@ -103,7 +112,7 @@ func (m *Monitor) queryRawCheckpointWithRetry(epoch uint64) (*ckpttypes.QueryRaw
 func (m *Monitor) queryBlsPublicKeyListWithRetry(epoch uint64) (*ckpttypes.QueryBlsPublicKeyListResponse, error) {
 	var blsPublicKeyListRes ckpttypes.QueryBlsPublicKeyListResponse
 
-	if err := retry.Do(m.ComCfg.RetrySleepTime, m.ComCfg.MaxRetrySleepTime, func() error {
+	if err := retrywrap.Do(func() error {
 		res, err := m.BBNQuerier.BlsPublicKeyList(epoch, nil)
 		if err != nil {
 			return err
@@ -111,7 +120,11 @@ func (m *Monitor) queryBlsPublicKeyListWithRetry(epoch uint64) (*ckpttypes.Query
 
 		blsPublicKeyListRes = *res
 		return nil
-	}); err != nil {
+	},
+		retry.Delay(m.ComCfg.RetrySleepTime),
+		retry.MaxDelay(m.ComCfg.MaxRetrySleepTime),
+		retry.Attempts(m.ComCfg.MaxRetryTimes),
+	); err != nil {
 		m.logger.Debug(
 			"failed to query the BLS public key list", zap.Error(err))
 
@@ -124,7 +137,7 @@ func (m *Monitor) queryBlsPublicKeyListWithRetry(epoch uint64) (*ckpttypes.Query
 func (m *Monitor) queryEndedEpochBTCHeightWithRetry(epoch uint64) (*monitortypes.QueryEndedEpochBtcHeightResponse, error) {
 	var endedEpochBTCHeightRes monitortypes.QueryEndedEpochBtcHeightResponse
 
-	if err := retry.Do(m.ComCfg.RetrySleepTime, m.ComCfg.MaxRetrySleepTime, func() error {
+	if err := retrywrap.Do(func() error {
 		res, err := m.BBNQuerier.EndedEpochBTCHeight(epoch)
 		if err != nil {
 			return err
@@ -132,7 +145,11 @@ func (m *Monitor) queryEndedEpochBTCHeightWithRetry(epoch uint64) (*monitortypes
 
 		endedEpochBTCHeightRes = *res
 		return nil
-	}); err != nil {
+	},
+		retry.Delay(m.ComCfg.RetrySleepTime),
+		retry.MaxDelay(m.ComCfg.MaxRetrySleepTime),
+		retry.Attempts(m.ComCfg.MaxRetryTimes),
+	); err != nil {
 		m.logger.Debug(
 			"failed to query the ended epoch BTC height", zap.Error(err))
 
@@ -145,7 +162,7 @@ func (m *Monitor) queryEndedEpochBTCHeightWithRetry(epoch uint64) (*monitortypes
 func (m *Monitor) queryReportedCheckpointBTCHeightWithRetry(hashStr string) (*monitortypes.QueryReportedCheckpointBtcHeightResponse, error) {
 	var reportedCheckpointBtcHeightRes monitortypes.QueryReportedCheckpointBtcHeightResponse
 
-	if err := retry.Do(m.ComCfg.RetrySleepTime, m.ComCfg.MaxRetrySleepTime, func() error {
+	if err := retrywrap.Do(func() error {
 		res, err := m.BBNQuerier.ReportedCheckpointBTCHeight(hashStr)
 		if err != nil {
 			return err
@@ -153,7 +170,11 @@ func (m *Monitor) queryReportedCheckpointBTCHeightWithRetry(hashStr string) (*mo
 
 		reportedCheckpointBtcHeightRes = *res
 		return nil
-	}); err != nil {
+	},
+		retry.Delay(m.ComCfg.RetrySleepTime),
+		retry.MaxDelay(m.ComCfg.MaxRetrySleepTime),
+		retry.Attempts(m.ComCfg.MaxRetryTimes),
+	); err != nil {
 		m.logger.Debug(
 			"failed to query the reported checkpoint BTC height", zap.Error(err))
 
@@ -166,7 +187,7 @@ func (m *Monitor) queryReportedCheckpointBTCHeightWithRetry(hashStr string) (*mo
 func (m *Monitor) queryBTCHeaderChainTipWithRetry() (*btclctypes.QueryTipResponse, error) {
 	var btcHeaderChainTipRes btclctypes.QueryTipResponse
 
-	if err := retry.Do(m.ComCfg.RetrySleepTime, m.ComCfg.MaxRetrySleepTime, func() error {
+	if err := retrywrap.Do(func() error {
 		res, err := m.BBNQuerier.BTCHeaderChainTip()
 		if err != nil {
 			return err
@@ -174,7 +195,11 @@ func (m *Monitor) queryBTCHeaderChainTipWithRetry() (*btclctypes.QueryTipRespons
 
 		btcHeaderChainTipRes = *res
 		return nil
-	}); err != nil {
+	},
+		retry.Delay(m.ComCfg.RetrySleepTime),
+		retry.MaxDelay(m.ComCfg.MaxRetrySleepTime),
+		retry.Attempts(m.ComCfg.MaxRetryTimes),
+	); err != nil {
 		m.logger.Debug(
 			"failed to query the BTC header chain tip", zap.Error(err))
 
@@ -187,7 +212,7 @@ func (m *Monitor) queryBTCHeaderChainTipWithRetry() (*btclctypes.QueryTipRespons
 func (m *Monitor) queryContainsBTCBlockWithRetry(blockHash *chainhash.Hash) (*btclctypes.QueryContainsBytesResponse, error) {
 	var containsBTCBlockRes btclctypes.QueryContainsBytesResponse
 
-	if err := retry.Do(m.ComCfg.RetrySleepTime, m.ComCfg.MaxRetrySleepTime, func() error {
+	if err := retrywrap.Do(func() error {
 		res, err := m.BBNQuerier.ContainsBTCBlock(blockHash)
 		if err != nil {
 			return err
@@ -195,7 +220,11 @@ func (m *Monitor) queryContainsBTCBlockWithRetry(blockHash *chainhash.Hash) (*bt
 
 		containsBTCBlockRes = *res
 		return nil
-	}); err != nil {
+	},
+		retry.Delay(m.ComCfg.RetrySleepTime),
+		retry.MaxDelay(m.ComCfg.MaxRetrySleepTime),
+		retry.Attempts(m.ComCfg.MaxRetryTimes),
+	); err != nil {
 		m.logger.Debug(
 			"failed to query the contains BTC block", zap.Error(err))
 

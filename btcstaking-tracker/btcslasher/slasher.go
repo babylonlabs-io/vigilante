@@ -35,7 +35,7 @@ type BTCSlasher struct {
 	btcFinalizationTimeout uint64
 	retrySleepTime         time.Duration
 	maxRetrySleepTime      time.Duration
-
+	maxRetryTimes          uint
 	// channel for finality signature messages, which might include
 	// equivocation evidences
 	finalitySigChan <-chan coretypes.ResultEvent
@@ -59,6 +59,7 @@ func New(
 	netParams *chaincfg.Params,
 	retrySleepTime time.Duration,
 	maxRetrySleepTime time.Duration,
+	maxRetryTimes uint,
 	slashedFPSKChan chan *btcec.PrivateKey,
 	metrics *metrics.SlasherMetrics,
 ) (*BTCSlasher, error) {
@@ -71,6 +72,7 @@ func New(
 		netParams:         netParams,
 		retrySleepTime:    retrySleepTime,
 		maxRetrySleepTime: maxRetrySleepTime,
+		maxRetryTimes:     maxRetryTimes,
 		slashedFPSKChan:   slashedFPSKChan,
 		slashResultChan:   make(chan *SlashResult, 1000),
 		quit:              make(chan struct{}),

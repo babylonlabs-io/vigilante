@@ -19,22 +19,25 @@ import (
 // used by vigilant submitter
 // a wallet is essentially a BTC client
 // that connects to the btcWallet daemon
-func NewWallet(cfg *config.BTCConfig, parentLogger *zap.Logger) (*Client, error) {
-	params, err := netparams.GetBTCParams(cfg.NetParams)
+func NewWallet(cfg *config.Config, parentLogger *zap.Logger) (*Client, error) {
+	params, err := netparams.GetBTCParams(cfg.BTC.NetParams)
 	if err != nil {
 		return nil, err
 	}
 	wallet := &Client{}
-	wallet.cfg = cfg
+	wallet.cfg = &cfg.BTC
 	wallet.params = params
 	wallet.logger = parentLogger.With(zap.String("module", "btcclient_wallet")).Sugar()
+	wallet.retrySleepTime = cfg.Common.RetrySleepTime
+	wallet.maxRetryTimes = cfg.Common.MaxRetryTimes
+	wallet.maxRetrySleepTime = cfg.Common.MaxRetrySleepTime
 
 	connCfg := &rpcclient.ConnConfig{
 		// this will work with node loaded with multiple wallets
-		Host:         cfg.Endpoint + "/wallet/" + cfg.WalletName,
+		Host:         cfg.BTC.Endpoint + "/wallet/" + cfg.BTC.WalletName,
 		HTTPPostMode: true,
-		User:         cfg.Username,
-		Pass:         cfg.Password,
+		User:         cfg.BTC.Username,
+		Pass:         cfg.BTC.Password,
 		DisableTLS:   true,
 	}
 

@@ -3,12 +3,13 @@ package reporter
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/babylonlabs-io/vigilante/retrywrap"
 	notifier "github.com/lightningnetwork/lnd/chainntnfs"
 	"sync"
 	"time"
 
+	"github.com/avast/retry-go/v4"
 	"github.com/babylonlabs-io/babylon/btctxformatter"
-	"github.com/babylonlabs-io/babylon/types/retry"
 	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/config"
@@ -57,10 +58,13 @@ func New(
 		btccParamsRes *btcctypes.QueryParamsResponse
 		err           error
 	)
-	err = retry.Do(retrySleepTime, maxRetrySleepTime, func() error {
+	err = retrywrap.Do(func() error {
 		btccParamsRes, err = babylonClient.BTCCheckpointParams()
 		return err
-	})
+	},
+		retry.Delay(retrySleepTime),
+		retry.MaxDelay(maxRetrySleepTime),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get BTC Checkpoint parameters: %w", err)
 	}

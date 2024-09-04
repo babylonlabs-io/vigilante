@@ -62,6 +62,7 @@ func TestSubmitterSubmission(t *testing.T) {
 		subAddr,
 		tm.Config.Common.RetrySleepTime,
 		tm.Config.Common.MaxRetrySleepTime,
+		tm.Config.Common.MaxRetryTimes,
 		metrics.NewSubmitterMetrics(),
 	)
 
@@ -135,6 +136,7 @@ func TestSubmitterSubmissionReplace(t *testing.T) {
 		subAddr,
 		tm.Config.Common.RetrySleepTime,
 		tm.Config.Common.MaxRetrySleepTime,
+		tm.Config.Common.MaxRetryTimes,
 		metrics.NewSubmitterMetrics(),
 	)
 

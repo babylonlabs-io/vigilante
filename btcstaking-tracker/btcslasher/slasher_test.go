@@ -71,7 +71,17 @@ func FuzzSlasher(f *testing.F) {
 		logger, err := config.NewRootLogger("auto", "debug")
 		require.NoError(t, err)
 		slashedFPSKChan := make(chan *btcec.PrivateKey, 100)
-		btcSlasher, err := btcslasher.New(logger, mockBTCClient, mockBabylonQuerier, &chaincfg.SimNetParams, commonCfg.RetrySleepTime, commonCfg.MaxRetrySleepTime, slashedFPSKChan, metrics.NewBTCStakingTrackerMetrics().SlasherMetrics)
+		btcSlasher, err := btcslasher.New(
+			logger,
+			mockBTCClient,
+			mockBabylonQuerier,
+			&chaincfg.SimNetParams,
+			commonCfg.RetrySleepTime,
+			commonCfg.MaxRetrySleepTime,
+			commonCfg.MaxRetryTimes,
+			slashedFPSKChan,
+			metrics.NewBTCStakingTrackerMetrics().SlasherMetrics,
+		)
 		require.NoError(t, err)
 		err = btcSlasher.LoadParams()
 		require.NoError(t, err)
