@@ -23,7 +23,8 @@ var (
 var (
 	// ErrCorruptedDb For some reason, db on disk representation have changed
 	ErrCorruptedDb = errors.New("db is corrupted")
-	ErrNotFound    = errors.New("not found")
+	// ErrNotFound Value not found
+	ErrNotFound = errors.New("not found")
 )
 
 func NewMonitorStore(backend kvdb.Backend) (*MonitorStore, error) {
@@ -54,15 +55,31 @@ func (s *MonitorStore) createBuckets() error {
 }
 
 func (s *MonitorStore) LatestEpoch() (uint64, error) {
-	var latestEpoch uint64
+	return s.get(latestEpochKey, epochsBucketName)
+}
+
+func (s *MonitorStore) LatestHeight() (uint64, error) {
+	return s.get(latestHeightKey, heightBucketName)
+}
+
+func (s *MonitorStore) PutLatestEpoch(epoch uint64) error {
+	return s.put(epoch, epochsBucketName)
+}
+
+func (s *MonitorStore) PutLatestHeight(height uint64) error {
+	return s.put(height, heightBucketName)
+}
+
+func (s *MonitorStore) get(key, bucketName []byte) (uint64, error) {
+	var returnVal uint64
 
 	if err := s.db.View(func(tx walletdb.ReadTx) error {
-		epochsBucket := tx.ReadBucket(epochsBucketName)
-		if epochsBucket == nil {
+		b := tx.ReadBucket(bucketName)
+		if b == nil {
 			return ErrCorruptedDb
 		}
 
-		value := epochsBucket.Get(latestEpochKey)
+		value := b.Get(key)
 		if value == nil {
 			return ErrNotFound
 		}
@@ -71,7 +88,7 @@ func (s *MonitorStore) LatestEpoch() (uint64, error) {
 		if err != nil {
 			return err
 		}
-		latestEpoch = epoch
+		returnVal = epoch
 
 		return nil
 	}, func() {
@@ -79,17 +96,17 @@ func (s *MonitorStore) LatestEpoch() (uint64, error) {
 		return 0, err
 	}
 
-	return latestEpoch, nil
+	return returnVal, nil
 }
 
-func (s *MonitorStore) PutLatestEpoch(epoch uint64) error {
+func (s *MonitorStore) put(val uint64, bucketName []byte) error {
 	return kvdb.Batch(s.db, func(tx kvdb.RwTx) error {
-		bucket := tx.ReadWriteBucket(epochsBucketName)
+		bucket := tx.ReadWriteBucket(bucketName)
 		if bucket == nil {
 			return ErrCorruptedDb
 		}
 
-		return bucket.Put(latestEpochKey, uint64ToBytes(epoch))
+		return bucket.Put(latestEpochKey, uint64ToBytes(val))
 	})
 }
 
@@ -101,7 +118,7 @@ func uint64FromBytes(b []byte) (uint64, error) {
 	return binary.BigEndian.Uint64(b), nil
 }
 
-// Converts a uint64 value to a byte slice.
+// Converts an uint64 value to a byte slice.
 func uint64ToBytes(v uint64) []byte {
 	var buf [8]byte
 	binary.BigEndian.PutUint64(buf[:], v)

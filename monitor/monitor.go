@@ -61,7 +61,6 @@ func New(
 	monitorMetrics *metrics.MonitorMetrics,
 	db kvdb.Backend,
 ) (*Monitor, error) {
-
 	ms, err := store.NewMonitorStore(db)
 	if err != nil {
 		panic(fmt.Errorf("error setting up store: %w", err))
