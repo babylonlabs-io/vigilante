@@ -3,7 +3,9 @@ package monitor
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/babylonlabs-io/vigilante/monitor/store"
 	notifier "github.com/lightningnetwork/lnd/chainntnfs"
+	"github.com/lightningnetwork/lnd/kvdb"
 	"sort"
 	"sync"
 
@@ -39,6 +41,8 @@ type Monitor struct {
 	// tracks checkpoint records that have not been reported back to Babylon
 	checkpointChecklist *types.CheckpointsBookkeeper
 
+	store *store.MonitorStore
+
 	metrics *metrics.MonitorMetrics
 
 	wg      sync.WaitGroup
@@ -55,7 +59,14 @@ func New(
 	btcClient btcclient.BTCClient,
 	btcNotifier notifier.ChainNotifier,
 	monitorMetrics *metrics.MonitorMetrics,
+	db kvdb.Backend,
 ) (*Monitor, error) {
+
+	ms, err := store.NewMonitorStore(db)
+	if err != nil {
+		panic(fmt.Errorf("error setting up store: %w", err))
+	}
+
 	logger := parentLogger.With(zap.String("module", "monitor"))
 	// create BTC scanner
 	checkpointTagBytes, err := hex.DecodeString(genesisInfo.GetCheckpointTag())
@@ -89,6 +100,7 @@ func New(
 		logger:              logger.Sugar(),
 		curEpoch:            genesisEpoch,
 		checkpointChecklist: types.NewCheckpointsBookkeeper(),
+		store:               ms,
 		metrics:             monitorMetrics,
 		quit:                make(chan struct{}),
 		started:             atomic.NewBool(false),

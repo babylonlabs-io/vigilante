@@ -79,6 +79,11 @@ func GetMonitorCmd() *cobra.Command {
 				panic(err)
 			}
 
+			dbBackend, err := cfg.Monitor.DatabaseConfig.GetDbBackend()
+			if err != nil {
+				panic(err)
+			}
+
 			// create monitor
 			vigilanteMonitor, err = monitor.New(
 				&cfg.Monitor,
@@ -89,6 +94,7 @@ func GetMonitorCmd() *cobra.Command {
 				btcClient,
 				btcNotifier,
 				monitorMetrics,
+				dbBackend,
 			)
 			if err != nil {
 				panic(fmt.Errorf("failed to create vigilante monitor: %w", err))
