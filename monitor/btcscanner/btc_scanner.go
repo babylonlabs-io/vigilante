@@ -193,8 +193,8 @@ func (bs *BtcScanner) SetLogger(logger *zap.SugaredLogger) {
 	bs.logger = logger
 }
 
-func (bs *BtcScanner) GetHeadersChan() chan *wire.BlockHeader {
-	return bs.blockHeaderChan
+func (bs *BtcScanner) GetConfirmedBlocksChan() chan *types.IndexedBlock {
+	return bs.ConfirmedBlocksChan
 }
 
 func (bs *BtcScanner) sendConfirmedBlocksToChan(blocks []*types.IndexedBlock) {

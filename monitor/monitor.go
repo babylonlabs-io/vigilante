@@ -140,8 +140,8 @@ func (m *Monitor) Start() {
 		case <-m.quit:
 			m.logger.Info("the monitor is stopping")
 			m.started.Store(false)
-		case header := <-m.BTCScanner.GetHeadersChan():
-			err := m.handleNewConfirmedHeader(header)
+		case block := <-m.BTCScanner.GetConfirmedBlocksChan():
+			err := m.handleNewConfirmedHeader(block)
 			if err != nil {
 				m.logger.Errorf("found invalid BTC header: %s", err.Error())
 				m.metrics.InvalidBTCHeadersCounter.Inc()
@@ -166,13 +166,12 @@ func (m *Monitor) runBTCScanner() {
 	m.wg.Done()
 }
 
-func (m *Monitor) handleNewConfirmedHeader(header *wire.BlockHeader) error {
-	if err := m.checkHeaderConsistency(header); err != nil {
+func (m *Monitor) handleNewConfirmedHeader(block *types.IndexedBlock) error {
+	if err := m.checkHeaderConsistency(block.Header); err != nil {
 		return err
 	}
 
-	// todo(lazar): save the new height here
-	if err := m.store.PutLatestHeight(123); err != nil {
+	if err := m.store.PutLatestHeight(uint64(block.Height)); err != nil {
 		return err
 	}
 
@@ -204,9 +203,12 @@ func (m *Monitor) handleNewConfirmedCheckpoint(ckpt *types.CheckpointRecord) err
 	m.logger.Infof("checkpoint at epoch %v has passed the verification", m.GetCurrentEpoch())
 
 	nextEpochNum := m.GetCurrentEpoch() + 1
-	err = m.UpdateEpochInfo(nextEpochNum)
-	if err != nil {
+	if err = m.UpdateEpochInfo(nextEpochNum); err != nil {
 		return fmt.Errorf("failed to update information of epoch %d: %w", nextEpochNum, err)
+	}
+
+	if err = m.store.PutLatestEpoch(m.GetCurrentEpoch()); err != nil {
+		return fmt.Errorf("failed to set epoch %w", err)
 	}
 
 	return nil
