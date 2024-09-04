@@ -63,10 +63,8 @@ func (s *MonitorStore) LatestEpoch() (uint64, error) {
 		}
 
 		value := epochsBucket.Get(latestEpochKey)
-
 		if value == nil {
-			latestEpoch = 0
-			return nil
+			return ErrNotFound
 		}
 
 		epoch, err := uint64FromBytes(value)
