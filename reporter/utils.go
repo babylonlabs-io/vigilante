@@ -3,11 +3,12 @@ package reporter
 import (
 	"context"
 	"fmt"
+	"github.com/babylonlabs-io/vigilante/retrywrap"
 	"strconv"
 
 	pv "github.com/cosmos/relayer/v2/relayer/provider"
 
-	"github.com/babylonlabs-io/babylon/types/retry"
+	"github.com/avast/retry-go/v4"
 	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
 	btclctypes "github.com/babylonlabs-io/babylon/x/btclightclient/types"
 	"github.com/babylonlabs-io/vigilante/types"
@@ -33,10 +34,13 @@ func (r *Reporter) getHeaderMsgsToSubmit(signer string, ibs []*types.IndexedBloc
 	for i, header := range ibs {
 		blockHash := header.BlockHash()
 		var res *btclctypes.QueryContainsBytesResponse
-		err = retry.Do(r.retrySleepTime, r.maxRetrySleepTime, func() error {
+		err = retrywrap.Do(func() error {
 			res, err = r.babylonClient.ContainsBTCBlock(&blockHash)
 			return err
-		})
+		},
+			retry.Delay(r.retrySleepTime),
+			retry.MaxDelay(r.maxRetrySleepTime),
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -57,7 +61,7 @@ func (r *Reporter) getHeaderMsgsToSubmit(signer string, ibs []*types.IndexedBloc
 
 	blockChunks := chunkBy(ibsToSubmit, int(r.Cfg.MaxHeadersInMsg))
 
-	headerMsgsToSubmit := []*btclctypes.MsgInsertHeaders{}
+	headerMsgsToSubmit := make([]*btclctypes.MsgInsertHeaders, 0, len(blockChunks))
 
 	for _, ibChunk := range blockChunks {
 		msgInsertHeaders := types.NewMsgInsertHeaders(signer, ibChunk)
@@ -69,14 +73,17 @@ func (r *Reporter) getHeaderMsgsToSubmit(signer string, ibs []*types.IndexedBloc
 
 func (r *Reporter) submitHeaderMsgs(msg *btclctypes.MsgInsertHeaders) error {
 	// submit the headers
-	err := retry.Do(r.retrySleepTime, r.maxRetrySleepTime, func() error {
+	err := retrywrap.Do(func() error {
 		res, err := r.babylonClient.InsertHeaders(context.Background(), msg)
 		if err != nil {
 			return err
 		}
 		r.logger.Infof("Successfully submitted %d headers to Babylon with response code %v", len(msg.Headers), res.Code)
 		return nil
-	})
+	},
+		retry.Delay(r.retrySleepTime),
+		retry.MaxDelay(r.maxRetrySleepTime),
+	)
 	if err != nil {
 		r.metrics.FailedHeadersCounter.Add(float64(len(msg.Headers)))
 		return fmt.Errorf("failed to submit headers: %w", err)

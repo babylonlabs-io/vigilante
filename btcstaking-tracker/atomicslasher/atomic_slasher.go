@@ -47,6 +47,7 @@ func New(
 	parentLogger *zap.Logger,
 	retrySleepTime time.Duration,
 	maxRetrySleepTime time.Duration,
+	maxRetryTimes uint,
 	btcClient btcclient.BTCClient,
 	btcNotifier notifier.ChainNotifier,
 	bbnClient BabylonClient,
@@ -54,7 +55,7 @@ func New(
 	metrics *metrics.AtomicSlasherMetrics,
 ) *AtomicSlasher {
 	logger := parentLogger.With(zap.String("module", "atomic_slasher"))
-	bbnAdapter := NewBabylonAdapter(logger, cfg, retrySleepTime, maxRetrySleepTime, bbnClient)
+	bbnAdapter := NewBabylonAdapter(logger, cfg, retrySleepTime, maxRetrySleepTime, maxRetryTimes, bbnClient)
 	return &AtomicSlasher{
 		quit:              make(chan struct{}),
 		cfg:               cfg,

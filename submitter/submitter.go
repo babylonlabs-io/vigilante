@@ -3,11 +3,12 @@ package submitter
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/babylonlabs-io/vigilante/retrywrap"
 	"sync"
 	"time"
 
+	"github.com/avast/retry-go/v4"
 	"github.com/babylonlabs-io/babylon/btctxformatter"
-	"github.com/babylonlabs-io/babylon/types/retry"
 	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"go.uber.org/zap"
@@ -40,7 +41,7 @@ func New(
 	btcWallet btcclient.BTCWallet,
 	queryClient BabylonQueryClient,
 	submitterAddr sdk.AccAddress,
-	retrySleepTime, maxRetrySleepTime time.Duration,
+	retrySleepTime, maxRetrySleepTime time.Duration, maxRetryTimes uint,
 	submitterMetrics *metrics.SubmitterMetrics,
 ) (*Submitter, error) {
 	logger := parentLogger.With(zap.String("module", "submitter"))
@@ -48,10 +49,14 @@ func New(
 		btccheckpointParams *btcctypes.QueryParamsResponse
 		err                 error
 	)
-	err = retry.Do(retrySleepTime, maxRetrySleepTime, func() error {
+	err = retrywrap.Do(func() error {
 		btccheckpointParams, err = queryClient.BTCCheckpointParams()
 		return err
-	})
+	},
+		retry.Delay(retrySleepTime),
+		retry.MaxDelay(maxRetrySleepTime),
+		retry.Attempts(maxRetryTimes),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get checkpoint params: %w", err)
 	}

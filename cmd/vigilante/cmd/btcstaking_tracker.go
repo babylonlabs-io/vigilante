@@ -60,7 +60,7 @@ func GetBTCStakingTracker() *cobra.Command {
 
 			// create BTC client and connect to BTC server
 			// Note that monitor needs to subscribe to new BTC blocks
-			btcClient, err := btcclient.NewWallet(&cfg.BTC, rootLogger)
+			btcClient, err := btcclient.NewWallet(&cfg, rootLogger)
 
 			if err != nil {
 				panic(fmt.Errorf("failed to open BTC client: %w", err))

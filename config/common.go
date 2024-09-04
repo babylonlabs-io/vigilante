@@ -10,6 +10,7 @@ import (
 const (
 	defaultRetrySleepTime    = 5 * time.Second
 	defaultMaxRetrySleepTime = 5 * time.Minute
+	defaultMaxRetryTimes     = 5
 )
 
 // CommonConfig defines the server's basic configuration
@@ -23,6 +24,8 @@ type CommonConfig struct {
 	// Maximum backoff interval between retries. Exponential backoff leads to interval increase.
 	// This value is the cap of the interval, when exceeded the retries stop.
 	MaxRetrySleepTime time.Duration `mapstructure:"max-retry-sleep-time"`
+	// The max number of retries in case of a failure
+	MaxRetryTimes uint `mapstructure:"max-retry-times"`
 }
 
 func isOneOf(v string, list []string) bool {
@@ -60,5 +63,6 @@ func DefaultCommonConfig() CommonConfig {
 		LogLevel:          "debug",
 		RetrySleepTime:    defaultRetrySleepTime,
 		MaxRetrySleepTime: defaultMaxRetrySleepTime,
+		MaxRetryTimes:     defaultMaxRetryTimes,
 	}
 }
