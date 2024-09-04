@@ -41,7 +41,7 @@ func New(
 	btcWallet btcclient.BTCWallet,
 	queryClient BabylonQueryClient,
 	submitterAddr sdk.AccAddress,
-	retrySleepTime, maxRetrySleepTime time.Duration,
+	retrySleepTime, maxRetrySleepTime time.Duration, maxRetryTimes uint,
 	submitterMetrics *metrics.SubmitterMetrics,
 ) (*Submitter, error) {
 	logger := parentLogger.With(zap.String("module", "submitter"))
@@ -55,6 +55,7 @@ func New(
 	},
 		retry.Delay(retrySleepTime),
 		retry.MaxDelay(maxRetrySleepTime),
+		retry.Attempts(maxRetryTimes),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get checkpoint params: %w", err)

@@ -66,6 +66,7 @@ func (bs *BTCSlasher) slashBTCDelegation(
 		retry.Context(ctx),
 		retry.Delay(bs.retrySleepTime),
 		retry.MaxDelay(bs.maxRetrySleepTime),
+		retry.Attempts(bs.maxRetryTimes),
 	)
 
 	slashRes := &SlashResult{

@@ -71,6 +71,7 @@ func GetSubmitterCmd() *cobra.Command {
 				submitterAddr,
 				cfg.Common.RetrySleepTime,
 				cfg.Common.MaxRetrySleepTime,
+				cfg.Common.MaxRetryTimes,
 				submitterMetrics,
 			)
 			if err != nil {
