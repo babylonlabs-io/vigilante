@@ -179,8 +179,7 @@ func (m *Monitor) handleNewConfirmedHeader(block *types.IndexedBlock) error {
 }
 
 func (m *Monitor) handleNewConfirmedCheckpoint(ckpt *types.CheckpointRecord) error {
-	err := m.VerifyCheckpoint(ckpt.RawCheckpoint)
-	if err != nil {
+	if err := m.VerifyCheckpoint(ckpt.RawCheckpoint); err != nil {
 		if sdkerrors.IsOf(err, types.ErrInconsistentBlockHash) {
 			// also record conflicting checkpoints since we need to ensure that
 			// alarm will be sent if conflicting checkpoints are censored
@@ -203,11 +202,12 @@ func (m *Monitor) handleNewConfirmedCheckpoint(ckpt *types.CheckpointRecord) err
 	m.logger.Infof("checkpoint at epoch %v has passed the verification", m.GetCurrentEpoch())
 
 	nextEpochNum := m.GetCurrentEpoch() + 1
-	if err = m.UpdateEpochInfo(nextEpochNum); err != nil {
+	if err := m.UpdateEpochInfo(nextEpochNum); err != nil {
 		return fmt.Errorf("failed to update information of epoch %d: %w", nextEpochNum, err)
 	}
 
-	if err = m.store.PutLatestEpoch(m.GetCurrentEpoch()); err != nil {
+	// save the currently processed epoch
+	if err := m.store.PutLatestEpoch(m.GetCurrentEpoch()); err != nil {
 		return fmt.Errorf("failed to set epoch %w", err)
 	}
 
