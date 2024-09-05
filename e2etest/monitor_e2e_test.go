@@ -1,16 +1,19 @@
 package e2etest
 
 import (
+	"fmt"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/monitor"
+	"github.com/babylonlabs-io/vigilante/testutil"
+	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
 
 func TestMonitor(t *testing.T) {
-	t.Skip()
+	//t.Skip()
 	numMatureOutputs := uint32(300)
 
 	tm := StartManager(t, numMatureOutputs)
@@ -26,16 +29,18 @@ func TestMonitor(t *testing.T) {
 	err = backend.Start()
 	require.NoError(t, err)
 
-	dbBackend, err := tm.Config.Monitor.DatabaseConfig.GetDbBackend()
-	require.NoError(t, err)
+	dbBackend := testutil.MakeTestBackend(t)
 
 	monitorMetrics := metrics.NewMonitorMetrics()
+	genesisPath := fmt.Sprintf("%s/config/genesis.json", tm.Config.Babylon.KeyDirectory)
+	genesisInfo, err := types.GetGenesisInfoFromFile(genesisPath)
+	require.NoError(t, err)
 
 	mon, err := monitor.New(
 		&tm.Config.Monitor,
 		&tm.Config.Common,
 		logger,
-		nil,
+		genesisInfo,
 		tm.BabylonClient,
 		tm.BTCClient,
 		backend,
@@ -44,8 +49,12 @@ func TestMonitor(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	mon.Start()
+	go mon.Start()
 
-	defer mon.Stop()
+	// todo(lazar):
+	// 1. pool for checkpoints on babylon
+	// 2. send them to btc (fundrawtransaction/signrawtransaction/sendrawtransaction)
+	// 3. stop monitor
+	// 4. validate start from db
 
 }
