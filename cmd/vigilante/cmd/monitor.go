@@ -106,7 +106,7 @@ func GetMonitorCmd() *cobra.Command {
 			}
 
 			// start
-			go vigilanteMonitor.Start()
+			go vigilanteMonitor.Start(genesisInfo.GetBaseBTCHeight())
 
 			// start RPC server
 			server.Start()

@@ -77,7 +77,6 @@ func New(
 		logger,
 		btcClient,
 		btcNotifier,
-		genesisInfo.GetBaseBTCHeight(),
 		checkpointTagBytes,
 	)
 	if err != nil {
@@ -111,7 +110,7 @@ func (m *Monitor) SetLogger(logger *zap.SugaredLogger) {
 }
 
 // Start starts the verification core
-func (m *Monitor) Start() {
+func (m *Monitor) Start(baseHeight uint64) {
 	if m.started.Load() {
 		m.logger.Info("the Monitor is already started")
 		return
@@ -125,9 +124,30 @@ func (m *Monitor) Start() {
 		m.logger.Fatalf("failed to start Babylon querier: %v", err)
 	}
 
+	// update epoch from db if it exists otherwise skip
+	epochNumber, exists, err := m.store.LatestEpoch()
+	if err != nil {
+		m.logger.Fatalf("getting epoch from db err %s", err)
+	} else if exists {
+		if err := m.UpdateEpochInfo(epochNumber); err != nil {
+			panic(fmt.Errorf("error updating epoch %w", err))
+		}
+	}
+
+	// get the height from db if it exists otherwise use the baseHeight provided from genesis
+	var startHeight uint64
+	dbHeight, exists, err := m.store.LatestHeight()
+	if err != nil {
+		panic(fmt.Errorf("error getting latest height from db %w", err))
+	} else if !exists {
+		startHeight = baseHeight
+	} else {
+		startHeight = dbHeight
+	}
+
 	// starting BTC scanner
 	m.wg.Add(1)
-	go m.runBTCScanner()
+	go m.runBTCScanner(startHeight)
 
 	if m.Cfg.EnableLivenessChecker {
 		// starting liveness checker
@@ -141,15 +161,14 @@ func (m *Monitor) Start() {
 			m.logger.Info("the monitor is stopping")
 			m.started.Store(false)
 		case block := <-m.BTCScanner.GetConfirmedBlocksChan():
-			err := m.handleNewConfirmedHeader(block)
-			if err != nil {
+			if err := m.handleNewConfirmedHeader(block); err != nil {
 				m.logger.Errorf("found invalid BTC header: %s", err.Error())
 				m.metrics.InvalidBTCHeadersCounter.Inc()
 			}
 			m.metrics.ValidBTCHeadersCounter.Inc()
+			m.metrics.ValidBTCHeadersCounter.Desc()
 		case ckpt := <-m.BTCScanner.GetCheckpointsChan():
-			err := m.handleNewConfirmedCheckpoint(ckpt)
-			if err != nil {
+			if err := m.handleNewConfirmedCheckpoint(ckpt); err != nil {
 				m.logger.Errorf("failed to handle BTC raw checkpoint at epoch %d: %s", ckpt.EpochNum(), err.Error())
 				m.metrics.InvalidEpochsCounter.Inc()
 			}
@@ -161,8 +180,8 @@ func (m *Monitor) Start() {
 	m.logger.Info("the Monitor is stopped")
 }
 
-func (m *Monitor) runBTCScanner() {
-	m.BTCScanner.Start()
+func (m *Monitor) runBTCScanner(startHeight uint64) {
+	m.BTCScanner.Start(startHeight)
 	m.wg.Done()
 }
 
@@ -312,4 +331,8 @@ func (m *Monitor) Stop() {
 			m.logger.Fatalf("failed to stop Babylon querier: %v", err)
 		}
 	}
+}
+
+func (m *Monitor) Metrics() *metrics.MonitorMetrics {
+	return m.metrics
 }

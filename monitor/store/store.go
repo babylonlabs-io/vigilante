@@ -40,6 +40,9 @@ func (s *MonitorStore) createBuckets() error {
 	buckets := [][]byte{epochsBucketName, heightBucketName}
 	for _, bucket := range buckets {
 		if err := kvdb.Batch(s.db, func(tx kvdb.RwTx) error {
+			//if b := tx.ReadBucket(bucket); b != nil {
+			//	return nil
+			//}
 			_, err := tx.CreateTopLevelBucket(bucket)
 			if err != nil {
 				return err
@@ -54,23 +57,23 @@ func (s *MonitorStore) createBuckets() error {
 	return nil
 }
 
-func (s *MonitorStore) LatestEpoch() (uint64, error) {
+func (s *MonitorStore) LatestEpoch() (uint64, bool, error) {
 	return s.get(latestEpochKey, epochsBucketName)
 }
 
-func (s *MonitorStore) LatestHeight() (uint64, error) {
+func (s *MonitorStore) LatestHeight() (uint64, bool, error) {
 	return s.get(latestHeightKey, heightBucketName)
 }
 
 func (s *MonitorStore) PutLatestEpoch(epoch uint64) error {
-	return s.put(epoch, epochsBucketName)
+	return s.put(latestEpochKey, epoch, epochsBucketName)
 }
 
 func (s *MonitorStore) PutLatestHeight(height uint64) error {
-	return s.put(height, heightBucketName)
+	return s.put(latestHeightKey, height, heightBucketName)
 }
 
-func (s *MonitorStore) get(key, bucketName []byte) (uint64, error) {
+func (s *MonitorStore) get(key, bucketName []byte) (uint64, bool, error) {
 	var returnVal uint64
 
 	if err := s.db.View(func(tx walletdb.ReadTx) error {
@@ -93,20 +96,23 @@ func (s *MonitorStore) get(key, bucketName []byte) (uint64, error) {
 		return nil
 	}, func() {
 	}); err != nil {
-		return 0, err
+		if errors.Is(err, ErrNotFound) {
+			return 0, false, nil
+		}
+		return 0, false, err
 	}
 
-	return returnVal, nil
+	return returnVal, true, nil
 }
 
-func (s *MonitorStore) put(val uint64, bucketName []byte) error {
+func (s *MonitorStore) put(key []byte, val uint64, bucketName []byte) error {
 	return kvdb.Batch(s.db, func(tx kvdb.RwTx) error {
 		bucket := tx.ReadWriteBucket(bucketName)
 		if bucket == nil {
 			return ErrCorruptedDb
 		}
 
-		return bucket.Put(latestEpochKey, uint64ToBytes(val))
+		return bucket.Put(key, uint64ToBytes(val))
 	})
 }
 

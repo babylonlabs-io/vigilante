@@ -1,19 +1,29 @@
+//go:build e2e
+// +build e2e
+
 package e2etest
 
 import (
 	"fmt"
+	bbnclient "github.com/babylonlabs-io/babylon/client/client"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/monitor"
+	"github.com/babylonlabs-io/vigilante/reporter"
+	"github.com/babylonlabs-io/vigilante/submitter"
 	"github.com/babylonlabs-io/vigilante/testutil"
 	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/chaincfg"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
+	"sync"
+	"time"
+
 	"testing"
 )
 
 func TestMonitor(t *testing.T) {
-	//t.Skip()
 	numMatureOutputs := uint32(300)
 
 	tm := StartManager(t, numMatureOutputs)
@@ -36,6 +46,41 @@ func TestMonitor(t *testing.T) {
 	genesisInfo, err := types.GetGenesisInfoFromFile(genesisPath)
 	require.NoError(t, err)
 
+	tm.Config.Submitter.PollingIntervalSeconds = 1
+	subAddr, _ := sdk.AccAddressFromBech32(submitterAddrStr)
+
+	// create submitter
+	vigilantSubmitter, _ := submitter.New(
+		&tm.Config.Submitter,
+		logger,
+		tm.BTCClient,
+		tm.BabylonClient,
+		subAddr,
+		tm.Config.Common.RetrySleepTime,
+		tm.Config.Common.MaxRetrySleepTime,
+		tm.Config.Common.MaxRetryTimes,
+		metrics.NewSubmitterMetrics(),
+	)
+
+	vigilantSubmitter.Start()
+
+	vigilantReporter, err := reporter.New(
+		&tm.Config.Reporter,
+		logger,
+		tm.BTCClient,
+		tm.BabylonClient,
+		backend,
+		tm.Config.Common.RetrySleepTime,
+		tm.Config.Common.MaxRetrySleepTime,
+		metrics.NewReporterMetrics(),
+	)
+	require.NoError(t, err)
+
+	defer func() {
+		vigilantSubmitter.Stop()
+		vigilantSubmitter.WaitForShutdown()
+	}()
+
 	mon, err := monitor.New(
 		&tm.Config.Monitor,
 		&tm.Config.Common,
@@ -48,13 +93,59 @@ func TestMonitor(t *testing.T) {
 		dbBackend,
 	)
 	require.NoError(t, err)
+	vigilantReporter.Start()
+	defer vigilantReporter.Stop()
 
-	go mon.Start()
+	go func() {
+		ticker := time.NewTicker(3 * time.Second)
+		timer := time.NewTimer(15 * time.Second)
+		defer timer.Stop()
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				tm.mineBlock(t)
+			case <-timer.C:
+				return
+			}
+		}
+	}()
 
-	// todo(lazar):
-	// 1. pool for checkpoints on babylon
-	// 2. send them to btc (fundrawtransaction/signrawtransaction/sendrawtransaction)
-	// 3. stop monitor
-	// 4. validate start from db
+	go mon.Start(genesisInfo.GetBaseBTCHeight())
 
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		timer := time.NewTimer(18 * time.Second)
+		defer timer.Stop()
+
+		<-timer.C
+		mon.Stop()
+	}()
+	wg.Wait()
+
+	// use a new bbn client
+	babylonClient, err := bbnclient.New(&tm.Config.Babylon, nil)
+	require.NoError(t, err)
+
+	mon, err = monitor.New(
+		&tm.Config.Monitor,
+		&tm.Config.Common,
+		logger,
+		genesisInfo,
+		babylonClient,
+		tm.BTCClient,
+		backend,
+		monitorMetrics,
+		dbBackend,
+	)
+	require.NoError(t, err)
+	go mon.Start(genesisInfo.GetBaseBTCHeight())
+
+	require.Zero(t, promtestutil.ToFloat64(mon.Metrics().InvalidBTCHeadersCounter))
+	require.Zero(t, promtestutil.ToFloat64(mon.Metrics().InvalidEpochsCounter))
+	require.Eventually(t, func() bool {
+		return mon.BTCScanner.GetBaseHeight() > genesisInfo.GetBaseBTCHeight()
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
 }

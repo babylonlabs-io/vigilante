@@ -15,8 +15,9 @@ func TestEmptyStore(t *testing.T) {
 	s, err := store.NewMonitorStore(db)
 	require.NoError(t, err)
 
-	_, err = s.LatestEpoch()
-	require.ErrorIs(t, err, store.ErrNotFound)
+	_, exists, err := s.LatestEpoch()
+	require.NoError(t, err)
+	require.False(t, exists)
 }
 
 func FuzzStoringEpochs(f *testing.F) {
@@ -30,15 +31,17 @@ func FuzzStoringEpochs(f *testing.F) {
 		s, err := store.NewMonitorStore(db)
 		require.NoError(t, err)
 
-		_, err = s.LatestEpoch()
-		require.ErrorIs(t, err, store.ErrNotFound)
+		_, exists, err := s.LatestEpoch()
+		require.NoError(t, err)
+		require.False(t, exists)
 
 		epoch := uint64(r.Int63n(1000) + 1)
 		err = s.PutLatestEpoch(epoch)
 		require.NoError(t, err)
 
-		storedLatestEpoch, err := s.LatestEpoch()
+		storedLatestEpoch, exists, err := s.LatestEpoch()
 		require.NoError(t, err)
+		require.True(t, exists)
 		require.Equal(t, epoch, storedLatestEpoch)
 	})
 }
