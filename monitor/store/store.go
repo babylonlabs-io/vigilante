@@ -40,9 +40,6 @@ func (s *MonitorStore) createBuckets() error {
 	buckets := [][]byte{epochsBucketName, heightBucketName}
 	for _, bucket := range buckets {
 		if err := kvdb.Batch(s.db, func(tx kvdb.RwTx) error {
-			//if b := tx.ReadBucket(bucket); b != nil {
-			//	return nil
-			//}
 			_, err := tx.CreateTopLevelBucket(bucket)
 			if err != nil {
 				return err
