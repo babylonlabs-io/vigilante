@@ -17,6 +17,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"sync"
 	"time"
 
@@ -26,7 +27,7 @@ import (
 func TestMonitor(t *testing.T) {
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, numMatureOutputs)
+	tm := StartManager(t, numMatureOutputs, 2)
 	defer tm.Stop(t)
 
 	backend, err := btcclient.NewNodeBackend(
@@ -63,6 +64,7 @@ func TestMonitor(t *testing.T) {
 	)
 
 	vigilantSubmitter.Start()
+	defer vigilantSubmitter.Stop()
 
 	vigilantReporter, err := reporter.New(
 		&tm.Config.Reporter,
@@ -84,7 +86,7 @@ func TestMonitor(t *testing.T) {
 	mon, err := monitor.New(
 		&tm.Config.Monitor,
 		&tm.Config.Common,
-		logger,
+		zap.NewNop(),
 		genesisInfo,
 		tm.BabylonClient,
 		tm.BTCClient,
@@ -128,11 +130,12 @@ func TestMonitor(t *testing.T) {
 	// use a new bbn client
 	babylonClient, err := bbnclient.New(&tm.Config.Babylon, nil)
 	require.NoError(t, err)
+	defer babylonClient.Stop()
 
 	mon, err = monitor.New(
 		&tm.Config.Monitor,
 		&tm.Config.Common,
-		logger,
+		zap.NewNop(),
 		genesisInfo,
 		babylonClient,
 		tm.BTCClient,
@@ -142,6 +145,8 @@ func TestMonitor(t *testing.T) {
 	)
 	require.NoError(t, err)
 	go mon.Start(genesisInfo.GetBaseBTCHeight())
+
+	defer mon.Stop()
 
 	require.Zero(t, promtestutil.ToFloat64(mon.Metrics().InvalidBTCHeadersCounter))
 	require.Zero(t, promtestutil.ToFloat64(mon.Metrics().InvalidEpochsCounter))

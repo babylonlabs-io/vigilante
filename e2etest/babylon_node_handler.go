@@ -123,7 +123,7 @@ type BabylonNodeHandler struct {
 	babylonNode *babylonNode
 }
 
-func NewBabylonNodeHandler(baseHeaderHex string, slashingAddress string) (*BabylonNodeHandler, error) {
+func NewBabylonNodeHandler(baseHeaderHex string, slashingAddress string, epochInterval uint) (*BabylonNodeHandler, error) {
 	testDir, err := baseDirBabylondir()
 	if err != nil {
 		return nil, err
@@ -138,10 +138,10 @@ func NewBabylonNodeHandler(baseHeaderHex string, slashingAddress string) (*Babyl
 		"--keyring-backend=test",
 		"--chain-id=chain-test",
 		"--btc-finalization-timeout=4",
-		"--btc-confirmation-depth=1",
+		"--btc-confirmation-depth=2",
 		"--additional-sender-account",
 		"--btc-network=regtest",
-		"--epoch-interval=2",
+		fmt.Sprintf("--epoch-interval=%d", epochInterval),
 		fmt.Sprintf("--slashing-address=%s", slashingAddress),
 		fmt.Sprintf("--btc-base-header=%s", baseHeaderHex),
 		"--covenant-quorum=1",
