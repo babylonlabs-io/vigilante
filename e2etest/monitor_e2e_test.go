@@ -25,7 +25,7 @@ import (
 )
 
 func TestMonitor(t *testing.T) {
-	numMatureOutputs := uint32(300)
+	numMatureOutputs := uint32(150)
 
 	tm := StartManager(t, numMatureOutputs, 2)
 	defer tm.Stop(t)
@@ -119,7 +119,7 @@ func TestMonitor(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		timer := time.NewTimer(18 * time.Second)
+		timer := time.NewTimer(15 * time.Second)
 		defer timer.Stop()
 
 		<-timer.C
