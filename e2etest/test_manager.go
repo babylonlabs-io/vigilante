@@ -34,7 +34,7 @@ var (
 	eventuallyWaitTimeOut = 40 * time.Second
 	eventuallyPollTime    = 1 * time.Second
 	regtestParams         = &chaincfg.RegressionNetParams
-	defaultEpochInterval  = uint(400)
+	defaultEpochInterval  = uint(400) //nolint:unused false positive(e2e build tag), used in e2etests
 )
 
 func defaultVigilanteConfig() *config.Config {
