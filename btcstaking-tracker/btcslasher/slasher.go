@@ -246,7 +246,7 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedfpBTCSK *btcec.PrivateKey) 
 		return fmt.Errorf("failed to get BTC delegations under finality provider %s: %w", fpBTCPK.MarshalHex(), err)
 	}
 
-	// Initialize a mutex within the function scope
+	// Initialize a mutex to protect access to extractedfpBTCSK *btcec.PrivateKey
 	var mu sync.Mutex
 
 	// try to slash both staking and unbonding txs for each BTC delegation
@@ -257,7 +257,7 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedfpBTCSK *btcec.PrivateKey) 
 		go func(d *bstypes.BTCDelegationResponse) {
 			defer bs.wg.Done()
 			mu.Lock()
-			defer mu.Unlock() // Unlock after the modification is done
+			defer mu.Unlock()
 			bs.slashBTCDelegation(fpBTCPK, extractedfpBTCSK, d)
 		}(del)
 	}
@@ -268,7 +268,7 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedfpBTCSK *btcec.PrivateKey) 
 		go func(d *bstypes.BTCDelegationResponse) {
 			defer bs.wg.Done()
 			mu.Lock()
-			defer mu.Unlock() // Unlock after the modification is done
+			defer mu.Unlock()
 			bs.slashBTCDelegation(fpBTCPK, extractedfpBTCSK, d)
 		}(del)
 	}
