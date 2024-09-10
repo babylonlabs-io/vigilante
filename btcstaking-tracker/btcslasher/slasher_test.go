@@ -87,7 +87,7 @@ func FuzzSlasher(f *testing.F) {
 		require.NoError(t, err)
 
 		// slashing and change address
-		slashingAddr, err := datagen.GenRandomBTCAddress(r, net)
+		slashingPkScript, err := datagen.GenRandomPubKeyHashScript(r, net)
 		require.NoError(t, err)
 
 		// generate BTC key pair for slashed finality provider
@@ -111,7 +111,7 @@ func FuzzSlasher(f *testing.F) {
 				covenantSks,
 				covenantBtcPks,
 				bsParams.Params.CovenantQuorum,
-				slashingAddr.String(),
+				slashingPkScript,
 				100,
 				1099,
 				delAmount,
@@ -138,7 +138,7 @@ func FuzzSlasher(f *testing.F) {
 				covenantSks,
 				covenantBtcPks,
 				bsParams.Params.CovenantQuorum,
-				slashingAddr.String(),
+				slashingPkScript,
 				100,
 				1100,
 				delAmount,
@@ -165,7 +165,7 @@ func FuzzSlasher(f *testing.F) {
 				covenantSks,
 				covenantBtcPks,
 				bsParams.Params.CovenantQuorum,
-				slashingAddr.String(),
+				slashingPkScript,
 				100,
 				1100,
 				delAmount,
@@ -202,7 +202,7 @@ func FuzzSlasher(f *testing.F) {
 				outPoint,
 				1000,
 				9000,
-				slashingAddr.String(),
+				slashingPkScript,
 				bsParams.Params.SlashingRate,
 				unbondingTime,
 			)

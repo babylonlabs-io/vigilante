@@ -34,12 +34,10 @@ func TestAtomicSlasher(t *testing.T) {
 	// Insert all existing BTC headers to babylon node
 	tm.CatchUpBTCLightClient(t)
 
-	emptyHintCache := btcclient.EmptyHintCache{}
-
 	backend, err := btcclient.NewNodeBackend(
 		btcclient.ToBitcoindConfig(tm.Config.BTC),
 		&chaincfg.RegressionNetParams,
-		&emptyHintCache,
+		&btcclient.EmptyHintCache{},
 	)
 	require.NoError(t, err)
 
@@ -49,7 +47,6 @@ func TestAtomicSlasher(t *testing.T) {
 	commonCfg := config.DefaultCommonConfig()
 	bstCfg := config.DefaultBTCStakingTrackerConfig()
 	bstCfg.CheckDelegationsInterval = 1 * time.Second
-	metrics := metrics.NewBTCStakingTrackerMetrics()
 
 	bsTracker := bst.NewBTCSTakingTracker(
 		tm.BTCClient,
@@ -58,7 +55,7 @@ func TestAtomicSlasher(t *testing.T) {
 		&bstCfg,
 		&commonCfg,
 		zap.NewNop(),
-		metrics,
+		metrics.NewBTCStakingTrackerMetrics(),
 	)
 	go bsTracker.Start()
 	defer bsTracker.Stop()
@@ -124,7 +121,9 @@ func TestAtomicSlasher(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		_, err := tm.BTCClient.GetRawTransaction(slashingTxHash2)
-		t.Logf("err of getting slashingTxHash of the BTC delegation affected by atomic slashing: %v", err)
+		if err != nil {
+			t.Logf("err of getting slashingTxHash of the BTC delegation affected by atomic slashing: %v", err)
+		}
 		return err == nil
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
