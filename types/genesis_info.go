@@ -171,3 +171,7 @@ func (gi *GenesisInfo) GetBLSKeySet() checkpointingtypes.ValidatorWithBlsKeySet 
 func (gi *GenesisInfo) GetCheckpointTag() string {
 	return gi.checkpointTag
 }
+
+func (gi *GenesisInfo) SetBaseBTCHeight(height uint64) {
+	gi.baseBTCHeight = height
+}

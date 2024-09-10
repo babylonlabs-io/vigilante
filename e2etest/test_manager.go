@@ -34,6 +34,7 @@ var (
 	eventuallyWaitTimeOut = 40 * time.Second
 	eventuallyPollTime    = 1 * time.Second
 	regtestParams         = &chaincfg.RegressionNetParams
+	defaultEpochInterval  = uint(400) //nolint:unused
 )
 
 func defaultVigilanteConfig() *config.Config {
@@ -79,7 +80,7 @@ func initBTCClientWithSubscriber(t *testing.T, cfg *config.Config) *btcclient.Cl
 
 // StartManager creates a test manager
 // NOTE: uses btc client with zmq
-func StartManager(t *testing.T, numMatureOutputsInWallet uint32) *TestManager {
+func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval uint) *TestManager {
 	btcHandler := NewBitcoindHandler(t)
 	btcHandler.Start()
 	passphrase := "pass"
@@ -116,7 +117,7 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32) *TestManager {
 	require.NoError(t, err)
 
 	// start Babylon node
-	bh, err := NewBabylonNodeHandler(baseHeaderHex, minerAddressDecoded.EncodeAddress())
+	bh, err := NewBabylonNodeHandler(baseHeaderHex, minerAddressDecoded.EncodeAddress(), epochInterval)
 	require.NoError(t, err)
 	err = bh.Start()
 	require.NoError(t, err)

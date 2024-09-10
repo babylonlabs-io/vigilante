@@ -23,7 +23,7 @@ func TestUnbondingWatcher(t *testing.T) {
 	// segwit is activated at height 300. It's needed by staking/slashing tx
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, numMatureOutputs)
+	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
 	defer tm.Stop(t)
 	// Insert all existing BTC headers to babylon node
 	tm.CatchUpBTCLightClient(t)

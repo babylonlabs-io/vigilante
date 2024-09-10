@@ -29,6 +29,8 @@ type MonitorConfig struct {
 	BtcConfirmationDepth uint64 `mapstructure:"btc-confirmation-depth"`
 	// whether to enable liveness checker
 	EnableLivenessChecker bool `mapstructure:"enable-liveness-checker"`
+
+	DatabaseConfig *DBConfig `mapstructure:"database-config"`
 }
 
 func (cfg *MonitorConfig) Validate() error {

@@ -22,19 +22,8 @@ func (m *Monitor) QueryInfoForNextEpoch(epoch uint64) (*types.EpochInfo, error) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to query BLS key set for epoch %v: %w", epoch, err)
 	}
-	valSet := make([]*ckpttypes.ValidatorWithBlsKey, len(res.ValidatorWithBlsKeys))
-	for i, key := range res.ValidatorWithBlsKeys {
-		val := &ckpttypes.ValidatorWithBlsKey{
-			ValidatorAddress: key.ValidatorAddress,
-			BlsPubKey:        key.BlsPubKey,
-			VotingPower:      key.VotingPower,
-		}
-		valSet[i] = val
-	}
 
-	ei := types.NewEpochInfo(epoch, ckpttypes.ValidatorWithBlsKeySet{ValSet: valSet})
-
-	return ei, nil
+	return types.NewEpochInfo(epoch, ckpttypes.ValidatorWithBlsKeySet{ValSet: res.ValidatorWithBlsKeys}), nil
 }
 
 // FindTipConfirmedEpoch tries to find the last confirmed epoch number from Babylon

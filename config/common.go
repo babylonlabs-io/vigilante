@@ -10,7 +10,7 @@ import (
 const (
 	defaultRetrySleepTime    = 5 * time.Second
 	defaultMaxRetrySleepTime = 5 * time.Minute
-	defaultMaxRetryTimes     = 5
+	defaultMaxRetryTimes     = 25
 )
 
 // CommonConfig defines the server's basic configuration
