@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"math"
 	"math/rand"
 	"testing"
 	"time"
@@ -44,7 +43,7 @@ func (tm *TestManager) getBTCUnbondingTime(t *testing.T) uint64 {
 	btccParams, err := tm.BabylonClient.BTCCheckpointParams()
 	require.NoError(t, err)
 
-	return bstypes.MinimumUnbondingTime(bsParams.Params, btccParams.Params) + 1
+	return bstypes.MinimumUnbondingTime(&bsParams.Params, &btccParams.Params) + 1
 }
 
 func (tm *TestManager) CreateFinalityProvider(t *testing.T) (*bstypes.FinalityProvider, *btcec.PrivateKey) {
@@ -91,7 +90,7 @@ func (tm *TestManager) CreateBTCDelegation(
 	require.NoError(t, err)
 	covenantBtcPks, err := bbnPksToBtcPks(bsParams.Params.CovenantPks)
 	require.NoError(t, err)
-	stakingTimeBlocks := uint16(math.MaxUint16)
+	stakingTimeBlocks := bsParams.Params.MaxStakingTimeBlocks
 	// get top UTXO
 	topUnspentResult, _, err := tm.BTCClient.GetHighUTXOAndSum()
 	require.NoError(t, err)
@@ -110,9 +109,9 @@ func (tm *TestManager) CreateBTCDelegation(
 		[]*btcec.PublicKey{fpPK},
 		covenantBtcPks,
 		bsParams.Params.CovenantQuorum,
-		stakingTimeBlocks,
+		uint16(stakingTimeBlocks),
 		stakingValue,
-		bsParams.Params.SlashingAddress,
+		bsParams.Params.SlashingPkScript,
 		bsParams.Params.SlashingRate,
 		uint16(tm.getBTCUnbondingTime(t)),
 	)
@@ -193,9 +192,9 @@ func (tm *TestManager) CreateBTCDelegation(
 		covenantBtcPks,
 		bsParams.Params.CovenantQuorum,
 		wire.NewOutPoint(stakingMsgTxHash, stakingOutIdx),
-		stakingTimeBlocks,
+		uint16(stakingTimeBlocks),
 		unbondingValue,
-		bsParams.Params.SlashingAddress,
+		bsParams.Params.SlashingPkScript,
 		bsParams.Params.SlashingRate,
 		uint16(tm.getBTCUnbondingTime(t)),
 	)

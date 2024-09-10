@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/btcsuite/btcd/txscript"
 	"go.uber.org/zap"
 	"testing"
 	"time"
@@ -116,8 +117,11 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 	minerAddressDecoded, err := btcutil.DecodeAddress(blocksResponse.Address, regtestParams)
 	require.NoError(t, err)
 
+	pkScript, err := txscript.PayToAddrScript(minerAddressDecoded)
+	require.NoError(t, err)
+
 	// start Babylon node
-	bh, err := NewBabylonNodeHandler(baseHeaderHex, minerAddressDecoded.EncodeAddress(), epochInterval)
+	bh, err := NewBabylonNodeHandler(baseHeaderHex, hex.EncodeToString(pkScript), epochInterval)
 	require.NoError(t, err)
 	err = bh.Start()
 	require.NoError(t, err)
