@@ -288,6 +288,12 @@ func findFPIdxInWitness(fpBTCPK *bbn.BIP340PubKey, fpBtcPkList []bbn.BIP340PubKe
 	return 0, fmt.Errorf("the given finality provider's PK is not found in the BTC delegation")
 }
 
+// BuildSlashingTxWithWitness constructs a Bitcoin slashing transaction with the required witness data
+// using the provided finality provider's private key. It handles the conversion and validation of
+// various parameters needed for slashing a Bitcoin delegation, including the staking transaction,
+// finality provider public keys, and covenant public keys.
+// Note: this function is UNSAFE for concurrent accesses as slashTx.BuildSlashingTxWithWitness is not safe for
+// concurrent access inside it's calling  asig.NewDecyptionKeyFromBTCSK
 func BuildSlashingTxWithWitness(
 	d *bstypes.BTCDelegationResponse,
 	bsParams *bstypes.Params,
