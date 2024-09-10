@@ -24,7 +24,8 @@ import (
 	"testing"
 )
 
-func TestMonitor(t *testing.T) {
+// TestMonitorBootstrap - validates that after a restart monitor bootstraps from DB
+func TestMonitorBootstrap(t *testing.T) {
 	numMatureOutputs := uint32(150)
 
 	tm := StartManager(t, numMatureOutputs, 2)

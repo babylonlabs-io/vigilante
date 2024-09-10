@@ -39,14 +39,14 @@ func NewMonitorStore(backend kvdb.Backend) (*MonitorStore, error) {
 func (s *MonitorStore) createBuckets() error {
 	buckets := [][]byte{epochsBucketName, heightBucketName}
 	for _, bucket := range buckets {
-		if err := kvdb.Batch(s.db, func(tx kvdb.RwTx) error {
+		if err := s.db.Update(func(tx kvdb.RwTx) error {
 			_, err := tx.CreateTopLevelBucket(bucket)
 			if err != nil {
 				return err
 			}
 
 			return nil
-		}); err != nil {
+		}, func() {}); err != nil {
 			return err
 		}
 	}
@@ -73,26 +73,27 @@ func (s *MonitorStore) PutLatestHeight(height uint64) error {
 func (s *MonitorStore) get(key, bucketName []byte) (uint64, bool, error) {
 	var returnVal uint64
 
-	if err := s.db.View(func(tx walletdb.ReadTx) error {
+	err := s.db.View(func(tx walletdb.ReadTx) error {
 		b := tx.ReadBucket(bucketName)
 		if b == nil {
 			return ErrCorruptedDb
 		}
 
-		value := b.Get(key)
-		if value == nil {
+		byteVal := b.Get(key)
+		if byteVal == nil {
 			return ErrNotFound
 		}
 
-		epoch, err := uint64FromBytes(value)
+		val, err := uint64FromBytes(byteVal)
 		if err != nil {
 			return err
 		}
-		returnVal = epoch
+		returnVal = val
 
 		return nil
-	}, func() {
-	}); err != nil {
+	}, func() {})
+
+	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return 0, false, nil
 		}
