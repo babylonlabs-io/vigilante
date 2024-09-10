@@ -63,14 +63,14 @@ func New(
 ) (*Monitor, error) {
 	ms, err := store.NewMonitorStore(db)
 	if err != nil {
-		panic(fmt.Errorf("error setting up store: %w", err))
+		return nil, fmt.Errorf("error setting up store: %w", err)
 	}
 
 	logger := parentLogger.With(zap.String("module", "monitor"))
 	// create BTC scanner
 	checkpointTagBytes, err := hex.DecodeString(genesisInfo.GetCheckpointTag())
 	if err != nil {
-		panic(fmt.Errorf("invalid hex checkpoint tag: %w", err))
+		return nil, fmt.Errorf("invalid hex checkpoint tag: %w", err)
 	}
 	btcScanner, err := btcscanner.New(
 		cfg,
@@ -80,7 +80,7 @@ func New(
 		checkpointTagBytes,
 	)
 	if err != nil {
-		panic(fmt.Errorf("failed to create BTC scanner: %w", err))
+		return nil, fmt.Errorf("failed to create BTC scanner: %w", err)
 	}
 
 	// genesis validator set needs to be sorted by address to respect the signing order
@@ -129,7 +129,7 @@ func (m *Monitor) Start(baseHeight uint64) {
 	if err != nil {
 		m.logger.Fatalf("getting epoch from db err %s", err)
 	} else if exists {
-		if err := m.UpdateEpochInfo(epochNumber); err != nil {
+		if err := m.UpdateEpochInfo(epochNumber + 1); err != nil {
 			panic(fmt.Errorf("error updating epoch %w", err))
 		}
 	}
@@ -142,7 +142,7 @@ func (m *Monitor) Start(baseHeight uint64) {
 	} else if !exists {
 		startHeight = baseHeight
 	} else {
-		startHeight = dbHeight
+		startHeight = dbHeight + 1
 	}
 
 	// starting BTC scanner
@@ -220,13 +220,14 @@ func (m *Monitor) handleNewConfirmedCheckpoint(ckpt *types.CheckpointRecord) err
 
 	m.logger.Infof("checkpoint at epoch %v has passed the verification", m.GetCurrentEpoch())
 
-	nextEpochNum := m.GetCurrentEpoch() + 1
+	currentEpoch := m.GetCurrentEpoch()
+	nextEpochNum := currentEpoch + 1
 	if err := m.UpdateEpochInfo(nextEpochNum); err != nil {
 		return fmt.Errorf("failed to update information of epoch %d: %w", nextEpochNum, err)
 	}
 
 	// save the currently processed epoch
-	if err := m.store.PutLatestEpoch(m.GetCurrentEpoch()); err != nil {
+	if err := m.store.PutLatestEpoch(currentEpoch); err != nil {
 		return fmt.Errorf("failed to set epoch %w", err)
 	}
 

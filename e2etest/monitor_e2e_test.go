@@ -18,7 +18,6 @@ import (
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"sync"
 	"time"
 
 	"testing"
@@ -116,17 +115,8 @@ func TestMonitorBootstrap(t *testing.T) {
 
 	go mon.Start(genesisInfo.GetBaseBTCHeight())
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		timer := time.NewTimer(15 * time.Second)
-		defer timer.Stop()
-
-		<-timer.C
-		mon.Stop()
-	}()
-	wg.Wait()
+	time.Sleep(15 * time.Second)
+	mon.Stop()
 
 	// use a new bbn client
 	babylonClient, err := bbnclient.New(&tm.Config.Babylon, nil)

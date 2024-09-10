@@ -159,8 +159,6 @@ func (tm *TestManager) Stop(t *testing.T) {
 		err := tm.BabylonClient.Stop()
 		require.NoError(t, err)
 	}
-
-	//tm.BTCClient.Stop()
 }
 
 // mineBlock mines a single block
