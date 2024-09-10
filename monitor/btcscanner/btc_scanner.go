@@ -16,6 +16,17 @@ import (
 	"github.com/babylonlabs-io/vigilante/types"
 )
 
+var _ Scanner = (*BtcScanner)(nil)
+
+type Scanner interface {
+	Start(startHeight uint64)
+	Stop()
+
+	GetCheckpointsChan() chan *types.CheckpointRecord
+	GetConfirmedBlocksChan() chan *types.IndexedBlock
+	GetBaseHeight() uint64
+}
+
 type BtcScanner struct {
 	logger *zap.SugaredLogger
 
@@ -50,7 +61,6 @@ func New(
 	parentLogger *zap.Logger,
 	btcClient btcclient.BTCClient,
 	btcNotifier notifier.ChainNotifier,
-	btcLightClientBaseHeight uint64,
 	checkpointTag []byte,
 ) (*BtcScanner, error) {
 	headersChan := make(chan *wire.BlockHeader, monitorCfg.BtcBlockBufferSize)
@@ -66,7 +76,6 @@ func New(
 		logger:                parentLogger.With(zap.String("module", "btcscanner")).Sugar(),
 		BtcClient:             btcClient,
 		btcNotifier:           btcNotifier,
-		BaseHeight:            btcLightClientBaseHeight,
 		K:                     monitorCfg.BtcConfirmationDepth,
 		ckptCache:             ckptCache,
 		UnconfirmedBlockCache: unconfirmedBlockCache,
@@ -79,11 +88,13 @@ func New(
 }
 
 // Start starts the scanning process from curBTCHeight to tipHeight
-func (bs *BtcScanner) Start() {
+func (bs *BtcScanner) Start(startHeight uint64) {
 	if bs.Started.Load() {
 		bs.logger.Info("the BTC scanner is already started")
 		return
 	}
+
+	bs.BaseHeight = startHeight
 
 	bs.Started.Store(true)
 	bs.logger.Info("the BTC scanner is started")
@@ -142,7 +153,7 @@ func (bs *BtcScanner) Bootstrap() {
 
 	_, bestHeight, err := bs.BtcClient.GetBestBlock()
 	if err != nil {
-		panic(fmt.Errorf("cannot get the best BTC block"))
+		panic(fmt.Errorf("cannot get the best BTC block %w", err))
 	}
 
 	bestConfirmedHeight := bestHeight - bs.K
@@ -193,8 +204,8 @@ func (bs *BtcScanner) SetLogger(logger *zap.SugaredLogger) {
 	bs.logger = logger
 }
 
-func (bs *BtcScanner) GetHeadersChan() chan *wire.BlockHeader {
-	return bs.blockHeaderChan
+func (bs *BtcScanner) GetConfirmedBlocksChan() chan *types.IndexedBlock {
+	return bs.ConfirmedBlocksChan
 }
 
 func (bs *BtcScanner) sendConfirmedBlocksToChan(blocks []*types.IndexedBlock) {
@@ -269,4 +280,8 @@ func (bs *BtcScanner) GetCheckpointsChan() chan *types.CheckpointRecord {
 
 func (bs *BtcScanner) Stop() {
 	close(bs.quit)
+}
+
+func (bs *BtcScanner) GetBaseHeight() uint64 {
+	return bs.BaseHeight
 }

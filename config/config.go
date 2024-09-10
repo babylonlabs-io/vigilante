@@ -15,6 +15,7 @@ import (
 
 const (
 	defaultConfigFilename = "vigilante.yml"
+	defaultDataDirname    = "data"
 )
 
 var (
@@ -23,6 +24,10 @@ var (
 	defaultRPCKeyFile  = filepath.Join(defaultAppDataDir, "rpc.key")
 	defaultRPCCertFile = filepath.Join(defaultAppDataDir, "rpc.cert")
 )
+
+func DataDir(homePath string) string {
+	return filepath.Join(homePath, defaultDataDirname)
+}
 
 // Config defines the server's top level configuration
 type Config struct {

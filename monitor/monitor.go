@@ -3,7 +3,9 @@ package monitor
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/babylonlabs-io/vigilante/monitor/store"
 	notifier "github.com/lightningnetwork/lnd/chainntnfs"
+	"github.com/lightningnetwork/lnd/kvdb"
 	"sort"
 	"sync"
 
@@ -39,6 +41,8 @@ type Monitor struct {
 	// tracks checkpoint records that have not been reported back to Babylon
 	checkpointChecklist *types.CheckpointsBookkeeper
 
+	store *store.MonitorStore
+
 	metrics *metrics.MonitorMetrics
 
 	wg      sync.WaitGroup
@@ -55,23 +59,28 @@ func New(
 	btcClient btcclient.BTCClient,
 	btcNotifier notifier.ChainNotifier,
 	monitorMetrics *metrics.MonitorMetrics,
+	db kvdb.Backend,
 ) (*Monitor, error) {
+	ms, err := store.NewMonitorStore(db)
+	if err != nil {
+		return nil, fmt.Errorf("error setting up store: %w", err)
+	}
+
 	logger := parentLogger.With(zap.String("module", "monitor"))
 	// create BTC scanner
 	checkpointTagBytes, err := hex.DecodeString(genesisInfo.GetCheckpointTag())
 	if err != nil {
-		panic(fmt.Errorf("invalid hex checkpoint tag: %w", err))
+		return nil, fmt.Errorf("invalid hex checkpoint tag: %w", err)
 	}
 	btcScanner, err := btcscanner.New(
 		cfg,
 		logger,
 		btcClient,
 		btcNotifier,
-		genesisInfo.GetBaseBTCHeight(),
 		checkpointTagBytes,
 	)
 	if err != nil {
-		panic(fmt.Errorf("failed to create BTC scanner: %w", err))
+		return nil, fmt.Errorf("failed to create BTC scanner: %w", err)
 	}
 
 	// genesis validator set needs to be sorted by address to respect the signing order
@@ -89,6 +98,7 @@ func New(
 		logger:              logger.Sugar(),
 		curEpoch:            genesisEpoch,
 		checkpointChecklist: types.NewCheckpointsBookkeeper(),
+		store:               ms,
 		metrics:             monitorMetrics,
 		quit:                make(chan struct{}),
 		started:             atomic.NewBool(false),
@@ -100,7 +110,7 @@ func (m *Monitor) SetLogger(logger *zap.SugaredLogger) {
 }
 
 // Start starts the verification core
-func (m *Monitor) Start() {
+func (m *Monitor) Start(baseHeight uint64) {
 	if m.started.Load() {
 		m.logger.Info("the Monitor is already started")
 		return
@@ -114,9 +124,30 @@ func (m *Monitor) Start() {
 		m.logger.Fatalf("failed to start Babylon querier: %v", err)
 	}
 
+	// update epoch from db if it exists otherwise skip
+	epochNumber, exists, err := m.store.LatestEpoch()
+	if err != nil {
+		m.logger.Fatalf("getting epoch from db err %s", err)
+	} else if exists {
+		if err := m.UpdateEpochInfo(epochNumber + 1); err != nil {
+			panic(fmt.Errorf("error updating epoch %w", err))
+		}
+	}
+
+	// get the height from db if it exists otherwise use the baseHeight provided from genesis
+	var startHeight uint64
+	dbHeight, exists, err := m.store.LatestHeight()
+	if err != nil {
+		panic(fmt.Errorf("error getting latest height from db %w", err))
+	} else if !exists {
+		startHeight = baseHeight
+	} else {
+		startHeight = dbHeight + 1
+	}
+
 	// starting BTC scanner
 	m.wg.Add(1)
-	go m.runBTCScanner()
+	go m.runBTCScanner(startHeight)
 
 	if m.Cfg.EnableLivenessChecker {
 		// starting liveness checker
@@ -129,16 +160,15 @@ func (m *Monitor) Start() {
 		case <-m.quit:
 			m.logger.Info("the monitor is stopping")
 			m.started.Store(false)
-		case header := <-m.BTCScanner.GetHeadersChan():
-			err := m.handleNewConfirmedHeader(header)
-			if err != nil {
+		case block := <-m.BTCScanner.GetConfirmedBlocksChan():
+			if err := m.handleNewConfirmedHeader(block); err != nil {
 				m.logger.Errorf("found invalid BTC header: %s", err.Error())
 				m.metrics.InvalidBTCHeadersCounter.Inc()
 			}
 			m.metrics.ValidBTCHeadersCounter.Inc()
+			m.metrics.ValidBTCHeadersCounter.Desc()
 		case ckpt := <-m.BTCScanner.GetCheckpointsChan():
-			err := m.handleNewConfirmedCheckpoint(ckpt)
-			if err != nil {
+			if err := m.handleNewConfirmedCheckpoint(ckpt); err != nil {
 				m.logger.Errorf("failed to handle BTC raw checkpoint at epoch %d: %s", ckpt.EpochNum(), err.Error())
 				m.metrics.InvalidEpochsCounter.Inc()
 			}
@@ -150,18 +180,25 @@ func (m *Monitor) Start() {
 	m.logger.Info("the Monitor is stopped")
 }
 
-func (m *Monitor) runBTCScanner() {
-	m.BTCScanner.Start()
+func (m *Monitor) runBTCScanner(startHeight uint64) {
+	m.BTCScanner.Start(startHeight)
 	m.wg.Done()
 }
 
-func (m *Monitor) handleNewConfirmedHeader(header *wire.BlockHeader) error {
-	return m.checkHeaderConsistency(header)
+func (m *Monitor) handleNewConfirmedHeader(block *types.IndexedBlock) error {
+	if err := m.checkHeaderConsistency(block.Header); err != nil {
+		return err
+	}
+
+	if err := m.store.PutLatestHeight(uint64(block.Height)); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (m *Monitor) handleNewConfirmedCheckpoint(ckpt *types.CheckpointRecord) error {
-	err := m.VerifyCheckpoint(ckpt.RawCheckpoint)
-	if err != nil {
+	if err := m.VerifyCheckpoint(ckpt.RawCheckpoint); err != nil {
 		if sdkerrors.IsOf(err, types.ErrInconsistentBlockHash) {
 			// also record conflicting checkpoints since we need to ensure that
 			// alarm will be sent if conflicting checkpoints are censored
@@ -183,10 +220,15 @@ func (m *Monitor) handleNewConfirmedCheckpoint(ckpt *types.CheckpointRecord) err
 
 	m.logger.Infof("checkpoint at epoch %v has passed the verification", m.GetCurrentEpoch())
 
-	nextEpochNum := m.GetCurrentEpoch() + 1
-	err = m.UpdateEpochInfo(nextEpochNum)
-	if err != nil {
+	currentEpoch := m.GetCurrentEpoch()
+	nextEpochNum := currentEpoch + 1
+	if err := m.UpdateEpochInfo(nextEpochNum); err != nil {
 		return fmt.Errorf("failed to update information of epoch %d: %w", nextEpochNum, err)
+	}
+
+	// save the currently processed epoch
+	if err := m.store.PutLatestEpoch(currentEpoch); err != nil {
+		return fmt.Errorf("failed to set epoch %w", err)
 	}
 
 	return nil
@@ -290,4 +332,8 @@ func (m *Monitor) Stop() {
 			m.logger.Fatalf("failed to stop Babylon querier: %v", err)
 		}
 	}
+}
+
+func (m *Monitor) Metrics() *metrics.MonitorMetrics {
+	return m.metrics
 }
