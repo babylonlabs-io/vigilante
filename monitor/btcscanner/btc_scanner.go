@@ -28,6 +28,7 @@ type Scanner interface {
 }
 
 type BtcScanner struct {
+	mu     sync.Mutex
 	logger *zap.SugaredLogger
 
 	// connect to BTC node
@@ -94,7 +95,7 @@ func (bs *BtcScanner) Start(startHeight uint64) {
 		return
 	}
 
-	bs.BaseHeight = startHeight
+	bs.SetBaseHeight(startHeight)
 
 	bs.Started.Store(true)
 	bs.logger.Info("the BTC scanner is started")
@@ -143,7 +144,7 @@ func (bs *BtcScanner) Bootstrap() {
 	if bs.confirmedTipBlock != nil {
 		firstUnconfirmedHeight = uint64(bs.confirmedTipBlock.Height + 1)
 	} else {
-		firstUnconfirmedHeight = bs.BaseHeight
+		firstUnconfirmedHeight = bs.GetBaseHeight()
 	}
 
 	bs.logger.Infof("the bootstrapping starts at %d", firstUnconfirmedHeight)
@@ -283,5 +284,13 @@ func (bs *BtcScanner) Stop() {
 }
 
 func (bs *BtcScanner) GetBaseHeight() uint64 {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
 	return bs.BaseHeight
+}
+
+func (bs *BtcScanner) SetBaseHeight(h uint64) {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+	bs.BaseHeight = h
 }
