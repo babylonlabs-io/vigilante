@@ -267,7 +267,7 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedFpBTCSK *btcec.PrivateKey) 
 		bs.wg.Add(1)
 		go func(d *bstypes.BTCDelegationResponse) {
 			defer bs.wg.Done()
-			ctx, cancel := context.WithTimeout(context.Background(), semaphoreTimeout)
+			ctx, cancel := bs.quitContext()
 			defer cancel()
 
 			// Acquire the semaphore before interacting with the BTC node
