@@ -14,7 +14,7 @@ func (bs *BtcScanner) bootstrapAndBlockEventHandler() {
 	bs.Bootstrap()
 
 	var blockEpoch *chainntnfs.BlockEpoch
-	bestKnownBlock := bs.UnconfirmedBlockCache.Tip()
+	bestKnownBlock := bs.unconfirmedBlockCache.Tip()
 	if bestKnownBlock != nil {
 		hash := bestKnownBlock.BlockHash()
 		blockEpoch = &chainntnfs.BlockEpoch{
@@ -34,7 +34,7 @@ func (bs *BtcScanner) bootstrapAndBlockEventHandler() {
 	for {
 		select {
 		case <-bs.quit:
-			bs.BtcClient.Stop()
+			bs.btcClient.Stop()
 			return
 		case epoch, open := <-blockNotifier.Epochs:
 			if !open {
@@ -55,7 +55,7 @@ func (bs *BtcScanner) bootstrapAndBlockEventHandler() {
 // if new confirmed blocks are found, send them through the channel
 func (bs *BtcScanner) handleNewBlock(height int32, header *wire.BlockHeader) error {
 	// get cache tip
-	cacheTip := bs.UnconfirmedBlockCache.Tip()
+	cacheTip := bs.unconfirmedBlockCache.Tip()
 	if cacheTip == nil {
 		return errors.New("no unconfirmed blocks found")
 	}
@@ -81,21 +81,21 @@ func (bs *BtcScanner) handleNewBlock(height int32, header *wire.BlockHeader) err
 
 	// get the block from hash
 	blockHash := header.BlockHash()
-	ib, _, err := bs.BtcClient.GetBlockByHash(&blockHash)
+	ib, _, err := bs.btcClient.GetBlockByHash(&blockHash)
 	if err != nil {
 		// failing to request the block, which means a bug
 		panic(fmt.Errorf("failed to request block by hash: %s", blockHash.String()))
 	}
 
 	// otherwise, add the block to the cache
-	bs.UnconfirmedBlockCache.Add(ib)
+	bs.unconfirmedBlockCache.Add(ib)
 
 	// still unconfirmed
-	if bs.UnconfirmedBlockCache.Size() <= bs.K {
+	if bs.unconfirmedBlockCache.Size() <= bs.k {
 		return nil
 	}
 
-	confirmedBlocks := bs.UnconfirmedBlockCache.TrimConfirmedBlocks(int(bs.K))
+	confirmedBlocks := bs.unconfirmedBlockCache.TrimConfirmedBlocks(int(bs.k))
 	if confirmedBlocks == nil {
 		return nil
 	}

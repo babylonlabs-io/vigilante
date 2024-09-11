@@ -36,20 +36,20 @@ func FuzzBootStrap(f *testing.F) {
 
 		cache, err := types.NewBTCCache(numBlocks)
 		require.NoError(t, err)
-		btcScanner := &btcscanner.BtcScanner{
-			BtcClient:             mockBtcClient,
-			BaseHeight:            uint64(baseHeight),
-			K:                     k,
-			ConfirmedBlocksChan:   make(chan *types.IndexedBlock),
-			UnconfirmedBlockCache: cache,
-		}
+		var btcScanner btcscanner.BtcScanner
+		btcScanner.SetBtcClient(mockBtcClient)
+		btcScanner.SetBaseHeight(uint64(baseHeight))
+		btcScanner.SetK(k)
+		btcScanner.SetConfirmedBlocksChan(make(chan *types.IndexedBlock))
+		btcScanner.SetUnconfirmedBlockCache(cache)
+
 		logger, err := config.NewRootLogger("auto", "debug")
 		require.NoError(t, err)
 		btcScanner.SetLogger(logger.Sugar())
 
 		go func() {
 			for i := 0; i < len(confirmedBlocks); i++ {
-				b := <-btcScanner.ConfirmedBlocksChan
+				b := <-btcScanner.GetConfirmedBlocksChan()
 				require.Equal(t, confirmedBlocks[i].BlockHash(), b.BlockHash())
 			}
 		}()
