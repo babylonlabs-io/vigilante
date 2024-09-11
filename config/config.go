@@ -10,7 +10,6 @@ import (
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -131,18 +130,4 @@ func New(configFile string) (Config, error) {
 	} else { // other errors
 		return Config{}, err
 	}
-}
-
-func WriteSample() error {
-	cfg := DefaultConfig()
-	d, err := yaml.Marshal(&cfg)
-	if err != nil {
-		return err
-	}
-	// write to file
-	err = os.WriteFile("./sample-vigilante.yml", d, 0644)
-	if err != nil {
-		return err
-	}
-	return nil
 }
