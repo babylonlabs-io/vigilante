@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
+	"golang.org/x/sync/semaphore"
 	"sync"
 	"time"
 
@@ -22,6 +23,11 @@ const (
 	txSubscriberName  = "tx-subscriber"
 	messageActionName = "/babylon.finality.v1.MsgAddFinalitySig"
 	evidenceEventName = "babylon.finality.v1.EventSlashedFinalityProvider.evidence"
+	concurrentCalls   = 10
+)
+
+var (
+	semaphoreTimeout = 10 * time.Second
 )
 
 type BTCSlasher struct {
@@ -251,6 +257,9 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedFpBTCSK *btcec.PrivateKey) 
 	// Initialize a mutex protected *btcec.PrivateKey
 	safeExtractedFpBTCSK := types.NewPrivateKeyWithMutex(extractedFpBTCSK)
 
+	// Initialize a semaphore to control the number of concurrent operations interacting with the BTC node
+	sem := semaphore.NewWeighted(concurrentCalls)
+
 	// try to slash both staking and unbonding txs for each BTC delegation
 	// sign and submit slashing tx for each active delegation
 	// TODO: use semaphore to prevent spamming BTC node
@@ -258,6 +267,15 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedFpBTCSK *btcec.PrivateKey) 
 		bs.wg.Add(1)
 		go func(d *bstypes.BTCDelegationResponse) {
 			defer bs.wg.Done()
+			ctx, cancel := context.WithTimeout(context.Background(), semaphoreTimeout)
+			defer cancel()
+
+			// Acquire the semaphore before interacting with the BTC node
+			if err := sem.Acquire(ctx, 1); err != nil {
+				bs.logger.Errorf("failed to acquire semaphore: %v", err)
+				return
+			}
+			defer sem.Release(1)
 			safeExtractedFpBTCSK.UseKey(func(key *secp256k1.PrivateKey) {
 				bs.slashBTCDelegation(fpBTCPK, key, d)
 			})
