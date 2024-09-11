@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"github.com/btcsuite/btcd/txscript"
 	"go.uber.org/zap"
 	"testing"
 	"time"
@@ -15,7 +18,6 @@ import (
 	btclctypes "github.com/babylonlabs-io/babylon/x/btclightclient/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/config"
-	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
@@ -33,20 +35,17 @@ var (
 	eventuallyWaitTimeOut = 40 * time.Second
 	eventuallyPollTime    = 1 * time.Second
 	regtestParams         = &chaincfg.RegressionNetParams
+	defaultEpochInterval  = uint(400) //nolint:unused
 )
 
 func defaultVigilanteConfig() *config.Config {
 	defaultConfig := config.DefaultConfig()
-	// Config setting necessary to connect btcd daemon
 	defaultConfig.BTC.NetParams = regtestParams.Name
 	defaultConfig.BTC.Endpoint = "127.0.0.1:18443"
 	// Config setting necessary to connect btcwallet daemon
-	defaultConfig.BTC.BtcBackend = types.Bitcoind
-	defaultConfig.BTC.WalletEndpoint = "127.0.0.1:18554"
 	defaultConfig.BTC.WalletPassword = "pass"
 	defaultConfig.BTC.Username = "user"
 	defaultConfig.BTC.Password = "pass"
-	defaultConfig.BTC.DisableClientTLS = true
 	defaultConfig.BTC.ZmqSeqEndpoint = config.DefaultZmqSeqEndpoint
 
 	return defaultConfig
@@ -63,7 +62,7 @@ type TestManager struct {
 }
 
 func initBTCClientWithSubscriber(t *testing.T, cfg *config.Config) *btcclient.Client {
-	client, err := btcclient.NewWithBlockSubscriber(&cfg.BTC, cfg.Common.RetrySleepTime, cfg.Common.MaxRetrySleepTime, zap.NewNop())
+	client, err := btcclient.NewWallet(cfg, zap.NewNop())
 	require.NoError(t, err)
 
 	// let's wait until chain rpc becomes available
@@ -82,12 +81,11 @@ func initBTCClientWithSubscriber(t *testing.T, cfg *config.Config) *btcclient.Cl
 
 // StartManager creates a test manager
 // NOTE: uses btc client with zmq
-func StartManager(t *testing.T, numMatureOutputsInWallet uint32) *TestManager {
+func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval uint) *TestManager {
 	btcHandler := NewBitcoindHandler(t)
 	btcHandler.Start()
 	passphrase := "pass"
 	_ = btcHandler.CreateWallet("default", passphrase)
-	blocksResponse := btcHandler.GenerateBlocks(int(numMatureOutputsInWallet))
 
 	cfg := defaultVigilanteConfig()
 
@@ -102,6 +100,13 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32) *TestManager {
 	}, nil)
 	require.NoError(t, err)
 
+	err = testRpcClient.WalletPassphrase(passphrase, 600)
+	require.NoError(t, err)
+
+	walletPrivKey, err := importPrivateKey(btcHandler)
+	require.NoError(t, err)
+	blocksResponse := btcHandler.GenerateBlocks(int(numMatureOutputsInWallet))
+
 	btcClient := initBTCClientWithSubscriber(t, cfg)
 
 	var buff bytes.Buffer
@@ -112,8 +117,11 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32) *TestManager {
 	minerAddressDecoded, err := btcutil.DecodeAddress(blocksResponse.Address, regtestParams)
 	require.NoError(t, err)
 
+	pkScript, err := txscript.PayToAddrScript(minerAddressDecoded)
+	require.NoError(t, err)
+
 	// start Babylon node
-	bh, err := NewBabylonNodeHandler(baseHeaderHex, minerAddressDecoded.EncodeAddress())
+	bh, err := NewBabylonNodeHandler(baseHeaderHex, hex.EncodeToString(pkScript), epochInterval)
 	require.NoError(t, err)
 	err = bh.Start()
 	require.NoError(t, err)
@@ -136,12 +144,6 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32) *TestManager {
 		return true
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
-	err = testRpcClient.WalletPassphrase(passphrase, 600)
-	require.NoError(t, err)
-
-	walletPrivKey, err := testRpcClient.DumpPrivKey(minerAddressDecoded)
-	require.NoError(t, err)
-
 	return &TestManager{
 		TestRpcClient:   testRpcClient,
 		BabylonHandler:  bh,
@@ -149,7 +151,7 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32) *TestManager {
 		BitcoindHandler: btcHandler,
 		BTCClient:       btcClient,
 		Config:          cfg,
-		WalletPrivKey:   walletPrivKey.PrivKey,
+		WalletPrivKey:   walletPrivKey,
 	}
 }
 
@@ -226,4 +228,37 @@ func (tm *TestManager) CatchUpBTCLightClient(t *testing.T) {
 
 	_, err = tm.InsertBTCHeadersToBabylon(headers)
 	require.NoError(t, err)
+}
+
+func importPrivateKey(btcHandler *BitcoindTestHandler) (*btcec.PrivateKey, error) {
+	privKey, err := btcec.NewPrivateKey()
+	if err != nil {
+		return nil, err
+	}
+
+	wif, err := btcutil.NewWIF(privKey, regtestParams, true)
+	if err != nil {
+		return nil, err
+	}
+
+	// "combo" allows us to import a key and handle multiple types of btc scripts with a single descriptor command.
+	descriptor := fmt.Sprintf("combo(%s)", wif.String())
+
+	// Create the JSON descriptor object.
+	descJSON, err := json.Marshal([]map[string]interface{}{
+		{
+			"desc":      descriptor,
+			"active":    true,
+			"timestamp": "now", // tells Bitcoind to start scanning from the current blockchain height
+			"label":     "test key",
+		},
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	btcHandler.ImportDescriptors(string(descJSON))
+
+	return privKey, nil
 }

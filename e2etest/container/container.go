@@ -62,7 +62,7 @@ func (m *Manager) ExecCmd(t *testing.T, containerName string, command []string) 
 		errBuf bytes.Buffer
 	)
 
-	timeout := 20 * time.Second
+	timeout := 120 * time.Second
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -150,7 +150,6 @@ func (m *Manager) RunBitcoindResource(
 				"18444/tcp": {{HostIP: "", HostPort: "18444"}},
 			},
 			Cmd: []string{
-				"-debug=1",
 				"-regtest",
 				"-txindex",
 				"-rpcuser=user",
@@ -158,6 +157,7 @@ func (m *Manager) RunBitcoindResource(
 				"-rpcallowip=0.0.0.0/0",
 				"-rpcbind=0.0.0.0",
 				"-zmqpubsequence=tcp://0.0.0.0:28333",
+				"-fallbackfee=0.0002",
 			},
 		},
 		noRestart,

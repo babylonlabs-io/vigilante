@@ -11,9 +11,9 @@ There are four vigilante programs:
 
 ## Requirements
 
-- Go 1.21
+- [Go 1.23](https://go.dev/dl/go1.23.0.src.tar.gz)
+- [Bitcoind](https://bitcoincore.org/bin)
 - Package [libzmq](https://github.com/zeromq/libzmq)
-- [btcd](https://github.com/btcsuite/btcd/tree/master?tab=readme-ov-file#installation) binaries (only for testing)
 
 ## Building
 
@@ -66,100 +66,69 @@ This will be later used to retrieve the certificate required for RPC connections
 mkdir $TESTNET_PATH/bitcoin
 ```
 
-For a Docker deployment, we want the vigilante to be able to communicate with
-the Babylon and Bitcoin instances running on the local network.
-We can accomplish that through the `host.docker.internal` DNS name,
-which the Docker network translates to the Docker machine.
-To enable Bitcoin RPC requests, we need to add the `host.docker.internal`
-DNS host to the `rpc.cert` file that was created by the previous command.
-To do that we use the btcd `gencerts` utility,
+```bash
+# Download Bitcoin Core binary
+wget https://bitcoincore.org/bin/bitcoin-core-27.0/bitcoin-27.0-x86_64-linux-gnu.tar.gz # or choose a version depending on your os
 
-```shell
-gencerts -d $TESTNET_PATH/bitcoin/ -H host.docker.internal
+# Extract the downloaded archive
+tar -xvf bitcoin-27.0-x86_64-linux-gnu.tar.gz
+
+# Provide execution permissions to binaries
+chmod +x bitcoin-27.0/bin/bitcoind
+chmod +x bitcoin-27.0/bin/bitcoin-cli
 ```
 
-#### Running a Bitcoin simnet with an arbitrary mining address
+#### Running a Bitcoin regtest with a wallet
 
-Launch a simnet Bitcoin node
-which listens for RPC connections at port `18556` and
-stores the RPC certificate under the `$TESTNET_PATH/bitcoin` directory.
-The mining address is arbitrary.
+Launch a regtest Bitcoind node which listens for RPC connections at port `18443`.
 
 ```shell
-btcd --simnet --rpclisten 127.0.0.1:18556 --rpcuser rpcuser --rpcpass rpcpass \
-    --rpccert $TESTNET_PATH/bitcoin/rpc.cert --rpckey $TESTNET_PATH/bitcoin/rpc.key \
-    --miningaddr SQqHYFTSPh8WAyJvzbAC8hoLbF12UVsE5s
-```
-
-#### Running a Bitcoin simnet with a wallet
-
-Launch a simnet Bitcoin node
-which listens for RPC connections at port `18556` and
-stores the RPC certificate under the `$TESTNET_PATH/bitcoin` directory.
-
-```shell
-btcd --simnet --rpclisten 127.0.0.1:18556 --rpcuser rpcuser --rpcpass rpcpass \
-     --rpccert $TESTNET_PATH/bitcoin/rpc.cert --rpckey $TESTNET_PATH/bitcoin/rpc.key
+bitcoind -regtest \
+         -txindex \
+         -rpcuser=<rpc_user> \
+         -rpcpassword=<rpc_password> \
+         -rpcbind=0.0.0.0:18443 \
+         -zmqpubsequence=tcp://0.0.0.0:28333 \
+         -datadir=/data/.bitcoin \
+         
 ```
 
 Leave this process running.
 
-Then, create a simnet Bitcoin wallet.
+Then, create a regtest Bitcoin wallet.
 If you want to use the default vigilante file, then give the password `walletpass`.
 Otherwise, make sure to edit the `vigilante.yaml` to reflect the correct password.
 
 ```shell
-btcwallet --simnet -u rpcuser -P rpcpass \
-          --rpccert $TESTNET_PATH/bitcoin/rpc-wallet.cert --rpckey $TESTNET_PATH/bitcoin/rpc-wallet.key \
-          --cafile $TESTNET_PATH/bitcoin/rpc.cert \
-          --create
+bitcoin-cli -regtest \
+    -rpcuser=<rpc_user> \
+    -rpcpassword=<rpc_password> \
+    -named createwallet \
+    wallet_name="<wallet_name>" \
+    passphrase="<passphrase>" \
+    load_on_startup=true \
+    descriptors=true
 ```
+You can generate a btc address through the `getnewaddress` command:
 
-The above instruction is going to prompt you for a password and going to give you the seed.
-Store those securely.
-
-Afterwards, start the wallet service listening to port `18554`:
-
-```shell
-btcwallet --simnet -u rpcuser -P rpcpass --rpclisten=127.0.0.1:18554 \
-          --rpccert $TESTNET_PATH/bitcoin/rpc-wallet.cert --rpckey $TESTNET_PATH/bitcoin/rpc-wallet.key \
-          --cafile $TESTNET_PATH/bitcoin/rpc.cert
+```bash
+bitcoin-cli -regtest \
+    -rpcuser=<rpc_user> \
+    -rpcpassword=<rpc_password> \
+    getnewaddress
 ```
-
-Leave this process running. If you get an error that a wallet already exists and you still want
-to create one, delete the `wallet.db` file located in the path displayed by the error message.
-
-Create an address that will be later used for mining. The output below is a sample one.
-
-```shell
-$ btcctl --simnet --wallet -u rpcuser -P rpcpass \
-       --rpccert $TESTNET_PATH/bitcoin/rpc-wallet.cert \
-       --rpcserver 127.0.0.1 getnewaddress
-
-SQqHYFTSPh8WAyJvzbAC8hoLbF12UVsE5s
-```
-
-Finally, restart the btcd service with the new address.
-First, kill the `btcd` process that you started in the first step, and then:
-
-```shell
-btcd --simnet --rpclisten 127.0.0.1:18556 --rpcuser rpcuser --rpcpass rpcpass \
-    --rpccert $TESTNET_PATH/bitcoin/rpc.cert --rpckey $TESTNET_PATH/bitcoin/rpc.key \
-    --miningaddr $MINING_ADDRESS
-```
-
-where `$MINING_ADDRESS` is the address that you got as an output in the previous command.
 
 #### Generating BTC blocks
 
 While running this setup, one might want to generate BTC blocks.
-We accomplish that through the btcd `btcctl` utility and the use
+We accomplish that through the `bitcoin-cli` utility and the use
 of the parameters we defined above.
 
 ```shell
-btcctl --simnet --wallet --rpcuser=rpcuser --rpcpass=rpcpass \
-       --rpccert=$TESTNET_PATH/bitcoin/rpc-wallet.cert \
-       generate $NUM_BLOCKS
+bitcoin-cli -chain=regtest \
+      -rpcuser=<rpc_user> \
+      -rpcpassword=<rpc_password> \
+      -generate $NUM_BLOCKS
 ```
 
 where `$NUM_BLOCKS` is the number of blocks you want to generate.
@@ -241,7 +210,7 @@ cp sample-vigilante-docker.yml $TESTNET_PATH/vigilante/vigilante.yml
 make reporter-build
 ```
 
-Afterwards, run the above image and attach the directories
+Afterward, run the above image and attach the directories
 that contain the configuration for Babylon, Bitcoin, and the vigilante.
 
 ```shell

@@ -1,6 +1,7 @@
 package reporter_test
 
 import (
+	"github.com/lightningnetwork/lnd/lntest/mock"
 	"math/rand"
 	"testing"
 
@@ -32,12 +33,14 @@ func newMockReporter(t *testing.T, ctrl *gomock.Controller) (
 	mockBabylonClient.EXPECT().GetConfig().Return(&cfg.Babylon).AnyTimes()
 	mockBabylonClient.EXPECT().BTCCheckpointParams().Return(
 		&btcctypes.QueryParamsResponse{Params: btccParams}, nil).AnyTimes()
+	mockNotifier := mock.ChainNotifier{}
 
 	r, err := reporter.New(
 		&cfg.Reporter,
 		logger,
 		mockBTCClient,
 		mockBabylonClient,
+		&mockNotifier,
 		cfg.Common.RetrySleepTime,
 		cfg.Common.MaxRetrySleepTime,
 		metrics.NewReporterMetrics(),

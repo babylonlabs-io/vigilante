@@ -25,7 +25,7 @@ func TestAtomicSlasher(t *testing.T) {
 	// segwit is activated at height 300. It's needed by staking/slashing tx
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, numMatureOutputs)
+	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
 	defer tm.Stop(t)
 
 	// start WebSocket connection with Babylon for subscriber services
@@ -34,14 +34,10 @@ func TestAtomicSlasher(t *testing.T) {
 	// Insert all existing BTC headers to babylon node
 	tm.CatchUpBTCLightClient(t)
 
-	emptyHintCache := btcclient.EmptyHintCache{}
-
-	// TODO: our config only support btcd wallet tls, not btcd directly
-	tm.Config.BTC.DisableClientTLS = false
 	backend, err := btcclient.NewNodeBackend(
-		btcclient.CfgToBtcNodeBackendConfig(tm.Config.BTC, ""),
+		btcclient.ToBitcoindConfig(tm.Config.BTC),
 		&chaincfg.RegressionNetParams,
-		&emptyHintCache,
+		&btcclient.EmptyHintCache{},
 	)
 	require.NoError(t, err)
 
@@ -51,7 +47,6 @@ func TestAtomicSlasher(t *testing.T) {
 	commonCfg := config.DefaultCommonConfig()
 	bstCfg := config.DefaultBTCStakingTrackerConfig()
 	bstCfg.CheckDelegationsInterval = 1 * time.Second
-	metrics := metrics.NewBTCStakingTrackerMetrics()
 
 	bsTracker := bst.NewBTCSTakingTracker(
 		tm.BTCClient,
@@ -60,7 +55,7 @@ func TestAtomicSlasher(t *testing.T) {
 		&bstCfg,
 		&commonCfg,
 		zap.NewNop(),
-		metrics,
+		metrics.NewBTCStakingTrackerMetrics(),
 	)
 	go bsTracker.Start()
 	defer bsTracker.Stop()
@@ -126,7 +121,9 @@ func TestAtomicSlasher(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		_, err := tm.BTCClient.GetRawTransaction(slashingTxHash2)
-		t.Logf("err of getting slashingTxHash of the BTC delegation affected by atomic slashing: %v", err)
+		if err != nil {
+			t.Logf("err of getting slashingTxHash of the BTC delegation affected by atomic slashing: %v", err)
+		}
 		return err == nil
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
@@ -145,7 +142,7 @@ func TestAtomicSlasher_Unbonding(t *testing.T) {
 	// segwit is activated at height 300. It's needed by staking/slashing tx
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, numMatureOutputs)
+	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
 	defer tm.Stop(t)
 
 	// start WebSocket connection with Babylon for subscriber services
@@ -156,10 +153,8 @@ func TestAtomicSlasher_Unbonding(t *testing.T) {
 
 	emptyHintCache := btcclient.EmptyHintCache{}
 
-	// TODO: our config only support btcd wallet tls, not btcd directly
-	tm.Config.BTC.DisableClientTLS = false
 	backend, err := btcclient.NewNodeBackend(
-		btcclient.CfgToBtcNodeBackendConfig(tm.Config.BTC, ""),
+		btcclient.ToBitcoindConfig(tm.Config.BTC),
 		&chaincfg.RegressionNetParams,
 		&emptyHintCache,
 	)

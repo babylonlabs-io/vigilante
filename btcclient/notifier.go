@@ -1,32 +1,18 @@
 package btcclient
 
 import (
-	"encoding/hex"
 	"fmt"
+	"github.com/babylonlabs-io/vigilante/netparams"
 	"net"
-	"os"
 	"time"
 
 	"github.com/babylonlabs-io/vigilante/config"
-	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/btcsuite/btcwallet/chain"
 	"github.com/lightningnetwork/lnd/blockcache"
 	"github.com/lightningnetwork/lnd/chainntnfs"
 	"github.com/lightningnetwork/lnd/chainntnfs/bitcoindnotify"
-	"github.com/lightningnetwork/lnd/chainntnfs/btcdnotify"
 )
-
-type Btcd struct {
-	RPCHost        string
-	RPCUser        string
-	RPCPass        string
-	RPCCert        string
-	RawCert        string
-	DisableTLS     bool
-	BlockCacheSize uint64
-}
 
 type Bitcoind struct {
 	RPCHost              string
@@ -59,45 +45,17 @@ func DefaultBitcoindConfig() Bitcoind {
 	}
 }
 
-type BtcNodeBackendConfig struct {
-	Btcd              *Btcd
-	Bitcoind          *Bitcoind
-	ActiveNodeBackend types.SupportedBtcBackend
-}
+func ToBitcoindConfig(cfg config.BTCConfig) *Bitcoind {
+	defaultBitcoindCfg := DefaultBitcoindConfig()
+	// Re-rewrite defaults by values from global cfg
+	defaultBitcoindCfg.RPCHost = cfg.Endpoint
+	defaultBitcoindCfg.RPCUser = cfg.Username
+	defaultBitcoindCfg.RPCPass = cfg.Password
+	defaultBitcoindCfg.ZMQPubRawBlock = cfg.ZmqBlockEndpoint
+	defaultBitcoindCfg.ZMQPubRawTx = cfg.ZmqTxEndpoint
+	defaultBitcoindCfg.EstimateMode = cfg.EstimateMode
 
-func CfgToBtcNodeBackendConfig(cfg config.BTCConfig, rawCert string) *BtcNodeBackendConfig {
-	switch cfg.BtcBackend {
-	case types.Bitcoind:
-		defaultBitcoindCfg := DefaultBitcoindConfig()
-		// Re-rewrite defaults by values from global cfg
-		defaultBitcoindCfg.RPCHost = cfg.Endpoint
-		defaultBitcoindCfg.RPCUser = cfg.Username
-		defaultBitcoindCfg.RPCPass = cfg.Password
-		defaultBitcoindCfg.ZMQPubRawBlock = cfg.ZmqBlockEndpoint
-		defaultBitcoindCfg.ZMQPubRawTx = cfg.ZmqTxEndpoint
-		defaultBitcoindCfg.EstimateMode = cfg.EstimateMode
-
-		return &BtcNodeBackendConfig{
-			ActiveNodeBackend: types.Bitcoind,
-			Bitcoind:          &defaultBitcoindCfg,
-		}
-	case types.Btcd:
-		return &BtcNodeBackendConfig{
-			ActiveNodeBackend: types.Btcd,
-			Btcd: &Btcd{
-				RPCHost:    cfg.Endpoint,
-				RPCUser:    cfg.Username,
-				RPCPass:    cfg.Password,
-				RPCCert:    cfg.CAFile,
-				RawCert:    rawCert,
-				DisableTLS: cfg.DisableClientTLS,
-				// TODO: Make block cache size configurable. Note: this is value is in bytes.
-				BlockCacheSize: config.DefaultBtcblockCacheSize,
-			},
-		}
-	default:
-		panic(fmt.Sprintf("unknown btc backend: %v", cfg.BtcBackend))
-	}
+	return &defaultBitcoindCfg
 }
 
 type NodeBackend struct {
@@ -109,9 +67,6 @@ type HintCache interface {
 	chainntnfs.ConfirmHintCache
 }
 
-// type for disabled hint cache
-// TODO: Determine if we need hint cache backed up by database which is provided
-// by lnd.
 type EmptyHintCache struct{}
 
 var _ HintCache = (*EmptyHintCache)(nil)
@@ -147,104 +102,66 @@ func BuildDialer(rpcHost string) func(string) (net.Conn, error) {
 }
 
 func NewNodeBackend(
-	cfg *BtcNodeBackendConfig,
+	cfg *Bitcoind,
 	params *chaincfg.Params,
 	hintCache HintCache,
 ) (*NodeBackend, error) {
-	switch cfg.ActiveNodeBackend {
-	case types.Bitcoind:
-		bitcoindCfg := &chain.BitcoindConfig{
-			ChainParams:        params,
-			Host:               cfg.Bitcoind.RPCHost,
-			User:               cfg.Bitcoind.RPCUser,
-			Pass:               cfg.Bitcoind.RPCPass,
-			Dialer:             BuildDialer(cfg.Bitcoind.RPCHost),
-			PrunedModeMaxPeers: cfg.Bitcoind.PrunedNodeMaxPeers,
-		}
-
-		if cfg.Bitcoind.RPCPolling {
-			bitcoindCfg.PollingConfig = &chain.PollingConfig{
-				BlockPollingInterval:    cfg.Bitcoind.BlockPollingInterval,
-				TxPollingInterval:       cfg.Bitcoind.TxPollingInterval,
-				TxPollingIntervalJitter: config.DefaultTxPollingJitter,
-			}
-		} else {
-			bitcoindCfg.ZMQConfig = &chain.ZMQConfig{
-				ZMQBlockHost:           cfg.Bitcoind.ZMQPubRawBlock,
-				ZMQTxHost:              cfg.Bitcoind.ZMQPubRawTx,
-				ZMQReadDeadline:        cfg.Bitcoind.ZMQReadDeadline,
-				MempoolPollingInterval: cfg.Bitcoind.TxPollingInterval,
-				PollingIntervalJitter:  config.DefaultTxPollingJitter,
-			}
-		}
-
-		bitcoindConn, err := chain.NewBitcoindConn(bitcoindCfg)
-		if err != nil {
-			return nil, err
-		}
-
-		if err := bitcoindConn.Start(); err != nil {
-			return nil, fmt.Errorf("unable to connect to "+
-				"bitcoind: %v", err)
-		}
-
-		chainNotifier := bitcoindnotify.New(
-			bitcoindConn, params, hintCache,
-			hintCache, blockcache.NewBlockCache(cfg.Bitcoind.BlockCacheSize),
-		)
-
-		return &NodeBackend{
-			ChainNotifier: chainNotifier,
-		}, nil
-
-	case types.Btcd:
-		btcdUser := cfg.Btcd.RPCUser
-		btcdPass := cfg.Btcd.RPCPass
-		btcdHost := cfg.Btcd.RPCHost
-
-		var certs []byte
-		if !cfg.Btcd.DisableTLS {
-			if cfg.Btcd.RawCert != "" {
-				decoded, err := hex.DecodeString(cfg.Btcd.RawCert)
-				if err != nil {
-					return nil, fmt.Errorf("error decoding btcd cert: %v", err)
-				}
-				certs = decoded
-
-			} else {
-				certificates, err := os.ReadFile(cfg.Btcd.RPCCert)
-				if err != nil {
-					return nil, fmt.Errorf("error reading btcd cert file: %v", err)
-				}
-				certs = certificates
-			}
-		}
-
-		rpcConfig := &rpcclient.ConnConfig{
-			Host:                 btcdHost,
-			Endpoint:             "ws",
-			User:                 btcdUser,
-			Pass:                 btcdPass,
-			Certificates:         certs,
-			DisableTLS:           cfg.Btcd.DisableTLS,
-			DisableConnectOnNew:  true,
-			DisableAutoReconnect: false,
-		}
-
-		chainNotifier, err := btcdnotify.New(
-			rpcConfig, params, hintCache,
-			hintCache, blockcache.NewBlockCache(cfg.Btcd.BlockCacheSize),
-		)
-
-		if err != nil {
-			return nil, err
-		}
-
-		return &NodeBackend{
-			ChainNotifier: chainNotifier,
-		}, nil
-
-	default:
-		return nil, fmt.Errorf("unknown node backend: %v", cfg.ActiveNodeBackend)
+	bitcoindCfg := &chain.BitcoindConfig{
+		ChainParams:        params,
+		Host:               cfg.RPCHost,
+		User:               cfg.RPCUser,
+		Pass:               cfg.RPCPass,
+		Dialer:             BuildDialer(cfg.RPCHost),
+		PrunedModeMaxPeers: cfg.PrunedNodeMaxPeers,
 	}
+
+	if cfg.RPCPolling {
+		bitcoindCfg.PollingConfig = &chain.PollingConfig{
+			BlockPollingInterval:    cfg.BlockPollingInterval,
+			TxPollingInterval:       cfg.TxPollingInterval,
+			TxPollingIntervalJitter: config.DefaultTxPollingJitter,
+		}
+	} else {
+		bitcoindCfg.ZMQConfig = &chain.ZMQConfig{
+			ZMQBlockHost:           cfg.ZMQPubRawBlock,
+			ZMQTxHost:              cfg.ZMQPubRawTx,
+			ZMQReadDeadline:        cfg.ZMQReadDeadline,
+			MempoolPollingInterval: cfg.TxPollingInterval,
+			PollingIntervalJitter:  config.DefaultTxPollingJitter,
+		}
+	}
+
+	bitcoindConn, err := chain.NewBitcoindConn(bitcoindCfg)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := bitcoindConn.Start(); err != nil {
+		return nil, fmt.Errorf("unable to connect to "+
+			"bitcoind: %v", err)
+	}
+
+	chainNotifier := bitcoindnotify.New(
+		bitcoindConn, params, hintCache,
+		hintCache, blockcache.NewBlockCache(cfg.BlockCacheSize),
+	)
+
+	return &NodeBackend{
+		ChainNotifier: chainNotifier,
+	}, nil
+}
+
+// NewNodeBackendWithParams creates a new NodeBackend by incorporating parameter retrieval and config conversion.
+func NewNodeBackendWithParams(cfg config.BTCConfig) (*NodeBackend, error) {
+	btcParams, err := netparams.GetBTCParams(cfg.NetParams)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get BTC net params: %w", err)
+	}
+
+	btcNotifier, err := NewNodeBackend(ToBitcoindConfig(cfg), btcParams, &EmptyHintCache{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize notifier: %w", err)
+	}
+
+	return btcNotifier, nil
 }

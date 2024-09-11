@@ -61,11 +61,21 @@ func FuzzSlasher_Bootstrapping(f *testing.F) {
 		logger, err := config.NewRootLogger("auto", "debug")
 		require.NoError(t, err)
 		slashedFPSKChan := make(chan *btcec.PrivateKey, 100)
-		btcSlasher, err := btcslasher.New(logger, mockBTCClient, mockBabylonQuerier, &chaincfg.SimNetParams, commonCfg.RetrySleepTime, commonCfg.MaxRetrySleepTime, slashedFPSKChan, metrics.NewBTCStakingTrackerMetrics().SlasherMetrics)
+		btcSlasher, err := btcslasher.New(
+			logger,
+			mockBTCClient,
+			mockBabylonQuerier,
+			&chaincfg.SimNetParams,
+			commonCfg.RetrySleepTime,
+			commonCfg.MaxRetrySleepTime,
+			commonCfg.MaxRetryTimes,
+			slashedFPSKChan,
+			metrics.NewBTCStakingTrackerMetrics().SlasherMetrics,
+		)
 		require.NoError(t, err)
 
 		// slashing address
-		slashingAddr, err := datagen.GenRandomBTCAddress(r, net)
+		slashingPkScript, err := datagen.GenRandomPubKeyHashScript(r, net)
 		require.NoError(t, err)
 
 		// mock BTC staking parameters
@@ -106,7 +116,7 @@ func FuzzSlasher_Bootstrapping(f *testing.F) {
 				covenantSks,
 				covPks,
 				bsParams.Params.CovenantQuorum,
-				slashingAddr.String(),
+				slashingPkScript,
 				100,
 				1100,
 				delAmount,
@@ -136,7 +146,7 @@ func FuzzSlasher_Bootstrapping(f *testing.F) {
 				covenantSks,
 				covPks,
 				bsParams.Params.CovenantQuorum,
-				slashingAddr.String(),
+				slashingPkScript,
 				100,
 				1100,
 				delAmount,

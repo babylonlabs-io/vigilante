@@ -10,21 +10,23 @@ import (
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v2"
 )
 
 const (
 	defaultConfigFilename = "vigilante.yml"
+	defaultDataDirname    = "data"
 )
 
 var (
-	defaultBtcCAFile       = filepath.Join(btcutil.AppDataDir("btcd", false), "rpc.cert")
-	defaultBtcWalletCAFile = filepath.Join(btcutil.AppDataDir("btcwallet", false), "rpc.cert")
-	defaultAppDataDir      = btcutil.AppDataDir("babylon-vigilante", false)
-	defaultConfigFile      = filepath.Join(defaultAppDataDir, defaultConfigFilename)
-	defaultRPCKeyFile      = filepath.Join(defaultAppDataDir, "rpc.key")
-	defaultRPCCertFile     = filepath.Join(defaultAppDataDir, "rpc.cert")
+	defaultAppDataDir  = btcutil.AppDataDir("babylon-vigilante", false)
+	defaultConfigFile  = filepath.Join(defaultAppDataDir, defaultConfigFilename)
+	defaultRPCKeyFile  = filepath.Join(defaultAppDataDir, "rpc.key")
+	defaultRPCCertFile = filepath.Join(defaultAppDataDir, "rpc.cert")
 )
+
+func DataDir(homePath string) string {
+	return filepath.Join(homePath, defaultDataDirname)
+}
 
 // Config defines the server's top level configuration
 type Config struct {
@@ -128,18 +130,4 @@ func New(configFile string) (Config, error) {
 	} else { // other errors
 		return Config{}, err
 	}
-}
-
-func WriteSample() error {
-	cfg := DefaultConfig()
-	d, err := yaml.Marshal(&cfg)
-	if err != nil {
-		return err
-	}
-	// write to file
-	err = os.WriteFile("./sample-vigilante.yml", d, 0644)
-	if err != nil {
-		return err
-	}
-	return nil
 }

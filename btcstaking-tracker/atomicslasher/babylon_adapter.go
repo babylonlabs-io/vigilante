@@ -20,6 +20,7 @@ type BabylonAdapter struct {
 	cfg               *config.BTCStakingTrackerConfig
 	retrySleepTime    time.Duration
 	maxRetrySleepTime time.Duration
+	maxRetryTimes     uint
 	bbnClient         BabylonClient
 }
 
@@ -28,6 +29,7 @@ func NewBabylonAdapter(
 	cfg *config.BTCStakingTrackerConfig,
 	retrySleepTime time.Duration,
 	maxRetrySleepTime time.Duration,
+	maxRetryTimes uint,
 	bbnClient BabylonClient,
 ) *BabylonAdapter {
 	return &BabylonAdapter{
@@ -35,6 +37,7 @@ func NewBabylonAdapter(
 		cfg:               cfg,
 		retrySleepTime:    retrySleepTime,
 		maxRetrySleepTime: maxRetrySleepTime,
+		maxRetryTimes:     maxRetryTimes,
 		bbnClient:         bbnClient,
 	}
 }
@@ -53,6 +56,7 @@ func (ba *BabylonAdapter) BTCStakingParams(ctx context.Context, version uint32) 
 		retry.Context(ctx),
 		retry.Delay(ba.retrySleepTime),
 		retry.MaxDelay(ba.maxRetrySleepTime),
+		retry.Attempts(ba.maxRetryTimes),
 	)
 
 	return bsParams, err
@@ -72,6 +76,7 @@ func (ba *BabylonAdapter) BTCDelegation(ctx context.Context, stakingTxHashHex st
 		retry.Context(ctx),
 		retry.Delay(ba.retrySleepTime),
 		retry.MaxDelay(ba.maxRetrySleepTime),
+		retry.Attempts(ba.maxRetryTimes),
 	)
 
 	return resp, err

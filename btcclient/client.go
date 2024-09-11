@@ -15,8 +15,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/babylonlabs-io/vigilante/config"
-	"github.com/babylonlabs-io/vigilante/types"
-	"github.com/babylonlabs-io/vigilante/zmq"
 )
 
 var _ BTCClient = &Client{}
@@ -25,18 +23,15 @@ var _ BTCClient = &Client{}
 // for information regarding the current best block chain.
 type Client struct {
 	*rpcclient.Client
-	zmqClient *zmq.Client
 
-	Params *chaincfg.Params
-	Cfg    *config.BTCConfig
+	params *chaincfg.Params
+	cfg    *config.BTCConfig
 	logger *zap.SugaredLogger
 
 	// retry attributes
 	retrySleepTime    time.Duration
 	maxRetrySleepTime time.Duration
-
-	// channel for notifying new BTC blocks to reporter
-	blockEventChan chan *types.BlockEvent
+	maxRetryTimes     uint
 }
 
 func (c *Client) GetTipBlockVerbose() (*btcjson.GetBlockVerboseResult, error) {
@@ -54,16 +49,4 @@ func (c *Client) GetTipBlockVerbose() (*btcjson.GetBlockVerboseResult, error) {
 
 func (c *Client) Stop() {
 	c.Shutdown()
-	// NewWallet will create a client with nil blockEventChan,
-	// while NewWithBlockSubscriber will have a non-nil one, so
-	// we need to check here
-	if c.blockEventChan != nil {
-		close(c.blockEventChan)
-	}
-
-	if c.zmqClient != nil {
-		if err := c.zmqClient.Close(); err != nil {
-			c.logger.Debug(err)
-		}
-	}
 }

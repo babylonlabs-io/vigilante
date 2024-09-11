@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-
 	bbnclient "github.com/babylonlabs-io/babylon/client/client"
 	"github.com/spf13/cobra"
 
@@ -48,7 +47,7 @@ func GetReporterCmd() *cobra.Command {
 
 			// create BTC client and connect to BTC server
 			// Note that vigilant reporter needs to subscribe to new BTC blocks
-			btcClient, err = btcclient.NewWithBlockSubscriber(&cfg.BTC, cfg.Common.RetrySleepTime, cfg.Common.MaxRetrySleepTime, rootLogger)
+			btcClient, err = btcclient.NewWallet(&cfg, rootLogger)
 			if err != nil {
 				panic(fmt.Errorf("failed to open BTC client: %w", err))
 			}
@@ -62,12 +61,19 @@ func GetReporterCmd() *cobra.Command {
 			// register reporter metrics
 			reporterMetrics := metrics.NewReporterMetrics()
 
+			// create the chain notifier
+			btcNotifier, err := btcclient.NewNodeBackendWithParams(cfg.BTC)
+			if err != nil {
+				panic(err)
+			}
+
 			// create reporter
 			vigilantReporter, err = reporter.New(
 				&cfg.Reporter,
 				rootLogger,
 				btcClient,
 				babylonClient,
+				btcNotifier,
 				cfg.Common.RetrySleepTime,
 				cfg.Common.MaxRetrySleepTime,
 				reporterMetrics,

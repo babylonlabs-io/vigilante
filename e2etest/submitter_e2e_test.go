@@ -25,7 +25,7 @@ func TestSubmitterSubmission(t *testing.T) {
 	r := rand.New(rand.NewSource(time.Now().Unix()))
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, numMatureOutputs)
+	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
 	defer tm.Stop(t)
 
 	randomCheckpoint := datagen.GenRandomRawCheckpointWithMeta(r)
@@ -62,6 +62,7 @@ func TestSubmitterSubmission(t *testing.T) {
 		subAddr,
 		tm.Config.Common.RetrySleepTime,
 		tm.Config.Common.MaxRetrySleepTime,
+		tm.Config.Common.MaxRetryTimes,
 		metrics.NewSubmitterMetrics(),
 	)
 
@@ -97,7 +98,7 @@ func TestSubmitterSubmissionReplace(t *testing.T) {
 	r := rand.New(rand.NewSource(time.Now().Unix()))
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, numMatureOutputs)
+	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
 	defer tm.Stop(t)
 
 	randomCheckpoint := datagen.GenRandomRawCheckpointWithMeta(r)
@@ -135,6 +136,7 @@ func TestSubmitterSubmissionReplace(t *testing.T) {
 		subAddr,
 		tm.Config.Common.RetrySleepTime,
 		tm.Config.Common.MaxRetrySleepTime,
+		tm.Config.Common.MaxRetryTimes,
 		metrics.NewSubmitterMetrics(),
 	)
 

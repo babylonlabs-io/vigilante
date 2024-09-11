@@ -123,7 +123,7 @@ type BabylonNodeHandler struct {
 	babylonNode *babylonNode
 }
 
-func NewBabylonNodeHandler(baseHeaderHex string, slashingAddress string) (*BabylonNodeHandler, error) {
+func NewBabylonNodeHandler(baseHeaderHex string, slashingPkScript string, epochInterval uint) (*BabylonNodeHandler, error) {
 	testDir, err := baseDirBabylondir()
 	if err != nil {
 		return nil, err
@@ -141,7 +141,10 @@ func NewBabylonNodeHandler(baseHeaderHex string, slashingAddress string) (*Babyl
 		"--btc-confirmation-depth=2",
 		"--additional-sender-account",
 		"--btc-network=regtest",
-		fmt.Sprintf("--slashing-address=%s", slashingAddress),
+		"--min-staking-time-blocks=200",
+		"--min-staking-amount-sat=10000",
+		fmt.Sprintf("--epoch-interval=%d", epochInterval),
+		fmt.Sprintf("--slashing-pk-script=%s", slashingPkScript),
 		fmt.Sprintf("--btc-base-header=%s", baseHeaderHex),
 		"--covenant-quorum=1",
 		fmt.Sprintf("--covenant-pks=%s", bbn.NewBIP340PubKeyFromBTCPK(juryPK).MarshalHex()),

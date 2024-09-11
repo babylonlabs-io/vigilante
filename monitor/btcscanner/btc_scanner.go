@@ -2,6 +2,7 @@ package btcscanner
 
 import (
 	"fmt"
+	notifier "github.com/lightningnetwork/lnd/chainntnfs"
 	"sync"
 
 	"github.com/babylonlabs-io/babylon/btctxformatter"
@@ -15,11 +16,24 @@ import (
 	"github.com/babylonlabs-io/vigilante/types"
 )
 
+var _ Scanner = (*BtcScanner)(nil)
+
+type Scanner interface {
+	Start(startHeight uint64)
+	Stop()
+
+	GetCheckpointsChan() chan *types.CheckpointRecord
+	GetConfirmedBlocksChan() chan *types.IndexedBlock
+	GetBaseHeight() uint64
+}
+
 type BtcScanner struct {
+	mu     sync.Mutex
 	logger *zap.SugaredLogger
 
 	// connect to BTC node
-	BtcClient btcclient.BTCClient
+	BtcClient   btcclient.BTCClient
+	btcNotifier notifier.ChainNotifier
 
 	// the BTC height the scanner starts
 	BaseHeight uint64
@@ -38,8 +52,6 @@ type BtcScanner struct {
 	blockHeaderChan chan *wire.BlockHeader
 	checkpointsChan chan *types.CheckpointRecord
 
-	Synced *atomic.Bool
-
 	wg      sync.WaitGroup
 	Started *atomic.Bool
 	quit    chan struct{}
@@ -49,7 +61,7 @@ func New(
 	monitorCfg *config.MonitorConfig,
 	parentLogger *zap.Logger,
 	btcClient btcclient.BTCClient,
-	btclightclientBaseHeight uint64,
+	btcNotifier notifier.ChainNotifier,
 	checkpointTag []byte,
 ) (*BtcScanner, error) {
 	headersChan := make(chan *wire.BlockHeader, monitorCfg.BtcBlockBufferSize)
@@ -64,37 +76,38 @@ func New(
 	return &BtcScanner{
 		logger:                parentLogger.With(zap.String("module", "btcscanner")).Sugar(),
 		BtcClient:             btcClient,
-		BaseHeight:            btclightclientBaseHeight,
+		btcNotifier:           btcNotifier,
 		K:                     monitorCfg.BtcConfirmationDepth,
 		ckptCache:             ckptCache,
 		UnconfirmedBlockCache: unconfirmedBlockCache,
 		ConfirmedBlocksChan:   confirmedBlocksChan,
 		blockHeaderChan:       headersChan,
 		checkpointsChan:       ckptsChan,
-		Synced:                atomic.NewBool(false),
 		Started:               atomic.NewBool(false),
 		quit:                  make(chan struct{}),
 	}, nil
 }
 
 // Start starts the scanning process from curBTCHeight to tipHeight
-func (bs *BtcScanner) Start() {
+func (bs *BtcScanner) Start(startHeight uint64) {
 	if bs.Started.Load() {
 		bs.logger.Info("the BTC scanner is already started")
 		return
 	}
 
-	// the bootstrapping should not block the main thread
-	go bs.Bootstrap()
-
-	bs.BtcClient.MustSubscribeBlocks()
+	bs.SetBaseHeight(startHeight)
 
 	bs.Started.Store(true)
 	bs.logger.Info("the BTC scanner is started")
 
+	if err := bs.btcNotifier.Start(); err != nil {
+		bs.logger.Errorf("Failed starting notifier")
+		return
+	}
+
 	// start handling new blocks
 	bs.wg.Add(1)
-	go bs.blockEventHandler()
+	go bs.bootstrapAndBlockEventHandler()
 
 	for bs.Started.Load() {
 		select {
@@ -128,16 +141,10 @@ func (bs *BtcScanner) Bootstrap() {
 		err                    error
 	)
 
-	if bs.Synced.Load() {
-		// the scanner is already synced
-		return
-	}
-	defer bs.Synced.Store(true)
-
 	if bs.confirmedTipBlock != nil {
 		firstUnconfirmedHeight = uint64(bs.confirmedTipBlock.Height + 1)
 	} else {
-		firstUnconfirmedHeight = bs.BaseHeight
+		firstUnconfirmedHeight = bs.GetBaseHeight()
 	}
 
 	bs.logger.Infof("the bootstrapping starts at %d", firstUnconfirmedHeight)
@@ -147,7 +154,7 @@ func (bs *BtcScanner) Bootstrap() {
 
 	_, bestHeight, err := bs.BtcClient.GetBestBlock()
 	if err != nil {
-		panic(fmt.Errorf("cannot get the best BTC block"))
+		panic(fmt.Errorf("cannot get the best BTC block %w", err))
 	}
 
 	bestConfirmedHeight := bestHeight - bs.K
@@ -198,8 +205,8 @@ func (bs *BtcScanner) SetLogger(logger *zap.SugaredLogger) {
 	bs.logger = logger
 }
 
-func (bs *BtcScanner) GetHeadersChan() chan *wire.BlockHeader {
-	return bs.blockHeaderChan
+func (bs *BtcScanner) GetConfirmedBlocksChan() chan *types.IndexedBlock {
+	return bs.ConfirmedBlocksChan
 }
 
 func (bs *BtcScanner) sendConfirmedBlocksToChan(blocks []*types.IndexedBlock) {
@@ -274,4 +281,16 @@ func (bs *BtcScanner) GetCheckpointsChan() chan *types.CheckpointRecord {
 
 func (bs *BtcScanner) Stop() {
 	close(bs.quit)
+}
+
+func (bs *BtcScanner) GetBaseHeight() uint64 {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+	return bs.BaseHeight
+}
+
+func (bs *BtcScanner) SetBaseHeight(h uint64) {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+	bs.BaseHeight = h
 }

@@ -87,6 +87,7 @@ func NewBTCSTakingTracker(
 		btcParams,
 		commonCfg.RetrySleepTime,
 		commonCfg.MaxRetrySleepTime,
+		commonCfg.MaxRetryTimes,
 		slashedFPSKChan,
 		metrics.SlasherMetrics,
 	)
@@ -100,6 +101,7 @@ func NewBTCSTakingTracker(
 		logger,
 		commonCfg.RetrySleepTime,
 		commonCfg.MaxRetrySleepTime,
+		commonCfg.MaxRetryTimes,
 		btcClient,
 		btcNotifier,
 		bbnClient,

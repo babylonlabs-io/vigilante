@@ -3,6 +3,8 @@ package btcslasher
 import (
 	"context"
 	"fmt"
+	"github.com/babylonlabs-io/vigilante/types"
+	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"sync"
 	"time"
 
@@ -35,7 +37,7 @@ type BTCSlasher struct {
 	btcFinalizationTimeout uint64
 	retrySleepTime         time.Duration
 	maxRetrySleepTime      time.Duration
-
+	maxRetryTimes          uint
 	// channel for finality signature messages, which might include
 	// equivocation evidences
 	finalitySigChan <-chan coretypes.ResultEvent
@@ -59,6 +61,7 @@ func New(
 	netParams *chaincfg.Params,
 	retrySleepTime time.Duration,
 	maxRetrySleepTime time.Duration,
+	maxRetryTimes uint,
 	slashedFPSKChan chan *btcec.PrivateKey,
 	metrics *metrics.SlasherMetrics,
 ) (*BTCSlasher, error) {
@@ -71,6 +74,7 @@ func New(
 		netParams:         netParams,
 		retrySleepTime:    retrySleepTime,
 		maxRetrySleepTime: maxRetrySleepTime,
+		maxRetryTimes:     maxRetryTimes,
 		slashedFPSKChan:   slashedFPSKChan,
 		slashResultChan:   make(chan *SlashResult, 1000),
 		quit:              make(chan struct{}),
@@ -231,8 +235,8 @@ func (bs *BTCSlasher) equivocationTracker() {
 // SlashFinalityProvider slashes all BTC delegations under a given finality provider
 // the checkBTC option indicates whether to check the slashing tx's input is still spendable
 // on Bitcoin (including mempool txs).
-func (bs *BTCSlasher) SlashFinalityProvider(extractedfpBTCSK *btcec.PrivateKey) error {
-	fpBTCPK := bbn.NewBIP340PubKeyFromBTCPK(extractedfpBTCSK.PubKey())
+func (bs *BTCSlasher) SlashFinalityProvider(extractedFpBTCSK *btcec.PrivateKey) error {
+	fpBTCPK := bbn.NewBIP340PubKeyFromBTCPK(extractedFpBTCSK.PubKey())
 	bs.logger.Infof("start slashing finality provider %s", fpBTCPK.MarshalHex())
 
 	// get all active and unbonded BTC delegations at the current BTC height
@@ -244,6 +248,9 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedfpBTCSK *btcec.PrivateKey) 
 		return fmt.Errorf("failed to get BTC delegations under finality provider %s: %w", fpBTCPK.MarshalHex(), err)
 	}
 
+	// Initialize a mutex protected *btcec.PrivateKey
+	safeExtractedFpBTCSK := types.NewPrivateKeyWithMutex(extractedFpBTCSK)
+
 	// try to slash both staking and unbonding txs for each BTC delegation
 	// sign and submit slashing tx for each active delegation
 	// TODO: use semaphore to prevent spamming BTC node
@@ -251,7 +258,9 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedfpBTCSK *btcec.PrivateKey) 
 		bs.wg.Add(1)
 		go func(d *bstypes.BTCDelegationResponse) {
 			defer bs.wg.Done()
-			bs.slashBTCDelegation(fpBTCPK, extractedfpBTCSK, d)
+			safeExtractedFpBTCSK.UseKey(func(key *secp256k1.PrivateKey) {
+				bs.slashBTCDelegation(fpBTCPK, key, d)
+			})
 		}(del)
 	}
 	// sign and submit slashing tx for each unbonded delegation
@@ -260,7 +269,9 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedfpBTCSK *btcec.PrivateKey) 
 		bs.wg.Add(1)
 		go func(d *bstypes.BTCDelegationResponse) {
 			defer bs.wg.Done()
-			bs.slashBTCDelegation(fpBTCPK, extractedfpBTCSK, d)
+			safeExtractedFpBTCSK.UseKey(func(key *secp256k1.PrivateKey) {
+				bs.slashBTCDelegation(fpBTCPK, key, d)
+			})
 		}(del)
 	}
 

@@ -1,20 +1,18 @@
 package monitor_test
 
 import (
-	"math/rand"
-	"testing"
-
 	bbndatagen "github.com/babylonlabs-io/babylon/testutil/datagen"
 	bbntypes "github.com/babylonlabs-io/babylon/types"
 	btclctypes "github.com/babylonlabs-io/babylon/x/btclightclient/types"
 	monitortypes "github.com/babylonlabs-io/babylon/x/monitor/types"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/require"
-
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/monitor"
 	"github.com/babylonlabs-io/vigilante/testutil/datagen"
 	"github.com/babylonlabs-io/vigilante/types"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/require"
+	"math/rand"
+	"testing"
 )
 
 func FuzzLivenessChecker(f *testing.F) {
@@ -33,6 +31,7 @@ func FuzzLivenessChecker(f *testing.F) {
 			ComCfg: &config.CommonConfig{
 				RetrySleepTime:    1,
 				MaxRetrySleepTime: 0,
+				MaxRetryTimes:     1,
 			},
 			BBNQuerier: mockBabylonClient,
 		}

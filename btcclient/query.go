@@ -3,7 +3,7 @@ package btcclient
 import (
 	"fmt"
 
-	"github.com/babylonlabs-io/babylon/types/retry"
+	"github.com/avast/retry-go/v4"
 	"github.com/btcsuite/btcd/btcjson"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
@@ -66,13 +66,17 @@ func (c *Client) getBestBlockHashWithRetry() (*chainhash.Hash, error) {
 		err       error
 	)
 
-	if err := retry.Do(c.retrySleepTime, c.maxRetrySleepTime, func() error {
+	if err := retry.Do(func() error {
 		blockHash, err = c.GetBestBlockHash()
 		if err != nil {
 			return err
 		}
 		return nil
-	}); err != nil {
+	},
+		retry.Delay(c.retrySleepTime),
+		retry.MaxDelay(c.maxRetrySleepTime),
+		retry.Attempts(c.maxRetryTimes),
+	); err != nil {
 		c.logger.Debug(
 			"failed to query the best block hash", zap.Error(err))
 	}
@@ -86,13 +90,17 @@ func (c *Client) getBlockHashWithRetry(height uint64) (*chainhash.Hash, error) {
 		err       error
 	)
 
-	if err := retry.Do(c.retrySleepTime, c.maxRetrySleepTime, func() error {
+	if err := retry.Do(func() error {
 		blockHash, err = c.GetBlockHash(int64(height))
 		if err != nil {
 			return err
 		}
 		return nil
-	}); err != nil {
+	},
+		retry.Delay(c.retrySleepTime),
+		retry.MaxDelay(c.maxRetrySleepTime),
+		retry.Attempts(c.maxRetryTimes),
+	); err != nil {
 		c.logger.Debug(
 			"failed to query the block hash", zap.Uint64("height", height), zap.Error(err))
 	}
@@ -106,13 +114,17 @@ func (c *Client) getBlockWithRetry(hash *chainhash.Hash) (*wire.MsgBlock, error)
 		err   error
 	)
 
-	if err := retry.Do(c.retrySleepTime, c.maxRetrySleepTime, func() error {
+	if err := retry.Do(func() error {
 		block, err = c.GetBlock(hash)
 		if err != nil {
 			return err
 		}
 		return nil
-	}); err != nil {
+	},
+		retry.Delay(c.retrySleepTime),
+		retry.MaxDelay(c.maxRetrySleepTime),
+		retry.Attempts(c.maxRetryTimes),
+	); err != nil {
 		c.logger.Debug(
 			"failed to query the block", zap.String("hash", hash.String()), zap.Error(err))
 	}
@@ -126,13 +138,17 @@ func (c *Client) getBlockVerboseWithRetry(hash *chainhash.Hash) (*btcjson.GetBlo
 		err          error
 	)
 
-	if err := retry.Do(c.retrySleepTime, c.maxRetrySleepTime, func() error {
+	if err := retry.Do(func() error {
 		blockVerbose, err = c.GetBlockVerbose(hash)
 		if err != nil {
 			return err
 		}
 		return nil
-	}); err != nil {
+	},
+		retry.Delay(c.retrySleepTime),
+		retry.MaxDelay(c.maxRetrySleepTime),
+		retry.Attempts(c.maxRetryTimes),
+	); err != nil {
 		c.logger.Debug(
 			"failed to query the block verbose", zap.String("hash", hash.String()), zap.Error(err))
 	}
