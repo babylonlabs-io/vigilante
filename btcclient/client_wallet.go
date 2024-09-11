@@ -93,11 +93,7 @@ func (c *Client) WalletPassphrase(passphrase string, timeoutSecs int64) error {
 	return c.Client.WalletPassphrase(passphrase, timeoutSecs)
 }
 
-func (c *Client) DumpPrivKey(address btcutil.Address) (*btcutil.WIF, error) {
-	return c.Client.DumpPrivKey(address)
-}
-
-// GetHighUTXO returns the UTXO that has the highest amount
+// GetHighUTXOAndSum returns the UTXO that has the highest amount
 func (c *Client) GetHighUTXOAndSum() (*btcjson.ListUnspentResult, float64, error) {
 	utxos, err := c.ListUnspent()
 	if err != nil {
@@ -116,11 +112,6 @@ func (c *Client) GetHighUTXOAndSum() (*btcjson.ListUnspentResult, float64, error
 		sum += utxo.Amount
 	}
 	return &highUTXO, sum, nil
-}
-
-// CalculateTxFee calculates tx fee based on the given fee rate (BTC/kB) and the tx size
-func CalculateTxFee(feeRateAmount btcutil.Amount, size uint64) (uint64, error) {
-	return uint64(feeRateAmount.MulF64(float64(size) / 1024)), nil
 }
 
 func (c *Client) FundRawTransaction(tx *wire.MsgTx, opts btcjson.FundRawTransactionOpts, isWitness *bool) (*btcjson.FundRawTransactionResult, error) {
