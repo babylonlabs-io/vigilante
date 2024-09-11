@@ -258,30 +258,11 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedFpBTCSK *btcec.PrivateKey) 
 
 	// Initialize a semaphore to control the number of concurrent operations
 	sem := semaphore.NewWeighted(bs.maxSlashingConcurrency)
+	delegations := append(activeBTCDels, unbondedBTCDels...)
 
 	// try to slash both staking and unbonding txs for each BTC delegation
-	// sign and submit slashing tx for each active delegation
-	for _, del := range activeBTCDels {
-		bs.wg.Add(1)
-		go func(d *bstypes.BTCDelegationResponse) {
-			defer bs.wg.Done()
-			ctx, cancel := bs.quitContext()
-			defer cancel()
-
-			// Acquire the semaphore before interacting with the BTC node
-			if err := sem.Acquire(ctx, 1); err != nil {
-				bs.logger.Errorf("failed to acquire semaphore: %v", err)
-				return
-			}
-			defer sem.Release(1)
-
-			safeExtractedFpBTCSK.UseKey(func(key *secp256k1.PrivateKey) {
-				bs.slashBTCDelegation(fpBTCPK, key, d)
-			})
-		}(del)
-	}
-	// sign and submit slashing tx for each unbonded delegation
-	for _, del := range unbondedBTCDels {
+	// sign and submit slashing tx for each active and unbonded delegation
+	for _, del := range delegations {
 		bs.wg.Add(1)
 		go func(d *bstypes.BTCDelegationResponse) {
 			defer bs.wg.Done()
