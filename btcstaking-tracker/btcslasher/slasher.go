@@ -23,7 +23,6 @@ const (
 	txSubscriberName  = "tx-subscriber"
 	messageActionName = "/babylon.finality.v1.MsgAddFinalitySig"
 	evidenceEventName = "babylon.finality.v1.EventSlashedFinalityProvider.evidence"
-	concurrentCalls   = 20
 )
 
 type BTCSlasher struct {
@@ -48,6 +47,8 @@ type BTCSlasher struct {
 	// channel for receiving the slash result of each BTC delegation
 	slashResultChan chan *SlashResult
 
+	maxSlashingConcurrency int64
+
 	metrics *metrics.SlasherMetrics
 
 	startOnce sync.Once
@@ -64,23 +65,25 @@ func New(
 	retrySleepTime time.Duration,
 	maxRetrySleepTime time.Duration,
 	maxRetryTimes uint,
+	maxSlashingConcurrency uint8,
 	slashedFPSKChan chan *btcec.PrivateKey,
 	metrics *metrics.SlasherMetrics,
 ) (*BTCSlasher, error) {
 	logger := parentLogger.With(zap.String("module", "slasher")).Sugar()
 
 	return &BTCSlasher{
-		logger:            logger,
-		BTCClient:         btcClient,
-		BBNQuerier:        bbnQuerier,
-		netParams:         netParams,
-		retrySleepTime:    retrySleepTime,
-		maxRetrySleepTime: maxRetrySleepTime,
-		maxRetryTimes:     maxRetryTimes,
-		slashedFPSKChan:   slashedFPSKChan,
-		slashResultChan:   make(chan *SlashResult, 1000),
-		quit:              make(chan struct{}),
-		metrics:           metrics,
+		logger:                 logger,
+		BTCClient:              btcClient,
+		BBNQuerier:             bbnQuerier,
+		netParams:              netParams,
+		retrySleepTime:         retrySleepTime,
+		maxRetrySleepTime:      maxRetrySleepTime,
+		maxRetryTimes:          maxRetryTimes,
+		maxSlashingConcurrency: int64(maxSlashingConcurrency),
+		slashedFPSKChan:        slashedFPSKChan,
+		slashResultChan:        make(chan *SlashResult, 1000),
+		quit:                   make(chan struct{}),
+		metrics:                metrics,
 	}, nil
 }
 
@@ -254,7 +257,7 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedFpBTCSK *btcec.PrivateKey) 
 	safeExtractedFpBTCSK := types.NewPrivateKeyWithMutex(extractedFpBTCSK)
 
 	// Initialize a semaphore to control the number of concurrent operations
-	sem := semaphore.NewWeighted(concurrentCalls)
+	sem := semaphore.NewWeighted(bs.maxSlashingConcurrency)
 
 	// try to slash both staking and unbonding txs for each BTC delegation
 	// sign and submit slashing tx for each active delegation

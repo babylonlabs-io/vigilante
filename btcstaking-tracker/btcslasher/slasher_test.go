@@ -79,6 +79,7 @@ func FuzzSlasher(f *testing.F) {
 			commonCfg.RetrySleepTime,
 			commonCfg.MaxRetrySleepTime,
 			commonCfg.MaxRetryTimes,
+			config.MaxSlashingConcurrency,
 			slashedFPSKChan,
 			metrics.NewBTCStakingTrackerMetrics().SlasherMetrics,
 		)

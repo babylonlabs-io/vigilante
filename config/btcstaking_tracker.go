@@ -8,7 +8,10 @@ import (
 	"github.com/babylonlabs-io/vigilante/types"
 )
 
-const maxBatchSize = 10000
+const (
+	maxBatchSize           = 10000
+	MaxSlashingConcurrency = 20
+)
 
 type BTCStakingTrackerConfig struct {
 	CheckDelegationsInterval       time.Duration `mapstructure:"check-delegations-interval"`
@@ -18,6 +21,8 @@ type BTCStakingTrackerConfig struct {
 	RetryJitter                    time.Duration `mapstructure:"max-jitter-interval"`
 	// the BTC network
 	BTCNetParams string `mapstructure:"btcnetparams"` // should be mainnet|testnet|simnet|signet|regtest
+	// number of concurrent requests that when slashing
+	MaxSlashingConcurrency uint8 `mapstructure:"max-slashing-concurrency"`
 }
 
 func DefaultBTCStakingTrackerConfig() BTCStakingTrackerConfig {
@@ -26,11 +31,12 @@ func DefaultBTCStakingTrackerConfig() BTCStakingTrackerConfig {
 		NewDelegationsBatchSize:  100,
 		// This can be quite large to avoid wasting resources on checking if delegation is active
 		CheckDelegationActiveInterval: 5 * time.Minute,
-		// This schould be small, as we want to report unbonding tx as soon as possible even if we initialy failed
+		// This should be small, as we want to report unbonding tx as soon as possible even if we initially failed
 		RetrySubmitUnbondingTxInterval: 1 * time.Minute,
 		// pretty large jitter to avoid spamming babylon with requests
-		RetryJitter:  30 * time.Second,
-		BTCNetParams: types.BtcSimnet.String(),
+		RetryJitter:            30 * time.Second,
+		BTCNetParams:           types.BtcSimnet.String(),
+		MaxSlashingConcurrency: MaxSlashingConcurrency,
 	}
 }
 
@@ -56,6 +62,10 @@ func (cfg *BTCStakingTrackerConfig) Validate() error {
 
 	if _, ok := types.GetValidNetParams()[cfg.BTCNetParams]; !ok {
 		return fmt.Errorf("invalid net params %s", cfg.BTCNetParams)
+	}
+
+	if cfg.MaxSlashingConcurrency == 0 {
+		return errors.New("max-slashing-concurrency cannot be 0")
 	}
 
 	return nil

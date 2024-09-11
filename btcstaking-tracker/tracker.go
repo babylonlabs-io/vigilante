@@ -88,6 +88,7 @@ func NewBTCSTakingTracker(
 		commonCfg.RetrySleepTime,
 		commonCfg.MaxRetrySleepTime,
 		commonCfg.MaxRetryTimes,
+		cfg.MaxSlashingConcurrency,
 		slashedFPSKChan,
 		metrics.SlasherMetrics,
 	)
