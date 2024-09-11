@@ -214,7 +214,7 @@ func TestHandleReorgAfterRestart(t *testing.T) {
 	// // we will start from block before tip and submit 2 new block this should trigger rollback
 	tm.GenerateAndSubmitBlockNBlockStartingFromDepth(t, 2, 1)
 
-	btcClient := initBTCClientWithSubscriber(t, tm.Config) //current tm.BtcClient already has an active zmq subscription, would panic
+	btcClient := initBTCClientWithSubscriber(t, tm.Config) //current tm.btcClient already has an active zmq subscription, would panic
 	defer btcClient.Stop()
 
 	// Start new reporter
