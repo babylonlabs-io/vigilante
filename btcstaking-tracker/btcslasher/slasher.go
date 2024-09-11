@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
+	"golang.org/x/sync/semaphore"
 	"sync"
 	"time"
 
@@ -46,6 +47,8 @@ type BTCSlasher struct {
 	// channel for receiving the slash result of each BTC delegation
 	slashResultChan chan *SlashResult
 
+	maxSlashingConcurrency int64
+
 	metrics *metrics.SlasherMetrics
 
 	startOnce sync.Once
@@ -62,23 +65,25 @@ func New(
 	retrySleepTime time.Duration,
 	maxRetrySleepTime time.Duration,
 	maxRetryTimes uint,
+	maxSlashingConcurrency uint8,
 	slashedFPSKChan chan *btcec.PrivateKey,
 	metrics *metrics.SlasherMetrics,
 ) (*BTCSlasher, error) {
 	logger := parentLogger.With(zap.String("module", "slasher")).Sugar()
 
 	return &BTCSlasher{
-		logger:            logger,
-		BTCClient:         btcClient,
-		BBNQuerier:        bbnQuerier,
-		netParams:         netParams,
-		retrySleepTime:    retrySleepTime,
-		maxRetrySleepTime: maxRetrySleepTime,
-		maxRetryTimes:     maxRetryTimes,
-		slashedFPSKChan:   slashedFPSKChan,
-		slashResultChan:   make(chan *SlashResult, 1000),
-		quit:              make(chan struct{}),
-		metrics:           metrics,
+		logger:                 logger,
+		BTCClient:              btcClient,
+		BBNQuerier:             bbnQuerier,
+		netParams:              netParams,
+		retrySleepTime:         retrySleepTime,
+		maxRetrySleepTime:      maxRetrySleepTime,
+		maxRetryTimes:          maxRetryTimes,
+		maxSlashingConcurrency: int64(maxSlashingConcurrency),
+		slashedFPSKChan:        slashedFPSKChan,
+		slashResultChan:        make(chan *SlashResult, 1000),
+		quit:                   make(chan struct{}),
+		metrics:                metrics,
 	}, nil
 }
 
@@ -251,24 +256,26 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedFpBTCSK *btcec.PrivateKey) 
 	// Initialize a mutex protected *btcec.PrivateKey
 	safeExtractedFpBTCSK := types.NewPrivateKeyWithMutex(extractedFpBTCSK)
 
+	// Initialize a semaphore to control the number of concurrent operations
+	sem := semaphore.NewWeighted(bs.maxSlashingConcurrency)
+	delegations := append(activeBTCDels, unbondedBTCDels...)
+
 	// try to slash both staking and unbonding txs for each BTC delegation
-	// sign and submit slashing tx for each active delegation
-	// TODO: use semaphore to prevent spamming BTC node
-	for _, del := range activeBTCDels {
+	// sign and submit slashing tx for each active and unbonded delegation
+	for _, del := range delegations {
 		bs.wg.Add(1)
 		go func(d *bstypes.BTCDelegationResponse) {
 			defer bs.wg.Done()
-			safeExtractedFpBTCSK.UseKey(func(key *secp256k1.PrivateKey) {
-				bs.slashBTCDelegation(fpBTCPK, key, d)
-			})
-		}(del)
-	}
-	// sign and submit slashing tx for each unbonded delegation
-	// TODO: use semaphore to prevent spamming BTC node
-	for _, del := range unbondedBTCDels {
-		bs.wg.Add(1)
-		go func(d *bstypes.BTCDelegationResponse) {
-			defer bs.wg.Done()
+			ctx, cancel := bs.quitContext()
+			defer cancel()
+
+			// Acquire the semaphore before interacting with the BTC node
+			if err := sem.Acquire(ctx, 1); err != nil {
+				bs.logger.Errorf("failed to acquire semaphore: %v", err)
+				return
+			}
+			defer sem.Release(1)
+
 			safeExtractedFpBTCSK.UseKey(func(key *secp256k1.PrivateKey) {
 				bs.slashBTCDelegation(fpBTCPK, key, d)
 			})
