@@ -5,7 +5,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/babylonlabs-io/vigilante/submitter/store"
 	"github.com/btcsuite/btcd/btcjson"
+	"github.com/lightningnetwork/lnd/kvdb"
 	"math"
 	"strconv"
 	"time"
@@ -34,6 +36,7 @@ const (
 type Relayer struct {
 	chainfee.Estimator
 	btcclient.BTCWallet
+	store                   *store.SubmitterStore
 	lastSubmittedCheckpoint *types.CheckpointInfo
 	tag                     btctxformatter.BabylonTag
 	version                 btctxformatter.FormatVersion
@@ -52,11 +55,18 @@ func New(
 	est chainfee.Estimator,
 	config *config.SubmitterConfig,
 	parentLogger *zap.Logger,
+	db kvdb.Backend,
 ) *Relayer {
+	subStore, err := store.NewSubmitterStore(db)
+	if err != nil {
+		panic(fmt.Errorf("error setting up store: %w", err))
+	}
+
 	metrics.ResendIntervalSecondsGauge.Set(float64(config.ResendIntervalSeconds))
 	return &Relayer{
 		Estimator:               est,
 		BTCWallet:               wallet,
+		store:                   subStore,
 		tag:                     tag,
 		version:                 version,
 		submitterAddress:        submitterAddress,
@@ -81,25 +91,40 @@ func (rl *Relayer) SendCheckpointToBTC(ckpt *ckpttypes.RawCheckpointWithMetaResp
 		return nil
 	}
 
+	fnStoreCkpt := func(tx1, tx2 *wire.MsgTx, epochNum uint64) error {
+		storedCkpt := store.NewStoredCheckpoint(tx1, tx2, epochNum)
+		return rl.store.PutCheckpoint(storedCkpt)
+	}
+
 	if rl.shouldSendCompleteCkpt(ckptEpoch) {
 		rl.logger.Infof("Submitting a raw checkpoint for epoch %v", ckptEpoch)
 
-		submittedCheckpoint, err := rl.convertCkptToTwoTxAndSubmit(ckpt.Ckpt)
+		submittedCkpt, err := rl.convertCkptToTwoTxAndSubmit(ckpt.Ckpt)
 		if err != nil {
 			return err
 		}
 
-		rl.lastSubmittedCheckpoint = submittedCheckpoint
+		rl.lastSubmittedCheckpoint = submittedCkpt
+
+		err = fnStoreCkpt(submittedCkpt.Tx1.Tx, submittedCkpt.Tx2.Tx, submittedCkpt.Epoch)
+		if err != nil {
+			return err
+		}
 
 		return nil
 	} else if rl.shouldSendTx2(ckptEpoch) {
 		rl.logger.Infof("Retrying to send tx2 for epoch %v, tx1 %s", ckptEpoch, rl.lastSubmittedCheckpoint.Tx1.TxId)
-		submittedCheckpoint, err := rl.retrySendTx2(ckpt.Ckpt)
+		submittedCkpt, err := rl.retrySendTx2(ckpt.Ckpt)
 		if err != nil {
 			return err
 		}
 
-		rl.lastSubmittedCheckpoint = submittedCheckpoint
+		rl.lastSubmittedCheckpoint = submittedCkpt
+
+		err = fnStoreCkpt(submittedCkpt.Tx1.Tx, submittedCkpt.Tx2.Tx, submittedCkpt.Epoch)
+		if err != nil {
+			return err
+		}
 
 		return nil
 	}
@@ -150,6 +175,15 @@ func (rl *Relayer) SendCheckpointToBTC(ckpt *ckpttypes.RawCheckpointWithMetaResp
 
 		// update the second tx of the last submitted checkpoint as it is replaced
 		rl.lastSubmittedCheckpoint.Tx2 = resubmittedTx2
+
+		err = fnStoreCkpt(
+			rl.lastSubmittedCheckpoint.Tx1.Tx,
+			rl.lastSubmittedCheckpoint.Tx2.Tx,
+			rl.lastSubmittedCheckpoint.Epoch,
+		)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -541,4 +575,43 @@ func (rl *Relayer) sendTxToBTC(tx *wire.MsgTx) (*chainhash.Hash, error) {
 	rl.logger.Debugf("Successfully sent tx %v to BTC", tx.TxHash().String())
 
 	return ha, nil
+}
+
+// checkResendFromStore - checks if we need to resubmit txns from a store
+// in case "submitter" service has restarted we want to ensure that we don't send txns again for a checkpoint
+// that has already been processeds
+func (rl *Relayer) checkResendFromStore(epoch uint64) error {
+	storedCkpt, exists, err := rl.store.LatestCheckpoint()
+	if err != nil {
+		return err
+	} else if !exists {
+		return nil
+	}
+
+	if storedCkpt.Epoch != epoch {
+		return nil
+	}
+
+	maybeResend := func(tx *wire.MsgTx) error {
+		txID := tx.TxHash()
+		_, err = rl.GetRawTransaction(&txID) // todo(lazar): check for specific not found err
+		if err != nil {
+			_, err := rl.sendTxToBTC(tx)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+
+	if err := maybeResend(storedCkpt.Tx1); err != nil {
+		return err
+	}
+
+	if err := maybeResend(storedCkpt.Tx2); err != nil {
+		return err
+	}
+
+	return nil
 }

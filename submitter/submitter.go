@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/babylonlabs-io/vigilante/retrywrap"
+	"github.com/lightningnetwork/lnd/kvdb"
 	"sync"
 	"time"
 
@@ -43,6 +44,7 @@ func New(
 	submitterAddr sdk.AccAddress,
 	retrySleepTime, maxRetrySleepTime time.Duration, maxRetryTimes uint,
 	submitterMetrics *metrics.SubmitterMetrics,
+	db kvdb.Backend,
 ) (*Submitter, error) {
 	logger := parentLogger.With(zap.String("module", "submitter"))
 	var (
@@ -85,6 +87,7 @@ func New(
 		est,
 		cfg,
 		logger,
+		db,
 	)
 
 	return &Submitter{

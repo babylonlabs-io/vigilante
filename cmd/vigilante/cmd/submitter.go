@@ -62,6 +62,11 @@ func GetSubmitterCmd() *cobra.Command {
 			// register submitter metrics
 			submitterMetrics := metrics.NewSubmitterMetrics()
 
+			dbBackend, err := cfg.Submitter.DatabaseConfig.GetDbBackend()
+			if err != nil {
+				panic(err)
+			}
+
 			// create submitter
 			vigilantSubmitter, err := submitter.New(
 				&cfg.Submitter,
@@ -73,6 +78,7 @@ func GetSubmitterCmd() *cobra.Command {
 				cfg.Common.MaxRetrySleepTime,
 				cfg.Common.MaxRetryTimes,
 				submitterMetrics,
+				dbBackend,
 			)
 			if err != nil {
 				panic(fmt.Errorf("failed to create vigilante submitter: %w", err))

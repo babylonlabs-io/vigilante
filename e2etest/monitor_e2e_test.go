@@ -61,6 +61,7 @@ func TestMonitorBootstrap(t *testing.T) {
 		tm.Config.Common.MaxRetrySleepTime,
 		tm.Config.Common.MaxRetryTimes,
 		metrics.NewSubmitterMetrics(),
+		testutil.MakeTestBackend(t),
 	)
 
 	vigilantSubmitter.Start()
