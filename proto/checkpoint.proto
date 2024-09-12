@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package proto;
+
+option go_package = "github.com/babylonlabs-io/vigilante/proto";
+
+
+// StoredTx stores a BTC transaction and its ID
+message StoredTx {
+  bytes tx_id = 1; // chainhash.Hash serialized as bytes
+  bytes tx = 2;    // wire.MsgTx serialized as bytes
+}
+
+// StoredCheckpoint holds two transactions and an epoch number
+message StoredCheckpoint {
+  StoredTx tx1 = 1;
+  StoredTx tx2 = 2;
+  uint64 epoch = 3;
+}
