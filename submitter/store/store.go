@@ -33,6 +33,14 @@ type StoredCheckpoint struct {
 	Epoch uint64
 }
 
+func NewStoredCheckpoint(tx1, tx2 *wire.MsgTx, epoch uint64) *StoredCheckpoint {
+	return &StoredCheckpoint{
+		Tx1:   tx1,
+		Tx2:   tx2,
+		Epoch: epoch,
+	}
+}
+
 func NewSubmitterStore(backend kvdb.Backend) (*SubmitterStore, error) {
 	store := &SubmitterStore{db: backend}
 	if err := store.createBuckets(); err != nil {
@@ -142,7 +150,7 @@ func (s *StoredCheckpoint) ToProto() (*proto.StoredCheckpoint, error) {
 		return nil, err
 	}
 
-	bufTx2, err := utils.SerializeMsgTx(s.Tx1)
+	bufTx2, err := utils.SerializeMsgTx(s.Tx2)
 	if err != nil {
 		return nil, err
 	}
@@ -157,15 +165,19 @@ func (s *StoredCheckpoint) ToProto() (*proto.StoredCheckpoint, error) {
 // FromProto converts a Protobuf StoredTx to the Go struct
 func (s *StoredCheckpoint) FromProto(protoTx *proto.StoredCheckpoint) error {
 	var err error
-	s.Tx1, err = utils.DeserializeMsgTx(protoTx.Tx1)
+	tx1, err := utils.DeserializeMsgTx(protoTx.Tx1)
 	if err != nil {
 		return err
 	}
 
-	s.Tx2, err = utils.DeserializeMsgTx(protoTx.Tx2)
+	tx2, err := utils.DeserializeMsgTx(protoTx.Tx2)
 	if err != nil {
 		return err
 	}
+
+	s.Tx1 = tx1
+	s.Tx2 = tx2
+	s.Epoch = protoTx.Epoch
 
 	return nil
 }
