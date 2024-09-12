@@ -97,6 +97,16 @@ func (rl *Relayer) SendCheckpointToBTC(ckpt *ckpttypes.RawCheckpointWithMetaResp
 	}
 
 	if rl.shouldSendCompleteCkpt(ckptEpoch) {
+		inMempool, err := rl.maybeResendFromStore(ckptEpoch)
+		if err != nil {
+			return err
+		}
+
+		// we've already processed this
+		if inMempool {
+			return nil
+		}
+
 		rl.logger.Infof("Submitting a raw checkpoint for epoch %v", ckptEpoch)
 
 		submittedCkpt, err := rl.convertCkptToTwoTxAndSubmit(ckpt.Ckpt)
@@ -113,6 +123,16 @@ func (rl *Relayer) SendCheckpointToBTC(ckpt *ckpttypes.RawCheckpointWithMetaResp
 
 		return nil
 	} else if rl.shouldSendTx2(ckptEpoch) {
+		inMempool, err := rl.maybeResendFromStore(ckptEpoch)
+		if err != nil {
+			return err
+		}
+
+		// we've already processed this
+		if inMempool {
+			return nil
+		}
+
 		rl.logger.Infof("Retrying to send tx2 for epoch %v, tx1 %s", ckptEpoch, rl.lastSubmittedCheckpoint.Tx1.TxId)
 		submittedCkpt, err := rl.retrySendTx2(ckpt.Ckpt)
 		if err != nil {
@@ -577,41 +597,49 @@ func (rl *Relayer) sendTxToBTC(tx *wire.MsgTx) (*chainhash.Hash, error) {
 	return ha, nil
 }
 
-// checkResendFromStore - checks if we need to resubmit txns from a store
-// in case "submitter" service has restarted we want to ensure that we don't send txns again for a checkpoint
-// that has already been processeds
-func (rl *Relayer) checkResendFromStore(epoch uint64) error {
+// maybeResendFromStore - checks if we need to resubmit txns from a store
+// in case "submitter" service was restarted, we want to ensure that we don't send txns again for a checkpoint
+// that has already been processed.
+// Returns true if the first transactions are in the mempool (no resubmission needed),
+// and false if any transaction was re-sent from the store.
+func (rl *Relayer) maybeResendFromStore(epoch uint64) (bool, error) {
 	storedCkpt, exists, err := rl.store.LatestCheckpoint()
 	if err != nil {
-		return err
+		return false, err
 	} else if !exists {
-		return nil
+		return false, nil
 	}
 
 	if storedCkpt.Epoch != epoch {
-		return nil
+		return false, nil
 	}
 
-	maybeResend := func(tx *wire.MsgTx) error {
+	maybeResend := func(tx *wire.MsgTx) (bool, error) {
 		txID := tx.TxHash()
 		_, err = rl.GetRawTransaction(&txID) // todo(lazar): check for specific not found err
 		if err != nil {
 			_, err := rl.sendTxToBTC(tx)
 			if err != nil {
-				return err
+				return false, err
 			}
+
+			// we know about this tx, but we needed to resend it from already constructed tx from db
+			return true, nil
 		}
 
-		return nil
+		// tx exists in mempool and is known to us
+		return true, nil
 	}
 
-	if err := maybeResend(storedCkpt.Tx1); err != nil {
-		return err
+	inMempoolTx1, err := maybeResend(storedCkpt.Tx1)
+	if err != nil {
+		return false, err
 	}
 
-	if err := maybeResend(storedCkpt.Tx2); err != nil {
-		return err
+	_, err = maybeResend(storedCkpt.Tx2)
+	if err != nil {
+		return false, err
 	}
 
-	return nil
+	return inMempoolTx1, nil
 }
