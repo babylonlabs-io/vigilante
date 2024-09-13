@@ -33,6 +33,10 @@ const (
 	dustThreshold  btcutil.Amount = 546
 )
 
+type GetLatestCheckpointFunc func() (*store.StoredCheckpoint, bool, error)
+type GetRawTransactionFunc func(txHash *chainhash.Hash) (*btcutil.Tx, error)
+type SendTransactionFunc func(tx *wire.MsgTx) (*chainhash.Hash, error)
+
 type Relayer struct {
 	chainfee.Estimator
 	btcclient.BTCWallet
@@ -97,13 +101,17 @@ func (rl *Relayer) SendCheckpointToBTC(ckpt *ckpttypes.RawCheckpointWithMetaResp
 	}
 
 	if rl.shouldSendCompleteCkpt(ckptEpoch) {
-		inMempool, err := rl.maybeResendFromStore(ckptEpoch)
+		hasBeenProcessed, err := maybeResendFromStore(
+			ckptEpoch,
+			rl.store.LatestCheckpoint,
+			rl.GetRawTransaction,
+			rl.sendTxToBTC,
+		)
 		if err != nil {
 			return err
 		}
 
-		// we've already processed this
-		if inMempool {
+		if hasBeenProcessed {
 			return nil
 		}
 
@@ -123,13 +131,17 @@ func (rl *Relayer) SendCheckpointToBTC(ckpt *ckpttypes.RawCheckpointWithMetaResp
 
 		return nil
 	} else if rl.shouldSendTx2(ckptEpoch) {
-		inMempool, err := rl.maybeResendFromStore(ckptEpoch)
+		hasBeenProcessed, err := maybeResendFromStore(
+			ckptEpoch,
+			rl.store.LatestCheckpoint,
+			rl.GetRawTransaction,
+			rl.sendTxToBTC,
+		)
 		if err != nil {
 			return err
 		}
 
-		// we've already processed this
-		if inMempool {
+		if hasBeenProcessed {
 			return nil
 		}
 
@@ -602,8 +614,13 @@ func (rl *Relayer) sendTxToBTC(tx *wire.MsgTx) (*chainhash.Hash, error) {
 // that has already been processed.
 // Returns true if the first transactions are in the mempool (no resubmission needed),
 // and false if any transaction was re-sent from the store.
-func (rl *Relayer) maybeResendFromStore(epoch uint64) (bool, error) {
-	storedCkpt, exists, err := rl.store.LatestCheckpoint()
+func maybeResendFromStore(
+	epoch uint64,
+	getLatestStoreCheckpoint GetLatestCheckpointFunc,
+	getRawTransaction GetRawTransactionFunc,
+	sendTransaction SendTransactionFunc,
+) (bool, error) {
+	storedCkpt, exists, err := getLatestStoreCheckpoint()
 	if err != nil {
 		return false, err
 	} else if !exists {
@@ -614,32 +631,30 @@ func (rl *Relayer) maybeResendFromStore(epoch uint64) (bool, error) {
 		return false, nil
 	}
 
-	maybeResend := func(tx *wire.MsgTx) (bool, error) {
+	maybeResend := func(tx *wire.MsgTx) error {
 		txID := tx.TxHash()
-		_, err = rl.GetRawTransaction(&txID) // todo(lazar): check for specific not found err
+		_, err = getRawTransaction(&txID) // todo(lazar): check for specific not found err
 		if err != nil {
-			_, err := rl.sendTxToBTC(tx)
+			_, err := sendTransaction(tx)
 			if err != nil {
-				return false, err
+				return err
 			}
 
 			// we know about this tx, but we needed to resend it from already constructed tx from db
-			return true, nil
+			return nil
 		}
 
 		// tx exists in mempool and is known to us
-		return true, nil
+		return nil
 	}
 
-	inMempoolTx1, err := maybeResend(storedCkpt.Tx1)
-	if err != nil {
+	if err := maybeResend(storedCkpt.Tx1); err != nil {
 		return false, err
 	}
 
-	_, err = maybeResend(storedCkpt.Tx2)
-	if err != nil {
+	if err := maybeResend(storedCkpt.Tx2); err != nil {
 		return false, err
 	}
 
-	return inMempoolTx1, nil
+	return true, nil
 }

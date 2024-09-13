@@ -4,6 +4,7 @@
 package e2etest
 
 import (
+	"github.com/babylonlabs-io/vigilante/testutil"
 	"math/rand"
 	"testing"
 	"time"
