@@ -56,13 +56,12 @@ func (mr *MockBTCClientMockRecorder) FindTailBlocksByHeight(height interface{}) 
 }
 
 // GetBestBlock mocks base method.
-func (m *MockBTCClient) GetBestBlock() (*chainhash.Hash, uint64, error) {
+func (m *MockBTCClient) GetBestBlock() (uint64, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetBestBlock")
-	ret0, _ := ret[0].(*chainhash.Hash)
-	ret1, _ := ret[1].(uint64)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // GetBestBlock indicates an expected call of GetBestBlock.
