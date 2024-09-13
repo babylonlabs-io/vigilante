@@ -33,10 +33,12 @@ func FuzzSlasher(f *testing.F) {
 	datagen.AddRandomSeedsToFuzzer(f, 10)
 
 	f.Fuzz(func(t *testing.T, seed int64) {
+		t.Parallel()
 		r := rand.New(rand.NewSource(seed))
 		net := &chaincfg.SimNetParams
 		commonCfg := config.DefaultCommonConfig()
 		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
 		mockBabylonQuerier := btcslasher.NewMockBabylonQueryClient(ctrl)
 		mockBTCClient := mocks.NewMockBTCClient(ctrl)
