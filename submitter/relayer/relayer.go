@@ -95,7 +95,7 @@ func (rl *Relayer) SendCheckpointToBTC(ckpt *ckpttypes.RawCheckpointWithMetaResp
 		return nil
 	}
 
-	fnStoreCkpt := func(tx1, tx2 *wire.MsgTx, epochNum uint64) error {
+	storeCkptFunc := func(tx1, tx2 *wire.MsgTx, epochNum uint64) error {
 		storedCkpt := store.NewStoredCheckpoint(tx1, tx2, epochNum)
 		return rl.store.PutCheckpoint(storedCkpt)
 	}
@@ -124,7 +124,7 @@ func (rl *Relayer) SendCheckpointToBTC(ckpt *ckpttypes.RawCheckpointWithMetaResp
 
 		rl.lastSubmittedCheckpoint = submittedCkpt
 
-		err = fnStoreCkpt(submittedCkpt.Tx1.Tx, submittedCkpt.Tx2.Tx, submittedCkpt.Epoch)
+		err = storeCkptFunc(submittedCkpt.Tx1.Tx, submittedCkpt.Tx2.Tx, submittedCkpt.Epoch)
 		if err != nil {
 			return err
 		}
@@ -153,7 +153,7 @@ func (rl *Relayer) SendCheckpointToBTC(ckpt *ckpttypes.RawCheckpointWithMetaResp
 
 		rl.lastSubmittedCheckpoint = submittedCkpt
 
-		err = fnStoreCkpt(submittedCkpt.Tx1.Tx, submittedCkpt.Tx2.Tx, submittedCkpt.Epoch)
+		err = storeCkptFunc(submittedCkpt.Tx1.Tx, submittedCkpt.Tx2.Tx, submittedCkpt.Epoch)
 		if err != nil {
 			return err
 		}
@@ -208,7 +208,7 @@ func (rl *Relayer) SendCheckpointToBTC(ckpt *ckpttypes.RawCheckpointWithMetaResp
 		// update the second tx of the last submitted checkpoint as it is replaced
 		rl.lastSubmittedCheckpoint.Tx2 = resubmittedTx2
 
-		err = fnStoreCkpt(
+		err = storeCkptFunc(
 			rl.lastSubmittedCheckpoint.Tx1.Tx,
 			rl.lastSubmittedCheckpoint.Tx2.Tx,
 			rl.lastSubmittedCheckpoint.Epoch,
@@ -631,7 +631,7 @@ func maybeResendFromStore(
 		return false, nil
 	}
 
-	maybeResend := func(tx *wire.MsgTx) error {
+	maybeResendFunc := func(tx *wire.MsgTx) error {
 		txID := tx.TxHash()
 		_, err = getRawTransaction(&txID) // todo(lazar): check for specific not found err
 		if err != nil {
@@ -648,11 +648,11 @@ func maybeResendFromStore(
 		return nil
 	}
 
-	if err := maybeResend(storedCkpt.Tx1); err != nil {
+	if err := maybeResendFunc(storedCkpt.Tx1); err != nil {
 		return false, err
 	}
 
-	if err := maybeResend(storedCkpt.Tx2); err != nil {
+	if err := maybeResendFunc(storedCkpt.Tx2); err != nil {
 		return false, err
 	}
 
