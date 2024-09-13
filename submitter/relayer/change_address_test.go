@@ -37,6 +37,7 @@ var legacyAddrsStr = []string{
 }
 
 func TestGetChangeAddress(t *testing.T) {
+	t.Parallel()
 	submitterAddr, err := sdk.AccAddressFromBech32(submitterAddrStr)
 	require.NoError(t, err)
 	wallet := mocks.NewMockBTCWallet(gomock.NewController(t))
