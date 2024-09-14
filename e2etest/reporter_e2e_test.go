@@ -84,6 +84,7 @@ func TestReporter_BoostrapUnderFrequentBTCHeaders(t *testing.T) {
 	// start a routine that mines BTC blocks very fast
 	var wg sync.WaitGroup
 	stopChan := make(chan struct{})
+	doneChan := make(chan struct{})
 
 	wg.Add(1)
 	go func() {
@@ -95,6 +96,7 @@ func TestReporter_BoostrapUnderFrequentBTCHeaders(t *testing.T) {
 			case <-ticker.C:
 				tm.BitcoindHandler.GenerateBlocks(1)
 			case <-stopChan:
+				close(doneChan)
 				return
 			}
 		}
@@ -113,6 +115,7 @@ func TestReporter_BoostrapUnderFrequentBTCHeaders(t *testing.T) {
 	}, longEventuallyWaitTimeOut, eventuallyPollTime)
 
 	close(stopChan)
+	<-doneChan
 	wg.Wait()
 }
 
