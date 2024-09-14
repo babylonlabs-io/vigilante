@@ -19,6 +19,7 @@ import (
 func FuzzQueryInfoForNextEpoch(f *testing.F) {
 	datagen.AddRandomSeedsToFuzzer(f, 10)
 	f.Fuzz(func(t *testing.T, seed int64) {
+		t.Parallel()
 		r := rand.New(rand.NewSource(seed))
 		n := r.Intn(100) + 1
 		valSet, blsprivkeys := datagen.GenerateValidatorSetWithBLSPrivKeys(n)
@@ -26,6 +27,7 @@ func FuzzQueryInfoForNextEpoch(f *testing.F) {
 		e := ckpt.EpochNum
 		ckptWithMeta := &ckpttypes.RawCheckpointWithMeta{Ckpt: ckpt}
 		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 		bbnCli := monitor.NewMockBabylonQueryClient(ctrl)
 		bbnCli.EXPECT().BlsPublicKeyList(gomock.Eq(e), gomock.Nil()).Return(
 			&ckpttypes.QueryBlsPublicKeyListResponse{
