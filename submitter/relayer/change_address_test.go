@@ -1,6 +1,7 @@
 package relayer_test
 
 import (
+	"github.com/babylonlabs-io/vigilante/testutil"
 	"testing"
 
 	"github.com/btcsuite/btcd/btcjson"
@@ -49,7 +50,7 @@ func TestGetChangeAddress(t *testing.T) {
 	logger, err := config.NewRootLogger("auto", "debug")
 	require.NoError(t, err)
 	testRelayer := relayer.New(wallet, []byte("bbnt"), btctxformatter.CurrentVersion, submitterAddr,
-		submitterMetrics.RelayerMetrics, nil, &cfg, logger)
+		submitterMetrics.RelayerMetrics, nil, &cfg, logger, testutil.MakeTestBackend(t))
 
 	// 1. only SegWit Bech32 addresses
 	segWitBech32Addrs := append(SegWitBech32p2wshAddrsStr, SegWitBech32p2wpkhAddrsStr...)

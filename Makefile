@@ -75,3 +75,9 @@ update-changelog:
 	./scripts/update_changelog.sh $(sinceTag) $(upcomingTag)
 
 .PHONY: build test test-e2e build-docker rm-docker mocks update-changelog
+
+proto-gen:
+	@$(call print, "Compiling protos.")
+	cd ./proto; ./gen_protos_docker.sh
+
+.PHONY: proto-gen

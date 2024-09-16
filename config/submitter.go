@@ -25,7 +25,8 @@ type SubmitterConfig struct {
 	PollingIntervalSeconds uint `mapstructure:"polling-interval-seconds"`
 	// ResendIntervalSeconds defines the time (in seconds) which the submitter awaits
 	// before resubmitting checkpoints to BTC
-	ResendIntervalSeconds uint `mapstructure:"resend-interval-seconds"`
+	ResendIntervalSeconds uint      `mapstructure:"resend-interval-seconds"`
+	DatabaseConfig        *DBConfig `mapstructure:"database-config"`
 }
 
 func (cfg *SubmitterConfig) Validate() error {
