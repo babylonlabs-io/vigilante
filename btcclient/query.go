@@ -12,8 +12,7 @@ import (
 	"github.com/babylonlabs-io/vigilante/types"
 )
 
-// GetBestBlock provides similar functionality with the btcd.rpcclient.GetBestBlock function
-// We implement this, because this function is only provided by btcd.
+// GetBestBlock returns the height of the best block
 func (c *Client) GetBestBlock() (uint64, error) {
 	height, err := c.getBlockCountWithRetry()
 	if err != nil {
