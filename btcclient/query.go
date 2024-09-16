@@ -15,7 +15,7 @@ import (
 // GetBestBlock provides similar functionality with the btcd.rpcclient.GetBestBlock function
 // We implement this, because this function is only provided by btcd.
 func (c *Client) GetBestBlock() (uint64, error) {
-	height, err := c.GetBlockCount()
+	height, err := c.getBlockCountWithRetry()
 	if err != nil {
 		return 0, err
 	}
@@ -207,4 +207,27 @@ func (c *Client) FindTailBlocksByHeight(baseHeight uint64) ([]*types.IndexedBloc
 	}
 
 	return c.getChainBlocks(baseHeight, tipIb)
+}
+
+func (c *Client) getBlockCountWithRetry() (int64, error) {
+	var (
+		height int64
+		err    error
+	)
+
+	if err = retry.Do(func() error {
+		height, err = c.GetBlockCount()
+		if err != nil {
+			return err
+		}
+		return nil
+	},
+		retry.Delay(c.retrySleepTime),
+		retry.MaxDelay(c.maxRetrySleepTime),
+		retry.Attempts(c.maxRetryTimes),
+	); err != nil {
+		c.logger.Debug("failed to query get block count", zap.Error(err))
+	}
+
+	return height, nil
 }
