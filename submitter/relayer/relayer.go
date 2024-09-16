@@ -100,7 +100,7 @@ func (rl *Relayer) SendCheckpointToBTC(ckpt *ckpttypes.RawCheckpointWithMetaResp
 		return rl.store.PutCheckpoint(storedCkpt)
 	}
 
-	if rl.shouldSendCompleteCkpt(ckptEpoch) {
+	if rl.shouldSendCompleteCkpt(ckptEpoch) || rl.shouldSendTx2(ckptEpoch) {
 		hasBeenProcessed, err := maybeResendFromStore(
 			ckptEpoch,
 			rl.store.LatestCheckpoint,
@@ -114,7 +114,9 @@ func (rl *Relayer) SendCheckpointToBTC(ckpt *ckpttypes.RawCheckpointWithMetaResp
 		if hasBeenProcessed {
 			return nil
 		}
+	}
 
+	if rl.shouldSendCompleteCkpt(ckptEpoch) {
 		rl.logger.Infof("Submitting a raw checkpoint for epoch %v", ckptEpoch)
 
 		submittedCkpt, err := rl.convertCkptToTwoTxAndSubmit(ckpt.Ckpt)
@@ -131,20 +133,6 @@ func (rl *Relayer) SendCheckpointToBTC(ckpt *ckpttypes.RawCheckpointWithMetaResp
 
 		return nil
 	} else if rl.shouldSendTx2(ckptEpoch) {
-		hasBeenProcessed, err := maybeResendFromStore(
-			ckptEpoch,
-			rl.store.LatestCheckpoint,
-			rl.GetRawTransaction,
-			rl.sendTxToBTC,
-		)
-		if err != nil {
-			return err
-		}
-
-		if hasBeenProcessed {
-			return nil
-		}
-
 		rl.logger.Infof("Retrying to send tx2 for epoch %v, tx1 %s", ckptEpoch, rl.lastSubmittedCheckpoint.Tx1.TxId)
 		submittedCkpt, err := rl.retrySendTx2(ckpt.Ckpt)
 		if err != nil {
