@@ -14,7 +14,7 @@ import (
 type BTCClient interface {
 	Stop()
 	WaitForShutdown()
-	GetBestBlock() (*chainhash.Hash, uint64, error)
+	GetBestBlock() (uint64, error)
 	GetBlockByHash(blockHash *chainhash.Hash) (*types.IndexedBlock, *wire.MsgBlock, error)
 	FindTailBlocksByHeight(height uint64) ([]*types.IndexedBlock, error)
 	GetBlockByHeight(height uint64) (*types.IndexedBlock, *wire.MsgBlock, error)

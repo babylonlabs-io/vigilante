@@ -12,20 +12,14 @@ import (
 	"github.com/babylonlabs-io/vigilante/types"
 )
 
-// GetBestBlock provides similar functionality with the btcd.rpcclient.GetBestBlock function
-// We implement this, because this function is only provided by btcd.
-// TODO: replace two rpc calls with only one c.GetBlockCount
-func (c *Client) GetBestBlock() (*chainhash.Hash, uint64, error) {
-	btcLatestBlockHash, err := c.getBestBlockHashWithRetry()
+// GetBestBlock returns the height of the best block
+func (c *Client) GetBestBlock() (uint64, error) {
+	height, err := c.getBlockCountWithRetry()
 	if err != nil {
-		return nil, 0, err
+		return 0, err
 	}
-	btcLatestBlock, err := c.getBlockVerboseWithRetry(btcLatestBlockHash)
-	if err != nil {
-		return nil, 0, err
-	}
-	btcLatestBlockHeight := uint64(btcLatestBlock.Height)
-	return btcLatestBlockHash, btcLatestBlockHeight, nil
+
+	return uint64(height), nil
 }
 
 func (c *Client) GetBlockByHash(blockHash *chainhash.Hash) (*types.IndexedBlock, *wire.MsgBlock, error) {
@@ -212,4 +206,27 @@ func (c *Client) FindTailBlocksByHeight(baseHeight uint64) ([]*types.IndexedBloc
 	}
 
 	return c.getChainBlocks(baseHeight, tipIb)
+}
+
+func (c *Client) getBlockCountWithRetry() (int64, error) {
+	var (
+		height int64
+		err    error
+	)
+
+	if err = retry.Do(func() error {
+		height, err = c.GetBlockCount()
+		if err != nil {
+			return err
+		}
+		return nil
+	},
+		retry.Delay(c.retrySleepTime),
+		retry.MaxDelay(c.maxRetrySleepTime),
+		retry.Attempts(c.maxRetryTimes),
+	); err != nil {
+		c.logger.Debug("failed to query get block count", zap.Error(err))
+	}
+
+	return height, nil
 }

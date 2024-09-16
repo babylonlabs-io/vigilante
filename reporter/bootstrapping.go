@@ -233,7 +233,7 @@ func (r *Reporter) waitUntilBTCSync() error {
 	)
 
 	// Retrieve hash/height of the latest block in BTC
-	btcLatestBlockHash, btcLatestBlockHeight, err = r.btcClient.GetBestBlock()
+	btcLatestBlockHeight, err = r.btcClient.GetBestBlock()
 	if err != nil {
 		return err
 	}
@@ -264,7 +264,7 @@ func (r *Reporter) waitUntilBTCSync() error {
 		// When BTC catches up, break and continue the bootstrapping process
 		ticker := time.NewTicker(5 * time.Second) // TODO: parameterise the polling interval
 		for range ticker.C {
-			_, btcLatestBlockHeight, err = r.btcClient.GetBestBlock()
+			btcLatestBlockHeight, err = r.btcClient.GetBestBlock()
 			if err != nil {
 				return err
 			}

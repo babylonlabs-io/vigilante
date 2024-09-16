@@ -152,7 +152,7 @@ func (bs *BtcScanner) Bootstrap() {
 	// clear all the blocks in the cache to avoid forks
 	bs.unconfirmedBlockCache.RemoveAll()
 
-	_, bestHeight, err := bs.btcClient.GetBestBlock()
+	bestHeight, err := bs.btcClient.GetBestBlock()
 	if err != nil {
 		panic(fmt.Errorf("cannot get the best BTC block %w", err))
 	}
