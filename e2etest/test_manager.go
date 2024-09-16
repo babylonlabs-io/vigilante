@@ -87,11 +87,14 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 	require.NoError(t, err)
 
 	btcHandler := NewBitcoindHandler(t, manager)
-	btcHandler.Start()
+	bitcoind := btcHandler.Start(t)
 	passphrase := "pass"
 	_ = btcHandler.CreateWallet("default", passphrase)
 
 	cfg := defaultVigilanteConfig()
+
+	cfg.BTC.Endpoint = fmt.Sprintf("127.0.0.1:%s", bitcoind.GetPort("18443/tcp"))
+	cfg.BTC.ZmqSeqEndpoint = fmt.Sprintf("tcp:// 127.0.0.1:%s", bitcoind.GetPort("28333/tcp"))
 
 	testRpcClient, err := rpcclient.New(&rpcclient.ConnConfig{
 		Host:                 cfg.BTC.Endpoint,
@@ -127,7 +130,7 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 	// start Babylon node
 
 	tmpDir := t.TempDir()
-	babylond, err := manager.RunBabylondResource(tmpDir, baseHeaderHex, hex.EncodeToString(pkScript), epochInterval)
+	babylond, err := manager.RunBabylondResource(t, tmpDir, baseHeaderHex, hex.EncodeToString(pkScript), epochInterval)
 	require.NoError(t, err)
 
 	// create Babylon client
@@ -163,6 +166,7 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 }
 
 func (tm *TestManager) Stop(t *testing.T) {
+	tm.BitcoindHandler.Stop()
 	if tm.BabylonClient.IsRunning() {
 		err := tm.BabylonClient.Stop()
 		require.NoError(t, err)

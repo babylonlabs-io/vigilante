@@ -6,7 +6,10 @@ import (
 	"fmt"
 	bbn "github.com/babylonlabs-io/babylon/types"
 	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/cometbft/cometbft/libs/rand"
+	"net"
 	"regexp"
+	"strconv"
 	"testing"
 	"time"
 
@@ -48,6 +51,7 @@ func NewManager() (docker *Manager, err error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return docker, nil
 }
 
@@ -131,7 +135,9 @@ func (m *Manager) ExecCmd(t *testing.T, containerName string, command []string) 
 	return outBuf, errBuf, nil
 }
 
+// RunBitcoindResource starts a bitcoind docker container
 func (m *Manager) RunBitcoindResource(
+	t *testing.T,
 	bitcoindCfgPath string,
 ) (*dockertest.Resource, error) {
 	bitcoindResource, err := m.pool.RunWithOptions(
@@ -142,14 +148,6 @@ func (m *Manager) RunBitcoindResource(
 			User:       "root:root",
 			Mounts: []string{
 				fmt.Sprintf("%s/:/data/.bitcoin", bitcoindCfgPath),
-			},
-			ExposedPorts: []string{
-				"8332",
-				"8333",
-				"28332",
-				"28333",
-				"18443",
-				"18444",
 			},
 			Cmd: []string{
 				"-regtest",
@@ -164,12 +162,12 @@ func (m *Manager) RunBitcoindResource(
 		},
 		func(config *docker.HostConfig) {
 			config.PortBindings = map[docker.Port][]docker.PortBinding{
-				"8332/tcp":  {{HostIP: "", HostPort: "8332"}},
-				"8333/tcp":  {{HostIP: "", HostPort: "8333"}},
-				"28332/tcp": {{HostIP: "", HostPort: "28332"}},
-				"28333/tcp": {{HostIP: "", HostPort: "28333"}},
-				"18443/tcp": {{HostIP: "", HostPort: "18443"}},
-				"18444/tcp": {{HostIP: "", HostPort: "18444"}},
+				"8332/tcp":  {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
+				"8333/tcp":  {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
+				"28332/tcp": {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
+				"28333/tcp": {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
+				"18443/tcp": {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
+				"18444/tcp": {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
 			}
 		},
 		noRestart,
@@ -181,7 +179,9 @@ func (m *Manager) RunBitcoindResource(
 	return bitcoindResource, nil
 }
 
+// RunBabylondResource starts a babylond container
 func (m *Manager) RunBabylondResource(
+	t *testing.T,
 	mounthPath string,
 	baseHeaderHex string,
 	slashingPkScript string,
@@ -210,21 +210,23 @@ func (m *Manager) RunBabylondResource(
 			Mounts: []string{
 				fmt.Sprintf("%s/:/home/", mounthPath),
 			},
-			Cmd: cmd,
 			ExposedPorts: []string{
+				"1317",
+				"2345",
+				"9090",
 				"26656",
 				"26657",
-				"1317",
-				"9090",
-				"2345",
 			},
-			PortBindings: map[docker.Port][]docker.PortBinding{
-				"1317/tcp":  {{HostIP: "", HostPort: "1317"}},
-				"2345/tcp":  {{HostIP: "", HostPort: "2345"}},
-				"9090/tcp":  {{HostIP: "", HostPort: "9090"}},
-				"26656/tcp": {{HostIP: "", HostPort: "26656"}},
-				"26657/tcp": {{HostIP: "", HostPort: "26657"}},
-			},
+			Cmd: cmd,
+		},
+		func(config *docker.HostConfig) {
+			config.PortBindings = map[docker.Port][]docker.PortBinding{
+				"1317/tcp":  {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
+				"2345/tcp":  {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
+				"9090/tcp":  {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
+				"26656/tcp": {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
+				"26657/tcp": {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
+			}
 		},
 		noRestart,
 	)
@@ -240,8 +242,9 @@ func (m *Manager) RunBabylondResource(
 // ClearResources removes all outstanding Docker resources created by the Manager.
 func (m *Manager) ClearResources() error {
 	for _, resource := range m.resources {
+		fmt.Printf("cleaning %s\n", resource.Container.Name)
 		if err := m.pool.Purge(resource); err != nil {
-			return err
+			continue
 		}
 	}
 
@@ -253,4 +256,37 @@ func noRestart(config *docker.HostConfig) {
 	config.RestartPolicy = docker.RestartPolicy{
 		Name: "no",
 	}
+}
+
+// randomAvailablePort tries to find an available TCP port on the localhost
+// by testing multiple random ports within a specified range.
+func randomAvailablePort(t *testing.T) int {
+	randPort := func(base, spread int) int {
+		return base + rand.Intn(spread)
+	}
+
+	// Base port and spread range for port selection
+	const (
+		basePort  = 20000
+		portRange = 10000
+	)
+
+	// Seed the random number generator to ensure randomness
+	rand.Seed(time.Now().UnixNano())
+
+	// Try up to 5 times to find an available port
+	for i := 0; i < 5; i++ {
+		port := randPort(basePort, portRange)
+		address := fmt.Sprintf("127.0.0.1:%d", port)
+
+		listener, err := net.Listen("tcp", address)
+		if err == nil {
+			_ = listener.Close()
+			return port
+		}
+	}
+
+	// If no available port was found, fail the test
+	t.Fatalf("failed to find an available port in range %d-%d", basePort, basePort+portRange)
+	return 0
 }

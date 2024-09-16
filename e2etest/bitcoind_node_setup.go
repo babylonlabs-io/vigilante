@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/babylonlabs-io/vigilante/e2etest/container"
+	"github.com/ory/dockertest/v3"
 	"github.com/stretchr/testify/require"
 	"os"
 	"strconv"
@@ -40,7 +41,7 @@ func NewBitcoindHandler(t *testing.T, manager *container.Manager) *BitcoindTestH
 	}
 }
 
-func (h *BitcoindTestHandler) Start() {
+func (h *BitcoindTestHandler) Start(t *testing.T) *dockertest.Resource {
 	tempPath, err := os.MkdirTemp("", "vigilante-test-*")
 	require.NoError(h.t, err)
 
@@ -48,7 +49,7 @@ func (h *BitcoindTestHandler) Start() {
 		_ = os.RemoveAll(tempPath)
 	})
 
-	_, err = h.m.RunBitcoindResource(tempPath)
+	bitcoinResource, err := h.m.RunBitcoindResource(t, tempPath)
 	require.NoError(h.t, err)
 
 	h.t.Cleanup(func() {
@@ -62,6 +63,8 @@ func (h *BitcoindTestHandler) Start() {
 		}
 		return err == nil
 	}, startTimeout, 500*time.Millisecond, "bitcoind did not start")
+
+	return bitcoinResource
 }
 
 // GetBlockCount retrieves the current number of blocks in the blockchain from the Bitcoind.
@@ -111,4 +114,8 @@ func (h *BitcoindTestHandler) InvalidateBlock(blockHash string) {
 func (h *BitcoindTestHandler) ImportDescriptors(descriptor string) {
 	_, _, err := h.m.ExecBitcoindCliCmd(h.t, []string{"importdescriptors", descriptor})
 	require.NoError(h.t, err)
+}
+
+func (h *BitcoindTestHandler) Stop() {
+	_ = h.m.ClearResources()
 }

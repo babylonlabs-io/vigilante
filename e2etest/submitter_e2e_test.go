@@ -1,6 +1,7 @@
 package e2etest
 
 import (
+	"fmt"
 	"github.com/babylonlabs-io/vigilante/testutil"
 	"math/rand"
 	"testing"
@@ -187,9 +188,10 @@ func TestSubmitterSubmissionReplace(t *testing.T) {
 
 func TestSubmitterDocker(t *testing.T) {
 
-	numMatureOutputs := uint32(300)
+	numMatureOutputs := uint32(10)
 
 	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
 	defer tm.Stop(t)
 
+	fmt.Printf("asdf")
 }
