@@ -13,15 +13,16 @@ type ImageConfig struct {
 const (
 	dockerBitcoindRepository = "lncm/bitcoind"
 	dockerBitcoindVersionTag = "v27.0"
+	dockerBabylondRepository = "babylonlabs/babylond"
+	dockerBabylondVersionTag = "b834df27bec4331b4962cdec85f71a5cff51bfa8"
 )
 
 // NewImageConfig returns ImageConfig needed for running e2e test.
 func NewImageConfig() ImageConfig {
-	config := ImageConfig{
+	return ImageConfig{
 		BitcoindRepository: dockerBitcoindRepository,
 		BitcoindVersion:    dockerBitcoindVersionTag,
-		BabylonRepository:  "babylonlabs-io/babylond",
-		BabylonVersion:     "latest",
+		BabylonRepository:  dockerBabylondRepository,
+		BabylonVersion:     dockerBabylondVersionTag,
 	}
-	return config
 }

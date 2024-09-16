@@ -56,7 +56,6 @@ func defaultVigilanteConfig() *config.Config {
 type TestManager struct {
 	TestRpcClient   *rpcclient.Client
 	BitcoindHandler *BitcoindTestHandler
-	BabylonHandler  *BabylonNodeHandler
 	BabylonClient   *bbnclient.Client
 	BTCClient       *btcclient.Client
 	Config          *config.Config
@@ -126,10 +125,6 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 	require.NoError(t, err)
 
 	// start Babylon node
-	bh, err := NewBabylonNodeHandler(baseHeaderHex, hex.EncodeToString(pkScript), epochInterval)
-	require.NoError(t, err)
-	//err = bh.Start()
-	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
 	babylond, err := manager.RunBabylondResource(tmpDir, baseHeaderHex, hex.EncodeToString(pkScript), epochInterval)
@@ -159,7 +154,6 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 
 	return &TestManager{
 		TestRpcClient:   testRpcClient,
-		BabylonHandler:  bh,
 		BabylonClient:   babylonClient,
 		BitcoindHandler: btcHandler,
 		BTCClient:       btcClient,
@@ -169,9 +163,6 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 }
 
 func (tm *TestManager) Stop(t *testing.T) {
-	err := tm.BabylonHandler.Stop()
-	require.NoError(t, err)
-
 	if tm.BabylonClient.IsRunning() {
 		err := tm.BabylonClient.Stop()
 		require.NoError(t, err)
