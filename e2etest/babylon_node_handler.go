@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	bbn "github.com/babylonlabs-io/babylon/types"
 	"github.com/btcsuite/btcd/btcec/v2"
@@ -149,6 +150,31 @@ func NewBabylonNodeHandler(baseHeaderHex string, slashingPkScript string, epochI
 		"--covenant-quorum=1",
 		fmt.Sprintf("--covenant-pks=%s", bbn.NewBIP340PubKeyFromBTCPK(juryPK).MarshalHex()),
 	)
+
+	x := []string{
+		"babylond",
+		"testnet",
+		"--v=1",
+		fmt.Sprintf("--output-dir=%s", testDir),
+		"--starting-ip-address=192.168.10.2",
+		"--keyring-backend=test",
+		"--chain-id=chain-test",
+		"--btc-finalization-timeout=4",
+		"--btc-confirmation-depth=2",
+		"--additional-sender-account",
+		"--btc-network=regtest",
+		"--min-staking-time-blocks=200",
+		"--min-staking-amount-sat=10000",
+		fmt.Sprintf("--epoch-interval=%d", epochInterval),
+		fmt.Sprintf("--slashing-pk-script=%s", slashingPkScript),
+		fmt.Sprintf("--btc-base-header=%s", baseHeaderHex),
+		"--covenant-quorum=1",
+		fmt.Sprintf("--covenant-pks=%s", bbn.NewBIP340PubKeyFromBTCPK(juryPK).MarshalHex()),
+	}
+	cmd := strings.Join(x, " ")
+
+	// Print the result
+	fmt.Println(cmd)
 
 	var stderr bytes.Buffer
 	initTestnetCmd.Stderr = &stderr

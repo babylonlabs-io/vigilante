@@ -6,8 +6,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/babylonlabs-io/vigilante/e2etest/container"
 	"github.com/btcsuite/btcd/txscript"
 	"go.uber.org/zap"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -82,7 +84,10 @@ func initBTCClientWithSubscriber(t *testing.T, cfg *config.Config) *btcclient.Cl
 // StartManager creates a test manager
 // NOTE: uses btc client with zmq
 func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval uint) *TestManager {
-	btcHandler := NewBitcoindHandler(t)
+	manager, err := container.NewManager()
+	require.NoError(t, err)
+
+	btcHandler := NewBitcoindHandler(t, manager)
 	btcHandler.Start()
 	passphrase := "pass"
 	_ = btcHandler.CreateWallet("default", passphrase)
@@ -123,13 +128,21 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 	// start Babylon node
 	bh, err := NewBabylonNodeHandler(baseHeaderHex, hex.EncodeToString(pkScript), epochInterval)
 	require.NoError(t, err)
-	err = bh.Start()
+	//err = bh.Start()
+	require.NoError(t, err)
+
+	tmpDir := t.TempDir()
+	babylond, err := manager.RunBabylondResource(tmpDir, baseHeaderHex, hex.EncodeToString(pkScript), epochInterval)
 	require.NoError(t, err)
 
 	// create Babylon client
-	cfg.Babylon.KeyDirectory = bh.GetNodeDataDir()
+	cfg.Babylon.KeyDirectory = filepath.Join(tmpDir, "node0", "babylond")
 	cfg.Babylon.Key = "test-spending-key" // keyring to bbn node
 	cfg.Babylon.GasAdjustment = 3.0
+
+	// update port with the dynamically allocated one from docker
+	cfg.Babylon.RPCAddr = fmt.Sprintf("http://localhost:%s", babylond.GetPort("26657/tcp"))
+	cfg.Babylon.GRPCAddr = fmt.Sprintf("https://localhost:%s", babylond.GetPort("9090/tcp"))
 
 	babylonClient, err := bbnclient.New(&cfg.Babylon, nil)
 	require.NoError(t, err)

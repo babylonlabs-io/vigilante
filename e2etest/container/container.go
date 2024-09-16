@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	bbn "github.com/babylonlabs-io/babylon/types"
+	"github.com/btcsuite/btcd/btcec/v2"
 	"regexp"
 	"testing"
 	"time"
@@ -15,6 +17,14 @@ import (
 
 const (
 	bitcoindContainerName = "bitcoind-test"
+	babylondContainerName = "babylond-test"
+)
+
+var (
+	// jury
+	_, juryPK = btcec.PrivKeyFromBytes(
+		[]byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+	)
 )
 
 var errRegex = regexp.MustCompile(`(E|e)rror`)
@@ -141,14 +151,6 @@ func (m *Manager) RunBitcoindResource(
 				"18443",
 				"18444",
 			},
-			PortBindings: map[docker.Port][]docker.PortBinding{
-				"8332/tcp":  {{HostIP: "", HostPort: "8332"}},
-				"8333/tcp":  {{HostIP: "", HostPort: "8333"}},
-				"28332/tcp": {{HostIP: "", HostPort: "28332"}},
-				"28333/tcp": {{HostIP: "", HostPort: "28333"}},
-				"18443/tcp": {{HostIP: "", HostPort: "18443"}},
-				"18444/tcp": {{HostIP: "", HostPort: "18444"}},
-			},
 			Cmd: []string{
 				"-regtest",
 				"-txindex",
@@ -160,6 +162,16 @@ func (m *Manager) RunBitcoindResource(
 				"-fallbackfee=0.0002",
 			},
 		},
+		func(config *docker.HostConfig) {
+			config.PortBindings = map[docker.Port][]docker.PortBinding{
+				"8332/tcp":  {{HostIP: "", HostPort: "8332"}},
+				"8333/tcp":  {{HostIP: "", HostPort: "8333"}},
+				"28332/tcp": {{HostIP: "", HostPort: "28332"}},
+				"28333/tcp": {{HostIP: "", HostPort: "28333"}},
+				"18443/tcp": {{HostIP: "", HostPort: "18443"}},
+				"18444/tcp": {{HostIP: "", HostPort: "18444"}},
+			}
+		},
 		noRestart,
 	)
 	if err != nil {
@@ -167,6 +179,62 @@ func (m *Manager) RunBitcoindResource(
 	}
 	m.resources[bitcoindContainerName] = bitcoindResource
 	return bitcoindResource, nil
+}
+
+func (m *Manager) RunBabylondResource(
+	mounthPath string,
+	baseHeaderHex string,
+	slashingPkScript string,
+	epochInterval uint,
+) (*dockertest.Resource, error) {
+	cmd := []string{
+		"sh", "-c", fmt.Sprintf(
+			"babylond testnet --v=1 --output-dir=/home --starting-ip-address=192.168.10.2 "+
+				"--keyring-backend=test --chain-id=chain-test --btc-finalization-timeout=4 "+
+				"--btc-confirmation-depth=2 --additional-sender-account --btc-network=regtest "+
+				"--min-staking-time-blocks=200 --min-staking-amount-sat=10000 "+
+				"--epoch-interval=%d --slashing-pk-script=%s --btc-base-header=%s "+
+				"--covenant-quorum=1 --covenant-pks=%s && babylond start --home=/home/node0/babylond --log_level=debug",
+			epochInterval, slashingPkScript, baseHeaderHex, bbn.NewBIP340PubKeyFromBTCPK(juryPK).MarshalHex()),
+	}
+
+	resource, err := m.pool.RunWithOptions(
+		&dockertest.RunOptions{
+			Name:       babylondContainerName,
+			Repository: m.cfg.BabylonRepository,
+			Tag:        m.cfg.BabylonVersion,
+			Labels: map[string]string{
+				"e2e": "babylond",
+			},
+			User: "root:root",
+			Mounts: []string{
+				fmt.Sprintf("%s/:/home/", mounthPath),
+			},
+			Cmd: cmd,
+			ExposedPorts: []string{
+				"26656",
+				"26657",
+				"1317",
+				"9090",
+				"2345",
+			},
+			PortBindings: map[docker.Port][]docker.PortBinding{
+				"1317/tcp":  {{HostIP: "", HostPort: "1317"}},
+				"2345/tcp":  {{HostIP: "", HostPort: "2345"}},
+				"9090/tcp":  {{HostIP: "", HostPort: "9090"}},
+				"26656/tcp": {{HostIP: "", HostPort: "26656"}},
+				"26657/tcp": {{HostIP: "", HostPort: "26657"}},
+			},
+		},
+		noRestart,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	m.resources[babylondContainerName] = resource
+
+	return resource, nil
 }
 
 // ClearResources removes all outstanding Docker resources created by the Manager.

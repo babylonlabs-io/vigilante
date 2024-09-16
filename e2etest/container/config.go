@@ -5,6 +5,8 @@ package container
 type ImageConfig struct {
 	BitcoindRepository string
 	BitcoindVersion    string
+	BabylonRepository  string
+	BabylonVersion     string
 }
 
 //nolint:deadcode
@@ -18,6 +20,8 @@ func NewImageConfig() ImageConfig {
 	config := ImageConfig{
 		BitcoindRepository: dockerBitcoindRepository,
 		BitcoindVersion:    dockerBitcoindVersionTag,
+		BabylonRepository:  "babylonlabs-io/babylond",
+		BabylonVersion:     "latest",
 	}
 	return config
 }

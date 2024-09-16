@@ -33,10 +33,7 @@ type BitcoindTestHandler struct {
 	m *container.Manager
 }
 
-func NewBitcoindHandler(t *testing.T) *BitcoindTestHandler {
-	manager, err := container.NewManager()
-	require.NoError(t, err)
-
+func NewBitcoindHandler(t *testing.T, manager *container.Manager) *BitcoindTestHandler {
 	return &BitcoindTestHandler{
 		t: t,
 		m: manager,

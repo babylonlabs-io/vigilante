@@ -1,6 +1,3 @@
-//go:build e2e
-// +build e2e
-
 package e2etest
 
 import (
@@ -186,4 +183,13 @@ func TestSubmitterSubmissionReplace(t *testing.T) {
 	blockWithOpReturnTransactions := tm.mineBlock(t)
 	// block should have 2 transactions, 1 from submitter and 1 coinbase
 	require.Equal(t, len(blockWithOpReturnTransactions.Transactions), 3)
+}
+
+func TestSubmitterDocker(t *testing.T) {
+
+	numMatureOutputs := uint32(300)
+
+	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
+	defer tm.Stop(t)
+
 }
