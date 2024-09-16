@@ -19,8 +19,10 @@ func FuzzLivenessChecker(f *testing.F) {
 	bbndatagen.AddRandomSeedsToFuzzer(f, 10)
 
 	f.Fuzz(func(t *testing.T, seed int64) {
+		t.Parallel()
 		r := rand.New(rand.NewSource(seed))
 		ctl := gomock.NewController(t)
+		defer ctl.Finish()
 		mockBabylonClient := monitor.NewMockBabylonQueryClient(ctl)
 		cr := datagen.GenerateRandomCheckpointRecord(r)
 		maxGap := bbndatagen.RandomIntOtherThan(r, 0, 50) + 200

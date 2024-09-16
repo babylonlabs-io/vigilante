@@ -64,6 +64,7 @@ func FuzzCheckpointCache(f *testing.F) {
 	datagen.AddRandomSeedsToFuzzer(f, 100)
 
 	f.Fuzz(func(t *testing.T, seed int64) {
+		t.Parallel()
 		r := rand.New(rand.NewSource(seed))
 
 		tag := datagen.GenRandomByteArray(r, 4)

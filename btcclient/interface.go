@@ -38,4 +38,5 @@ type BTCWallet interface {
 	GetHighUTXOAndSum() (*btcjson.ListUnspentResult, float64, error)
 	FundRawTransaction(tx *wire.MsgTx, opts btcjson.FundRawTransactionOpts, isWitness *bool) (*btcjson.FundRawTransactionResult, error)
 	SignRawTransactionWithWallet(tx *wire.MsgTx) (*wire.MsgTx, bool, error)
+	GetRawTransaction(txHash *chainhash.Hash) (*btcutil.Tx, error)
 }

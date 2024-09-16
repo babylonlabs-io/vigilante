@@ -283,6 +283,21 @@ func (mr *MockBTCWalletMockRecorder) GetRawChangeAddress(account interface{}) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRawChangeAddress", reflect.TypeOf((*MockBTCWallet)(nil).GetRawChangeAddress), account)
 }
 
+// GetRawTransaction mocks base method.
+func (m *MockBTCWallet) GetRawTransaction(txHash *chainhash.Hash) (*btcutil.Tx, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRawTransaction", txHash)
+	ret0, _ := ret[0].(*btcutil.Tx)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRawTransaction indicates an expected call of GetRawTransaction.
+func (mr *MockBTCWalletMockRecorder) GetRawTransaction(txHash interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRawTransaction", reflect.TypeOf((*MockBTCWallet)(nil).GetRawTransaction), txHash)
+}
+
 // GetWalletLockTime mocks base method.
 func (m *MockBTCWallet) GetWalletLockTime() int64 {
 	m.ctrl.T.Helper()

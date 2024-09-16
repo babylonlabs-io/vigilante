@@ -121,3 +121,7 @@ func (c *Client) FundRawTransaction(tx *wire.MsgTx, opts btcjson.FundRawTransact
 func (c *Client) SignRawTransactionWithWallet(tx *wire.MsgTx) (*wire.MsgTx, bool, error) {
 	return c.Client.SignRawTransactionWithWallet(tx)
 }
+
+func (c *Client) GetRawTransaction(txHash *chainhash.Hash) (*btcutil.Tx, error) {
+	return c.Client.GetRawTransaction(txHash)
+}

@@ -4,6 +4,7 @@
 package e2etest
 
 import (
+	"github.com/babylonlabs-io/vigilante/testutil"
 	"math/rand"
 	"testing"
 	"time"
@@ -64,6 +65,7 @@ func TestSubmitterSubmission(t *testing.T) {
 		tm.Config.Common.MaxRetrySleepTime,
 		tm.Config.Common.MaxRetryTimes,
 		metrics.NewSubmitterMetrics(),
+		testutil.MakeTestBackend(t),
 	)
 
 	vigilantSubmitter.Start()
@@ -138,6 +140,7 @@ func TestSubmitterSubmissionReplace(t *testing.T) {
 		tm.Config.Common.MaxRetrySleepTime,
 		tm.Config.Common.MaxRetryTimes,
 		metrics.NewSubmitterMetrics(),
+		testutil.MakeTestBackend(t),
 	)
 
 	vigilantSubmitter.Start()
