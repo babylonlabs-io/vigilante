@@ -9,6 +9,7 @@ import (
 	"github.com/babylonlabs-io/vigilante/e2etest/container"
 	"github.com/btcsuite/btcd/txscript"
 	"go.uber.org/zap"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -131,6 +132,9 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 	// start Babylon node
 
 	tmpDir := t.TempDir()
+	err = os.Chmod(tmpDir, 0755)
+	require.NoError(t, err)
+
 	babylond, err := manager.RunBabylondResource(t, tmpDir, baseHeaderHex, hex.EncodeToString(pkScript), epochInterval)
 	require.NoError(t, err)
 

@@ -49,7 +49,6 @@ test:
 	go test -race ./...
 
 test-e2e:
-	cd $(TOOLS_DIR); go install -trimpath $(BABYLON_PKG);
 	go test -race -mod=readonly --failfast -timeout=25m -v $(PACKAGES_E2E) -count=1 --tags=e2e
 
 build-docker:
