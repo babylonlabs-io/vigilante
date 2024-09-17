@@ -150,15 +150,6 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 	cfg.Babylon.RPCAddr = fmt.Sprintf("http://localhost:%s", babylond.GetPort("26657/tcp"))
 	cfg.Babylon.GRPCAddr = fmt.Sprintf("https://localhost:%s", babylond.GetPort("9090/tcp"))
 
-	cmd := exec.Command("ls", fmt.Sprintf("-a %s", cfg.Babylon.KeyDirectory))
-
-	// Get the output of the command
-	output, err := cmd.Output()
-	require.NoError(t, err)
-
-	// Print the output
-	fmt.Printf("-------- %s", string(output))
-
 	babylonClient, err := bbnclient.New(&cfg.Babylon, nil)
 	require.NoError(t, err)
 
@@ -171,6 +162,11 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 		log.Infof("Babylon is ready: %v", resp)
 		return true
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	cmd := exec.Command("ls", "-a", cfg.Babylon.KeyDirectory)
+	output, _ := cmd.Output()
+	require.NoError(t, err)
+	fmt.Printf("-------- %s", string(output))
 
 	return &TestManager{
 		TestRpcClient:   testRpcClient,
@@ -290,6 +286,9 @@ func importPrivateKey(btcHandler *BitcoindTestHandler) (*btcec.PrivateKey, error
 
 func tempDir(t *testing.T) (string, error) {
 	tempPath, err := os.MkdirTemp(os.TempDir(), "babylon-test-*")
+	if err != nil {
+		return "", err
+	}
 
 	if err = os.Chmod(tempPath, 0777); err != nil {
 		return "", err
