@@ -217,7 +217,7 @@ func (m *Manager) RunBabylondResource(
 			Labels: map[string]string{
 				"e2e": "babylond",
 			},
-			User: "root:root",
+			//User: "root:root",
 			Mounts: []string{
 				fmt.Sprintf("%s/:/home/", mounthPath),
 			},
