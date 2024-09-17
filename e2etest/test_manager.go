@@ -10,7 +10,6 @@ import (
 	"github.com/btcsuite/btcd/txscript"
 	"go.uber.org/zap"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -143,9 +142,6 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 	cfg.Babylon.Key = "test-spending-key" // keyring to bbn node
 	cfg.Babylon.GasAdjustment = 3.0
 
-	fmt.Printf("PATH ----- %s \n", cfg.Babylon.KeyDirectory)
-	fmt.Printf("%+v\n", cfg.Babylon)
-
 	// update port with the dynamically allocated one from docker
 	cfg.Babylon.RPCAddr = fmt.Sprintf("http://localhost:%s", babylond.GetPort("26657/tcp"))
 	cfg.Babylon.GRPCAddr = fmt.Sprintf("https://localhost:%s", babylond.GetPort("9090/tcp"))
@@ -162,10 +158,6 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 		log.Infof("Babylon is ready: %v", resp)
 		return true
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
-
-	cmd := exec.Command("ls", "-la", cfg.Babylon.KeyDirectory)
-	output, _ := cmd.Output()
-	fmt.Printf("-------- %s", string(output))
 
 	return &TestManager{
 		TestRpcClient:   testRpcClient,
