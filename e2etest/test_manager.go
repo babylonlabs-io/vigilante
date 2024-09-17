@@ -6,14 +6,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"os"
+	"os/exec"
+	"testing"
+	"time"
+
 	"github.com/babylonlabs-io/vigilante/e2etest/container"
 	"github.com/btcsuite/btcd/txscript"
 	"go.uber.org/zap"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"testing"
-	"time"
 
 	pv "github.com/cosmos/relayer/v2/relayer/provider"
 
@@ -139,7 +139,7 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 	require.NoError(t, err)
 
 	// create Babylon client
-	cfg.Babylon.KeyDirectory = filepath.Join(tmpDir, "node0", "babylond")
+	cfg.Babylon.KeyDirectory = "/home/node0/babylond"
 	cfg.Babylon.Key = "test-spending-key" // keyring to bbn node
 	cfg.Babylon.GasAdjustment = 3.0
 
