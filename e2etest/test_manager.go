@@ -60,6 +60,7 @@ type TestManager struct {
 	BTCClient       *btcclient.Client
 	Config          *config.Config
 	WalletPrivKey   *btcec.PrivateKey
+	manger          *container.Manager
 }
 
 func initBTCClientWithSubscriber(t *testing.T, cfg *config.Config) *btcclient.Client {
@@ -162,11 +163,11 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 		BTCClient:       btcClient,
 		Config:          cfg,
 		WalletPrivKey:   walletPrivKey,
+		manger:          manager,
 	}
 }
 
 func (tm *TestManager) Stop(t *testing.T) {
-	tm.BitcoindHandler.Stop()
 	if tm.BabylonClient.IsRunning() {
 		err := tm.BabylonClient.Stop()
 		require.NoError(t, err)

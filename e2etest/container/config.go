@@ -13,8 +13,8 @@ type ImageConfig struct {
 const (
 	dockerBitcoindRepository = "lncm/bitcoind"
 	dockerBitcoindVersionTag = "v27.0"
-	dockerBabylondRepository = "babylonlabs-io/babylond"
-	dockerBabylondVersionTag = "latest" // todo(Lazar): we need version b1e255a
+	dockerBabylondRepository = "babylonlabs/babylond"
+	dockerBabylondVersionTag = "8e0222804ed19b18d74d599b80baa18f05e87d8a" // this is built from commit b1e255a
 )
 
 // NewImageConfig returns ImageConfig needed for running e2e test.

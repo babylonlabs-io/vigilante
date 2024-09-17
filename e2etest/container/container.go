@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	bitcoindContainerName = "bitcoind-test"
-	babylondContainerName = "babylond-test"
+	bitcoindContainerName = "bitcoind"
+	babylondContainerName = "babylond"
 )
 
 var (
@@ -142,12 +142,23 @@ func (m *Manager) RunBitcoindResource(
 ) (*dockertest.Resource, error) {
 	bitcoindResource, err := m.pool.RunWithOptions(
 		&dockertest.RunOptions{
-			Name:       bitcoindContainerName,
+			Name:       fmt.Sprintf("%s-%s", bitcoindContainerName, t.Name()),
 			Repository: m.cfg.BitcoindRepository,
 			Tag:        m.cfg.BitcoindVersion,
 			User:       "root:root",
+			Labels: map[string]string{
+				"e2e": "bitcoind",
+			},
 			Mounts: []string{
 				fmt.Sprintf("%s/:/data/.bitcoin", bitcoindCfgPath),
+			},
+			ExposedPorts: []string{
+				"8332",
+				"8333",
+				"28332",
+				"28333",
+				"18443",
+				"18444",
 			},
 			Cmd: []string{
 				"-regtest",
@@ -200,7 +211,7 @@ func (m *Manager) RunBabylondResource(
 
 	resource, err := m.pool.RunWithOptions(
 		&dockertest.RunOptions{
-			Name:       babylondContainerName,
+			Name:       fmt.Sprintf("%s-%s", babylondContainerName, t.Name()),
 			Repository: m.cfg.BabylonRepository,
 			Tag:        m.cfg.BabylonVersion,
 			Labels: map[string]string{
@@ -242,7 +253,6 @@ func (m *Manager) RunBabylondResource(
 // ClearResources removes all outstanding Docker resources created by the Manager.
 func (m *Manager) ClearResources() error {
 	for _, resource := range m.resources {
-		fmt.Printf("cleaning %s\n", resource.Container.Name)
 		if err := m.pool.Purge(resource); err != nil {
 			continue
 		}
@@ -252,7 +262,7 @@ func (m *Manager) ClearResources() error {
 }
 
 func noRestart(config *docker.HostConfig) {
-	// in this case we don't want the nodes to restart on failure
+	// in this case, we don't want the nodes to restart on failure
 	config.RestartPolicy = docker.RestartPolicy{
 		Name: "no",
 	}

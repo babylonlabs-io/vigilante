@@ -187,7 +187,6 @@ func TestSubmitterSubmissionReplace(t *testing.T) {
 }
 
 func TestSubmitterDocker(t *testing.T) {
-
 	numMatureOutputs := uint32(10)
 
 	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
