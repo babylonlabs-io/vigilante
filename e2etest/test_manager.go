@@ -165,11 +165,7 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 
 	cmd := exec.Command("ls", "-la", cfg.Babylon.KeyDirectory)
 	output, _ := cmd.Output()
-	require.NoError(t, err)
 	fmt.Printf("-------- %s", string(output))
-
-	err = os.Chmod(cfg.Babylon.KeyDirectory, 0777)
-	require.NoError(t, err)
 
 	return &TestManager{
 		TestRpcClient:   testRpcClient,
