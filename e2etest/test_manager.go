@@ -131,8 +131,7 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 
 	// start Babylon node
 
-	tmpDir := t.TempDir()
-	err = os.Chmod(tmpDir, 0755)
+	tmpDir, err := tempDir()
 	require.NoError(t, err)
 
 	babylond, err := manager.RunBabylondResource(t, tmpDir, baseHeaderHex, hex.EncodeToString(pkScript), epochInterval)
@@ -274,4 +273,17 @@ func importPrivateKey(btcHandler *BitcoindTestHandler) (*btcec.PrivateKey, error
 	btcHandler.ImportDescriptors(string(descJSON))
 
 	return privKey, nil
+}
+
+func tempDir() (string, error) {
+	tempName, err := os.MkdirTemp(os.TempDir(), "BabylonTestVigilante")
+	if err != nil {
+		return "", err
+	}
+
+	if err = os.Chmod(tempName, 0755); err != nil {
+		return "", err
+	}
+
+	return tempName, nil
 }
