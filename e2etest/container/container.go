@@ -16,6 +16,7 @@ import (
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
+	mrand "math/rand/v2"
 )
 
 const (
@@ -272,28 +273,30 @@ func noRestart(config *docker.HostConfig) {
 // by testing multiple random ports within a specified range.
 func randomAvailablePort(t *testing.T) int {
 	randPort := func(base, spread int) int {
-		return base + rand.Intn(spread)
+		return base + mrand.IntN(spread)
 	}
 
 	// Base port and spread range for port selection
 	const (
 		basePort  = 20000
-		portRange = 10000
+		portRange = 20000
 	)
 
 	// Seed the random number generator to ensure randomness
 	rand.Seed(time.Now().UnixNano())
 
-	// Try up to 5 times to find an available port
-	for i := 0; i < 5; i++ {
+	// Try up to 10 times to find an available port
+	for i := 0; i < 10; i++ {
 		port := randPort(basePort, portRange)
-		address := fmt.Sprintf("127.0.0.1:%d", port)
-
-		listener, err := net.Listen("tcp", address)
-		if err == nil {
-			_ = listener.Close()
-			return port
+		listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+		if err != nil {
+			continue
 		}
+		if err := listener.Close(); err != nil {
+			continue
+		}
+
+		return port
 	}
 
 	// If no available port was found, fail the test
