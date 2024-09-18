@@ -161,8 +161,14 @@ func (rl *Relayer) SendCheckpointToBTC(ckpt *ckpttypes.RawCheckpointWithMetaResp
 	return nil
 }
 
-func (rl *Relayer) ResubmitSecondCheckpointTx(ckpt *ckpttypes.RawCheckpointWithMetaResponse) error {
+func (rl *Relayer) MaybeResubmitSecondCheckpointTx(ckpt *ckpttypes.RawCheckpointWithMetaResponse) error {
 	ckptEpoch := ckpt.Ckpt.EpochNum
+	if ckpt.Status != ckpttypes.Sealed {
+		rl.logger.Errorf("The checkpoint for epoch %v is not sealed", ckptEpoch)
+		rl.metrics.InvalidCheckpointCounter.Inc()
+		return nil
+	}
+
 	durSeconds := uint(time.Since(rl.lastSubmittedCheckpoint.Ts).Seconds())
 	if durSeconds < rl.config.ResendIntervalSeconds {
 		return nil

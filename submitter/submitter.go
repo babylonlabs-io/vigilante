@@ -206,7 +206,7 @@ func (s *Submitter) processCheckpoints() {
 				s.logger.Errorf("Failed to submit the raw checkpoint for %v: %v", ckpt.Ckpt.EpochNum, err)
 				s.metrics.FailedCheckpointsCounter.Inc()
 			}
-			if err := s.relayer.ResubmitSecondCheckpointTx(ckpt); err != nil {
+			if err := s.relayer.MaybeResubmitSecondCheckpointTx(ckpt); err != nil {
 				s.logger.Errorf("Failed to resubmit the raw checkpoint for %v: %v", ckpt.Ckpt.EpochNum, err)
 				s.metrics.FailedCheckpointsCounter.Inc()
 			}
@@ -216,4 +216,8 @@ func (s *Submitter) processCheckpoints() {
 			return
 		}
 	}
+}
+
+func (s *Submitter) Metrics() *metrics.SubmitterMetrics {
+	return s.metrics
 }
