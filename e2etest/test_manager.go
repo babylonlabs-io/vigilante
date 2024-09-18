@@ -96,7 +96,6 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 	cfg := defaultVigilanteConfig()
 
 	cfg.BTC.Endpoint = fmt.Sprintf("127.0.0.1:%s", bitcoind.GetPort("18443/tcp"))
-	cfg.BTC.ZmqSeqEndpoint = fmt.Sprintf("tcp:// 127.0.0.1:%s", bitcoind.GetPort("28333/tcp"))
 
 	testRpcClient, err := rpcclient.New(&rpcclient.ConnConfig{
 		Host:                 cfg.BTC.Endpoint,

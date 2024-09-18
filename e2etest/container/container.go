@@ -153,12 +153,7 @@ func (m *Manager) RunBitcoindResource(
 				fmt.Sprintf("%s/:/data/.bitcoin", bitcoindCfgPath),
 			},
 			ExposedPorts: []string{
-				"8332",
-				"8333",
-				"28332",
-				"28333",
-				"18443",
-				"18444",
+				"18443/tcp",
 			},
 			Cmd: []string{
 				"-regtest",
@@ -173,13 +168,9 @@ func (m *Manager) RunBitcoindResource(
 		},
 		func(config *docker.HostConfig) {
 			config.PortBindings = map[docker.Port][]docker.PortBinding{
-				"8332/tcp":  {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
-				"8333/tcp":  {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
-				"28332/tcp": {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
-				"28333/tcp": {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
-				"18443/tcp": {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
-				"18444/tcp": {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
+				"18443/tcp": {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}}, // only expose what we need
 			}
+			config.PublishAllPorts = false // because in dockerfile they already expose them
 		},
 		noRestart,
 	)
@@ -222,20 +213,14 @@ func (m *Manager) RunBabylondResource(
 				fmt.Sprintf("%s/:/home/", mounthPath),
 			},
 			ExposedPorts: []string{
-				"1317",
-				"2345",
-				"9090",
-				"26656",
-				"26657",
+				"9090/tcp", // only expose what we need
+				"26657/tcp",
 			},
 			Cmd: cmd,
 		},
 		func(config *docker.HostConfig) {
 			config.PortBindings = map[docker.Port][]docker.PortBinding{
-				"1317/tcp":  {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
-				"2345/tcp":  {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
 				"9090/tcp":  {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
-				"26656/tcp": {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
 				"26657/tcp": {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
 			}
 		},
