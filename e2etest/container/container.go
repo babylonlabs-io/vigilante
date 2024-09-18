@@ -4,17 +4,30 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	bbn "github.com/babylonlabs-io/babylon/types"
+	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/cometbft/cometbft/libs/rand"
+	"net"
 	"regexp"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
+	mrand "math/rand/v2"
 )
 
 const (
-	bitcoindContainerName = "bitcoind-test"
+	bitcoindContainerName = "bitcoind"
+	babylondContainerName = "babylond"
+)
+
+var (
+	_, covenantPK = btcec.PrivKeyFromBytes(
+		[]byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+	)
 )
 
 var errRegex = regexp.MustCompile(`(E|e)rror`)
@@ -38,6 +51,7 @@ func NewManager() (docker *Manager, err error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return docker, nil
 }
 
@@ -121,15 +135,20 @@ func (m *Manager) ExecCmd(t *testing.T, containerName string, command []string) 
 	return outBuf, errBuf, nil
 }
 
+// RunBitcoindResource starts a bitcoind docker container
 func (m *Manager) RunBitcoindResource(
+	t *testing.T,
 	bitcoindCfgPath string,
 ) (*dockertest.Resource, error) {
 	bitcoindResource, err := m.pool.RunWithOptions(
 		&dockertest.RunOptions{
-			Name:       bitcoindContainerName,
+			Name:       fmt.Sprintf("%s-%s", bitcoindContainerName, t.Name()),
 			Repository: m.cfg.BitcoindRepository,
 			Tag:        m.cfg.BitcoindVersion,
 			User:       "root:root",
+			Labels: map[string]string{
+				"e2e": "bitcoind",
+			},
 			Mounts: []string{
 				fmt.Sprintf("%s/:/data/.bitcoin", bitcoindCfgPath),
 			},
@@ -140,14 +159,6 @@ func (m *Manager) RunBitcoindResource(
 				"28333",
 				"18443",
 				"18444",
-			},
-			PortBindings: map[docker.Port][]docker.PortBinding{
-				"8332/tcp":  {{HostIP: "", HostPort: "8332"}},
-				"8333/tcp":  {{HostIP: "", HostPort: "8333"}},
-				"28332/tcp": {{HostIP: "", HostPort: "28332"}},
-				"28333/tcp": {{HostIP: "", HostPort: "28333"}},
-				"18443/tcp": {{HostIP: "", HostPort: "18443"}},
-				"18444/tcp": {{HostIP: "", HostPort: "18444"}},
 			},
 			Cmd: []string{
 				"-regtest",
@@ -160,6 +171,16 @@ func (m *Manager) RunBitcoindResource(
 				"-fallbackfee=0.0002",
 			},
 		},
+		func(config *docker.HostConfig) {
+			config.PortBindings = map[docker.Port][]docker.PortBinding{
+				"8332/tcp":  {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
+				"8333/tcp":  {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
+				"28332/tcp": {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
+				"28333/tcp": {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
+				"18443/tcp": {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
+				"18444/tcp": {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
+			}
+		},
 		noRestart,
 	)
 	if err != nil {
@@ -167,6 +188,66 @@ func (m *Manager) RunBitcoindResource(
 	}
 	m.resources[bitcoindContainerName] = bitcoindResource
 	return bitcoindResource, nil
+}
+
+// RunBabylondResource starts a babylond container
+func (m *Manager) RunBabylondResource(
+	t *testing.T,
+	mounthPath string,
+	baseHeaderHex string,
+	slashingPkScript string,
+	epochInterval uint,
+) (*dockertest.Resource, error) {
+	cmd := []string{
+		"sh", "-c", fmt.Sprintf(
+			"babylond testnet --v=1 --output-dir=/home --starting-ip-address=192.168.10.2 "+
+				"--keyring-backend=test --chain-id=chain-test --btc-finalization-timeout=4 "+
+				"--btc-confirmation-depth=2 --additional-sender-account --btc-network=regtest "+
+				"--min-staking-time-blocks=200 --min-staking-amount-sat=10000 "+
+				"--epoch-interval=%d --slashing-pk-script=%s --btc-base-header=%s "+
+				"--covenant-quorum=1 --covenant-pks=%s && chmod -R 777 /home && babylond start --home=/home/node0/babylond --log_level=debug",
+			epochInterval, slashingPkScript, baseHeaderHex, bbn.NewBIP340PubKeyFromBTCPK(covenantPK).MarshalHex()),
+	}
+
+	resource, err := m.pool.RunWithOptions(
+		&dockertest.RunOptions{
+			Name:       fmt.Sprintf("%s-%s", babylondContainerName, t.Name()),
+			Repository: m.cfg.BabylonRepository,
+			Tag:        m.cfg.BabylonVersion,
+			Labels: map[string]string{
+				"e2e": "babylond",
+			},
+			User: "root:root",
+			Mounts: []string{
+				fmt.Sprintf("%s/:/home/", mounthPath),
+			},
+			ExposedPorts: []string{
+				"1317",
+				"2345",
+				"9090",
+				"26656",
+				"26657",
+			},
+			Cmd: cmd,
+		},
+		func(config *docker.HostConfig) {
+			config.PortBindings = map[docker.Port][]docker.PortBinding{
+				"1317/tcp":  {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
+				"2345/tcp":  {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
+				"9090/tcp":  {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
+				"26656/tcp": {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
+				"26657/tcp": {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
+			}
+		},
+		noRestart,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	m.resources[babylondContainerName] = resource
+
+	return resource, nil
 }
 
 // ClearResources removes all outstanding Docker resources created by the Manager.
@@ -181,8 +262,43 @@ func (m *Manager) ClearResources() error {
 }
 
 func noRestart(config *docker.HostConfig) {
-	// in this case we don't want the nodes to restart on failure
+	// in this case, we don't want the nodes to restart on failure
 	config.RestartPolicy = docker.RestartPolicy{
 		Name: "no",
 	}
+}
+
+// randomAvailablePort tries to find an available TCP port on the localhost
+// by testing multiple random ports within a specified range.
+func randomAvailablePort(t *testing.T) int {
+	randPort := func(base, spread int) int {
+		return base + mrand.IntN(spread)
+	}
+
+	// Base port and spread range for port selection
+	const (
+		basePort  = 20000
+		portRange = 20000
+	)
+
+	// Seed the random number generator to ensure randomness
+	rand.Seed(time.Now().UnixNano())
+
+	// Try up to 10 times to find an available port
+	for i := 0; i < 10; i++ {
+		port := randPort(basePort, portRange)
+		listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+		if err != nil {
+			continue
+		}
+		if err := listener.Close(); err != nil {
+			continue
+		}
+
+		return port
+	}
+
+	// If no available port was found, fail the test
+	t.Fatalf("failed to find an available port in range %d-%d", basePort, basePort+portRange)
+	return 0
 }
