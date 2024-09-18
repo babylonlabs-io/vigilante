@@ -23,6 +23,7 @@ import (
 )
 
 func TestSubmitterSubmission(t *testing.T) {
+	t.Parallel()
 	r := rand.New(rand.NewSource(time.Now().Unix()))
 	numMatureOutputs := uint32(300)
 
@@ -97,6 +98,7 @@ func TestSubmitterSubmission(t *testing.T) {
 }
 
 func TestSubmitterSubmissionReplace(t *testing.T) {
+	t.Parallel()
 	r := rand.New(rand.NewSource(time.Now().Unix()))
 	numMatureOutputs := uint32(300)
 
