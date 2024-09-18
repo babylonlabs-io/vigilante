@@ -140,8 +140,7 @@ func TestAtomicSlasher(t *testing.T) {
 // TestAtomicSlasher_Unbonding tests the atomic slasher's handling of unbonding BTC delegations,
 // including the creation and detection of unbonding slashing transactions.
 func TestAtomicSlasher_Unbonding(t *testing.T) {
-	t.Skip()
-	//t.Parallel()
+	t.Parallel()
 	// segwit is activated at height 300. It's needed by staking/slashing tx
 	numMatureOutputs := uint32(300)
 
