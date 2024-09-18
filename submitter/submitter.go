@@ -202,9 +202,12 @@ func (s *Submitter) processCheckpoints() {
 		select {
 		case ckpt := <-s.poller.GetSealedCheckpointChan():
 			s.logger.Infof("A sealed raw checkpoint for epoch %v is found", ckpt.Ckpt.EpochNum)
-			err := s.relayer.SendCheckpointToBTC(ckpt)
-			if err != nil {
+			if err := s.relayer.SendCheckpointToBTC(ckpt); err != nil {
 				s.logger.Errorf("Failed to submit the raw checkpoint for %v: %v", ckpt.Ckpt.EpochNum, err)
+				s.metrics.FailedCheckpointsCounter.Inc()
+			}
+			if err := s.relayer.ResubmitSecondCheckpointTx(ckpt); err != nil {
+				s.logger.Errorf("Failed to resubmit the raw checkpoint for %v: %v", ckpt.Ckpt.EpochNum, err)
 				s.metrics.FailedCheckpointsCounter.Inc()
 			}
 			s.metrics.SecondsSinceLastCheckpointGauge.Set(0)
