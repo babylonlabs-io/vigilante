@@ -20,6 +20,7 @@ import (
 )
 
 func TestUnbondingWatcher(t *testing.T) {
+	t.Parallel()
 	// segwit is activated at height 300. It's needed by staking/slashing tx
 	numMatureOutputs := uint32(300)
 

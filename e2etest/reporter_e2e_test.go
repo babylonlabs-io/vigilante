@@ -54,6 +54,7 @@ func (tm *TestManager) GenerateAndSubmitBlockNBlockStartingFromDepth(t *testing.
 }
 
 func TestReporter_BoostrapUnderFrequentBTCHeaders(t *testing.T) {
+	t.Parallel()
 	// no need to much mature outputs, we are not going to submit transactions in this test
 	numMatureOutputs := uint32(150)
 
@@ -117,6 +118,7 @@ func TestReporter_BoostrapUnderFrequentBTCHeaders(t *testing.T) {
 }
 
 func TestRelayHeadersAndHandleRollbacks(t *testing.T) {
+	t.Parallel()
 	// no need to much mature outputs, we are not going to submit transactions in this test
 	numMatureOutputs := uint32(150)
 
@@ -168,6 +170,7 @@ func TestRelayHeadersAndHandleRollbacks(t *testing.T) {
 }
 
 func TestHandleReorgAfterRestart(t *testing.T) {
+	t.Parallel()
 	// no need to much mature outputs, we are not going to submit transactions in this test
 	numMatureOutputs := uint32(150)
 
