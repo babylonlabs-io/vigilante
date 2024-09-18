@@ -25,8 +25,7 @@ const (
 )
 
 var (
-	// jury
-	_, juryPK = btcec.PrivKeyFromBytes(
+	_, covenantPK = btcec.PrivKeyFromBytes(
 		[]byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 	)
 )
@@ -207,7 +206,7 @@ func (m *Manager) RunBabylondResource(
 				"--min-staking-time-blocks=200 --min-staking-amount-sat=10000 "+
 				"--epoch-interval=%d --slashing-pk-script=%s --btc-base-header=%s "+
 				"--covenant-quorum=1 --covenant-pks=%s && chmod -R 777 /home && babylond start --home=/home/node0/babylond --log_level=debug",
-			epochInterval, slashingPkScript, baseHeaderHex, bbn.NewBIP340PubKeyFromBTCPK(juryPK).MarshalHex()),
+			epochInterval, slashingPkScript, baseHeaderHex, bbn.NewBIP340PubKeyFromBTCPK(covenantPK).MarshalHex()),
 	}
 
 	resource, err := m.pool.RunWithOptions(
@@ -218,7 +217,7 @@ func (m *Manager) RunBabylondResource(
 			Labels: map[string]string{
 				"e2e": "babylond",
 			},
-			//User: "root:root",
+			User: "root:root",
 			Mounts: []string{
 				fmt.Sprintf("%s/:/home/", mounthPath),
 			},
@@ -255,7 +254,7 @@ func (m *Manager) RunBabylondResource(
 func (m *Manager) ClearResources() error {
 	for _, resource := range m.resources {
 		if err := m.pool.Purge(resource); err != nil {
-			continue
+			return err
 		}
 	}
 
