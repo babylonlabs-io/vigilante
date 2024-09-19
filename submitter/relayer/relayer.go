@@ -10,6 +10,7 @@ import (
 	"github.com/lightningnetwork/lnd/kvdb"
 	"math"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/babylonlabs-io/babylon/btctxformatter"
@@ -31,6 +32,10 @@ import (
 const (
 	changePosition                = 1
 	dustThreshold  btcutil.Amount = 546
+)
+
+var (
+	TxNotFoundErr = errors.New("-5: No such mempool or blockchain transaction. Use gettransaction for wallet transactions")
 )
 
 type GetLatestCheckpointFunc func() (*store.StoredCheckpoint, bool, error)
@@ -247,6 +252,10 @@ func (rl *Relayer) calculateBumpedFee(ckptInfo *types.CheckpointInfo) btcutil.Am
 
 // resendSecondTxOfCheckpointToBTC resends the second tx of the checkpoint with bumpedFee
 func (rl *Relayer) resendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bumpedFee btcutil.Amount) (*types.BtcTxInfo, error) {
+	if err := rl.checkFees(); err != nil {
+		return nil, err
+	}
+
 	// set output value of the second tx to be the balance minus the bumped fee
 	// if the bumped fee is higher than the balance, then set the bumped fee to
 	// be equal to the balance to ensure the output value is not negative
@@ -277,6 +286,44 @@ func (rl *Relayer) resendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bumpedF
 	tx2.TxId = txID
 
 	return tx2, nil
+}
+
+func (rl *Relayer) checkFees() error {
+	tx, err := rl.GetRawTransaction(rl.lastSubmittedCheckpoint.Tx2.TxId)
+	if err != nil {
+		if strings.Contains(err.Error(), TxNotFoundErr.Error()) {
+			return nil
+		}
+		return err
+	}
+
+	var totalInputValue int64
+	for _, vin := range tx.MsgTx().TxIn {
+		prevTx, err := rl.GetRawTransaction(&vin.PreviousOutPoint.Hash)
+		if err != nil {
+			return err
+		}
+
+		prevOut := prevTx.MsgTx().TxOut[vin.PreviousOutPoint.Index]
+		totalInputValue += prevOut.Value
+	}
+
+	var totalOutputValue int64
+	for _, vout := range tx.MsgTx().TxOut {
+		totalOutputValue += vout.Value
+	}
+
+	fee, err := btcutil.NewAmount(float64(totalInputValue - totalOutputValue))
+	if err != nil {
+		return err
+	}
+
+	tx2Fee := rl.lastSubmittedCheckpoint.Tx2.Fee
+	if fee.ToUnit(8) < tx2Fee.ToBTC() {
+		return fmt.Errorf("fee missmatch expected higher got %v expected %v", fee, tx2Fee)
+	}
+
+	return nil
 }
 
 // calcMinRelayFee returns the minimum transaction fee required for a
