@@ -6,7 +6,6 @@ import (
 	"fmt"
 	bbn "github.com/babylonlabs-io/babylon/types"
 	"github.com/btcsuite/btcd/btcec/v2"
-	"github.com/cometbft/cometbft/libs/rand"
 	"net"
 	"regexp"
 	"strconv"
@@ -263,11 +262,8 @@ func randomAvailablePort(t *testing.T) int {
 	// Base port and spread range for port selection
 	const (
 		basePort  = 20000
-		portRange = 20000
+		portRange = 30000
 	)
-
-	// Seed the random number generator to ensure randomness
-	rand.Seed(time.Now().UnixNano())
 
 	// Try up to 10 times to find an available port
 	for i := 0; i < 10; i++ {
@@ -276,6 +272,10 @@ func randomAvailablePort(t *testing.T) int {
 		if err != nil {
 			continue
 		}
+
+		// listen on a port for a bit before closing, this should be just enough time for when other tests start
+		// when they try to net.Listen they should get an err and try a different port
+		time.Sleep(200 * time.Millisecond)
 		if err := listener.Close(); err != nil {
 			continue
 		}
