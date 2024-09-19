@@ -154,23 +154,24 @@ func (rl *Relayer) SendCheckpointToBTC(ckpt *ckpttypes.RawCheckpointWithMetaResp
 		return nil
 	}
 
+	return nil
+}
+
+// MaybeResubmitSecondCheckpointTx based on the resend interval attempts to resubmit 2nd ckpt tx with a bumped fee
+func (rl *Relayer) MaybeResubmitSecondCheckpointTx(ckpt *ckpttypes.RawCheckpointWithMetaResponse) error {
+	ckptEpoch := ckpt.Ckpt.EpochNum
+	if ckpt.Status != ckpttypes.Sealed {
+		rl.logger.Errorf("The checkpoint for epoch %v is not sealed", ckptEpoch)
+		rl.metrics.InvalidCheckpointCounter.Inc()
+		return nil
+	}
+
 	lastSubmittedEpoch := rl.lastSubmittedCheckpoint.Epoch
 	if ckptEpoch < lastSubmittedEpoch {
 		rl.logger.Errorf("The checkpoint for epoch %v is lower than the last submission for epoch %v",
 			ckptEpoch, lastSubmittedEpoch)
 		rl.metrics.InvalidCheckpointCounter.Inc()
 		// we do not consider this case as a failed submission but a software bug
-		return nil
-	}
-
-	return nil
-}
-
-func (rl *Relayer) MaybeResubmitSecondCheckpointTx(ckpt *ckpttypes.RawCheckpointWithMetaResponse) error {
-	ckptEpoch := ckpt.Ckpt.EpochNum
-	if ckpt.Status != ckpttypes.Sealed {
-		rl.logger.Errorf("The checkpoint for epoch %v is not sealed", ckptEpoch)
-		rl.metrics.InvalidCheckpointCounter.Inc()
 		return nil
 	}
 
@@ -252,8 +253,14 @@ func (rl *Relayer) calculateBumpedFee(ckptInfo *types.CheckpointInfo) btcutil.Am
 
 // resendSecondTxOfCheckpointToBTC resends the second tx of the checkpoint with bumpedFee
 func (rl *Relayer) resendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bumpedFee btcutil.Amount) (*types.BtcTxInfo, error) {
-	if err := rl.checkFees(); err != nil {
+	found, err := rl.inMempool()
+	if err != nil {
 		return nil, err
+	}
+
+	// No need to resend, transaction already confirmed
+	if !found {
+		return nil, nil
 	}
 
 	// set output value of the second tx to be the balance minus the bumped fee
@@ -288,42 +295,18 @@ func (rl *Relayer) resendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bumpedF
 	return tx2, nil
 }
 
-func (rl *Relayer) checkFees() error {
-	tx, err := rl.GetRawTransaction(rl.lastSubmittedCheckpoint.Tx2.TxId)
+func (rl *Relayer) inMempool() (bool, error) {
+	_, err := rl.GetRawTransaction(rl.lastSubmittedCheckpoint.Tx2.TxId)
 	if err != nil {
 		if strings.Contains(err.Error(), TxNotFoundErr.Error()) {
-			return nil
+			return false, nil
 		}
-		return err
+		// Return the error if it's not a "not found" error
+		return false, err
 	}
 
-	var totalInputValue int64
-	for _, vin := range tx.MsgTx().TxIn {
-		prevTx, err := rl.GetRawTransaction(&vin.PreviousOutPoint.Hash)
-		if err != nil {
-			return err
-		}
-
-		prevOut := prevTx.MsgTx().TxOut[vin.PreviousOutPoint.Index]
-		totalInputValue += prevOut.Value
-	}
-
-	var totalOutputValue int64
-	for _, vout := range tx.MsgTx().TxOut {
-		totalOutputValue += vout.Value
-	}
-
-	fee, err := btcutil.NewAmount(float64(totalInputValue - totalOutputValue))
-	if err != nil {
-		return err
-	}
-
-	tx2Fee := rl.lastSubmittedCheckpoint.Tx2.Fee
-	if fee.ToUnit(8) < tx2Fee.ToBTC() {
-		return fmt.Errorf("fee missmatch expected higher got %v expected %v", fee, tx2Fee)
-	}
-
-	return nil
+	// the transaction is in the mempool
+	return true, nil
 }
 
 // calcMinRelayFee returns the minimum transaction fee required for a
