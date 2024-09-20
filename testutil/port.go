@@ -2,7 +2,7 @@ package testutil
 
 import (
 	"fmt"
-	"math/rand"
+	mrand "math/rand/v2"
 	"net"
 	"sync"
 	"testing"
@@ -18,7 +18,7 @@ var (
 // by testing multiple random ports within a specified range.
 func AllocateUniquePort(t *testing.T) int {
 	randPort := func(base, spread int) int {
-		return base + rand.Intn(spread)
+		return base + mrand.IntN(spread)
 	}
 
 	// Base port and spread range for port selection
