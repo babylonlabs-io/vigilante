@@ -253,13 +253,16 @@ func (rl *Relayer) calculateBumpedFee(ckptInfo *types.CheckpointInfo) btcutil.Am
 
 // resendSecondTxOfCheckpointToBTC resends the second tx of the checkpoint with bumpedFee
 func (rl *Relayer) resendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bumpedFee btcutil.Amount) (*types.BtcTxInfo, error) {
-	found, err := rl.inMempool()
+	_, status, err := rl.TxDetails(rl.lastSubmittedCheckpoint.Tx2.TxId,
+		rl.lastSubmittedCheckpoint.Tx2.Tx.TxOut[changePosition].PkScript)
 	if err != nil {
 		return nil, err
 	}
 
 	// No need to resend, transaction already confirmed
-	if !found {
+	if status != btcclient.TxInMemPool && status != btcclient.TxNotFound {
+		rl.logger.Debugf("Transaction %v is already confirmed or has an unexpected state: %v",
+			rl.lastSubmittedCheckpoint.Tx2.TxId, status)
 		return nil, nil
 	}
 
