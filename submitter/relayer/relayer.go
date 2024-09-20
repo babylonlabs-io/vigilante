@@ -10,7 +10,6 @@ import (
 	"github.com/lightningnetwork/lnd/kvdb"
 	"math"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/babylonlabs-io/babylon/btctxformatter"
@@ -296,20 +295,6 @@ func (rl *Relayer) resendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bumpedF
 	tx2.TxId = txID
 
 	return tx2, nil
-}
-
-func (rl *Relayer) inMempool() (bool, error) {
-	_, err := rl.GetRawTransaction(rl.lastSubmittedCheckpoint.Tx2.TxId)
-	if err != nil {
-		if strings.Contains(err.Error(), TxNotFoundErr.Error()) {
-			return false, nil
-		}
-		// Return the error if it's not a "not found" error
-		return false, err
-	}
-
-	// the transaction is in the mempool
-	return true, nil
 }
 
 // calcMinRelayFee returns the minimum transaction fee required for a
