@@ -7,6 +7,7 @@ package mocks
 import (
 	reflect "reflect"
 
+	btcclient "github.com/babylonlabs-io/vigilante/btcclient"
 	config "github.com/babylonlabs-io/vigilante/config"
 	types "github.com/babylonlabs-io/vigilante/types"
 	btcjson "github.com/btcsuite/btcd/btcjson"
@@ -15,6 +16,7 @@ import (
 	chainhash "github.com/btcsuite/btcd/chaincfg/chainhash"
 	wire "github.com/btcsuite/btcd/wire"
 	gomock "github.com/golang/mock/gomock"
+	chainntnfs "github.com/lightningnetwork/lnd/chainntnfs"
 )
 
 // MockBTCClient is a mock of BTCClient interface.
@@ -397,6 +399,22 @@ func (m *MockBTCWallet) Stop() {
 func (mr *MockBTCWalletMockRecorder) Stop() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockBTCWallet)(nil).Stop))
+}
+
+// TxDetails mocks base method.
+func (m *MockBTCWallet) TxDetails(txHash *chainhash.Hash, pkScript []byte) (*chainntnfs.TxConfirmation, btcclient.TxStatus, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TxDetails", txHash, pkScript)
+	ret0, _ := ret[0].(*chainntnfs.TxConfirmation)
+	ret1, _ := ret[1].(btcclient.TxStatus)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// TxDetails indicates an expected call of TxDetails.
+func (mr *MockBTCWalletMockRecorder) TxDetails(txHash, pkScript interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TxDetails", reflect.TypeOf((*MockBTCWallet)(nil).TxDetails), txHash, pkScript)
 }
 
 // WalletPassphrase mocks base method.

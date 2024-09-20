@@ -6,6 +6,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
+	notifier "github.com/lightningnetwork/lnd/chainntnfs"
 
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/types"
@@ -39,4 +40,5 @@ type BTCWallet interface {
 	FundRawTransaction(tx *wire.MsgTx, opts btcjson.FundRawTransactionOpts, isWitness *bool) (*btcjson.FundRawTransactionResult, error)
 	SignRawTransactionWithWallet(tx *wire.MsgTx) (*wire.MsgTx, bool, error)
 	GetRawTransaction(txHash *chainhash.Hash) (*btcutil.Tx, error)
+	TxDetails(txHash *chainhash.Hash, pkScript []byte) (*notifier.TxConfirmation, TxStatus, error)
 }

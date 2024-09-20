@@ -33,6 +33,10 @@ const (
 	dustThreshold  btcutil.Amount = 546
 )
 
+var (
+	TxNotFoundErr = errors.New("-5: No such mempool or blockchain transaction. Use gettransaction for wallet transactions")
+)
+
 type GetLatestCheckpointFunc func() (*store.StoredCheckpoint, bool, error)
 type GetRawTransactionFunc func(txHash *chainhash.Hash) (*btcutil.Tx, error)
 type SendTransactionFunc func(tx *wire.MsgTx) (*chainhash.Hash, error)
@@ -149,6 +153,18 @@ func (rl *Relayer) SendCheckpointToBTC(ckpt *ckpttypes.RawCheckpointWithMetaResp
 		return nil
 	}
 
+	return nil
+}
+
+// MaybeResubmitSecondCheckpointTx based on the resend interval attempts to resubmit 2nd ckpt tx with a bumped fee
+func (rl *Relayer) MaybeResubmitSecondCheckpointTx(ckpt *ckpttypes.RawCheckpointWithMetaResponse) error {
+	ckptEpoch := ckpt.Ckpt.EpochNum
+	if ckpt.Status != ckpttypes.Sealed {
+		rl.logger.Errorf("The checkpoint for epoch %v is not sealed", ckptEpoch)
+		rl.metrics.InvalidCheckpointCounter.Inc()
+		return nil
+	}
+
 	lastSubmittedEpoch := rl.lastSubmittedCheckpoint.Epoch
 	if ckptEpoch < lastSubmittedEpoch {
 		rl.logger.Errorf("The checkpoint for epoch %v is lower than the last submission for epoch %v",
@@ -158,55 +174,51 @@ func (rl *Relayer) SendCheckpointToBTC(ckpt *ckpttypes.RawCheckpointWithMetaResp
 		return nil
 	}
 
-	// now that the checkpoint has been sent, we should try to resend it
-	// if the resend interval has passed
 	durSeconds := uint(time.Since(rl.lastSubmittedCheckpoint.Ts).Seconds())
-	if durSeconds >= rl.config.ResendIntervalSeconds {
-		rl.logger.Debugf("The checkpoint for epoch %v was sent more than %v seconds ago but not included on BTC",
-			ckptEpoch, rl.config.ResendIntervalSeconds)
-
-		bumpedFee := rl.calculateBumpedFee(rl.lastSubmittedCheckpoint)
-
-		// make sure the bumped fee is effective
-		if !rl.shouldResendCheckpoint(rl.lastSubmittedCheckpoint, bumpedFee) {
-			return nil
-		}
-
-		rl.logger.Debugf("Resending the second tx of the checkpoint %v, old fee of the second tx: %v Satoshis, txid: %s",
-			ckptEpoch, rl.lastSubmittedCheckpoint.Tx2.Fee, rl.lastSubmittedCheckpoint.Tx2.TxId.String())
-
-		resubmittedTx2, err := rl.resendSecondTxOfCheckpointToBTC(rl.lastSubmittedCheckpoint.Tx2, bumpedFee)
-		if err != nil {
-			rl.metrics.FailedResentCheckpointsCounter.Inc()
-			return fmt.Errorf("failed to re-send the second tx of the checkpoint %v: %w", rl.lastSubmittedCheckpoint.Epoch, err)
-		}
-
-		// record the metrics of the resent tx2
-		rl.metrics.NewSubmittedCheckpointSegmentGaugeVec.WithLabelValues(
-			strconv.Itoa(int(ckptEpoch)),
-			"1",
-			resubmittedTx2.TxId.String(),
-			strconv.Itoa(int(resubmittedTx2.Fee)),
-		).SetToCurrentTime()
-		rl.metrics.ResentCheckpointsCounter.Inc()
-
-		rl.logger.Infof("Successfully re-sent the second tx of the checkpoint %v, txid: %s, bumped fee: %v Satoshis",
-			rl.lastSubmittedCheckpoint.Epoch, resubmittedTx2.TxId.String(), resubmittedTx2.Fee)
-
-		// update the second tx of the last submitted checkpoint as it is replaced
-		rl.lastSubmittedCheckpoint.Tx2 = resubmittedTx2
-
-		err = storeCkptFunc(
-			rl.lastSubmittedCheckpoint.Tx1.Tx,
-			rl.lastSubmittedCheckpoint.Tx2.Tx,
-			rl.lastSubmittedCheckpoint.Epoch,
-		)
-		if err != nil {
-			return err
-		}
+	if durSeconds < rl.config.ResendIntervalSeconds {
+		return nil
 	}
 
-	return nil
+	rl.logger.Debugf("The checkpoint for epoch %v was sent more than %v seconds ago but not included on BTC",
+		ckptEpoch, rl.config.ResendIntervalSeconds)
+
+	bumpedFee := rl.calculateBumpedFee(rl.lastSubmittedCheckpoint)
+
+	// make sure the bumped fee is effective
+	if !rl.shouldResendCheckpoint(rl.lastSubmittedCheckpoint, bumpedFee) {
+		return nil
+	}
+
+	rl.logger.Debugf("Resending the second tx of the checkpoint %v, old fee of the second tx: %v Satoshis, txid: %s",
+		ckptEpoch, rl.lastSubmittedCheckpoint.Tx2.Fee, rl.lastSubmittedCheckpoint.Tx2.TxId.String())
+
+	resubmittedTx2, err := rl.resendSecondTxOfCheckpointToBTC(rl.lastSubmittedCheckpoint.Tx2, bumpedFee)
+	if err != nil {
+		rl.metrics.FailedResentCheckpointsCounter.Inc()
+		return fmt.Errorf("failed to re-send the second tx of the checkpoint %v: %w", rl.lastSubmittedCheckpoint.Epoch, err)
+	}
+
+	// record the metrics of the resent tx2
+	rl.metrics.NewSubmittedCheckpointSegmentGaugeVec.WithLabelValues(
+		strconv.Itoa(int(ckptEpoch)),
+		"1",
+		resubmittedTx2.TxId.String(),
+		strconv.Itoa(int(resubmittedTx2.Fee)),
+	).SetToCurrentTime()
+	rl.metrics.ResentCheckpointsCounter.Inc()
+
+	rl.logger.Infof("Successfully re-sent the second tx of the checkpoint %v, txid: %s, bumped fee: %v Satoshis",
+		rl.lastSubmittedCheckpoint.Epoch, resubmittedTx2.TxId.String(), resubmittedTx2.Fee)
+
+	// update the second tx of the last submitted checkpoint as it is replaced
+	rl.lastSubmittedCheckpoint.Tx2 = resubmittedTx2
+
+	storedCkpt := store.NewStoredCheckpoint(
+		rl.lastSubmittedCheckpoint.Tx1.Tx,
+		rl.lastSubmittedCheckpoint.Tx2.Tx,
+		rl.lastSubmittedCheckpoint.Epoch,
+	)
+	return rl.store.PutCheckpoint(storedCkpt)
 }
 
 func (rl *Relayer) shouldSendCompleteCkpt(ckptEpoch uint64) bool {
@@ -240,6 +252,18 @@ func (rl *Relayer) calculateBumpedFee(ckptInfo *types.CheckpointInfo) btcutil.Am
 
 // resendSecondTxOfCheckpointToBTC resends the second tx of the checkpoint with bumpedFee
 func (rl *Relayer) resendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bumpedFee btcutil.Amount) (*types.BtcTxInfo, error) {
+	_, status, err := rl.TxDetails(rl.lastSubmittedCheckpoint.Tx2.TxId,
+		rl.lastSubmittedCheckpoint.Tx2.Tx.TxOut[changePosition].PkScript)
+	if err != nil {
+		return nil, err
+	}
+
+	// No need to resend, transaction already confirmed
+	if status == btcclient.TxInChain {
+		rl.logger.Debugf("Transaction %v is already confirmed", rl.lastSubmittedCheckpoint.Tx2.TxId)
+		return nil, nil
+	}
+
 	// set output value of the second tx to be the balance minus the bumped fee
 	// if the bumped fee is higher than the balance, then set the bumped fee to
 	// be equal to the balance to ensure the output value is not negative
