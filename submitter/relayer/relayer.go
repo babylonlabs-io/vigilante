@@ -259,9 +259,8 @@ func (rl *Relayer) resendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bumpedF
 	}
 
 	// No need to resend, transaction already confirmed
-	if status != btcclient.TxInMemPool && status != btcclient.TxNotFound {
-		rl.logger.Debugf("Transaction %v is already confirmed or has an unexpected state: %v",
-			rl.lastSubmittedCheckpoint.Tx2.TxId, status)
+	if status == btcclient.TxInChain {
+		rl.logger.Debugf("Transaction %v is already confirmed", rl.lastSubmittedCheckpoint.Tx2.TxId)
 		return nil, nil
 	}
 
