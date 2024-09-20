@@ -194,7 +194,7 @@ func (m *Manager) RunBabylondResource(
 				"--btc-confirmation-depth=2 --additional-sender-account --btc-network=regtest "+
 				"--min-staking-time-blocks=200 --min-staking-amount-sat=10000 "+
 				"--epoch-interval=%d --slashing-pk-script=%s --btc-base-header=%s "+
-				"--covenant-quorum=1 --covenant-pks=%s && chmod -R 777 /home && babylond start --home=/home/node0/babylond --log_level=debug",
+				"--covenant-quorum=1 --covenant-pks=%s && chmod -R 777 /home && babylond start --home=/home/node0/babylond",
 			epochInterval, slashingPkScript, baseHeaderHex, bbn.NewBIP340PubKeyFromBTCPK(covenantPK).MarshalHex()),
 	}
 

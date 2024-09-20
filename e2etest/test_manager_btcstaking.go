@@ -376,21 +376,24 @@ func (tm *TestManager) VoteAndEquivocate(t *testing.T, fpSK *btcec.PrivateKey) {
 		commit a number of public randomness since activatedHeight
 	*/
 	// commit public randomness list
-	require.Eventually(t, func() bool {
-		// need to wait for activatedHeight to not return error
-		_, err := tm.BabylonClient.ActivatedHeight()
-		return err == nil
-	}, eventuallyWaitTimeOut, eventuallyPollTime)
+	//require.Eventually(t, func() bool {
+	//	// need to wait for activatedHeight to not return error
+	//	_, err := tm.BabylonClient.ActivatedHeight()
+	//	return err == nil
+	//}, eventuallyWaitTimeOut, eventuallyPollTime)
 
-	activatedHeightResp, err := tm.BabylonClient.ActivatedHeight()
-	require.NoError(t, err)
-	activatedHeight := activatedHeightResp.Height
+	_, err = tm.BabylonClient.ActivatedHeight()
+	require.Error(t, err)
+
+	activatedHeight := uint64(1)
 	srList, msgCommitPubRandList, err := datagen.GenRandomMsgCommitPubRandList(r, fpSK, activatedHeight, 100)
 	require.NoError(t, err)
 	msgCommitPubRandList.Signer = signerAddr
 	_, err = tm.BabylonClient.ReliablySendMsg(context.Background(), msgCommitPubRandList, nil, nil)
 	require.NoError(t, err)
 	t.Logf("committed public randomness")
+
+	tm.mineBlock(t)
 
 	/*
 		submit finality signature
