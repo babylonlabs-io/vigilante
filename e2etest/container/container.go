@@ -5,9 +5,8 @@ import (
 	"context"
 	"fmt"
 	bbn "github.com/babylonlabs-io/babylon/types"
+	"github.com/babylonlabs-io/vigilante/testutil"
 	"github.com/btcsuite/btcd/btcec/v2"
-	"github.com/cometbft/cometbft/libs/rand"
-	"net"
 	"regexp"
 	"strconv"
 	"testing"
@@ -16,7 +15,6 @@ import (
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
-	mrand "math/rand/v2"
 )
 
 const (
@@ -168,7 +166,7 @@ func (m *Manager) RunBitcoindResource(
 		},
 		func(config *docker.HostConfig) {
 			config.PortBindings = map[docker.Port][]docker.PortBinding{
-				"18443/tcp": {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}}, // only expose what we need
+				"18443/tcp": {{HostIP: "", HostPort: strconv.Itoa(testutil.AllocateUniquePort(t))}}, // only expose what we need
 			}
 			config.PublishAllPorts = false // because in dockerfile they already expose them
 		},
@@ -220,8 +218,8 @@ func (m *Manager) RunBabylondResource(
 		},
 		func(config *docker.HostConfig) {
 			config.PortBindings = map[docker.Port][]docker.PortBinding{
-				"9090/tcp":  {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
-				"26657/tcp": {{HostIP: "", HostPort: strconv.Itoa(randomAvailablePort(t))}},
+				"9090/tcp":  {{HostIP: "", HostPort: strconv.Itoa(testutil.AllocateUniquePort(t))}},
+				"26657/tcp": {{HostIP: "", HostPort: strconv.Itoa(testutil.AllocateUniquePort(t))}},
 			}
 		},
 		noRestart,
@@ -251,39 +249,4 @@ func noRestart(config *docker.HostConfig) {
 	config.RestartPolicy = docker.RestartPolicy{
 		Name: "no",
 	}
-}
-
-// randomAvailablePort tries to find an available TCP port on the localhost
-// by testing multiple random ports within a specified range.
-func randomAvailablePort(t *testing.T) int {
-	randPort := func(base, spread int) int {
-		return base + mrand.IntN(spread)
-	}
-
-	// Base port and spread range for port selection
-	const (
-		basePort  = 20000
-		portRange = 20000
-	)
-
-	// Seed the random number generator to ensure randomness
-	rand.Seed(time.Now().UnixNano())
-
-	// Try up to 10 times to find an available port
-	for i := 0; i < 10; i++ {
-		port := randPort(basePort, portRange)
-		listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
-		if err != nil {
-			continue
-		}
-		if err := listener.Close(); err != nil {
-			continue
-		}
-
-		return port
-	}
-
-	// If no available port was found, fail the test
-	t.Fatalf("failed to find an available port in range %d-%d", basePort, basePort+portRange)
-	return 0
 }
