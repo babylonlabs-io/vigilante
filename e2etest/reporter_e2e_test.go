@@ -54,7 +54,6 @@ func (tm *TestManager) GenerateAndSubmitBlockNBlockStartingFromDepth(t *testing.
 }
 
 func TestReporter_BoostrapUnderFrequentBTCHeaders(t *testing.T) {
-	t.Skip()
 	//t.Parallel() // todo(lazar): this test when run in parallel is very flaky, investigate why
 	// no need to much mature outputs, we are not going to submit transactions in this test
 	numMatureOutputs := uint32(150)
