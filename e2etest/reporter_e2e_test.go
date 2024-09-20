@@ -54,7 +54,7 @@ func (tm *TestManager) GenerateAndSubmitBlockNBlockStartingFromDepth(t *testing.
 }
 
 func TestReporter_BoostrapUnderFrequentBTCHeaders(t *testing.T) {
-	//t.Parallel() // todo(lazar): this test when run in parallel is very flaky, investigate why
+	t.Parallel()
 	// no need to much mature outputs, we are not going to submit transactions in this test
 	numMatureOutputs := uint32(150)
 
@@ -217,14 +217,11 @@ func TestHandleReorgAfterRestart(t *testing.T) {
 	// // we will start from block before tip and submit 2 new block this should trigger rollback
 	tm.GenerateAndSubmitBlockNBlockStartingFromDepth(t, 2, 1)
 
-	btcClient := initBTCClientWithSubscriber(t, tm.Config) //current tm.btcClient already has an active zmq subscription, would panic
-	defer btcClient.Stop()
-
 	// Start new reporter
 	vigilantReporterNew, err := reporter.New(
 		&tm.Config.Reporter,
 		logger,
-		btcClient,
+		tm.BTCClient,
 		tm.BabylonClient,
 		btcNotifier,
 		tm.Config.Common.RetrySleepTime,

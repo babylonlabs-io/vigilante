@@ -7,9 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/babylonlabs-io/vigilante/e2etest/container"
+	"github.com/babylonlabs-io/vigilante/testutil"
 	"github.com/btcsuite/btcd/txscript"
 	"go.uber.org/zap"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -130,7 +130,7 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 
 	// start Babylon node
 
-	tmpDir, err := tempDir(t)
+	tmpDir, err := testutil.TempDir(t)
 	require.NoError(t, err)
 
 	babylond, err := manager.RunBabylondResource(t, tmpDir, baseHeaderHex, hex.EncodeToString(pkScript), epochInterval)
@@ -272,21 +272,4 @@ func importPrivateKey(btcHandler *BitcoindTestHandler) (*btcec.PrivateKey, error
 	btcHandler.ImportDescriptors(string(descJSON))
 
 	return privKey, nil
-}
-
-func tempDir(t *testing.T) (string, error) {
-	tempPath, err := os.MkdirTemp(os.TempDir(), "babylon-test-*")
-	if err != nil {
-		return "", err
-	}
-
-	if err = os.Chmod(tempPath, 0777); err != nil {
-		return "", err
-	}
-
-	t.Cleanup(func() {
-		_ = os.RemoveAll(tempPath)
-	})
-
-	return tempPath, err
 }

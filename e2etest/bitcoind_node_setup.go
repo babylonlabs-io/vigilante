@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/babylonlabs-io/vigilante/e2etest/container"
+	"github.com/babylonlabs-io/vigilante/testutil"
 	"github.com/ory/dockertest/v3"
 	"github.com/stretchr/testify/require"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -42,12 +42,8 @@ func NewBitcoindHandler(t *testing.T, manager *container.Manager) *BitcoindTestH
 }
 
 func (h *BitcoindTestHandler) Start(t *testing.T) *dockertest.Resource {
-	tempPath, err := os.MkdirTemp("", "vigilante-test-*")
+	tempPath, err := testutil.TempDir(t)
 	require.NoError(h.t, err)
-
-	h.t.Cleanup(func() {
-		_ = os.RemoveAll(tempPath)
-	})
 
 	bitcoinResource, err := h.m.RunBitcoindResource(t, tempPath)
 	require.NoError(h.t, err)
