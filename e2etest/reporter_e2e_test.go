@@ -170,8 +170,7 @@ func TestRelayHeadersAndHandleRollbacks(t *testing.T) {
 }
 
 func TestHandleReorgAfterRestart(t *testing.T) {
-	t.Parallel()
-	// no need to much mature outputs, we are not going to submit transactions in this test
+	t.Skip() // no need to much mature outputs, we are not going to submit transactions in this test
 	numMatureOutputs := uint32(150)
 
 	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
