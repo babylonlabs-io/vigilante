@@ -8,13 +8,12 @@ import (
 	"fmt"
 	"github.com/babylonlabs-io/vigilante/e2etest/container"
 	"github.com/btcsuite/btcd/txscript"
+	pv "github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
-
-	pv "github.com/cosmos/relayer/v2/relayer/provider"
 
 	bbnclient "github.com/babylonlabs-io/babylon/client/client"
 	bbn "github.com/babylonlabs-io/babylon/types"
