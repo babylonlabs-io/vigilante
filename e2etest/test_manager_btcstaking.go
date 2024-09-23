@@ -375,12 +375,6 @@ func (tm *TestManager) VoteAndEquivocate(t *testing.T, fpSK *btcec.PrivateKey) {
 	/*
 		commit a number of public randomness since activatedHeight
 	*/
-	// commit public randomness list
-	//require.Eventually(t, func() bool {
-	//	// need to wait for activatedHeight to not return error
-	//	_, err := tm.BabylonClient.ActivatedHeight()
-	//	return err == nil
-	//}, eventuallyWaitTimeOut, eventuallyPollTime)
 
 	_, err = tm.BabylonClient.ActivatedHeight()
 	require.Error(t, err)
@@ -398,6 +392,14 @@ func (tm *TestManager) VoteAndEquivocate(t *testing.T, fpSK *btcec.PrivateKey) {
 	tm.mineBlock(t)
 
 	tm.WaitForFpPubRandTimestamped(t, fpSK.PubKey())
+
+	require.Eventually(t, func() bool {
+		_, err := tm.BabylonClient.ActivatedHeight()
+		if err != nil {
+			return false
+		}
+		return activatedHeight > 0
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
 	/*
 		submit finality signature
