@@ -18,6 +18,7 @@ func FuzzBootStrap(f *testing.F) {
 	datagen.AddRandomSeedsToFuzzer(f, 100)
 
 	f.Fuzz(func(t *testing.T, seed int64) {
+		t.Parallel()
 		r := rand.New(rand.NewSource(seed))
 		k := datagen.RandomIntOtherThan(r, 0, 10)
 		// Generate a random number of blocks
@@ -26,9 +27,10 @@ func FuzzBootStrap(f *testing.F) {
 		baseHeight := chainIndexedBlocks[0].Height
 		bestHeight := chainIndexedBlocks[len(chainIndexedBlocks)-1].Height
 		ctl := gomock.NewController(t)
+		defer ctl.Finish()
 		mockBtcClient := mocks.NewMockBTCClient(ctl)
 		confirmedBlocks := chainIndexedBlocks[:numBlocks-k]
-		mockBtcClient.EXPECT().GetBestBlock().Return(nil, uint64(bestHeight), nil)
+		mockBtcClient.EXPECT().GetBestBlock().Return(uint64(bestHeight), nil)
 		for i := 0; i < int(numBlocks); i++ {
 			mockBtcClient.EXPECT().GetBlockByHeight(gomock.Eq(uint64(chainIndexedBlocks[i].Height))).
 				Return(chainIndexedBlocks[i], nil, nil).AnyTimes()
@@ -36,20 +38,20 @@ func FuzzBootStrap(f *testing.F) {
 
 		cache, err := types.NewBTCCache(numBlocks)
 		require.NoError(t, err)
-		btcScanner := &btcscanner.BtcScanner{
-			BtcClient:             mockBtcClient,
-			BaseHeight:            uint64(baseHeight),
-			K:                     k,
-			ConfirmedBlocksChan:   make(chan *types.IndexedBlock),
-			UnconfirmedBlockCache: cache,
-		}
+		var btcScanner btcscanner.BtcScanner
+		btcScanner.SetBtcClient(mockBtcClient)
+		btcScanner.SetBaseHeight(uint64(baseHeight))
+		btcScanner.SetK(k)
+		btcScanner.SetConfirmedBlocksChan(make(chan *types.IndexedBlock))
+		btcScanner.SetUnconfirmedBlockCache(cache)
+
 		logger, err := config.NewRootLogger("auto", "debug")
 		require.NoError(t, err)
 		btcScanner.SetLogger(logger.Sugar())
 
 		go func() {
 			for i := 0; i < len(confirmedBlocks); i++ {
-				b := <-btcScanner.ConfirmedBlocksChan
+				b := <-btcScanner.GetConfirmedBlocksChan()
 				require.Equal(t, confirmedBlocks[i].BlockHash(), b.BlockHash())
 			}
 		}()

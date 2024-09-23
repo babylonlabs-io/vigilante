@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/babylonlabs-io/vigilante/retrywrap"
+	"github.com/lightningnetwork/lnd/kvdb"
 	"sync"
 	"time"
 
@@ -43,6 +44,7 @@ func New(
 	submitterAddr sdk.AccAddress,
 	retrySleepTime, maxRetrySleepTime time.Duration, maxRetryTimes uint,
 	submitterMetrics *metrics.SubmitterMetrics,
+	db kvdb.Backend,
 ) (*Submitter, error) {
 	logger := parentLogger.With(zap.String("module", "submitter"))
 	var (
@@ -85,6 +87,7 @@ func New(
 		est,
 		cfg,
 		logger,
+		db,
 	)
 
 	return &Submitter{
@@ -199,9 +202,12 @@ func (s *Submitter) processCheckpoints() {
 		select {
 		case ckpt := <-s.poller.GetSealedCheckpointChan():
 			s.logger.Infof("A sealed raw checkpoint for epoch %v is found", ckpt.Ckpt.EpochNum)
-			err := s.relayer.SendCheckpointToBTC(ckpt)
-			if err != nil {
+			if err := s.relayer.SendCheckpointToBTC(ckpt); err != nil {
 				s.logger.Errorf("Failed to submit the raw checkpoint for %v: %v", ckpt.Ckpt.EpochNum, err)
+				s.metrics.FailedCheckpointsCounter.Inc()
+			}
+			if err := s.relayer.MaybeResubmitSecondCheckpointTx(ckpt); err != nil {
+				s.logger.Errorf("Failed to resubmit the raw checkpoint for %v: %v", ckpt.Ckpt.EpochNum, err)
 				s.metrics.FailedCheckpointsCounter.Inc()
 			}
 			s.metrics.SecondsSinceLastCheckpointGauge.Set(0)
@@ -210,4 +216,8 @@ func (s *Submitter) processCheckpoints() {
 			return
 		}
 	}
+}
+
+func (s *Submitter) Metrics() *metrics.SubmitterMetrics {
+	return s.metrics
 }

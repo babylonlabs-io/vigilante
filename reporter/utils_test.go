@@ -96,6 +96,7 @@ func FuzzProcessCheckpoints(f *testing.F) {
 	datagen.AddRandomSeedsToFuzzer(f, 100)
 
 	f.Fuzz(func(t *testing.T, seed int64) {
+		t.Parallel()
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		r := rand.New(rand.NewSource(seed))

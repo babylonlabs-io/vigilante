@@ -7,6 +7,7 @@ package mocks
 import (
 	reflect "reflect"
 
+	btcclient "github.com/babylonlabs-io/vigilante/btcclient"
 	config "github.com/babylonlabs-io/vigilante/config"
 	types "github.com/babylonlabs-io/vigilante/types"
 	btcjson "github.com/btcsuite/btcd/btcjson"
@@ -15,6 +16,7 @@ import (
 	chainhash "github.com/btcsuite/btcd/chaincfg/chainhash"
 	wire "github.com/btcsuite/btcd/wire"
 	gomock "github.com/golang/mock/gomock"
+	chainntnfs "github.com/lightningnetwork/lnd/chainntnfs"
 )
 
 // MockBTCClient is a mock of BTCClient interface.
@@ -56,13 +58,12 @@ func (mr *MockBTCClientMockRecorder) FindTailBlocksByHeight(height interface{}) 
 }
 
 // GetBestBlock mocks base method.
-func (m *MockBTCClient) GetBestBlock() (*chainhash.Hash, uint64, error) {
+func (m *MockBTCClient) GetBestBlock() (uint64, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetBestBlock")
-	ret0, _ := ret[0].(*chainhash.Hash)
-	ret1, _ := ret[1].(uint64)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // GetBestBlock indicates an expected call of GetBestBlock.
@@ -284,6 +285,21 @@ func (mr *MockBTCWalletMockRecorder) GetRawChangeAddress(account interface{}) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRawChangeAddress", reflect.TypeOf((*MockBTCWallet)(nil).GetRawChangeAddress), account)
 }
 
+// GetRawTransaction mocks base method.
+func (m *MockBTCWallet) GetRawTransaction(txHash *chainhash.Hash) (*btcutil.Tx, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRawTransaction", txHash)
+	ret0, _ := ret[0].(*btcutil.Tx)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRawTransaction indicates an expected call of GetRawTransaction.
+func (mr *MockBTCWalletMockRecorder) GetRawTransaction(txHash interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRawTransaction", reflect.TypeOf((*MockBTCWallet)(nil).GetRawTransaction), txHash)
+}
+
 // GetWalletLockTime mocks base method.
 func (m *MockBTCWallet) GetWalletLockTime() int64 {
 	m.ctrl.T.Helper()
@@ -383,6 +399,22 @@ func (m *MockBTCWallet) Stop() {
 func (mr *MockBTCWalletMockRecorder) Stop() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockBTCWallet)(nil).Stop))
+}
+
+// TxDetails mocks base method.
+func (m *MockBTCWallet) TxDetails(txHash *chainhash.Hash, pkScript []byte) (*chainntnfs.TxConfirmation, btcclient.TxStatus, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TxDetails", txHash, pkScript)
+	ret0, _ := ret[0].(*chainntnfs.TxConfirmation)
+	ret1, _ := ret[1].(btcclient.TxStatus)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// TxDetails indicates an expected call of TxDetails.
+func (mr *MockBTCWalletMockRecorder) TxDetails(txHash, pkScript interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TxDetails", reflect.TypeOf((*MockBTCWallet)(nil).TxDetails), txHash, pkScript)
 }
 
 // WalletPassphrase mocks base method.

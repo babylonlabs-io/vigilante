@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package proto;
+
+option go_package = "github.com/babylonlabs-io/vigilante/proto";
+
+// StoredCheckpoint holds two transactions and an epoch number
+message StoredCheckpoint {
+  bytes tx1 = 1; // wire.MsgTx serialized as bytes
+  bytes tx2 = 2;
+  uint64 epoch = 3;
+}

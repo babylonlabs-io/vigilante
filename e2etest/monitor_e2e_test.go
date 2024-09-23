@@ -25,6 +25,7 @@ import (
 
 // TestMonitorBootstrap - validates that after a restart monitor bootstraps from DB
 func TestMonitorBootstrap(t *testing.T) {
+	t.Parallel()
 	numMatureOutputs := uint32(150)
 
 	tm := StartManager(t, numMatureOutputs, 2)
@@ -61,6 +62,7 @@ func TestMonitorBootstrap(t *testing.T) {
 		tm.Config.Common.MaxRetrySleepTime,
 		tm.Config.Common.MaxRetryTimes,
 		metrics.NewSubmitterMetrics(),
+		testutil.MakeTestBackend(t),
 	)
 
 	vigilantSubmitter.Start()

@@ -2,6 +2,7 @@ package btcclient
 
 import (
 	"fmt"
+	notifier "github.com/lightningnetwork/lnd/chainntnfs"
 
 	"github.com/btcsuite/btcd/btcjson"
 	"github.com/btcsuite/btcd/btcutil"
@@ -13,6 +14,17 @@ import (
 
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/netparams"
+)
+
+type TxStatus int
+
+const (
+	TxNotFound TxStatus = iota
+	TxInMemPool
+	TxInChain
+)
+const (
+	txNotFoundErrMsgBitcoind = "No such mempool or blockchain transaction"
 )
 
 // NewWallet creates a new BTC wallet
@@ -120,4 +132,47 @@ func (c *Client) FundRawTransaction(tx *wire.MsgTx, opts btcjson.FundRawTransact
 
 func (c *Client) SignRawTransactionWithWallet(tx *wire.MsgTx) (*wire.MsgTx, bool, error) {
 	return c.Client.SignRawTransactionWithWallet(tx)
+}
+
+func (c *Client) GetRawTransaction(txHash *chainhash.Hash) (*btcutil.Tx, error) {
+	return c.Client.GetRawTransaction(txHash)
+}
+
+func notifierStateToWalletState(state notifier.TxConfStatus) TxStatus {
+	switch state {
+	case notifier.TxNotFoundIndex:
+		return TxNotFound
+	case notifier.TxFoundMempool:
+		return TxInMemPool
+	case notifier.TxFoundIndex:
+		return TxInChain
+	case notifier.TxNotFoundManually:
+		return TxNotFound
+	case notifier.TxFoundManually:
+		return TxInChain
+	default:
+		panic(fmt.Sprintf("unknown notifier state: %s", state))
+	}
+}
+
+func (c *Client) getTxDetails(req notifier.ConfRequest, msg string) (*notifier.TxConfirmation, TxStatus, error) {
+	res, state, err := notifier.ConfDetailsFromTxIndex(c.Client, req, msg)
+
+	if err != nil {
+		return nil, TxNotFound, err
+	}
+
+	return res, notifierStateToWalletState(state), nil
+}
+
+// TxDetails Fetch info about transaction from mempool or blockchain, requires node to have enabled  transaction index
+func (c *Client) TxDetails(txHash *chainhash.Hash, pkScript []byte) (*notifier.TxConfirmation, TxStatus, error) {
+	req, err := notifier.NewConfRequest(txHash, pkScript)
+
+	if err != nil {
+		return nil, TxNotFound, err
+	}
+
+	return c.getTxDetails(req, txNotFoundErrMsgBitcoind)
+
 }

@@ -32,28 +32,28 @@ type BtcScanner struct {
 	logger *zap.SugaredLogger
 
 	// connect to BTC node
-	BtcClient   btcclient.BTCClient
+	btcClient   btcclient.BTCClient
 	btcNotifier notifier.ChainNotifier
 
 	// the BTC height the scanner starts
-	BaseHeight uint64
+	baseHeight uint64
 	// the BTC confirmation depth
-	K uint64
+	k uint64
 
 	confirmedTipBlock   *types.IndexedBlock
-	ConfirmedBlocksChan chan *types.IndexedBlock
+	confirmedBlocksChan chan *types.IndexedBlock
 
 	// cache of a sequence of checkpoints
 	ckptCache *types.CheckpointCache
 	// cache of a sequence of unconfirmed blocks
-	UnconfirmedBlockCache *types.BTCCache
+	unconfirmedBlockCache *types.BTCCache
 
 	// communicate with the monitor
 	blockHeaderChan chan *wire.BlockHeader
 	checkpointsChan chan *types.CheckpointRecord
 
 	wg      sync.WaitGroup
-	Started *atomic.Bool
+	started *atomic.Bool
 	quit    chan struct{}
 }
 
@@ -75,29 +75,29 @@ func New(
 
 	return &BtcScanner{
 		logger:                parentLogger.With(zap.String("module", "btcscanner")).Sugar(),
-		BtcClient:             btcClient,
+		btcClient:             btcClient,
 		btcNotifier:           btcNotifier,
-		K:                     monitorCfg.BtcConfirmationDepth,
+		k:                     monitorCfg.BtcConfirmationDepth,
 		ckptCache:             ckptCache,
-		UnconfirmedBlockCache: unconfirmedBlockCache,
-		ConfirmedBlocksChan:   confirmedBlocksChan,
+		unconfirmedBlockCache: unconfirmedBlockCache,
+		confirmedBlocksChan:   confirmedBlocksChan,
 		blockHeaderChan:       headersChan,
 		checkpointsChan:       ckptsChan,
-		Started:               atomic.NewBool(false),
+		started:               atomic.NewBool(false),
 		quit:                  make(chan struct{}),
 	}, nil
 }
 
 // Start starts the scanning process from curBTCHeight to tipHeight
 func (bs *BtcScanner) Start(startHeight uint64) {
-	if bs.Started.Load() {
+	if bs.started.Load() {
 		bs.logger.Info("the BTC scanner is already started")
 		return
 	}
 
 	bs.SetBaseHeight(startHeight)
 
-	bs.Started.Store(true)
+	bs.started.Store(true)
 	bs.logger.Info("the BTC scanner is started")
 
 	if err := bs.btcNotifier.Start(); err != nil {
@@ -109,11 +109,11 @@ func (bs *BtcScanner) Start(startHeight uint64) {
 	bs.wg.Add(1)
 	go bs.bootstrapAndBlockEventHandler()
 
-	for bs.Started.Load() {
+	for bs.started.Load() {
 		select {
 		case <-bs.quit:
-			bs.Started.Store(false)
-		case block := <-bs.ConfirmedBlocksChan:
+			bs.started.Store(false)
+		case block := <-bs.confirmedBlocksChan:
 			bs.logger.Debugf("found a confirmed BTC block at height %d", block.Height)
 			// send the header to the Monitor for consistency check
 			bs.blockHeaderChan <- block.Header
@@ -150,17 +150,17 @@ func (bs *BtcScanner) Bootstrap() {
 	bs.logger.Infof("the bootstrapping starts at %d", firstUnconfirmedHeight)
 
 	// clear all the blocks in the cache to avoid forks
-	bs.UnconfirmedBlockCache.RemoveAll()
+	bs.unconfirmedBlockCache.RemoveAll()
 
-	_, bestHeight, err := bs.BtcClient.GetBestBlock()
+	bestHeight, err := bs.btcClient.GetBestBlock()
 	if err != nil {
 		panic(fmt.Errorf("cannot get the best BTC block %w", err))
 	}
 
-	bestConfirmedHeight := bestHeight - bs.K
+	bestConfirmedHeight := bestHeight - bs.k
 	// process confirmed blocks
 	for i := firstUnconfirmedHeight; i <= bestConfirmedHeight; i++ {
-		ib, _, err := bs.BtcClient.GetBlockByHeight(i)
+		ib, _, err := bs.btcClient.GetBlockByHeight(i)
 		if err != nil {
 			panic(err)
 		}
@@ -181,13 +181,13 @@ func (bs *BtcScanner) Bootstrap() {
 
 	// add unconfirmed blocks into the cache
 	for i := bestConfirmedHeight + 1; i <= bestHeight; i++ {
-		ib, _, err := bs.BtcClient.GetBlockByHeight(i)
+		ib, _, err := bs.btcClient.GetBlockByHeight(i)
 		if err != nil {
 			panic(err)
 		}
 
 		// the unconfirmed blocks must follow the canonical chain
-		tipCache := bs.UnconfirmedBlockCache.Tip()
+		tipCache := bs.unconfirmedBlockCache.Tip()
 		if tipCache != nil {
 			tipHash := tipCache.BlockHash()
 			if !tipHash.IsEqual(&ib.Header.PrevBlock) {
@@ -195,7 +195,7 @@ func (bs *BtcScanner) Bootstrap() {
 			}
 		}
 
-		bs.UnconfirmedBlockCache.Add(ib)
+		bs.unconfirmedBlockCache.Add(ib)
 	}
 
 	bs.logger.Infof("bootstrapping is finished at the best confirmed height: %d", bestConfirmedHeight)
@@ -206,12 +206,12 @@ func (bs *BtcScanner) SetLogger(logger *zap.SugaredLogger) {
 }
 
 func (bs *BtcScanner) GetConfirmedBlocksChan() chan *types.IndexedBlock {
-	return bs.ConfirmedBlocksChan
+	return bs.confirmedBlocksChan
 }
 
 func (bs *BtcScanner) sendConfirmedBlocksToChan(blocks []*types.IndexedBlock) {
 	for i := 0; i < len(blocks); i++ {
-		bs.ConfirmedBlocksChan <- blocks[i]
+		bs.confirmedBlocksChan <- blocks[i]
 		bs.confirmedTipBlock = blocks[i]
 	}
 }
@@ -286,11 +286,46 @@ func (bs *BtcScanner) Stop() {
 func (bs *BtcScanner) GetBaseHeight() uint64 {
 	bs.mu.Lock()
 	defer bs.mu.Unlock()
-	return bs.BaseHeight
+	return bs.baseHeight
 }
 
 func (bs *BtcScanner) SetBaseHeight(h uint64) {
 	bs.mu.Lock()
 	defer bs.mu.Unlock()
-	bs.BaseHeight = h
+	bs.baseHeight = h
+}
+
+// GetBtcClient returns the btcClient.
+func (bs *BtcScanner) GetBtcClient() btcclient.BTCClient {
+	return bs.btcClient
+}
+
+// SetBtcClient sets the btcClient.
+func (bs *BtcScanner) SetBtcClient(c btcclient.BTCClient) {
+	bs.btcClient = c
+}
+
+// GetK returns the value of k - confirmation depth
+func (bs *BtcScanner) GetK() uint64 {
+	return bs.k
+}
+
+// SetK sets the value of k - confirmation depth
+func (bs *BtcScanner) SetK(k uint64) {
+	bs.k = k
+}
+
+// SetConfirmedBlocksChan sets the confirmedBlocksChan.
+func (bs *BtcScanner) SetConfirmedBlocksChan(ch chan *types.IndexedBlock) {
+	bs.confirmedBlocksChan = ch
+}
+
+// GetUnconfirmedBlockCache returns the unconfirmedBlockCache.
+func (bs *BtcScanner) GetUnconfirmedBlockCache() *types.BTCCache {
+	return bs.unconfirmedBlockCache
+}
+
+// SetUnconfirmedBlockCache sets the unconfirmedBlockCache.
+func (bs *BtcScanner) SetUnconfirmedBlockCache(c *types.BTCCache) {
+	bs.unconfirmedBlockCache = c
 }

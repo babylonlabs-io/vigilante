@@ -4,7 +4,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	bbn "github.com/babylonlabs-io/babylon/types"
+	"github.com/babylonlabs-io/vigilante/testutil"
+	"github.com/btcsuite/btcd/btcec/v2"
 	"regexp"
+	"strconv"
 	"testing"
 	"time"
 
@@ -14,7 +18,14 @@ import (
 )
 
 const (
-	bitcoindContainerName = "bitcoind-test"
+	bitcoindContainerName = "bitcoind"
+	babylondContainerName = "babylond"
+)
+
+var (
+	_, covenantPK = btcec.PrivKeyFromBytes(
+		[]byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+	)
 )
 
 var errRegex = regexp.MustCompile(`(E|e)rror`)
@@ -38,6 +49,7 @@ func NewManager() (docker *Manager, err error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return docker, nil
 }
 
@@ -121,33 +133,25 @@ func (m *Manager) ExecCmd(t *testing.T, containerName string, command []string) 
 	return outBuf, errBuf, nil
 }
 
+// RunBitcoindResource starts a bitcoind docker container
 func (m *Manager) RunBitcoindResource(
+	t *testing.T,
 	bitcoindCfgPath string,
 ) (*dockertest.Resource, error) {
 	bitcoindResource, err := m.pool.RunWithOptions(
 		&dockertest.RunOptions{
-			Name:       bitcoindContainerName,
+			Name:       fmt.Sprintf("%s-%s", bitcoindContainerName, t.Name()),
 			Repository: m.cfg.BitcoindRepository,
 			Tag:        m.cfg.BitcoindVersion,
 			User:       "root:root",
+			Labels: map[string]string{
+				"e2e": "bitcoind",
+			},
 			Mounts: []string{
 				fmt.Sprintf("%s/:/data/.bitcoin", bitcoindCfgPath),
 			},
 			ExposedPorts: []string{
-				"8332",
-				"8333",
-				"28332",
-				"28333",
-				"18443",
-				"18444",
-			},
-			PortBindings: map[docker.Port][]docker.PortBinding{
-				"8332/tcp":  {{HostIP: "", HostPort: "8332"}},
-				"8333/tcp":  {{HostIP: "", HostPort: "8333"}},
-				"28332/tcp": {{HostIP: "", HostPort: "28332"}},
-				"28333/tcp": {{HostIP: "", HostPort: "28333"}},
-				"18443/tcp": {{HostIP: "", HostPort: "18443"}},
-				"18444/tcp": {{HostIP: "", HostPort: "18444"}},
+				"18443/tcp",
 			},
 			Cmd: []string{
 				"-regtest",
@@ -160,6 +164,12 @@ func (m *Manager) RunBitcoindResource(
 				"-fallbackfee=0.0002",
 			},
 		},
+		func(config *docker.HostConfig) {
+			config.PortBindings = map[docker.Port][]docker.PortBinding{
+				"18443/tcp": {{HostIP: "", HostPort: strconv.Itoa(testutil.AllocateUniquePort(t))}}, // only expose what we need
+			}
+			config.PublishAllPorts = false // because in dockerfile they already expose them
+		},
 		noRestart,
 	)
 	if err != nil {
@@ -167,6 +177,60 @@ func (m *Manager) RunBitcoindResource(
 	}
 	m.resources[bitcoindContainerName] = bitcoindResource
 	return bitcoindResource, nil
+}
+
+// RunBabylondResource starts a babylond container
+func (m *Manager) RunBabylondResource(
+	t *testing.T,
+	mounthPath string,
+	baseHeaderHex string,
+	slashingPkScript string,
+	epochInterval uint,
+) (*dockertest.Resource, error) {
+	cmd := []string{
+		"sh", "-c", fmt.Sprintf(
+			"babylond testnet --v=1 --output-dir=/home --starting-ip-address=192.168.10.2 "+
+				"--keyring-backend=test --chain-id=chain-test --btc-finalization-timeout=4 "+
+				"--btc-confirmation-depth=2 --additional-sender-account --btc-network=regtest "+
+				"--min-staking-time-blocks=200 --min-staking-amount-sat=10000 "+
+				"--epoch-interval=%d --slashing-pk-script=%s --btc-base-header=%s "+
+				"--covenant-quorum=1 --covenant-pks=%s && chmod -R 777 /home && babylond start --home=/home/node0/babylond",
+			epochInterval, slashingPkScript, baseHeaderHex, bbn.NewBIP340PubKeyFromBTCPK(covenantPK).MarshalHex()),
+	}
+
+	resource, err := m.pool.RunWithOptions(
+		&dockertest.RunOptions{
+			Name:       fmt.Sprintf("%s-%s", babylondContainerName, t.Name()),
+			Repository: m.cfg.BabylonRepository,
+			Tag:        m.cfg.BabylonVersion,
+			Labels: map[string]string{
+				"e2e": "babylond",
+			},
+			User: "root:root",
+			Mounts: []string{
+				fmt.Sprintf("%s/:/home/", mounthPath),
+			},
+			ExposedPorts: []string{
+				"9090/tcp", // only expose what we need
+				"26657/tcp",
+			},
+			Cmd: cmd,
+		},
+		func(config *docker.HostConfig) {
+			config.PortBindings = map[docker.Port][]docker.PortBinding{
+				"9090/tcp":  {{HostIP: "", HostPort: strconv.Itoa(testutil.AllocateUniquePort(t))}},
+				"26657/tcp": {{HostIP: "", HostPort: strconv.Itoa(testutil.AllocateUniquePort(t))}},
+			}
+		},
+		noRestart,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	m.resources[babylondContainerName] = resource
+
+	return resource, nil
 }
 
 // ClearResources removes all outstanding Docker resources created by the Manager.
@@ -181,7 +245,7 @@ func (m *Manager) ClearResources() error {
 }
 
 func noRestart(config *docker.HostConfig) {
-	// in this case we don't want the nodes to restart on failure
+	// in this case, we don't want the nodes to restart on failure
 	config.RestartPolicy = docker.RestartPolicy{
 		Name: "no",
 	}

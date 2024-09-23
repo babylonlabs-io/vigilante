@@ -4,7 +4,6 @@ MOCKGEN_REPO=github.com/golang/mock/mockgen
 MOCKGEN_VERSION=v1.6.0
 MOCKGEN_CMD=go run ${MOCKGEN_REPO}@${MOCKGEN_VERSION}
 BUILDDIR ?= $(CURDIR)/build
-TOOLS_DIR := tools
 
 BABYLON_PKG := github.com/babylonlabs-io/babylon/cmd/babylond
 
@@ -49,8 +48,7 @@ test:
 	go test -race ./...
 
 test-e2e:
-	cd $(TOOLS_DIR); go install -trimpath $(BABYLON_PKG);
-	go test -race -mod=readonly -timeout=25m -v $(PACKAGES_E2E) -count=1 --tags=e2e
+	go test -mod=readonly -failfast -timeout=15m -v $(PACKAGES_E2E) -count=1 --parallel 12 --tags=e2e
 
 build-docker:
 	$(DOCKER) build --tag babylonlabs-io/vigilante -f Dockerfile \
@@ -75,3 +73,9 @@ update-changelog:
 	./scripts/update_changelog.sh $(sinceTag) $(upcomingTag)
 
 .PHONY: build test test-e2e build-docker rm-docker mocks update-changelog
+
+proto-gen:
+	@$(call print, "Compiling protos.")
+	cd ./proto; ./gen_protos_docker.sh
+
+.PHONY: proto-gen

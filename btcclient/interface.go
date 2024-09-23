@@ -6,6 +6,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
+	notifier "github.com/lightningnetwork/lnd/chainntnfs"
 
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/types"
@@ -14,7 +15,7 @@ import (
 type BTCClient interface {
 	Stop()
 	WaitForShutdown()
-	GetBestBlock() (*chainhash.Hash, uint64, error)
+	GetBestBlock() (uint64, error)
 	GetBlockByHash(blockHash *chainhash.Hash) (*types.IndexedBlock, *wire.MsgBlock, error)
 	FindTailBlocksByHeight(height uint64) ([]*types.IndexedBlock, error)
 	GetBlockByHeight(height uint64) (*types.IndexedBlock, *wire.MsgBlock, error)
@@ -38,4 +39,6 @@ type BTCWallet interface {
 	GetHighUTXOAndSum() (*btcjson.ListUnspentResult, float64, error)
 	FundRawTransaction(tx *wire.MsgTx, opts btcjson.FundRawTransactionOpts, isWitness *bool) (*btcjson.FundRawTransactionResult, error)
 	SignRawTransactionWithWallet(tx *wire.MsgTx) (*wire.MsgTx, bool, error)
+	GetRawTransaction(txHash *chainhash.Hash) (*btcutil.Tx, error)
+	TxDetails(txHash *chainhash.Hash, pkScript []byte) (*notifier.TxConfirmation, TxStatus, error)
 }

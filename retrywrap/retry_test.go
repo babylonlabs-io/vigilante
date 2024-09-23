@@ -9,6 +9,7 @@ import (
 )
 
 func TestWrapDo(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name         string
 		retryableErr error

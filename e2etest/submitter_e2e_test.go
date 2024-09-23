@@ -4,6 +4,8 @@
 package e2etest
 
 import (
+	"github.com/babylonlabs-io/vigilante/testutil"
+	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"math/rand"
 	"testing"
 	"time"
@@ -22,6 +24,7 @@ import (
 )
 
 func TestSubmitterSubmission(t *testing.T) {
+	t.Parallel()
 	r := rand.New(rand.NewSource(time.Now().Unix()))
 	numMatureOutputs := uint32(300)
 
@@ -64,6 +67,7 @@ func TestSubmitterSubmission(t *testing.T) {
 		tm.Config.Common.MaxRetrySleepTime,
 		tm.Config.Common.MaxRetryTimes,
 		metrics.NewSubmitterMetrics(),
+		testutil.MakeTestBackend(t),
 	)
 
 	vigilantSubmitter.Start()
@@ -95,6 +99,7 @@ func TestSubmitterSubmission(t *testing.T) {
 }
 
 func TestSubmitterSubmissionReplace(t *testing.T) {
+	t.Parallel()
 	r := rand.New(rand.NewSource(time.Now().Unix()))
 	numMatureOutputs := uint32(300)
 
@@ -138,6 +143,7 @@ func TestSubmitterSubmissionReplace(t *testing.T) {
 		tm.Config.Common.MaxRetrySleepTime,
 		tm.Config.Common.MaxRetryTimes,
 		metrics.NewSubmitterMetrics(),
+		testutil.MakeTestBackend(t),
 	)
 
 	vigilantSubmitter.Start()
@@ -183,4 +189,5 @@ func TestSubmitterSubmissionReplace(t *testing.T) {
 	blockWithOpReturnTransactions := tm.mineBlock(t)
 	// block should have 2 transactions, 1 from submitter and 1 coinbase
 	require.Equal(t, len(blockWithOpReturnTransactions.Transactions), 3)
+	require.True(t, promtestutil.ToFloat64(vigilantSubmitter.Metrics().ResentCheckpointsCounter) == 1)
 }

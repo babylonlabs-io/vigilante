@@ -5,7 +5,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/babylonlabs-io/vigilante/submitter/store"
 	"github.com/btcsuite/btcd/btcjson"
+	"github.com/lightningnetwork/lnd/kvdb"
 	"math"
 	"strconv"
 	"time"
@@ -31,9 +33,18 @@ const (
 	dustThreshold  btcutil.Amount = 546
 )
 
+var (
+	TxNotFoundErr = errors.New("-5: No such mempool or blockchain transaction. Use gettransaction for wallet transactions")
+)
+
+type GetLatestCheckpointFunc func() (*store.StoredCheckpoint, bool, error)
+type GetRawTransactionFunc func(txHash *chainhash.Hash) (*btcutil.Tx, error)
+type SendTransactionFunc func(tx *wire.MsgTx) (*chainhash.Hash, error)
+
 type Relayer struct {
 	chainfee.Estimator
 	btcclient.BTCWallet
+	store                   *store.SubmitterStore
 	lastSubmittedCheckpoint *types.CheckpointInfo
 	tag                     btctxformatter.BabylonTag
 	version                 btctxformatter.FormatVersion
@@ -52,11 +63,18 @@ func New(
 	est chainfee.Estimator,
 	config *config.SubmitterConfig,
 	parentLogger *zap.Logger,
+	db kvdb.Backend,
 ) *Relayer {
+	subStore, err := store.NewSubmitterStore(db)
+	if err != nil {
+		panic(fmt.Errorf("error setting up store: %w", err))
+	}
+
 	metrics.ResendIntervalSecondsGauge.Set(float64(config.ResendIntervalSeconds))
 	return &Relayer{
 		Estimator:               est,
 		BTCWallet:               wallet,
+		store:                   subStore,
 		tag:                     tag,
 		version:                 version,
 		submitterAddress:        submitterAddress,
@@ -81,26 +99,69 @@ func (rl *Relayer) SendCheckpointToBTC(ckpt *ckpttypes.RawCheckpointWithMetaResp
 		return nil
 	}
 
-	if rl.shouldSendCompleteCkpt(ckptEpoch) {
-		rl.logger.Infof("Submitting a raw checkpoint for epoch %v", ckptEpoch)
+	storeCkptFunc := func(tx1, tx2 *wire.MsgTx, epochNum uint64) error {
+		storedCkpt := store.NewStoredCheckpoint(tx1, tx2, epochNum)
+		return rl.store.PutCheckpoint(storedCkpt)
+	}
 
-		submittedCheckpoint, err := rl.convertCkptToTwoTxAndSubmit(ckpt.Ckpt)
+	if rl.shouldSendCompleteCkpt(ckptEpoch) || rl.shouldSendTx2(ckptEpoch) {
+		hasBeenProcessed, err := maybeResendFromStore(
+			ckptEpoch,
+			rl.store.LatestCheckpoint,
+			rl.GetRawTransaction,
+			rl.sendTxToBTC,
+		)
 		if err != nil {
 			return err
 		}
 
-		rl.lastSubmittedCheckpoint = submittedCheckpoint
+		if hasBeenProcessed {
+			return nil
+		}
+	}
+
+	if rl.shouldSendCompleteCkpt(ckptEpoch) {
+		rl.logger.Infof("Submitting a raw checkpoint for epoch %v", ckptEpoch)
+
+		submittedCkpt, err := rl.convertCkptToTwoTxAndSubmit(ckpt.Ckpt)
+		if err != nil {
+			return err
+		}
+
+		rl.lastSubmittedCheckpoint = submittedCkpt
+
+		err = storeCkptFunc(submittedCkpt.Tx1.Tx, submittedCkpt.Tx2.Tx, submittedCkpt.Epoch)
+		if err != nil {
+			return err
+		}
 
 		return nil
 	} else if rl.shouldSendTx2(ckptEpoch) {
 		rl.logger.Infof("Retrying to send tx2 for epoch %v, tx1 %s", ckptEpoch, rl.lastSubmittedCheckpoint.Tx1.TxId)
-		submittedCheckpoint, err := rl.retrySendTx2(ckpt.Ckpt)
+		submittedCkpt, err := rl.retrySendTx2(ckpt.Ckpt)
 		if err != nil {
 			return err
 		}
 
-		rl.lastSubmittedCheckpoint = submittedCheckpoint
+		rl.lastSubmittedCheckpoint = submittedCkpt
 
+		err = storeCkptFunc(submittedCkpt.Tx1.Tx, submittedCkpt.Tx2.Tx, submittedCkpt.Epoch)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	return nil
+}
+
+// MaybeResubmitSecondCheckpointTx based on the resend interval attempts to resubmit 2nd ckpt tx with a bumped fee
+func (rl *Relayer) MaybeResubmitSecondCheckpointTx(ckpt *ckpttypes.RawCheckpointWithMetaResponse) error {
+	ckptEpoch := ckpt.Ckpt.EpochNum
+	if ckpt.Status != ckpttypes.Sealed {
+		rl.logger.Errorf("The checkpoint for epoch %v is not sealed", ckptEpoch)
+		rl.metrics.InvalidCheckpointCounter.Inc()
 		return nil
 	}
 
@@ -113,46 +174,51 @@ func (rl *Relayer) SendCheckpointToBTC(ckpt *ckpttypes.RawCheckpointWithMetaResp
 		return nil
 	}
 
-	// now that the checkpoint has been sent, we should try to resend it
-	// if the resend interval has passed
 	durSeconds := uint(time.Since(rl.lastSubmittedCheckpoint.Ts).Seconds())
-	if durSeconds >= rl.config.ResendIntervalSeconds {
-		rl.logger.Debugf("The checkpoint for epoch %v was sent more than %v seconds ago but not included on BTC",
-			ckptEpoch, rl.config.ResendIntervalSeconds)
-
-		bumpedFee := rl.calculateBumpedFee(rl.lastSubmittedCheckpoint)
-
-		// make sure the bumped fee is effective
-		if !rl.shouldResendCheckpoint(rl.lastSubmittedCheckpoint, bumpedFee) {
-			return nil
-		}
-
-		rl.logger.Debugf("Resending the second tx of the checkpoint %v, old fee of the second tx: %v Satoshis, txid: %s",
-			ckptEpoch, rl.lastSubmittedCheckpoint.Tx2.Fee, rl.lastSubmittedCheckpoint.Tx2.TxId.String())
-
-		resubmittedTx2, err := rl.resendSecondTxOfCheckpointToBTC(rl.lastSubmittedCheckpoint.Tx2, bumpedFee)
-		if err != nil {
-			rl.metrics.FailedResentCheckpointsCounter.Inc()
-			return fmt.Errorf("failed to re-send the second tx of the checkpoint %v: %w", rl.lastSubmittedCheckpoint.Epoch, err)
-		}
-
-		// record the metrics of the resent tx2
-		rl.metrics.NewSubmittedCheckpointSegmentGaugeVec.WithLabelValues(
-			strconv.Itoa(int(ckptEpoch)),
-			"1",
-			resubmittedTx2.TxId.String(),
-			strconv.Itoa(int(resubmittedTx2.Fee)),
-		).SetToCurrentTime()
-		rl.metrics.ResentCheckpointsCounter.Inc()
-
-		rl.logger.Infof("Successfully re-sent the second tx of the checkpoint %v, txid: %s, bumped fee: %v Satoshis",
-			rl.lastSubmittedCheckpoint.Epoch, resubmittedTx2.TxId.String(), resubmittedTx2.Fee)
-
-		// update the second tx of the last submitted checkpoint as it is replaced
-		rl.lastSubmittedCheckpoint.Tx2 = resubmittedTx2
+	if durSeconds < rl.config.ResendIntervalSeconds {
+		return nil
 	}
 
-	return nil
+	rl.logger.Debugf("The checkpoint for epoch %v was sent more than %v seconds ago but not included on BTC",
+		ckptEpoch, rl.config.ResendIntervalSeconds)
+
+	bumpedFee := rl.calculateBumpedFee(rl.lastSubmittedCheckpoint)
+
+	// make sure the bumped fee is effective
+	if !rl.shouldResendCheckpoint(rl.lastSubmittedCheckpoint, bumpedFee) {
+		return nil
+	}
+
+	rl.logger.Debugf("Resending the second tx of the checkpoint %v, old fee of the second tx: %v Satoshis, txid: %s",
+		ckptEpoch, rl.lastSubmittedCheckpoint.Tx2.Fee, rl.lastSubmittedCheckpoint.Tx2.TxId.String())
+
+	resubmittedTx2, err := rl.resendSecondTxOfCheckpointToBTC(rl.lastSubmittedCheckpoint.Tx2, bumpedFee)
+	if err != nil {
+		rl.metrics.FailedResentCheckpointsCounter.Inc()
+		return fmt.Errorf("failed to re-send the second tx of the checkpoint %v: %w", rl.lastSubmittedCheckpoint.Epoch, err)
+	}
+
+	// record the metrics of the resent tx2
+	rl.metrics.NewSubmittedCheckpointSegmentGaugeVec.WithLabelValues(
+		strconv.Itoa(int(ckptEpoch)),
+		"1",
+		resubmittedTx2.TxId.String(),
+		strconv.Itoa(int(resubmittedTx2.Fee)),
+	).SetToCurrentTime()
+	rl.metrics.ResentCheckpointsCounter.Inc()
+
+	rl.logger.Infof("Successfully re-sent the second tx of the checkpoint %v, txid: %s, bumped fee: %v Satoshis",
+		rl.lastSubmittedCheckpoint.Epoch, resubmittedTx2.TxId.String(), resubmittedTx2.Fee)
+
+	// update the second tx of the last submitted checkpoint as it is replaced
+	rl.lastSubmittedCheckpoint.Tx2 = resubmittedTx2
+
+	storedCkpt := store.NewStoredCheckpoint(
+		rl.lastSubmittedCheckpoint.Tx1.Tx,
+		rl.lastSubmittedCheckpoint.Tx2.Tx,
+		rl.lastSubmittedCheckpoint.Epoch,
+	)
+	return rl.store.PutCheckpoint(storedCkpt)
 }
 
 func (rl *Relayer) shouldSendCompleteCkpt(ckptEpoch uint64) bool {
@@ -186,6 +252,18 @@ func (rl *Relayer) calculateBumpedFee(ckptInfo *types.CheckpointInfo) btcutil.Am
 
 // resendSecondTxOfCheckpointToBTC resends the second tx of the checkpoint with bumpedFee
 func (rl *Relayer) resendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bumpedFee btcutil.Amount) (*types.BtcTxInfo, error) {
+	_, status, err := rl.TxDetails(rl.lastSubmittedCheckpoint.Tx2.TxId,
+		rl.lastSubmittedCheckpoint.Tx2.Tx.TxOut[changePosition].PkScript)
+	if err != nil {
+		return nil, err
+	}
+
+	// No need to resend, transaction already confirmed
+	if status == btcclient.TxInChain {
+		rl.logger.Debugf("Transaction %v is already confirmed", rl.lastSubmittedCheckpoint.Tx2.TxId)
+		return nil, nil
+	}
+
 	// set output value of the second tx to be the balance minus the bumped fee
 	// if the bumped fee is higher than the balance, then set the bumped fee to
 	// be equal to the balance to ensure the output value is not negative
@@ -541,4 +619,54 @@ func (rl *Relayer) sendTxToBTC(tx *wire.MsgTx) (*chainhash.Hash, error) {
 	rl.logger.Debugf("Successfully sent tx %v to BTC", tx.TxHash().String())
 
 	return ha, nil
+}
+
+// maybeResendFromStore - checks if we need to resubmit txns from a store
+// in case "submitter" service was restarted, we want to ensure that we don't send txns again for a checkpoint
+// that has already been processed.
+// Returns true if the first transactions are in the mempool (no resubmission needed),
+// and false if any transaction was re-sent from the store.
+func maybeResendFromStore(
+	epoch uint64,
+	getLatestStoreCheckpoint GetLatestCheckpointFunc,
+	getRawTransaction GetRawTransactionFunc,
+	sendTransaction SendTransactionFunc,
+) (bool, error) {
+	storedCkpt, exists, err := getLatestStoreCheckpoint()
+	if err != nil {
+		return false, err
+	} else if !exists {
+		return false, nil
+	}
+
+	if storedCkpt.Epoch != epoch {
+		return false, nil
+	}
+
+	maybeResendFunc := func(tx *wire.MsgTx) error {
+		txID := tx.TxHash()
+		_, err = getRawTransaction(&txID) // todo(lazar): check for specific not found err
+		if err != nil {
+			_, err := sendTransaction(tx)
+			if err != nil {
+				return err
+			}
+
+			// we know about this tx, but we needed to resend it from already constructed tx from db
+			return nil
+		}
+
+		// tx exists in mempool and is known to us
+		return nil
+	}
+
+	if err := maybeResendFunc(storedCkpt.Tx1); err != nil {
+		return false, err
+	}
+
+	if err := maybeResendFunc(storedCkpt.Tx2); err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
