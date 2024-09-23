@@ -379,8 +379,9 @@ func (tm *TestManager) VoteAndEquivocate(t *testing.T, fpSK *btcec.PrivateKey) {
 	_, err = tm.BabylonClient.ActivatedHeight()
 	require.Error(t, err)
 
-	activatedHeight, err := tm.QueryBestBbnBlock()
+	activatedHeight, err := tm.QueryBestBbnBlock(t)
 	require.NoError(t, err)
+	commitStartHeight := activatedHeight
 
 	srList, msgCommitPubRandList, err := datagen.GenRandomMsgCommitPubRandList(r, fpSK, activatedHeight, 100)
 	require.NoError(t, err)
@@ -394,10 +395,11 @@ func (tm *TestManager) VoteAndEquivocate(t *testing.T, fpSK *btcec.PrivateKey) {
 	tm.WaitForFpPubRandTimestamped(t, fpSK.PubKey())
 
 	require.Eventually(t, func() bool {
-		_, err := tm.BabylonClient.ActivatedHeight()
+		acr, err := tm.BabylonClient.ActivatedHeight()
 		if err != nil {
 			return false
 		}
+		activatedHeight = acr.Height
 		return activatedHeight > 0
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
@@ -409,7 +411,8 @@ func (tm *TestManager) VoteAndEquivocate(t *testing.T, fpSK *btcec.PrivateKey) {
 	require.NoError(t, err)
 	msgToSign := append(sdk.Uint64ToBigEndian(activatedHeight), blockToVote.Block.AppHash...)
 	// generate EOTS signature
-	sig, err := eots.Sign(fpSK, srList.SRList[0], msgToSign)
+	idx := activatedHeight - commitStartHeight
+	sig, err := eots.Sign(fpSK, srList.SRList[idx], msgToSign)
 	require.NoError(t, err)
 	eotsSig := bbn.NewSchnorrEOTSSigFromModNScalar(sig)
 	// submit finality signature
@@ -417,8 +420,8 @@ func (tm *TestManager) VoteAndEquivocate(t *testing.T, fpSK *btcec.PrivateKey) {
 		Signer:       signerAddr,
 		FpBtcPk:      btcFp.BtcPk,
 		BlockHeight:  activatedHeight,
-		PubRand:      &srList.PRList[0],
-		Proof:        srList.ProofList[0].ToProto(),
+		PubRand:      &srList.PRList[idx],
+		Proof:        srList.ProofList[idx].ToProto(),
 		BlockAppHash: blockToVote.Block.AppHash,
 		FinalitySig:  eotsSig,
 	}
@@ -431,15 +434,15 @@ func (tm *TestManager) VoteAndEquivocate(t *testing.T, fpSK *btcec.PrivateKey) {
 	*/
 	invalidAppHash := datagen.GenRandomByteArray(r, 32)
 	invalidMsgToSign := append(sdk.Uint64ToBigEndian(activatedHeight), invalidAppHash...)
-	invalidSig, err := eots.Sign(fpSK, srList.SRList[0], invalidMsgToSign)
+	invalidSig, err := eots.Sign(fpSK, srList.SRList[idx], invalidMsgToSign)
 	require.NoError(t, err)
 	invalidEotsSig := bbn.NewSchnorrEOTSSigFromModNScalar(invalidSig)
 	invalidMsgAddFinalitySig := &ftypes.MsgAddFinalitySig{
 		Signer:       signerAddr,
 		FpBtcPk:      btcFp.BtcPk,
 		BlockHeight:  activatedHeight,
-		PubRand:      &srList.PRList[0],
-		Proof:        srList.ProofList[0].ToProto(),
+		PubRand:      &srList.PRList[idx],
+		Proof:        srList.ProofList[idx].ToProto(),
 		BlockAppHash: invalidAppHash,
 		FinalitySig:  invalidEotsSig,
 	}

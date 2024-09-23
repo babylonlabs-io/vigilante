@@ -526,17 +526,22 @@ func (tm *TestManager) InsertWBTCHeaders(t *testing.T, r *rand.Rand) {
 	require.NoError(t, err)
 }
 
-func (tm *TestManager) QueryBestBbnBlock() (uint64, error) {
+func (tm *TestManager) QueryBestBbnBlock(t *testing.T) (uint64, error) {
 	pagination := &sdkquery.PageRequest{
 		Limit:   1,
 		Reverse: true,
 		Key:     nil,
 	}
-
-	res, err := tm.BabylonClient.QueryClient.ListBlocks(types.QueriedBlockStatus_ANY, pagination)
+	var res *types.QueryListBlocksResponse
+	//require.Eventually(t, func() bool {
+	var err error
+	res, err = tm.BabylonClient.QueryClient.ListBlocks(types.QueriedBlockStatus_ANY, pagination)
 	if err != nil {
-		return 0, fmt.Errorf("failed to query finalized blocks: %v", err)
+		return 0, fmt.Errorf("list blocks: %v", err)
 	}
+
+	//	return len(res.Blocks) > 0
+	//}, eventuallyWaitTimeOut, eventuallyPollTime)
 
 	if len(res.Blocks) == 0 {
 		info, err := tm.BabylonClient.RPCClient.BlockchainInfo(context.Background(), 0, 0)
