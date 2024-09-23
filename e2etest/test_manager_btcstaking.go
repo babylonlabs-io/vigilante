@@ -385,7 +385,9 @@ func (tm *TestManager) VoteAndEquivocate(t *testing.T, fpSK *btcec.PrivateKey) {
 	_, err = tm.BabylonClient.ActivatedHeight()
 	require.Error(t, err)
 
-	activatedHeight := uint64(1)
+	activatedHeight, err := tm.QueryBestBbnBlock()
+	require.NoError(t, err)
+
 	srList, msgCommitPubRandList, err := datagen.GenRandomMsgCommitPubRandList(r, fpSK, activatedHeight, 100)
 	require.NoError(t, err)
 	msgCommitPubRandList.Signer = signerAddr
@@ -394,6 +396,8 @@ func (tm *TestManager) VoteAndEquivocate(t *testing.T, fpSK *btcec.PrivateKey) {
 	t.Logf("committed public randomness")
 
 	tm.mineBlock(t)
+
+	tm.WaitForFpPubRandTimestamped(t, fpSK.PubKey())
 
 	/*
 		submit finality signature
