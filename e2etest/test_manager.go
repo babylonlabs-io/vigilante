@@ -3,7 +3,6 @@ package e2etest
 import (
 	"bytes"
 	"context"
-	sdkErr "cosmossdk.io/errors"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -488,7 +487,7 @@ func (tm *TestManager) InsertBtcBlockHeaders(headers []bbn.BTCHeaderBytes) (*pro
 		Headers: headers,
 	}
 
-	res, err := tm.BabylonClient.ReliablySendMsg(context.Background(), msg, []*sdkErr.Error{}, []*sdkErr.Error{})
+	res, err := tm.BabylonClient.ReliablySendMsg(context.Background(), msg, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -502,7 +501,7 @@ func (tm *TestManager) InsertSpvProofs(submitter string, proofs []*btcctypes.BTC
 		Proofs:    proofs,
 	}
 
-	res, err := tm.BabylonClient.ReliablySendMsg(context.Background(), msg, []*sdkErr.Error{}, []*sdkErr.Error{})
+	res, err := tm.BabylonClient.ReliablySendMsg(context.Background(), msg, nil, nil)
 	if err != nil {
 		return nil, err
 	}
