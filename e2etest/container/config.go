@@ -1,5 +1,11 @@
 package container
 
+import (
+	"github.com/babylonlabs-io/vigilante/testutil"
+	"github.com/stretchr/testify/require"
+	"testing"
+)
+
 // ImageConfig contains all images and their respective tags
 // needed for running e2e tests.
 type ImageConfig struct {
@@ -14,15 +20,17 @@ const (
 	dockerBitcoindRepository = "lncm/bitcoind"
 	dockerBitcoindVersionTag = "v27.0"
 	dockerBabylondRepository = "babylonlabs/babylond"
-	dockerBabylondVersionTag = "v0.10.0"
 )
 
 // NewImageConfig returns ImageConfig needed for running e2e test.
-func NewImageConfig() ImageConfig {
+func NewImageConfig(t *testing.T) ImageConfig {
+	babylondVersion, err := testutil.GetBabylonVersion()
+	require.NoError(t, err)
+
 	return ImageConfig{
 		BitcoindRepository: dockerBitcoindRepository,
 		BitcoindVersion:    dockerBitcoindVersionTag,
 		BabylonRepository:  dockerBabylondRepository,
-		BabylonVersion:     dockerBabylondVersionTag,
+		BabylonVersion:     babylondVersion,
 	}
 }
