@@ -40,9 +40,9 @@ type Manager struct {
 
 // NewManager creates a new Manager instance and initializes
 // all Docker specific utilities. Returns an error if initialization fails.
-func NewManager() (docker *Manager, err error) {
+func NewManager(t *testing.T) (docker *Manager, err error) {
 	docker = &Manager{
-		cfg:       NewImageConfig(),
+		cfg:       NewImageConfig(t),
 		resources: make(map[string]*dockertest.Resource),
 	}
 	docker.pool, err = dockertest.NewPool("")

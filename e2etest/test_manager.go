@@ -84,7 +84,7 @@ func initBTCClientWithSubscriber(t *testing.T, cfg *config.Config) *btcclient.Cl
 // StartManager creates a test manager
 // NOTE: uses btc client with zmq
 func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval uint) *TestManager {
-	manager, err := container.NewManager()
+	manager, err := container.NewManager(t)
 	require.NoError(t, err)
 
 	btcHandler := NewBitcoindHandler(t, manager)
