@@ -2,8 +2,9 @@ package config
 
 import (
 	"fmt"
-	"github.com/lightningnetwork/lnd/kvdb"
 	"time"
+
+	"github.com/lightningnetwork/lnd/kvdb"
 )
 
 const (
@@ -33,11 +34,11 @@ type DBConfig struct {
 	// AutoCompactMinAge specifies the minimum time that must have passed
 	// since a bolt database file was last compacted for the compaction to
 	// be considered again.
-	AutoCompactMinAge time.Duration `mapstructure:"autocompact"`
+	AutoCompactMinAge time.Duration `mapstructure:"autocompactminage"`
 
 	// DBTimeout specifies the timeout value to use when opening the wallet
 	// database.
-	DBTimeout time.Duration `mapstructure:"autocompact"`
+	DBTimeout time.Duration `mapstructure:"dbtimeout"`
 }
 
 func DefaultDBConfig() *DBConfig {
