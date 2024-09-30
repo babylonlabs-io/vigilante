@@ -56,6 +56,13 @@ submitter:
   resubmit-fee-multiplier: 1
   polling-interval-seconds: 60
   resend-interval-seconds: 1800
+  dbconfig:
+    dbpath: /vigilante/
+    dbfilename: submitter.db
+    nofreelistsync: true
+    autocompact: false
+    autocompactminage: 168h
+    dbtimeout: 60s
 reporter:
   netparams: simnet
   btc_cache_size: 1000
@@ -70,3 +77,10 @@ monitor:
   enable-liveness-checker: true
   enable-slasher: true
   btcnetparams: simnet
+  dbconfig:
+    dbpath: /vigilante/
+    dbfilename: monitor.db
+    nofreelistsync: true
+    autocompact: false
+    autocompactminage: 168h
+    dbtimeout: 60s
