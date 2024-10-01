@@ -8,7 +8,7 @@ import (
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/atomicslasher"
 	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/btcslasher"
-	uw "github.com/babylonlabs-io/vigilante/btcstaking-tracker/unbondingwatcher"
+	uw "github.com/babylonlabs-io/vigilante/btcstaking-tracker/stakingeventwatcher"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/netparams"
@@ -27,9 +27,10 @@ type BTCStakingTracker struct {
 	// to avoid spamming babylon with requests
 	bbnClient *bbnclient.Client
 
-	// unbondingWatcher monitors early unbonding transactions on Bitcoin
-	// and reports unbonding BTC delegations back to Babylon
-	unbondingWatcher *uw.UnbondingWatcher
+	// stakingEventWatcher monitors early all staking transactions on Bitcoin
+	// and reports unbonding BTC delegations back to Babylon. As well as staking transactions
+	// that lack inclusion proof, wait for them on BTC and submits MsgActivateBTCDelegation
+	stakingEventWatcher *uw.StakingEventWatcher
 	// btcSlasher monitors slashing events in BTC staking protocol,
 	// and slashes BTC delegations under each equivocating finality provider
 	// by signing and submitting their slashing txs
@@ -111,17 +112,17 @@ func NewBTCSTakingTracker(
 	)
 
 	return &BTCStakingTracker{
-		cfg:              cfg,
-		logger:           logger.Sugar(),
-		btcClient:        btcClient,
-		btcNotifier:      btcNotifier,
-		bbnClient:        bbnClient,
-		btcSlasher:       btcSlasher,
-		atomicSlasher:    atomicSlasher,
-		unbondingWatcher: watcher,
-		slashedFPSKChan:  slashedFPSKChan,
-		metrics:          metrics,
-		quit:             make(chan struct{}),
+		cfg:                 cfg,
+		logger:              logger.Sugar(),
+		btcClient:           btcClient,
+		btcNotifier:         btcNotifier,
+		bbnClient:           bbnClient,
+		btcSlasher:          btcSlasher,
+		atomicSlasher:       atomicSlasher,
+		stakingEventWatcher: watcher,
+		slashedFPSKChan:     slashedFPSKChan,
+		metrics:             metrics,
+		quit:                make(chan struct{}),
 	}
 }
 
@@ -141,7 +142,7 @@ func (tracker *BTCStakingTracker) Start() error {
 	tracker.startOnce.Do(func() {
 		tracker.logger.Info("starting BTC staking tracker")
 
-		if err := tracker.unbondingWatcher.Start(); err != nil {
+		if err := tracker.stakingEventWatcher.Start(); err != nil {
 			startErr = err
 			return
 		}
@@ -165,7 +166,7 @@ func (tracker *BTCStakingTracker) Stop() error {
 	tracker.stopOnce.Do(func() {
 		tracker.logger.Info("stopping BTC staking tracker")
 
-		if err := tracker.unbondingWatcher.Stop(); err != nil {
+		if err := tracker.stakingEventWatcher.Stop(); err != nil {
 			stopErr = err
 			return
 		}

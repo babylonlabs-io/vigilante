@@ -1,4 +1,4 @@
-package unbondingwatcher
+package stakingeventwatcher
 
 import (
 	"bytes"
@@ -25,7 +25,7 @@ var (
 	retryForever            = retry.Attempts(0)
 )
 
-func (uw *UnbondingWatcher) quitContext() (context.Context, func()) {
+func (uw *StakingEventWatcher) quitContext() (context.Context, func()) {
 	ctx, cancel := context.WithCancel(context.Background())
 	uw.wg.Add(1)
 	go func() {
@@ -54,7 +54,7 @@ type delegationInactive struct {
 	stakingTxHash chainhash.Hash
 }
 
-type UnbondingWatcher struct {
+type StakingEventWatcher struct {
 	startOnce   sync.Once
 	stopOnce    sync.Once
 	wg          sync.WaitGroup
@@ -67,7 +67,7 @@ type UnbondingWatcher struct {
 	// to avoid spamming babylon with requests
 	babylonNodeAdapter     BabylonNodeAdapter
 	tracker                *TrackedDelegations
-	newDelegationChan      chan *newDelegation
+	activeDelegationChan   chan *newDelegation
 	delegetionInactiveChan chan *delegationInactive
 	currentBestBlockHeight atomic.Uint32
 }
@@ -78,24 +78,24 @@ func NewUnbondingWatcher(
 	cfg *config.BTCStakingTrackerConfig,
 	parentLogger *zap.Logger,
 	metrics *metrics.UnbondingWatcherMetrics,
-) *UnbondingWatcher {
-	return &UnbondingWatcher{
+) *StakingEventWatcher {
+	return &StakingEventWatcher{
 		quit:                   make(chan struct{}),
 		cfg:                    cfg,
-		logger:                 parentLogger.With(zap.String("module", "unbonding_watcher")).Sugar(),
+		logger:                 parentLogger.With(zap.String("module", "staking_event_watcher")).Sugar(),
 		btcNotifier:            btcNotifier,
 		babylonNodeAdapter:     babylonNodeAdapter,
 		metrics:                metrics,
 		tracker:                NewTrackedDelegations(),
-		newDelegationChan:      make(chan *newDelegation),
+		activeDelegationChan:   make(chan *newDelegation),
 		delegetionInactiveChan: make(chan *delegationInactive),
 	}
 }
 
-func (uw *UnbondingWatcher) Start() error {
+func (uw *StakingEventWatcher) Start() error {
 	var startErr error
 	uw.startOnce.Do(func() {
-		uw.logger.Info("starting unbonding watcher")
+		uw.logger.Info("starting staking event watcher")
 
 		blockEventNotifier, err := uw.btcNotifier.RegisterBlockEpochNtfn(nil)
 
@@ -120,23 +120,23 @@ func (uw *UnbondingWatcher) Start() error {
 		go uw.handleNewBlocks(blockEventNotifier)
 		go uw.handleDelegations()
 		go uw.fetchDelegations()
-		uw.logger.Info("unbonding watcher started")
+		uw.logger.Info("staking event watcher started")
 	})
 	return startErr
 }
 
-func (uw *UnbondingWatcher) Stop() error {
+func (uw *StakingEventWatcher) Stop() error {
 	var stopErr error
 	uw.stopOnce.Do(func() {
-		uw.logger.Info("stopping unbonding watcher")
+		uw.logger.Info("stopping staking event watcher")
 		close(uw.quit)
 		uw.wg.Wait()
-		uw.logger.Info("stopped unbonding watcher")
+		uw.logger.Info("stopped staking event watcher")
 	})
 	return stopErr
 }
 
-func (uw *UnbondingWatcher) handleNewBlocks(blockNotifier *notifier.BlockEpochEvent) {
+func (uw *StakingEventWatcher) handleNewBlocks(blockNotifier *notifier.BlockEpochEvent) {
 	defer uw.wg.Done()
 	defer blockNotifier.Cancel()
 	for {
@@ -154,8 +154,8 @@ func (uw *UnbondingWatcher) handleNewBlocks(blockNotifier *notifier.BlockEpochEv
 }
 
 // checkBabylonDelegations iterates over all active babylon delegations, and reports not already
-// tracked delegations to the newDelegationChan
-func (uw *UnbondingWatcher) checkBabylonDelegations() error {
+// tracked delegations to the activeDelegationChan
+func (uw *StakingEventWatcher) checkBabylonDelegations() error {
 	var i = uint64(0)
 	for {
 		delegations, err := uw.babylonNodeAdapter.ActiveBtcDelegations(i, uw.cfg.NewDelegationsBatchSize)
@@ -171,7 +171,7 @@ func (uw *UnbondingWatcher) checkBabylonDelegations() error {
 
 			// if we already have this delegation, skip it
 			if uw.tracker.GetDelegation(stakingTxHash) == nil {
-				utils.PushOrQuit(uw.newDelegationChan, &newDelegation{
+				utils.PushOrQuit(uw.activeDelegationChan, &newDelegation{
 					stakingTxHash:         stakingTxHash,
 					stakingTx:             delegation.StakingTx,
 					stakingOutputIdx:      delegation.StakingOutputIdx,
@@ -190,7 +190,7 @@ func (uw *UnbondingWatcher) checkBabylonDelegations() error {
 	}
 }
 
-func (uw *UnbondingWatcher) fetchDelegations() {
+func (uw *StakingEventWatcher) fetchDelegations() {
 	defer uw.wg.Done()
 	ticker := time.NewTicker(uw.cfg.CheckDelegationsInterval)
 	defer ticker.Stop()
@@ -275,7 +275,7 @@ func tryParseStakerSignatureFromSpentTx(tx *wire.MsgTx, td *TrackedDelegation) (
 }
 
 // waitForDelegationToStopBeingActive polls babylon until delegation is no longer active.
-func (uw *UnbondingWatcher) waitForDelegationToStopBeingActive(
+func (uw *StakingEventWatcher) waitForDelegationToStopBeingActive(
 	ctx context.Context,
 	stakingTxHash chainhash.Hash,
 ) {
@@ -303,7 +303,7 @@ func (uw *UnbondingWatcher) waitForDelegationToStopBeingActive(
 	)
 }
 
-func (uw *UnbondingWatcher) reportUnbondingToBabylon(
+func (uw *StakingEventWatcher) reportUnbondingToBabylon(
 	ctx context.Context,
 	stakingTxHash chainhash.Hash,
 	unbondingSignature *schnorr.Signature,
@@ -342,7 +342,7 @@ func (uw *UnbondingWatcher) reportUnbondingToBabylon(
 	)
 }
 
-func (uw *UnbondingWatcher) watchForSpend(spendEvent *notifier.SpendEvent, td *TrackedDelegation) {
+func (uw *StakingEventWatcher) watchForSpend(spendEvent *notifier.SpendEvent, td *TrackedDelegation) {
 	defer uw.wg.Done()
 	quitCtx, cancel := uw.quitContext()
 	defer cancel()
@@ -383,17 +383,17 @@ func (uw *UnbondingWatcher) watchForSpend(spendEvent *notifier.SpendEvent, td *T
 	)
 }
 
-func (uw *UnbondingWatcher) handleDelegations() {
+func (uw *StakingEventWatcher) handleDelegations() {
 	defer uw.wg.Done()
 	for {
 		select {
-		case newDelegation := <-uw.newDelegationChan:
-			uw.logger.Debugf("Received new delegation to watch for staking transaction with hash %s", newDelegation.stakingTxHash)
+		case activeDel := <-uw.activeDelegationChan:
+			uw.logger.Debugf("Received new delegation to watch for staking transaction with hash %s", activeDel.stakingTxHash)
 
 			del, err := uw.tracker.AddDelegation(
-				newDelegation.stakingTx,
-				newDelegation.stakingOutputIdx,
-				newDelegation.unbondingOutput,
+				activeDel.stakingTx,
+				activeDel.stakingOutputIdx,
+				activeDel.unbondingOutput,
 			)
 
 			if err != nil {
@@ -404,18 +404,18 @@ func (uw *UnbondingWatcher) handleDelegations() {
 			uw.metrics.NumberOfTrackedActiveDelegations.Inc()
 
 			stakingOutpoint := wire.OutPoint{
-				Hash:  newDelegation.stakingTxHash,
-				Index: newDelegation.stakingOutputIdx,
+				Hash:  activeDel.stakingTxHash,
+				Index: activeDel.stakingOutputIdx,
 			}
 
 			spendEv, err := uw.btcNotifier.RegisterSpendNtfn(
 				&stakingOutpoint,
-				newDelegation.stakingTx.TxOut[newDelegation.stakingOutputIdx].PkScript,
-				uint32(newDelegation.delegationStartHeight),
+				activeDel.stakingTx.TxOut[activeDel.stakingOutputIdx].PkScript,
+				uint32(activeDel.delegationStartHeight),
 			)
 
 			if err != nil {
-				uw.logger.Errorf("error registering spend ntfn for staking tx %s: %v", newDelegation.stakingTxHash, err)
+				uw.logger.Errorf("error registering spend ntfn for staking tx %s: %v", activeDel.stakingTxHash, err)
 				continue
 			}
 

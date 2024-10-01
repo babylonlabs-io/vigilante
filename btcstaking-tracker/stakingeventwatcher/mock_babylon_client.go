@@ -2,7 +2,7 @@
 // Source: btcstaking-tracker/unbondingwatcher/expected_babylon_client.go
 
 // Package unbondingwatcher is a generated GoMock package.
-package unbondingwatcher
+package stakingeventwatcher
 
 import (
 	context "context"

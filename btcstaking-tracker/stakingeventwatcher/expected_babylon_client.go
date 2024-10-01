@@ -1,4 +1,4 @@
-package unbondingwatcher
+package stakingeventwatcher
 
 import (
 	"context"
