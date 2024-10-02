@@ -65,11 +65,12 @@ type StakingEventWatcher struct {
 	metrics     *metrics.UnbondingWatcherMetrics
 	// TODO: Ultimately all requests to babylon should go through some kind of semaphore
 	// to avoid spamming babylon with requests
-	babylonNodeAdapter     BabylonNodeAdapter
-	tracker                *TrackedDelegations
-	activeDelegationChan   chan *newDelegation
-	delegetionInactiveChan chan *delegationInactive
-	currentBestBlockHeight atomic.Uint32
+	babylonNodeAdapter BabylonNodeAdapter
+	unbondingTracker   *TrackedDelegations
+
+	unbondingDelegationChan chan *newDelegation
+	unbondingRemovalChan    chan *delegationInactive
+	currentBestBlockHeight  atomic.Uint32
 }
 
 func NewUnbondingWatcher(
@@ -80,15 +81,15 @@ func NewUnbondingWatcher(
 	metrics *metrics.UnbondingWatcherMetrics,
 ) *StakingEventWatcher {
 	return &StakingEventWatcher{
-		quit:                   make(chan struct{}),
-		cfg:                    cfg,
-		logger:                 parentLogger.With(zap.String("module", "staking_event_watcher")).Sugar(),
-		btcNotifier:            btcNotifier,
-		babylonNodeAdapter:     babylonNodeAdapter,
-		metrics:                metrics,
-		tracker:                NewTrackedDelegations(),
-		activeDelegationChan:   make(chan *newDelegation),
-		delegetionInactiveChan: make(chan *delegationInactive),
+		quit:                    make(chan struct{}),
+		cfg:                     cfg,
+		logger:                  parentLogger.With(zap.String("module", "staking_event_watcher")).Sugar(),
+		btcNotifier:             btcNotifier,
+		babylonNodeAdapter:      babylonNodeAdapter,
+		metrics:                 metrics,
+		unbondingTracker:        NewTrackedDelegations(),
+		unbondingDelegationChan: make(chan *newDelegation),
+		unbondingRemovalChan:    make(chan *delegationInactive),
 	}
 }
 
@@ -154,11 +155,11 @@ func (uw *StakingEventWatcher) handleNewBlocks(blockNotifier *notifier.BlockEpoc
 }
 
 // checkBabylonDelegations iterates over all active babylon delegations, and reports not already
-// tracked delegations to the activeDelegationChan
+// tracked delegations to the unbondingDelegationChan
 func (uw *StakingEventWatcher) checkBabylonDelegations() error {
 	var i = uint64(0)
 	for {
-		delegations, err := uw.babylonNodeAdapter.ActiveBtcDelegations(i, uw.cfg.NewDelegationsBatchSize)
+		delegations, err := uw.babylonNodeAdapter.BtcDelegations(i, uw.cfg.NewDelegationsBatchSize)
 
 		if err != nil {
 			return fmt.Errorf("error fetching active delegations from babylon: %v", err)
@@ -170,8 +171,8 @@ func (uw *StakingEventWatcher) checkBabylonDelegations() error {
 			stakingTxHash := delegation.StakingTx.TxHash()
 
 			// if we already have this delegation, skip it
-			if uw.tracker.GetDelegation(stakingTxHash) == nil {
-				utils.PushOrQuit(uw.activeDelegationChan, &newDelegation{
+			if uw.unbondingTracker.GetDelegation(stakingTxHash) == nil {
+				utils.PushOrQuit(uw.unbondingDelegationChan, &newDelegation{
 					stakingTxHash:         stakingTxHash,
 					stakingTx:             delegation.StakingTx,
 					stakingOutputIdx:      delegation.StakingOutputIdx,
@@ -364,7 +365,7 @@ func (uw *StakingEventWatcher) watchForSpend(spendEvent *notifier.SpendEvent, td
 		// Error means that this is not unbonding tx. At this point, it means that it is
 		// either withdrawal transaction or slashing transaction spending staking staking output.
 		// As we only care about unbonding transactions, we do not need to take additional actions.
-		// We start polling babylon for delegation to stop being active, and then delete it from tracker.
+		// We start polling babylon for delegation to stop being active, and then delete it from unbondingTracker.
 		uw.logger.Debugf("Spending tx %s for staking tx %s is not unbonding tx. Info: %v", spendingTxHash, delegationId, err)
 		uw.waitForDelegationToStopBeingActive(quitCtx, delegationId)
 	} else {
@@ -377,7 +378,7 @@ func (uw *StakingEventWatcher) watchForSpend(spendEvent *notifier.SpendEvent, td
 	}
 
 	utils.PushOrQuit[*delegationInactive](
-		uw.delegetionInactiveChan,
+		uw.unbondingRemovalChan,
 		&delegationInactive{stakingTxHash: delegationId},
 		uw.quit,
 	)
@@ -387,17 +388,17 @@ func (uw *StakingEventWatcher) handleDelegations() {
 	defer uw.wg.Done()
 	for {
 		select {
-		case activeDel := <-uw.activeDelegationChan:
+		case activeDel := <-uw.unbondingDelegationChan:
 			uw.logger.Debugf("Received new delegation to watch for staking transaction with hash %s", activeDel.stakingTxHash)
 
-			del, err := uw.tracker.AddDelegation(
+			del, err := uw.unbondingTracker.AddDelegation(
 				activeDel.stakingTx,
 				activeDel.stakingOutputIdx,
 				activeDel.unbondingOutput,
 			)
 
 			if err != nil {
-				uw.logger.Errorf("error adding delegation to tracker: %v", err)
+				uw.logger.Errorf("error adding delegation to unbondingTracker: %v", err)
 				continue
 			}
 
@@ -421,10 +422,10 @@ func (uw *StakingEventWatcher) handleDelegations() {
 
 			uw.wg.Add(1)
 			go uw.watchForSpend(spendEv, del)
-		case in := <-uw.delegetionInactiveChan:
+		case in := <-uw.unbondingRemovalChan:
 			uw.logger.Debugf("Delegation for staking transaction with hash %s stopped being active", in.stakingTxHash)
-			// remove delegation from tracker
-			uw.tracker.RemoveDelegation(in.stakingTxHash)
+			// remove delegation from unbondingTracker
+			uw.unbondingTracker.RemoveDelegation(in.stakingTxHash)
 
 			uw.metrics.NumberOfTrackedActiveDelegations.Dec()
 

@@ -23,13 +23,16 @@ type Delegation struct {
 	StakingOutputIdx      uint32
 	DelegationStartHeight uint64
 	UnbondingOutput       *wire.TxOut
+	Active                bool
+	StatusDesc            string
 }
 
 type BabylonNodeAdapter interface {
-	ActiveBtcDelegations(offset uint64, limit uint64) ([]Delegation, error)
+	BtcDelegations(offset uint64, limit uint64) ([]Delegation, error)
 	IsDelegationActive(stakingTxHash chainhash.Hash) (bool, error)
 	ReportUnbonding(ctx context.Context, stakingTxHash chainhash.Hash, stakerUnbondingSig *schnorr.Signature) error
 	BtcClientTipHeight() (uint32, error)
+	ActivateDelegation(ctx context.Context, stakingTxHash chainhash.Hash) error
 }
 
 type BabylonClientAdapter struct {
@@ -44,10 +47,10 @@ func NewBabylonClientAdapter(babylonClient *bbnclient.Client) *BabylonClientAdap
 	}
 }
 
-// TODO: Consider doing quick retries for failed queries.
-func (bca *BabylonClientAdapter) ActiveBtcDelegations(offset uint64, limit uint64) ([]Delegation, error) {
+// BtcDelegations - returns btc delegations TODO: Consider doing quick retries for failed queries.
+func (bca *BabylonClientAdapter) BtcDelegations(offset uint64, limit uint64) ([]Delegation, error) {
 	resp, err := bca.babylonClient.BTCDelegations(
-		btcstakingtypes.BTCDelegationStatus_ACTIVE,
+		btcstakingtypes.BTCDelegationStatus_ANY,
 		&query.PageRequest{
 			Key:    nil,
 			Offset: offset,
@@ -75,8 +78,9 @@ func (bca *BabylonClientAdapter) ActiveBtcDelegations(offset uint64, limit uint6
 			StakingTx:             stakingTx,
 			StakingOutputIdx:      delegation.StakingOutputIdx,
 			DelegationStartHeight: delegation.StartHeight,
-			// unbonding transaction always has only one output
-			UnbondingOutput: unbondingTx.TxOut[0],
+			UnbondingOutput:       unbondingTx.TxOut[0], // todo(lazar) what about others? unbonding tx always has only one output
+			Active:                delegation.Active,
+			StatusDesc:            delegation.StatusDesc,
 		}
 	}
 
@@ -129,4 +133,26 @@ func (bca *BabylonClientAdapter) BtcClientTipHeight() (uint32, error) {
 	}
 
 	return uint32(resp.Header.Height), nil
+}
+
+// ActivateDelegation provides inclusion proof to activate delegation
+func (bca *BabylonClientAdapter) ActivateDelegation(ctx context.Context, stakingTxHash chainhash.Hash) error {
+	signer := bca.babylonClient.MustGetAddr()
+
+	msg := btcstakingtypes.MsgBTCUndelegate{
+		Signer:        signer,
+		StakingTxHash: stakingTxHash.String(),
+	}
+
+	resp, err := bca.babylonClient.ReliablySendMsg(ctx, &msg, []*errors.Error{}, []*errors.Error{})
+
+	if err != nil && resp != nil {
+		return fmt.Errorf("msg MsgBTCUndelegate failed exeuction with code %d and error %w", resp.Code, err)
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to report unbonding: %w", err)
+	}
+
+	return nil
 }
