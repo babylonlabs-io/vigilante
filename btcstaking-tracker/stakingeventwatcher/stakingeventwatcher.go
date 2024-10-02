@@ -75,14 +75,14 @@ type StakingEventWatcher struct {
 	pendingTracker     *TrackedDelegations
 
 	unbondingDelegationChan chan *newDelegation
-	pendingDelegationChan   chan *newDelegation
 
 	unbondingRemovalChan   chan *delegationInactive
 	currentBestBlockHeight atomic.Uint32
 }
 
-func NewUnbondingWatcher(
+func NewStakingEventWatcher(
 	btcNotifier notifier.ChainNotifier,
+	btcClient btcclient.BTCClient,
 	babylonNodeAdapter BabylonNodeAdapter,
 	cfg *config.BTCStakingTrackerConfig,
 	parentLogger *zap.Logger,
@@ -93,13 +93,13 @@ func NewUnbondingWatcher(
 		cfg:                     cfg,
 		logger:                  parentLogger.With(zap.String("module", "staking_event_watcher")).Sugar(),
 		btcNotifier:             btcNotifier,
+		btcClient:               btcClient,
 		babylonNodeAdapter:      babylonNodeAdapter,
 		metrics:                 metrics,
 		unbondingTracker:        NewTrackedDelegations(),
 		pendingTracker:          NewTrackedDelegations(),
 		unbondingDelegationChan: make(chan *newDelegation),
 		unbondingRemovalChan:    make(chan *delegationInactive),
-		pendingDelegationChan:   make(chan *newDelegation),
 	}
 }
 
@@ -125,10 +125,12 @@ func (uw *StakingEventWatcher) Start() error {
 
 		uw.logger.Infof("Initial btc best block height is: %d", uw.currentBestBlockHeight.Load())
 
-		uw.wg.Add(3)
+		uw.wg.Add(4)
 		go uw.handleNewBlocks(blockEventNotifier)
 		go uw.handleDelegations()
 		go uw.fetchDelegations()
+		go uw.handlerVerifiedDelegations()
+
 		uw.logger.Info("staking event watcher started")
 	})
 	return startErr
@@ -156,109 +158,10 @@ func (uw *StakingEventWatcher) handleNewBlocks(blockNotifier *notifier.BlockEpoc
 			}
 			uw.currentBestBlockHeight.Store(uint32(block.Height))
 			uw.logger.Debugf("Received new best btc block: %d", block.Height)
-
-			if err := uw.processNewBlock(block); err != nil {
-				uw.logger.Errorf("err processing block %d err %w", block.Height, err)
-			}
 		case <-uw.quit:
 			return
 		}
 	}
-}
-
-func (uw *StakingEventWatcher) processNewBlock(epoch *notifier.BlockEpoch) error {
-	blockHash := epoch.BlockHeader.BlockHash()
-	ib, _, err := uw.btcClient.GetBlockByHash(&blockHash)
-	if err != nil {
-		return fmt.Errorf("failed to request block by hash: %s", blockHash.String())
-	}
-
-	for _, tx := range ib.Txs {
-		delegation := uw.pendingTracker.GetDelegation(*tx.Hash())
-		if delegation == nil {
-			continue
-		}
-
-		proof, err := ib.GenSPVProof(tx.Index())
-		if err != nil {
-			return fmt.Errorf("error making spv proof %w", err)
-		}
-
-		go uw.handleActiveBtcDelegation(*tx.Hash(), proof)
-	}
-
-	return nil
-}
-
-// checkBtcForStakingTx
-func (uw *StakingEventWatcher) checkBtcForStakingTx() {
-	delegations := uw.pendingTracker.GetDelegations()
-	if delegations == nil {
-		return
-	}
-
-	for _, del := range delegations {
-		txHash := del.StakingTx.TxHash()
-		// todo (lazar): check if this is valid, of we need to getRawTx
-		details, status, err := uw.btcClient.TxDetails(&txHash, del.StakingTx.TxOut[del.StakingOutputIdx].PkScript)
-		if err != nil {
-			uw.logger.Debugf("error getting tx %v", txHash)
-			continue
-		}
-
-		if status != btcclient.TxInChain {
-			continue
-		}
-
-		btcTxs := types.GetWrappedTxs(details.Block)
-		ib := types.NewIndexedBlock(int32(details.BlockHeight), &details.Block.Header, btcTxs)
-
-		proof, err := ib.GenSPVProof(int(details.TxIndex))
-		if err != nil {
-			uw.logger.Debugf("error making spv proof %w", err)
-			continue
-		}
-
-		go uw.handleActiveBtcDelegation(txHash, proof)
-	}
-}
-
-func (uw *StakingEventWatcher) handleActiveBtcDelegation(
-	stakingTxHash chainhash.Hash, proof *btcctypes.BTCSpvProof) {
-	ctx, cancel := uw.quitContext()
-	defer cancel()
-
-	_ = retry.Do(func() error {
-		verified, err := uw.babylonNodeAdapter.IsDelegationVerified(stakingTxHash)
-		if err != nil {
-			return fmt.Errorf("error checking if delegation is active: %v", err)
-		}
-
-		if !verified {
-			uw.logger.Debugf("skipping tx %s is not in verified status", stakingTxHash)
-			return nil
-		}
-
-		if err := uw.babylonNodeAdapter.ActivateDelegation(ctx, stakingTxHash, proof); err != nil {
-			uw.metrics.FailedReportedActivateDelegations.Inc()
-			return fmt.Errorf("error reporting activate delegation tx %s to babylon: %v", stakingTxHash, err)
-		}
-
-		uw.metrics.ReportedActivateDelegationsCounter.Inc()
-
-		uw.pendingTracker.RemoveDelegation(stakingTxHash)
-
-		return nil
-	},
-		retry.Context(ctx),
-		retryForever,
-		fixedDelyTypeWithJitter,
-		retry.MaxDelay(uw.cfg.RetrySubmitUnbondingTxInterval),
-		retry.MaxJitter(uw.cfg.RetryJitter),
-		retry.OnRetry(func(n uint, err error) {
-			uw.logger.Debugf("retrying to submit activation tx, for staking tx: %s. Attempt: %d. Err: %v", stakingTxHash, n, err)
-		}),
-	)
 }
 
 // checkBabylonDelegations iterates over all active babylon delegations, and reports not already
@@ -291,7 +194,11 @@ func (uw *StakingEventWatcher) checkBabylonDelegations() error {
 			}
 
 			if uw.pendingTracker.GetDelegation(stakingTxHash) == nil && !delegation.HasProof {
-				utils.PushOrQuit(uw.unbondingDelegationChan, del, uw.quit)
+				_, _ = uw.pendingTracker.AddDelegation(
+					del.stakingTx,
+					del.stakingOutputIdx,
+					del.unbondingOutput,
+				)
 			}
 		}
 
@@ -312,7 +219,7 @@ func (uw *StakingEventWatcher) fetchDelegations() {
 	for {
 		select {
 		case <-ticker.C:
-			uw.logger.Debug("Quering babylon for new delegations")
+			uw.logger.Debug("Querying babylon for new delegations")
 			btcLightClientTipHeight, err := uw.babylonNodeAdapter.BtcClientTipHeight()
 
 			if err != nil {
@@ -330,9 +237,7 @@ func (uw *StakingEventWatcher) fetchDelegations() {
 				continue
 			}
 
-			err = uw.checkBabylonDelegations()
-
-			if err != nil {
+			if err = uw.checkBabylonDelegations(); err != nil {
 				uw.logger.Errorf("error checking babylon delegations: %v", err)
 				continue
 			}
@@ -547,4 +452,99 @@ func (uw *StakingEventWatcher) handleDelegations() {
 			return
 		}
 	}
+}
+
+func (uw *StakingEventWatcher) handlerVerifiedDelegations() {
+	defer uw.wg.Done()
+	ticker := time.NewTicker(uw.cfg.CheckDelegationsInterval) // todo(lazar): use different interval in config
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			uw.logger.Debug("Checking for new staking txs")
+
+			if err := uw.checkBtcForStakingTx(); err != nil {
+				uw.logger.Errorf("error checking verified delegations: %v", err)
+				continue
+			}
+
+		case <-uw.quit:
+			uw.logger.Debug("verified delegations loop quit")
+			return
+		}
+	}
+}
+
+// checkBtcForStakingTx
+func (uw *StakingEventWatcher) checkBtcForStakingTx() error {
+	delegations := uw.pendingTracker.GetDelegations()
+	if delegations == nil {
+		return nil
+	}
+
+	for _, del := range delegations {
+		txHash := del.StakingTx.TxHash()
+		// todo (lazar): check if this is valid, of we need to getRawTx
+		details, status, err := uw.btcClient.TxDetails(&txHash, del.StakingTx.TxOut[del.StakingOutputIdx].PkScript)
+		if err != nil {
+			uw.logger.Debugf("error getting tx %v", txHash)
+			continue
+		}
+
+		if status != btcclient.TxInChain {
+			continue
+		}
+
+		btcTxs := types.GetWrappedTxs(details.Block)
+		ib := types.NewIndexedBlock(int32(details.BlockHeight), &details.Block.Header, btcTxs)
+
+		proof, err := ib.GenSPVProof(int(details.TxIndex))
+		if err != nil {
+			uw.logger.Debugf("error making spv proof %w", err)
+			continue
+		}
+
+		go uw.activateBtcDelegation(txHash, proof)
+	}
+
+	return nil
+}
+
+func (uw *StakingEventWatcher) activateBtcDelegation(
+	stakingTxHash chainhash.Hash, proof *btcctypes.BTCSpvProof) {
+	ctx, cancel := uw.quitContext()
+	defer cancel()
+
+	_ = retry.Do(func() error {
+		verified, err := uw.babylonNodeAdapter.IsDelegationVerified(stakingTxHash)
+		if err != nil {
+			return fmt.Errorf("error checking if delegation is active: %v", err)
+		}
+
+		if !verified {
+			uw.logger.Debugf("skipping tx %s is not in verified status", stakingTxHash)
+			return nil
+		}
+
+		if err := uw.babylonNodeAdapter.ActivateDelegation(ctx, stakingTxHash, proof); err != nil {
+			uw.metrics.FailedReportedActivateDelegations.Inc()
+			return fmt.Errorf("error reporting activate delegation tx %s to babylon: %v", stakingTxHash, err)
+		}
+
+		uw.metrics.ReportedActivateDelegationsCounter.Inc()
+
+		uw.pendingTracker.RemoveDelegation(stakingTxHash)
+
+		return nil
+	},
+		retry.Context(ctx),
+		retry.Attempts(5), // todo(Lazar): add this to config, we prob don't want to retry forever here
+		fixedDelyTypeWithJitter,
+		retry.MaxDelay(uw.cfg.RetrySubmitUnbondingTxInterval),
+		retry.MaxJitter(uw.cfg.RetryJitter),
+		retry.OnRetry(func(n uint, err error) {
+			uw.logger.Debugf("retrying to submit activation tx, for staking tx: %s. Attempt: %d. Err: %v", stakingTxHash, n, err)
+		}),
+	)
 }

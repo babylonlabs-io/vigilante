@@ -46,7 +46,7 @@ func TestUnbondingWatcher(t *testing.T) {
 	bstCfg.CheckDelegationsInterval = 1 * time.Second
 	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
 
-	bsTracker := bst.NewBTCSTakingTracker(
+	bsTracker := bst.NewBTCStakingTracker(
 		tm.BTCClient,
 		backend,
 		tm.BabylonClient,

@@ -15,7 +15,7 @@ type TrackedDelegation struct {
 }
 
 type TrackedDelegations struct {
-	mu sync.Mutex
+	mu sync.RWMutex
 	// key: staking tx hash
 	mapping map[chainhash.Hash]*TrackedDelegation
 }
@@ -27,11 +27,11 @@ func NewTrackedDelegations() *TrackedDelegations {
 }
 
 // GetDelegation returns the tracked delegation for the given staking tx hash or nil if not found.
-func (dt *TrackedDelegations) GetDelegation(stakingTxHash chainhash.Hash) *TrackedDelegation {
-	dt.mu.Lock()
-	defer dt.mu.Unlock()
+func (td *TrackedDelegations) GetDelegation(stakingTxHash chainhash.Hash) *TrackedDelegation {
+	td.mu.RLock()
+	defer td.mu.RUnlock()
 
-	del, ok := dt.mapping[stakingTxHash]
+	del, ok := td.mapping[stakingTxHash]
 
 	if !ok {
 		return nil
@@ -41,22 +41,22 @@ func (dt *TrackedDelegations) GetDelegation(stakingTxHash chainhash.Hash) *Track
 }
 
 // GetDelegations returns all tracked delegations as a slice.
-func (dt *TrackedDelegations) GetDelegations() []*TrackedDelegation {
-	dt.mu.Lock()
-	defer dt.mu.Unlock()
+func (td *TrackedDelegations) GetDelegations() []*TrackedDelegation {
+	td.mu.RLock()
+	defer td.mu.RUnlock()
 
 	// Create a slice to hold all delegations
-	delegations := make([]*TrackedDelegation, 0, len(dt.mapping))
+	delegations := make([]*TrackedDelegation, 0, len(td.mapping))
 
 	// Iterate over the map and collect all values (TrackedDelegation)
-	for _, delegation := range dt.mapping {
+	for _, delegation := range td.mapping {
 		delegations = append(delegations, delegation)
 	}
 
 	return delegations
 }
 
-func (dt *TrackedDelegations) AddDelegation(
+func (td *TrackedDelegations) AddDelegation(
 	StakingTx *wire.MsgTx,
 	StakingOutputIdx uint32,
 	UnbondingOutput *wire.TxOut,
@@ -69,20 +69,20 @@ func (dt *TrackedDelegations) AddDelegation(
 
 	stakingTxHash := StakingTx.TxHash()
 
-	dt.mu.Lock()
-	defer dt.mu.Unlock()
+	td.mu.Lock()
+	defer td.mu.Unlock()
 
-	if _, ok := dt.mapping[stakingTxHash]; ok {
+	if _, ok := td.mapping[stakingTxHash]; ok {
 		return nil, fmt.Errorf("delegation already tracked for staking tx hash %s", stakingTxHash)
 	}
 
-	dt.mapping[stakingTxHash] = delegation
+	td.mapping[stakingTxHash] = delegation
 	return delegation, nil
 }
 
-func (dt *TrackedDelegations) RemoveDelegation(stakingTxHash chainhash.Hash) {
-	dt.mu.Lock()
-	defer dt.mu.Unlock()
+func (td *TrackedDelegations) RemoveDelegation(stakingTxHash chainhash.Hash) {
+	td.mu.Lock()
+	defer td.mu.Unlock()
 
-	delete(dt.mapping, stakingTxHash)
+	delete(td.mapping, stakingTxHash)
 }

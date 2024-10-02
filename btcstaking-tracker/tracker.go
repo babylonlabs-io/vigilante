@@ -56,7 +56,7 @@ type BTCStakingTracker struct {
 	quit      chan struct{}
 }
 
-func NewBTCSTakingTracker(
+func NewBTCStakingTracker(
 	btcClient btcclient.BTCClient,
 	btcNotifier notifier.ChainNotifier,
 	bbnClient *bbnclient.Client,
@@ -69,7 +69,14 @@ func NewBTCSTakingTracker(
 
 	// watcher routine
 	babylonAdapter := uw.NewBabylonClientAdapter(bbnClient)
-	watcher := uw.NewUnbondingWatcher(btcNotifier, babylonAdapter, cfg, logger, metrics.UnbondingWatcherMetrics)
+	watcher := uw.NewStakingEventWatcher(
+		btcNotifier,
+		btcClient,
+		babylonAdapter,
+		cfg,
+		logger,
+		metrics.UnbondingWatcherMetrics,
+	)
 
 	slashedFPSKChan := make(chan *btcec.PrivateKey, 100) // TODO: parameterise buffer size
 
