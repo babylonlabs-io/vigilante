@@ -7,6 +7,7 @@ import (
 	"fmt"
 	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
+	"github.com/babylonlabs-io/vigilante/types"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -108,14 +109,12 @@ func (uw *StakingEventWatcher) Start() error {
 		uw.logger.Info("starting staking event watcher")
 
 		blockEventNotifier, err := uw.btcNotifier.RegisterBlockEpochNtfn(nil)
-
 		if err != nil {
 			startErr = err
 			return
 		}
 
-		// we registered for notifications with `nil`  so we should receive best block
-		// immeadiatly
+		// we registered for notifications with `nil` so we should receive best block immediately
 		select {
 		case block := <-blockEventNotifier.Epochs:
 			uw.currentBestBlockHeight.Store(uint32(block.Height))
@@ -157,6 +156,10 @@ func (uw *StakingEventWatcher) handleNewBlocks(blockNotifier *notifier.BlockEpoc
 			}
 			uw.currentBestBlockHeight.Store(uint32(block.Height))
 			uw.logger.Debugf("Received new best btc block: %d", block.Height)
+
+			if err := uw.processNewBlock(block); err != nil {
+				uw.logger.Errorf("err processing block %d err %w", block.Height, err)
+			}
 		case <-uw.quit:
 			return
 		}
@@ -185,6 +188,38 @@ func (uw *StakingEventWatcher) processNewBlock(epoch *notifier.BlockEpoch) error
 	}
 
 	return nil
+}
+
+func (uw *StakingEventWatcher) checkBtcForStakingTx() {
+	delegations := uw.pendingTracker.GetDelegations()
+	if delegations == nil {
+		return
+	}
+
+	for _, del := range delegations {
+		txHash := del.StakingTx.TxHash()
+		// todo (lazar): check if this is valid, of we need to getRawTx
+		details, status, err := uw.btcClient.TxDetails(&txHash, del.StakingTx.TxOut[del.StakingOutputIdx].PkScript)
+		if err != nil {
+			uw.logger.Debugf("error getting tx %v", txHash)
+			continue
+		}
+
+		if status != btcclient.TxInChain {
+			continue
+		}
+
+		btcTxs := types.GetWrappedTxs(details.Block)
+		ib := types.NewIndexedBlock(int32(details.BlockHeight), &details.Block.Header, btcTxs)
+
+		proof, err := ib.GenSPVProof(int(details.TxIndex))
+		if err != nil {
+			uw.logger.Debugf("error making spv proof %w", err)
+			continue
+		}
+
+		go uw.handleActiveBtcDelegation(txHash, proof)
+	}
 }
 
 func (uw *StakingEventWatcher) handleActiveBtcDelegation(

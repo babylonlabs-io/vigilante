@@ -40,6 +40,22 @@ func (dt *TrackedDelegations) GetDelegation(stakingTxHash chainhash.Hash) *Track
 	return del
 }
 
+// GetDelegations returns all tracked delegations as a slice.
+func (dt *TrackedDelegations) GetDelegations() []*TrackedDelegation {
+	dt.mu.Lock()
+	defer dt.mu.Unlock()
+
+	// Create a slice to hold all delegations
+	delegations := make([]*TrackedDelegation, 0, len(dt.mapping))
+
+	// Iterate over the map and collect all values (TrackedDelegation)
+	for _, delegation := range dt.mapping {
+		delegations = append(delegations, delegation)
+	}
+
+	return delegations
+}
+
 func (dt *TrackedDelegations) AddDelegation(
 	StakingTx *wire.MsgTx,
 	StakingOutputIdx uint32,
