@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/babylonlabs-io/vigilante/btcclient"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -55,12 +56,14 @@ type delegationInactive struct {
 }
 
 type StakingEventWatcher struct {
-	startOnce   sync.Once
-	stopOnce    sync.Once
-	wg          sync.WaitGroup
-	quit        chan struct{}
-	cfg         *config.BTCStakingTrackerConfig
-	logger      *zap.SugaredLogger
+	startOnce sync.Once
+	stopOnce  sync.Once
+	wg        sync.WaitGroup
+	quit      chan struct{}
+	cfg       *config.BTCStakingTrackerConfig
+	logger    *zap.SugaredLogger
+
+	btcClient   btcclient.BTCClient
 	btcNotifier notifier.ChainNotifier
 	metrics     *metrics.UnbondingWatcherMetrics
 	// TODO: Ultimately all requests to babylon should go through some kind of semaphore

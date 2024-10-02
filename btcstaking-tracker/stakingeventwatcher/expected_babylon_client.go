@@ -32,7 +32,7 @@ type BabylonNodeAdapter interface {
 	IsDelegationActive(stakingTxHash chainhash.Hash) (bool, error)
 	ReportUnbonding(ctx context.Context, stakingTxHash chainhash.Hash, stakerUnbondingSig *schnorr.Signature) error
 	BtcClientTipHeight() (uint32, error)
-	ActivateDelegation(ctx context.Context, stakingTxHash chainhash.Hash) error
+	ActivateDelegation(ctx context.Context, stakingTxHash chainhash.Hash, inclusionProofHex string) error
 }
 
 type BabylonClientAdapter struct {
@@ -136,12 +136,20 @@ func (bca *BabylonClientAdapter) BtcClientTipHeight() (uint32, error) {
 }
 
 // ActivateDelegation provides inclusion proof to activate delegation
-func (bca *BabylonClientAdapter) ActivateDelegation(ctx context.Context, stakingTxHash chainhash.Hash) error {
+func (bca *BabylonClientAdapter) ActivateDelegation(
+	ctx context.Context, stakingTxHash chainhash.Hash, inclusionProofHex string) error {
 	signer := bca.babylonClient.MustGetAddr()
 
-	msg := btcstakingtypes.MsgBTCUndelegate{
-		Signer:        signer,
-		StakingTxHash: stakingTxHash.String(),
+	// todo(lazar): construct this
+	inclProof, err := btcstakingtypes.NewInclusionProofFromHex(inclusionProofHex)
+	if err != nil {
+		return fmt.Errorf("err parsing inclusion proof %w", err)
+	}
+
+	msg := btcstakingtypes.MsgAddBTCDelegationInclusionProof{
+		Signer:                  signer,
+		StakingTxHash:           stakingTxHash.String(),
+		StakingTxInclusionProof: inclProof,
 	}
 
 	resp, err := bca.babylonClient.ReliablySendMsg(ctx, &msg, []*errors.Error{}, []*errors.Error{})
