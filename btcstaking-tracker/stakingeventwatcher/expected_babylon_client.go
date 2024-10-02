@@ -3,6 +3,7 @@ package stakingeventwatcher
 import (
 	"context"
 	"fmt"
+	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
 
 	"cosmossdk.io/errors"
 	bbnclient "github.com/babylonlabs-io/babylon/client/client"
@@ -14,25 +15,21 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/query"
 )
 
-var (
-	ErrInvalidBabylonMsgExecution = fmt.Errorf("invalid babylon msg execution")
-)
-
 type Delegation struct {
 	StakingTx             *wire.MsgTx
 	StakingOutputIdx      uint32
 	DelegationStartHeight uint64
 	UnbondingOutput       *wire.TxOut
-	Active                bool
-	StatusDesc            string
+	HasProof              bool
 }
 
 type BabylonNodeAdapter interface {
 	BtcDelegations(offset uint64, limit uint64) ([]Delegation, error)
 	IsDelegationActive(stakingTxHash chainhash.Hash) (bool, error)
+	IsDelegationVerified(stakingTxHash chainhash.Hash) (bool, error)
 	ReportUnbonding(ctx context.Context, stakingTxHash chainhash.Hash, stakerUnbondingSig *schnorr.Signature) error
 	BtcClientTipHeight() (uint32, error)
-	ActivateDelegation(ctx context.Context, stakingTxHash chainhash.Hash, inclusionProofHex string) error
+	ActivateDelegation(ctx context.Context, stakingTxHash chainhash.Hash, proof *btcctypes.BTCSpvProof) error
 }
 
 type BabylonClientAdapter struct {
@@ -49,8 +46,28 @@ func NewBabylonClientAdapter(babylonClient *bbnclient.Client) *BabylonClientAdap
 
 // BtcDelegations - returns btc delegations TODO: Consider doing quick retries for failed queries.
 func (bca *BabylonClientAdapter) BtcDelegations(offset uint64, limit uint64) ([]Delegation, error) {
+	activeDelegations, err := bca.DelegationsByStatus(btcstakingtypes.BTCDelegationStatus_ACTIVE, offset, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch active delegations: %w", err)
+	}
+
+	// TODO(lazar): change to verified
+	verifiedDelegations, err := bca.DelegationsByStatus(btcstakingtypes.BTCDelegationStatus_ANY, offset, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch verified delegations: %w", err)
+	}
+
+	// Combine results
+	allDelegations := append(activeDelegations, verifiedDelegations...)
+
+	return allDelegations, nil
+}
+
+// DelegationsByStatus - returns btc delegations by status
+func (bca *BabylonClientAdapter) DelegationsByStatus(
+	status btcstakingtypes.BTCDelegationStatus, offset uint64, limit uint64) ([]Delegation, error) {
 	resp, err := bca.babylonClient.BTCDelegations(
-		btcstakingtypes.BTCDelegationStatus_ANY,
+		status,
 		&query.PageRequest{
 			Key:    nil,
 			Offset: offset,
@@ -79,8 +96,7 @@ func (bca *BabylonClientAdapter) BtcDelegations(offset uint64, limit uint64) ([]
 			StakingOutputIdx:      delegation.StakingOutputIdx,
 			DelegationStartHeight: delegation.StartHeight,
 			UnbondingOutput:       unbondingTx.TxOut[0], // todo(lazar) what about others? unbonding tx always has only one output
-			Active:                delegation.Active,
-			StatusDesc:            delegation.StatusDesc,
+			HasProof:              delegation.StartHeight > 0,
 		}
 	}
 
@@ -96,6 +112,17 @@ func (bca *BabylonClientAdapter) IsDelegationActive(stakingTxHash chainhash.Hash
 	}
 
 	return resp.BtcDelegation.Active, nil
+}
+
+// IsDelegationVerified method for BabylonClientAdapter checks if delegation is in status verified
+func (bca *BabylonClientAdapter) IsDelegationVerified(stakingTxHash chainhash.Hash) (bool, error) {
+	resp, err := bca.babylonClient.BTCDelegation(stakingTxHash.String())
+
+	if err != nil {
+		return false, fmt.Errorf("failed to retrieve delegation from babyln: %w", err)
+	}
+
+	return resp.BtcDelegation.StatusDesc == "VERIFIED", nil
 }
 
 // ReportUnbonding method for BabylonClientAdapter
@@ -137,19 +164,13 @@ func (bca *BabylonClientAdapter) BtcClientTipHeight() (uint32, error) {
 
 // ActivateDelegation provides inclusion proof to activate delegation
 func (bca *BabylonClientAdapter) ActivateDelegation(
-	ctx context.Context, stakingTxHash chainhash.Hash, inclusionProofHex string) error {
+	ctx context.Context, stakingTxHash chainhash.Hash, proof *btcctypes.BTCSpvProof) error {
 	signer := bca.babylonClient.MustGetAddr()
-
-	// todo(lazar): construct this
-	inclProof, err := btcstakingtypes.NewInclusionProofFromHex(inclusionProofHex)
-	if err != nil {
-		return fmt.Errorf("err parsing inclusion proof %w", err)
-	}
 
 	msg := btcstakingtypes.MsgAddBTCDelegationInclusionProof{
 		Signer:                  signer,
 		StakingTxHash:           stakingTxHash.String(),
-		StakingTxInclusionProof: inclProof,
+		StakingTxInclusionProof: btcstakingtypes.NewInclusionProofFromSpvProof(proof),
 	}
 
 	resp, err := bca.babylonClient.ReliablySendMsg(ctx, &msg, []*errors.Error{}, []*errors.Error{})

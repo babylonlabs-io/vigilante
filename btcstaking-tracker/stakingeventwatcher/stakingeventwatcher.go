@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"sync"
 	"sync/atomic"
@@ -70,10 +71,13 @@ type StakingEventWatcher struct {
 	// to avoid spamming babylon with requests
 	babylonNodeAdapter BabylonNodeAdapter
 	unbondingTracker   *TrackedDelegations
+	pendingTracker     *TrackedDelegations
 
 	unbondingDelegationChan chan *newDelegation
-	unbondingRemovalChan    chan *delegationInactive
-	currentBestBlockHeight  atomic.Uint32
+	pendingDelegationChan   chan *newDelegation
+
+	unbondingRemovalChan   chan *delegationInactive
+	currentBestBlockHeight atomic.Uint32
 }
 
 func NewUnbondingWatcher(
@@ -91,8 +95,10 @@ func NewUnbondingWatcher(
 		babylonNodeAdapter:      babylonNodeAdapter,
 		metrics:                 metrics,
 		unbondingTracker:        NewTrackedDelegations(),
+		pendingTracker:          NewTrackedDelegations(),
 		unbondingDelegationChan: make(chan *newDelegation),
 		unbondingRemovalChan:    make(chan *delegationInactive),
+		pendingDelegationChan:   make(chan *newDelegation),
 	}
 }
 
@@ -157,6 +163,65 @@ func (uw *StakingEventWatcher) handleNewBlocks(blockNotifier *notifier.BlockEpoc
 	}
 }
 
+func (uw *StakingEventWatcher) processNewBlock(epoch *notifier.BlockEpoch) error {
+	blockHash := epoch.BlockHeader.BlockHash()
+	ib, _, err := uw.btcClient.GetBlockByHash(&blockHash)
+	if err != nil {
+		return fmt.Errorf("failed to request block by hash: %s", blockHash.String())
+	}
+
+	for _, tx := range ib.Txs {
+		delegation := uw.pendingTracker.GetDelegation(*tx.Hash())
+		if delegation == nil {
+			continue
+		}
+
+		proof, err := ib.GenSPVProof(tx.Index())
+		if err != nil {
+			return fmt.Errorf("error making spv proof %w", err)
+		}
+
+		go uw.handleActiveBtcDelegation(*tx.Hash(), proof)
+	}
+
+	return nil
+}
+
+func (uw *StakingEventWatcher) handleActiveBtcDelegation(
+	stakingTxHash chainhash.Hash, proof *btcctypes.BTCSpvProof) {
+	ctx, cancel := uw.quitContext()
+	defer cancel()
+
+	_ = retry.Do(func() error {
+		verified, err := uw.babylonNodeAdapter.IsDelegationVerified(stakingTxHash)
+		if err != nil {
+			return fmt.Errorf("error checking if delegation is active: %v", err)
+		}
+
+		if !verified {
+			uw.logger.Debugf("skipping tx %s is not in verified status", stakingTxHash)
+			return nil
+		}
+
+		if err := uw.babylonNodeAdapter.ActivateDelegation(ctx, stakingTxHash, proof); err != nil {
+			uw.metrics.FailedReportedActivateDelegations.Inc()
+			return fmt.Errorf("error reporting activate delegation tx %s to babylon: %v", stakingTxHash, err)
+		}
+
+		uw.metrics.ReportedActivateDelegationsCounter.Inc()
+		return nil
+	},
+		retry.Context(ctx),
+		retryForever,
+		fixedDelyTypeWithJitter,
+		retry.MaxDelay(uw.cfg.RetrySubmitUnbondingTxInterval),
+		retry.MaxJitter(uw.cfg.RetryJitter),
+		retry.OnRetry(func(n uint, err error) {
+			uw.logger.Debugf("retrying to submit activation tx, for staking tx: %s. Attempt: %d. Err: %v", stakingTxHash, n, err)
+		}),
+	)
+}
+
 // checkBabylonDelegations iterates over all active babylon delegations, and reports not already
 // tracked delegations to the unbondingDelegationChan
 func (uw *StakingEventWatcher) checkBabylonDelegations() error {
@@ -173,15 +238,21 @@ func (uw *StakingEventWatcher) checkBabylonDelegations() error {
 		for _, delegation := range delegations {
 			stakingTxHash := delegation.StakingTx.TxHash()
 
+			del := &newDelegation{
+				stakingTxHash:         stakingTxHash,
+				stakingTx:             delegation.StakingTx,
+				stakingOutputIdx:      delegation.StakingOutputIdx,
+				delegationStartHeight: delegation.DelegationStartHeight,
+				unbondingOutput:       delegation.UnbondingOutput,
+			}
+
 			// if we already have this delegation, skip it
-			if uw.unbondingTracker.GetDelegation(stakingTxHash) == nil {
-				utils.PushOrQuit(uw.unbondingDelegationChan, &newDelegation{
-					stakingTxHash:         stakingTxHash,
-					stakingTx:             delegation.StakingTx,
-					stakingOutputIdx:      delegation.StakingOutputIdx,
-					delegationStartHeight: delegation.DelegationStartHeight,
-					unbondingOutput:       delegation.UnbondingOutput,
-				}, uw.quit)
+			if uw.unbondingTracker.GetDelegation(stakingTxHash) == nil && delegation.HasProof {
+				utils.PushOrQuit(uw.unbondingDelegationChan, del, uw.quit)
+			}
+
+			if uw.pendingTracker.GetDelegation(stakingTxHash) == nil && !delegation.HasProof {
+				utils.PushOrQuit(uw.unbondingDelegationChan, del, uw.quit)
 			}
 		}
 
