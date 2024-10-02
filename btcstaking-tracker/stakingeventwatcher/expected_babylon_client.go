@@ -51,8 +51,7 @@ func (bca *BabylonClientAdapter) BtcDelegations(offset uint64, limit uint64) ([]
 		return nil, fmt.Errorf("failed to fetch active delegations: %w", err)
 	}
 
-	// TODO(lazar): change to verified
-	verifiedDelegations, err := bca.DelegationsByStatus(btcstakingtypes.BTCDelegationStatus_ANY, offset, limit)
+	verifiedDelegations, err := bca.DelegationsByStatus(btcstakingtypes.BTCDelegationStatus_VERIFIED, offset, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch verified delegations: %w", err)
 	}

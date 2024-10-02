@@ -190,6 +190,7 @@ func (uw *StakingEventWatcher) processNewBlock(epoch *notifier.BlockEpoch) error
 	return nil
 }
 
+// checkBtcForStakingTx
 func (uw *StakingEventWatcher) checkBtcForStakingTx() {
 	delegations := uw.pendingTracker.GetDelegations()
 	if delegations == nil {
@@ -244,6 +245,9 @@ func (uw *StakingEventWatcher) handleActiveBtcDelegation(
 		}
 
 		uw.metrics.ReportedActivateDelegationsCounter.Inc()
+
+		uw.pendingTracker.RemoveDelegation(stakingTxHash)
+
 		return nil
 	},
 		retry.Context(ctx),

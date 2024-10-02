@@ -178,6 +178,7 @@ func (tm *TestManager) CreateBTCDelegation(
 	require.NoError(t, err)
 	// generate proper delegator sig
 	require.NoError(t, err)
+
 	delegatorSig, err := stakingSlashingInfo.SlashingTx.Sign(
 		stakingMsgTx,
 		stakingOutIdx,
@@ -223,13 +224,17 @@ func (tm *TestManager) CreateBTCDelegation(
 
 	// submit BTC delegation to Babylon
 	msgBTCDel := &bstypes.MsgCreateBTCDelegation{
-		StakerAddr:           signerAddr,
-		Pop:                  pop,
-		BtcPk:                bbn.NewBIP340PubKeyFromBTCPK(tm.WalletPrivKey.PubKey()),
-		FpBtcPkList:          []bbn.BIP340PubKey{*bbn.NewBIP340PubKeyFromBTCPK(fpPK)},
-		StakingTime:          uint32(stakingTimeBlocks),
-		StakingValue:         stakingValue,
-		StakingTx:            stakingTxInfo,
+		StakerAddr:   signerAddr,
+		Pop:          pop,
+		BtcPk:        bbn.NewBIP340PubKeyFromBTCPK(tm.WalletPrivKey.PubKey()),
+		FpBtcPkList:  []bbn.BIP340PubKey{*bbn.NewBIP340PubKeyFromBTCPK(fpPK)},
+		StakingTime:  stakingTimeBlocks,
+		StakingValue: stakingValue,
+		StakingTx:    stakingTxInfo.Transaction,
+		StakingTxInclusionProof: &bstypes.InclusionProof{
+			Key:   stakingTxInfo.Key,
+			Proof: stakingTxInfo.Proof,
+		},
 		SlashingTx:           stakingSlashingInfo.SlashingTx,
 		DelegatorSlashingSig: delegatorSig,
 		// Ubonding related data

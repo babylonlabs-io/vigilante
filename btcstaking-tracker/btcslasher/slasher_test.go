@@ -182,7 +182,7 @@ func FuzzSlasher(f *testing.F) {
 				[]*btcec.PublicKey{fpBTCPK.MustToBTCPK()},
 				covenantBtcPks,
 				bsParams.Params.CovenantQuorum,
-				unbondingBTCDel.GetStakingTime(),
+				uint16(unbondingBTCDel.GetStakingTime()),
 				btcutil.Amount(unbondingBTCDel.TotalSat),
 				net,
 			)
