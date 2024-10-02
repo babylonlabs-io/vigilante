@@ -302,6 +302,229 @@ func (tm *TestManager) CreateBTCDelegation(
 	return stakingSlashingInfo, unbondingSlashingInfo, tm.WalletPrivKey
 }
 
+func (tm *TestManager) CreateBTCDelegationWithoutIncl(
+	t *testing.T,
+	fpSK *btcec.PrivateKey,
+) (*datagen.TestStakingSlashingInfo, *datagen.TestUnbondingSlashingInfo, *btcec.PrivateKey) {
+	signerAddr := tm.BabylonClient.MustGetAddr()
+	addr := sdk.MustAccAddressFromBech32(signerAddr)
+
+	fpPK := fpSK.PubKey()
+
+	/*
+		create BTC delegation
+	*/
+	// generate staking tx and slashing tx
+	bsParams, err := tm.BabylonClient.BTCStakingParams()
+	require.NoError(t, err)
+	covenantBtcPks, err := bbnPksToBtcPks(bsParams.Params.CovenantPks)
+	require.NoError(t, err)
+	stakingTimeBlocks := bsParams.Params.MaxStakingTimeBlocks
+	// get top UTXO
+	topUnspentResult, _, err := tm.BTCClient.GetHighUTXOAndSum()
+	require.NoError(t, err)
+	topUTXO, err := types.NewUTXO(topUnspentResult, regtestParams)
+	require.NoError(t, err)
+	// staking value
+	stakingValue := int64(topUTXO.Amount) / 3
+
+	// generate legitimate BTC del
+	stakingSlashingInfo := datagen.GenBTCStakingSlashingInfoWithOutPoint(
+		r,
+		t,
+		regtestParams,
+		topUTXO.GetOutPoint(),
+		tm.WalletPrivKey,
+		[]*btcec.PublicKey{fpPK},
+		covenantBtcPks,
+		bsParams.Params.CovenantQuorum,
+		uint16(stakingTimeBlocks),
+		stakingValue,
+		bsParams.Params.SlashingPkScript,
+		bsParams.Params.SlashingRate,
+		uint16(tm.getBTCUnbondingTime(t)),
+	)
+	// sign staking tx and overwrite the staking tx to the signed version
+	// NOTE: the tx hash has changed here since stakingMsgTx is pre-segwit
+	stakingMsgTx, signed, err := tm.BTCClient.SignRawTransactionWithWallet(stakingSlashingInfo.StakingTx)
+	require.NoError(t, err)
+	require.True(t, signed)
+	// overwrite staking tx
+	stakingSlashingInfo.StakingTx = stakingMsgTx
+	// get signed staking tx hash
+	stakingMsgTxHash1 := stakingSlashingInfo.StakingTx.TxHash()
+	stakingMsgTxHash := &stakingMsgTxHash1
+	t.Logf("signed staking tx hash: %s", stakingMsgTxHash.String())
+
+	// change outpoint tx hash of slashing tx to the txhash of the signed staking tx
+	slashingMsgTx, err := stakingSlashingInfo.SlashingTx.ToMsgTx()
+	require.NoError(t, err)
+	slashingMsgTx.TxIn[0].PreviousOutPoint.Hash = stakingSlashingInfo.StakingTx.TxHash()
+	// update slashing tx
+	stakingSlashingInfo.SlashingTx, err = bstypes.NewBTCSlashingTxFromMsgTx(slashingMsgTx)
+	require.NoError(t, err)
+
+	stakingOutIdx, err := outIdx(stakingSlashingInfo.StakingTx, stakingSlashingInfo.StakingInfo.StakingOutput)
+	require.NoError(t, err)
+
+	// create PoP
+	pop, err := bstypes.NewPoPBTC(addr, tm.WalletPrivKey)
+	require.NoError(t, err)
+	slashingSpendPath, err := stakingSlashingInfo.StakingInfo.SlashingPathSpendInfo()
+	require.NoError(t, err)
+	// generate proper delegator sig
+	require.NoError(t, err)
+
+	delegatorSig, err := stakingSlashingInfo.SlashingTx.Sign(
+		stakingMsgTx,
+		stakingOutIdx,
+		slashingSpendPath.GetPkScriptPath(),
+		tm.WalletPrivKey,
+	)
+	require.NoError(t, err)
+
+	// Genearate all data necessary for unbonding
+	fee := int64(1000)
+	unbondingValue := stakingSlashingInfo.StakingInfo.StakingOutput.Value - fee
+	unbondingSlashingInfo := datagen.GenBTCUnbondingSlashingInfo(
+		r,
+		t,
+		regtestParams,
+		tm.WalletPrivKey,
+		[]*btcec.PublicKey{fpPK},
+		covenantBtcPks,
+		bsParams.Params.CovenantQuorum,
+		wire.NewOutPoint(stakingMsgTxHash, stakingOutIdx),
+		uint16(stakingTimeBlocks),
+		unbondingValue,
+		bsParams.Params.SlashingPkScript,
+		bsParams.Params.SlashingRate,
+		uint16(tm.getBTCUnbondingTime(t)),
+	)
+	require.NoError(t, err)
+	unbondingTxBytes, err := bbn.SerializeBTCTx(unbondingSlashingInfo.UnbondingTx)
+	require.NoError(t, err)
+
+	unbondingSlashingPathSpendInfo, err := unbondingSlashingInfo.UnbondingInfo.SlashingPathSpendInfo()
+	require.NoError(t, err)
+	slashingTxSig, err := unbondingSlashingInfo.SlashingTx.Sign(
+		unbondingSlashingInfo.UnbondingTx,
+		0, // Only one output in the unbonding tx
+		unbondingSlashingPathSpendInfo.GetPkScriptPath(),
+		tm.WalletPrivKey,
+	)
+	require.NoError(t, err)
+
+	// 	Build message to send
+
+	var stakingTxBuf bytes.Buffer
+	err = stakingMsgTx.Serialize(&stakingTxBuf)
+	require.NoError(t, err)
+
+	// submit BTC delegation to Babylon
+	msgBTCDel := &bstypes.MsgCreateBTCDelegation{
+		StakerAddr:              signerAddr,
+		Pop:                     pop,
+		BtcPk:                   bbn.NewBIP340PubKeyFromBTCPK(tm.WalletPrivKey.PubKey()),
+		FpBtcPkList:             []bbn.BIP340PubKey{*bbn.NewBIP340PubKeyFromBTCPK(fpPK)},
+		StakingTime:             stakingTimeBlocks,
+		StakingValue:            stakingValue,
+		StakingTx:               stakingTxBuf.Bytes(),
+		StakingTxInclusionProof: nil,
+		SlashingTx:              stakingSlashingInfo.SlashingTx,
+		DelegatorSlashingSig:    delegatorSig,
+		// Ubonding related data
+		UnbondingTime:                 uint32(tm.getBTCUnbondingTime(t)),
+		UnbondingTx:                   unbondingTxBytes,
+		UnbondingValue:                unbondingSlashingInfo.UnbondingInfo.UnbondingOutput.Value,
+		UnbondingSlashingTx:           unbondingSlashingInfo.SlashingTx,
+		DelegatorUnbondingSlashingSig: slashingTxSig,
+	}
+	_, err = tm.BabylonClient.ReliablySendMsg(context.Background(), msgBTCDel, nil, nil)
+	require.NoError(t, err)
+	t.Logf("submitted MsgCreateBTCDelegation")
+
+	/*
+		generate and insert new covenant signature, in order to activate the BTC delegation
+	*/
+	// TODO: Make this handle multiple covenant signatures
+	fpEncKey, err := asig.NewEncryptionKeyFromBTCPK(fpSK.PubKey())
+	require.NoError(t, err)
+	covenantSig, err := stakingSlashingInfo.SlashingTx.EncSign(
+		stakingMsgTx,
+		stakingOutIdx,
+		slashingSpendPath.GetPkScriptPath(),
+		covenantSk,
+		fpEncKey,
+	)
+	require.NoError(t, err)
+
+	// TODO: Add covenant sigs for all covenants
+	// add covenant sigs
+	// covenant Schnorr sig on unbonding tx
+	unbondingPathSpendInfo, err := stakingSlashingInfo.StakingInfo.UnbondingPathSpendInfo()
+	require.NoError(t, err)
+	unbondingTxCovenantSchnorrSig, err := btcstaking.SignTxWithOneScriptSpendInputStrict(
+		unbondingSlashingInfo.UnbondingTx,
+		stakingSlashingInfo.StakingTx,
+		stakingOutIdx,
+		unbondingPathSpendInfo.GetPkScriptPath(),
+		covenantSk,
+	)
+	require.NoError(t, err)
+	covenantUnbondingSig := bbn.NewBIP340SignatureFromBTCSig(unbondingTxCovenantSchnorrSig)
+	// covenant adaptor sig on unbonding slashing tx
+	require.NoError(t, err)
+	covenantSlashingSig, err := unbondingSlashingInfo.SlashingTx.EncSign(
+		unbondingSlashingInfo.UnbondingTx,
+		0, // Only one output in the unbonding transaction
+		unbondingSlashingPathSpendInfo.GetPkScriptPath(),
+		covenantSk,
+		fpEncKey,
+	)
+	require.NoError(t, err)
+	msgAddCovenantSig := &bstypes.MsgAddCovenantSigs{
+		Signer:                  signerAddr,
+		Pk:                      bbn.NewBIP340PubKeyFromBTCPK(covenantSk.PubKey()),
+		StakingTxHash:           stakingMsgTxHash.String(),
+		SlashingTxSigs:          [][]byte{covenantSig.MustMarshal()},
+		UnbondingTxSig:          covenantUnbondingSig,
+		SlashingUnbondingTxSigs: [][]byte{covenantSlashingSig.MustMarshal()},
+	}
+	_, err = tm.BabylonClient.ReliablySendMsg(context.Background(), msgAddCovenantSig, nil, nil)
+	require.NoError(t, err)
+	t.Logf("submitted covenant signature")
+
+	// send staking tx to Bitcoin node's mempool
+	_, err = tm.BTCClient.SendRawTransaction(stakingMsgTx, true)
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		return len(tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{stakingMsgTxHash})) == 1
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	mBlock := tm.mineBlock(t)
+	require.Equal(t, 2, len(mBlock.Transactions))
+
+	// wait until staking tx is on Bitcoin
+	require.Eventually(t, func() bool {
+		_, err := tm.BTCClient.GetRawTransaction(stakingMsgTxHash)
+		return err == nil
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	// insert k empty blocks to Bitcoin
+	btccParamsResp, err := tm.BabylonClient.BTCCheckpointParams()
+	require.NoError(t, err)
+	btccParams := btccParamsResp.Params
+	for i := 0; i < int(btccParams.BtcConfirmationDepth); i++ {
+		tm.mineBlock(t)
+	}
+
+	tm.CatchUpBTCLightClient(t)
+
+	return stakingSlashingInfo, unbondingSlashingInfo, tm.WalletPrivKey
+}
+
 func (tm *TestManager) Undelegate(
 	t *testing.T,
 	stakingSlashingInfo *datagen.TestStakingSlashingInfo,
