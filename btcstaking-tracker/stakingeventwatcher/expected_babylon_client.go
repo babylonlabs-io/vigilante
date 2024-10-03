@@ -94,7 +94,7 @@ func (bca *BabylonClientAdapter) DelegationsByStatus(
 			StakingTx:             stakingTx,
 			StakingOutputIdx:      delegation.StakingOutputIdx,
 			DelegationStartHeight: delegation.StartHeight,
-			UnbondingOutput:       unbondingTx.TxOut[0], // todo(lazar) what about others? unbonding tx always has only one output
+			UnbondingOutput:       unbondingTx.TxOut[0],
 			HasProof:              delegation.StartHeight > 0,
 		}
 	}
@@ -121,7 +121,7 @@ func (bca *BabylonClientAdapter) IsDelegationVerified(stakingTxHash chainhash.Ha
 		return false, fmt.Errorf("failed to retrieve delegation from babyln: %w", err)
 	}
 
-	return resp.BtcDelegation.StatusDesc == "VERIFIED", nil
+	return resp.BtcDelegation.StatusDesc == btcstakingtypes.BTCDelegationStatus_VERIFIED.String(), nil
 }
 
 // ReportUnbonding method for BabylonClientAdapter

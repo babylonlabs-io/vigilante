@@ -476,7 +476,8 @@ func (sew *StakingEventWatcher) handlerVerifiedDelegations() {
 	}
 }
 
-// checkBtcForStakingTx
+// checkBtcForStakingTx gets a snapshot of current Delegations in cache
+// checks if staking tx is in BTC, generates a proof and invokes sending of MsgAddBTCDelegationInclusionProof
 func (sew *StakingEventWatcher) checkBtcForStakingTx() error {
 	delegations := sew.pendingTracker.GetDelegations()
 	if delegations == nil {
@@ -485,7 +486,6 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() error {
 
 	for _, del := range delegations {
 		txHash := del.StakingTx.TxHash()
-		// todo (lazar): check if this is valid, of we need to getRawTx
 		details, status, err := sew.btcClient.TxDetails(&txHash, del.StakingTx.TxOut[del.StakingOutputIdx].PkScript)
 		if err != nil {
 			sew.logger.Debugf("error getting tx %v", txHash)
@@ -511,6 +511,7 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() error {
 	return nil
 }
 
+// activateBtcDelegation invokes bbn client and send MsgAddBTCDelegationInclusionProof
 func (sew *StakingEventWatcher) activateBtcDelegation(
 	stakingTxHash chainhash.Hash, proof *btcctypes.BTCSpvProof) {
 	ctx, cancel := sew.quitContext()
@@ -539,7 +540,7 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 		return nil
 	},
 		retry.Context(ctx),
-		retry.Attempts(5), // todo(Lazar): add this to config, we prob don't want to retry forever here
+		retry.Attempts(5), // todo(Lazar): add this to config
 		fixedDelyTypeWithJitter,
 		retry.MaxDelay(sew.cfg.RetrySubmitUnbondingTxInterval),
 		retry.MaxJitter(sew.cfg.RetryJitter),
