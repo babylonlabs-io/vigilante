@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	types "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
+	types0 "github.com/babylonlabs-io/babylon/x/btcstaking/types"
 	schnorr "github.com/btcsuite/btcd/btcec/v2/schnorr"
 	chainhash "github.com/btcsuite/btcd/chaincfg/chainhash"
 	gomock "github.com/golang/mock/gomock"
@@ -79,6 +80,21 @@ func (m *MockBabylonNodeAdapter) BtcDelegations(offset, limit uint64) ([]Delegat
 func (mr *MockBabylonNodeAdapterMockRecorder) BtcDelegations(offset, limit interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BtcDelegations", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).BtcDelegations), offset, limit)
+}
+
+// DelegationsByStatus mocks base method.
+func (m *MockBabylonNodeAdapter) DelegationsByStatus(status types0.BTCDelegationStatus, offset, limit uint64) ([]Delegation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DelegationsByStatus", status, offset, limit)
+	ret0, _ := ret[0].([]Delegation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DelegationsByStatus indicates an expected call of DelegationsByStatus.
+func (mr *MockBabylonNodeAdapterMockRecorder) DelegationsByStatus(status, offset, limit interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DelegationsByStatus", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).DelegationsByStatus), status, offset, limit)
 }
 
 // IsDelegationActive mocks base method.

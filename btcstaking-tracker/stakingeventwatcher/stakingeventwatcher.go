@@ -127,7 +127,7 @@ func (sew *StakingEventWatcher) Start() error {
 
 		sew.wg.Add(4)
 		go sew.handleNewBlocks(blockEventNotifier)
-		go sew.handleDelegations()
+		go sew.handleUnbondedDelegations()
 		go sew.fetchDelegations()
 		go sew.handlerVerifiedDelegations()
 
@@ -189,7 +189,8 @@ func (sew *StakingEventWatcher) checkBabylonDelegations() error {
 			}
 
 			// if we already have this delegation, skip it
-			if sew.unbondingTracker.GetDelegation(stakingTxHash) == nil && delegation.HasProof {
+			// we should track both verified and active status for unbonding
+			if sew.unbondingTracker.GetDelegation(stakingTxHash) == nil {
 				utils.PushOrQuit(sew.unbondingDelegationChan, del, sew.quit)
 			}
 
@@ -334,15 +335,18 @@ func (sew *StakingEventWatcher) reportUnbondingToBabylon(
 			return fmt.Errorf("error checking if delegation is active: %v", err)
 		}
 
-		if !active {
-			//
+		verified, err := sew.babylonNodeAdapter.IsDelegationVerified(stakingTxHash)
+
+		if err != nil {
+			return fmt.Errorf("error checking if delegation is verified: %v", err)
+		}
+
+		if !active && !verified {
 			sew.logger.Debugf("cannot report unbonding. delegation for staking tx %s is no longer active", stakingTxHash)
 			return nil
 		}
 
-		err = sew.babylonNodeAdapter.ReportUnbonding(ctx, stakingTxHash, unbondingSignature)
-
-		if err != nil {
+		if err = sew.babylonNodeAdapter.ReportUnbonding(ctx, stakingTxHash, unbondingSignature); err != nil {
 			sew.metrics.FailedReportedUnbondingTransactions.Inc()
 			return fmt.Errorf("error reporting unbonding tx %s to babylon: %v", stakingTxHash, err)
 		}
@@ -402,7 +406,7 @@ func (sew *StakingEventWatcher) watchForSpend(spendEvent *notifier.SpendEvent, t
 	)
 }
 
-func (sew *StakingEventWatcher) handleDelegations() {
+func (sew *StakingEventWatcher) handleUnbondedDelegations() {
 	defer sew.wg.Done()
 	for {
 		select {

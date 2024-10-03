@@ -25,6 +25,7 @@ type Delegation struct {
 
 type BabylonNodeAdapter interface {
 	BtcDelegations(offset uint64, limit uint64) ([]Delegation, error)
+	DelegationsByStatus(status btcstakingtypes.BTCDelegationStatus, offset uint64, limit uint64) ([]Delegation, error)
 	IsDelegationActive(stakingTxHash chainhash.Hash) (bool, error)
 	IsDelegationVerified(stakingTxHash chainhash.Hash) (bool, error)
 	ReportUnbonding(ctx context.Context, stakingTxHash chainhash.Hash, stakerUnbondingSig *schnorr.Signature) error
@@ -175,7 +176,7 @@ func (bca *BabylonClientAdapter) ActivateDelegation(
 	resp, err := bca.babylonClient.ReliablySendMsg(ctx, &msg, []*errors.Error{}, []*errors.Error{})
 
 	if err != nil && resp != nil {
-		return fmt.Errorf("msg MsgBTCUndelegate failed exeuction with code %d and error %w", resp.Code, err)
+		return fmt.Errorf("msg MsgAddBTCDelegationInclusionProof failed exeuction with code %d and error %w", resp.Code, err)
 	}
 
 	if err != nil {
