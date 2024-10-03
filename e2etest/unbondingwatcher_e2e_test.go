@@ -46,7 +46,7 @@ func TestUnbondingWatcher(t *testing.T) {
 	bstCfg.CheckDelegationsInterval = 1 * time.Second
 	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
 
-	bsTracker := bst.NewBTCSTakingTracker(
+	bsTracker := bst.NewBTCStakingTracker(
 		tm.BTCClient,
 		backend,
 		tm.BabylonClient,
@@ -111,5 +111,62 @@ func TestUnbondingWatcher(t *testing.T) {
 		// delegation will be deactivated
 		return !resp.BtcDelegation.Active
 
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+}
+
+// TestActivatingDelegation verifies that a delegation created without an inclusion proof will
+// eventually become "active".
+// Specifically, that stakingEventWatcher will send a MsgAddBTCDelegationInclusionProof to do so.
+func TestActivatingDelegation(t *testing.T) {
+	t.Parallel()
+	// segwit is activated at height 300. It's necessary for staking/slashing tx
+	numMatureOutputs := uint32(300)
+
+	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
+	defer tm.Stop(t)
+	// Insert all existing BTC headers to babylon node
+	tm.CatchUpBTCLightClient(t)
+
+	btcNotifier, err := btcclient.NewNodeBackend(
+		btcclient.ToBitcoindConfig(tm.Config.BTC),
+		&chaincfg.RegressionNetParams,
+		&btcclient.EmptyHintCache{},
+	)
+	require.NoError(t, err)
+
+	err = btcNotifier.Start()
+	require.NoError(t, err)
+
+	commonCfg := config.DefaultCommonConfig()
+	bstCfg := config.DefaultBTCStakingTrackerConfig()
+	bstCfg.CheckDelegationsInterval = 1 * time.Second
+	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
+
+	bsTracker := bst.NewBTCStakingTracker(
+		tm.BTCClient,
+		btcNotifier,
+		tm.BabylonClient,
+		&bstCfg,
+		&commonCfg,
+		zap.NewNop(),
+		stakingTrackerMetrics,
+	)
+	bsTracker.Start()
+	defer bsTracker.Stop()
+
+	// set up a finality provider
+	_, fpSK := tm.CreateFinalityProvider(t)
+	// set up a BTC delegation
+	stakingSlashingInfo, _, _ := tm.CreateBTCDelegationWithoutIncl(t, fpSK)
+
+	// created delegation lacks inclusion proof, once created it will be in
+	// pending status, once convenant signatures are added it will be in verified status,
+	// and once the stakingEventWatcher submits MsgAddBTCDelegationInclusionProof it will
+	// be in active status
+	require.Eventually(t, func() bool {
+		resp, err := tm.BabylonClient.BTCDelegation(stakingSlashingInfo.StakingTx.TxHash().String())
+		require.NoError(t, err)
+
+		return resp.BtcDelegation.Active
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 }

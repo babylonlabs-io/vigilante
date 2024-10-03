@@ -23,6 +23,7 @@ type BTCClient interface {
 	SendRawTransaction(tx *wire.MsgTx, allowHighFees bool) (*chainhash.Hash, error)
 	GetTransaction(txHash *chainhash.Hash) (*btcjson.GetTransactionResult, error)
 	GetRawTransaction(txHash *chainhash.Hash) (*btcutil.Tx, error)
+	TxDetails(txHash *chainhash.Hash, pkScript []byte) (*notifier.TxConfirmation, TxStatus, error)
 }
 
 type BTCWallet interface {

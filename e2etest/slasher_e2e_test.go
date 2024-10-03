@@ -45,7 +45,7 @@ func TestSlasher_GracefulShutdown(t *testing.T) {
 
 	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
 
-	bsTracker := bst.NewBTCSTakingTracker(
+	bsTracker := bst.NewBTCStakingTracker(
 		tm.BTCClient,
 		backend,
 		tm.BabylonClient,
@@ -95,7 +95,7 @@ func TestSlasher_Slasher(t *testing.T) {
 	bstCfg.CheckDelegationsInterval = 1 * time.Second
 	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
 
-	bsTracker := bst.NewBTCSTakingTracker(
+	bsTracker := bst.NewBTCStakingTracker(
 		tm.BTCClient,
 		backend,
 		tm.BabylonClient,
@@ -164,7 +164,7 @@ func TestSlasher_SlashingUnbonding(t *testing.T) {
 	bstCfg.CheckDelegationsInterval = 1 * time.Second
 	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
 
-	bsTracker := bst.NewBTCSTakingTracker(
+	bsTracker := bst.NewBTCStakingTracker(
 		tm.BTCClient,
 		backend,
 		tm.BabylonClient,
@@ -259,7 +259,7 @@ func TestSlasher_Bootstrapping(t *testing.T) {
 	bstCfg.CheckDelegationsInterval = 1 * time.Second
 	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
 
-	bsTracker := bst.NewBTCSTakingTracker(
+	bsTracker := bst.NewBTCStakingTracker(
 		tm.BTCClient,
 		backend,
 		tm.BabylonClient,

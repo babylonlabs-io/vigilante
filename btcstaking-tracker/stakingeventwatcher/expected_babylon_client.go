@@ -1,8 +1,9 @@
-package unbondingwatcher
+package stakingeventwatcher
 
 import (
 	"context"
 	"fmt"
+	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
 
 	"cosmossdk.io/errors"
 	bbnclient "github.com/babylonlabs-io/babylon/client/client"
@@ -14,22 +15,21 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/query"
 )
 
-var (
-	ErrInvalidBabylonMsgExecution = fmt.Errorf("invalid babylon msg execution")
-)
-
 type Delegation struct {
 	StakingTx             *wire.MsgTx
 	StakingOutputIdx      uint32
 	DelegationStartHeight uint64
 	UnbondingOutput       *wire.TxOut
+	HasProof              bool
 }
 
 type BabylonNodeAdapter interface {
-	ActiveBtcDelegations(offset uint64, limit uint64) ([]Delegation, error)
+	DelegationsByStatus(status btcstakingtypes.BTCDelegationStatus, offset uint64, limit uint64) ([]Delegation, error)
 	IsDelegationActive(stakingTxHash chainhash.Hash) (bool, error)
+	IsDelegationVerified(stakingTxHash chainhash.Hash) (bool, error)
 	ReportUnbonding(ctx context.Context, stakingTxHash chainhash.Hash, stakerUnbondingSig *schnorr.Signature) error
 	BtcClientTipHeight() (uint32, error)
+	ActivateDelegation(ctx context.Context, stakingTxHash chainhash.Hash, proof *btcctypes.BTCSpvProof) error
 }
 
 type BabylonClientAdapter struct {
@@ -44,10 +44,11 @@ func NewBabylonClientAdapter(babylonClient *bbnclient.Client) *BabylonClientAdap
 	}
 }
 
-// TODO: Consider doing quick retries for failed queries.
-func (bca *BabylonClientAdapter) ActiveBtcDelegations(offset uint64, limit uint64) ([]Delegation, error) {
+// DelegationsByStatus - returns btc delegations by status
+func (bca *BabylonClientAdapter) DelegationsByStatus(
+	status btcstakingtypes.BTCDelegationStatus, offset uint64, limit uint64) ([]Delegation, error) {
 	resp, err := bca.babylonClient.BTCDelegations(
-		btcstakingtypes.BTCDelegationStatus_ACTIVE,
+		status,
 		&query.PageRequest{
 			Key:    nil,
 			Offset: offset,
@@ -75,8 +76,8 @@ func (bca *BabylonClientAdapter) ActiveBtcDelegations(offset uint64, limit uint6
 			StakingTx:             stakingTx,
 			StakingOutputIdx:      delegation.StakingOutputIdx,
 			DelegationStartHeight: delegation.StartHeight,
-			// unbonding transaction always has only one output
-			UnbondingOutput: unbondingTx.TxOut[0],
+			UnbondingOutput:       unbondingTx.TxOut[0],
+			HasProof:              delegation.StartHeight > 0,
 		}
 	}
 
@@ -92,6 +93,17 @@ func (bca *BabylonClientAdapter) IsDelegationActive(stakingTxHash chainhash.Hash
 	}
 
 	return resp.BtcDelegation.Active, nil
+}
+
+// IsDelegationVerified method for BabylonClientAdapter checks if delegation is in status verified
+func (bca *BabylonClientAdapter) IsDelegationVerified(stakingTxHash chainhash.Hash) (bool, error) {
+	resp, err := bca.babylonClient.BTCDelegation(stakingTxHash.String())
+
+	if err != nil {
+		return false, fmt.Errorf("failed to retrieve delegation from babyln: %w", err)
+	}
+
+	return resp.BtcDelegation.StatusDesc == btcstakingtypes.BTCDelegationStatus_VERIFIED.String(), nil
 }
 
 // ReportUnbonding method for BabylonClientAdapter
@@ -129,4 +141,28 @@ func (bca *BabylonClientAdapter) BtcClientTipHeight() (uint32, error) {
 	}
 
 	return uint32(resp.Header.Height), nil
+}
+
+// ActivateDelegation provides inclusion proof to activate delegation
+func (bca *BabylonClientAdapter) ActivateDelegation(
+	ctx context.Context, stakingTxHash chainhash.Hash, proof *btcctypes.BTCSpvProof) error {
+	signer := bca.babylonClient.MustGetAddr()
+
+	msg := btcstakingtypes.MsgAddBTCDelegationInclusionProof{
+		Signer:                  signer,
+		StakingTxHash:           stakingTxHash.String(),
+		StakingTxInclusionProof: btcstakingtypes.NewInclusionProofFromSpvProof(proof),
+	}
+
+	resp, err := bca.babylonClient.ReliablySendMsg(ctx, &msg, []*errors.Error{}, []*errors.Error{})
+
+	if err != nil && resp != nil {
+		return fmt.Errorf("msg MsgAddBTCDelegationInclusionProof failed exeuction with code %d and error %w", resp.Code, err)
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to report unbonding: %w", err)
+	}
+
+	return nil
 }
