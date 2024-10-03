@@ -200,20 +200,10 @@ func (sew *StakingEventWatcher) fetchDelegations() {
 		select {
 		case <-ticker.C:
 			sew.logger.Debug("Querying babylon for new delegations")
-			btcLightClientTipHeight, err := sew.babylonNodeAdapter.BtcClientTipHeight()
 
-			if err != nil {
-				sew.logger.Errorf("error fetching babylon tip height: %v", err)
-				continue
-			}
-
-			currentBtcNodeHeight := sew.currentBestBlockHeight.Load()
-
-			// Our local node is out of sync with the babylon btc light client. If we would
-			// query for delegation we might receive delegations from blocks that we cannot check.
-			// Log this and give node chance to catch up i.e do not check current delegations
-			if currentBtcNodeHeight < btcLightClientTipHeight {
-				sew.logger.Debugf("btc light client tip height is %d, connected node best block height is %d. Waiting for node to catch up", btcLightClientTipHeight, sew.currentBestBlockHeight.Load())
+			nodeSynced, err := sew.syncedWithBabylon()
+			if err != nil || !nodeSynced {
+				// Log message and continue if there's an error or node isn't synced
 				continue
 			}
 
@@ -281,6 +271,23 @@ func (sew *StakingEventWatcher) fetchDelegations() {
 			return
 		}
 	}
+}
+
+func (sew *StakingEventWatcher) syncedWithBabylon() (bool, error) {
+	btcLightClientTipHeight, err := sew.babylonNodeAdapter.BtcClientTipHeight()
+	if err != nil {
+		sew.logger.Errorf("error fetching babylon tip height: %v", err)
+		return false, err
+	}
+
+	currentBtcNodeHeight := sew.currentBestBlockHeight.Load()
+
+	if currentBtcNodeHeight < btcLightClientTipHeight {
+		sew.logger.Debugf("btc light client tip height is %d, connected node best block height is %d. Waiting for node to catch up", btcLightClientTipHeight, currentBtcNodeHeight)
+		return false, nil
+	}
+
+	return true, nil
 }
 
 func getStakingTxInputIdx(tx *wire.MsgTx, td *TrackedDelegation) (int, error) {
