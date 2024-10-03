@@ -29,6 +29,8 @@ type UnbondingWatcherMetrics struct {
 	NumberOfTrackedActiveDelegations        prometheus.Gauge
 	DetectedUnbondingTransactionsCounter    prometheus.Counter
 	DetectedNonUnbondingTransactionsCounter prometheus.Counter
+	FailedReportedActivateDelegations       prometheus.Counter
+	ReportedActivateDelegationsCounter      prometheus.Counter
 }
 
 func newUnbondingWatcherMetrics(registry *prometheus.Registry) *UnbondingWatcherMetrics {
@@ -55,6 +57,14 @@ func newUnbondingWatcherMetrics(registry *prometheus.Registry) *UnbondingWatcher
 		DetectedNonUnbondingTransactionsCounter: registerer.NewCounter(prometheus.CounterOpts{
 			Name: "unbonding_watcher_detected_non_unbonding_transactions",
 			Help: "The total number of non unbonding (slashing or withdrawal) transactions detected by unbonding watcher",
+		}),
+		FailedReportedActivateDelegations: registerer.NewCounter(prometheus.CounterOpts{
+			Name: "unbonding_watcher_failed_reported_activate_delegation",
+			Help: "The total number times reporting activation delegation failed on Babylon node",
+		}),
+		ReportedActivateDelegationsCounter: registerer.NewCounter(prometheus.CounterOpts{
+			Name: "unbonding_watcher_reported_activate_delegations",
+			Help: "The total number of unbonding transactions successfuly reported to Babylon node",
 		}),
 	}
 
