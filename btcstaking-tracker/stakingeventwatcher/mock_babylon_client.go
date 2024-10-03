@@ -67,21 +67,6 @@ func (mr *MockBabylonNodeAdapterMockRecorder) BtcClientTipHeight() *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BtcClientTipHeight", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).BtcClientTipHeight))
 }
 
-// BtcDelegations mocks base method.
-func (m *MockBabylonNodeAdapter) BtcDelegations(offset, limit uint64) ([]Delegation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BtcDelegations", offset, limit)
-	ret0, _ := ret[0].([]Delegation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// BtcDelegations indicates an expected call of BtcDelegations.
-func (mr *MockBabylonNodeAdapterMockRecorder) BtcDelegations(offset, limit interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BtcDelegations", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).BtcDelegations), offset, limit)
-}
-
 // DelegationsByStatus mocks base method.
 func (m *MockBabylonNodeAdapter) DelegationsByStatus(status types0.BTCDelegationStatus, offset, limit uint64) ([]Delegation, error) {
 	m.ctrl.T.Helper()

@@ -24,7 +24,6 @@ type Delegation struct {
 }
 
 type BabylonNodeAdapter interface {
-	BtcDelegations(offset uint64, limit uint64) ([]Delegation, error)
 	DelegationsByStatus(status btcstakingtypes.BTCDelegationStatus, offset uint64, limit uint64) ([]Delegation, error)
 	IsDelegationActive(stakingTxHash chainhash.Hash) (bool, error)
 	IsDelegationVerified(stakingTxHash chainhash.Hash) (bool, error)
