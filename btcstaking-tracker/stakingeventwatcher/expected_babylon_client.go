@@ -44,24 +44,6 @@ func NewBabylonClientAdapter(babylonClient *bbnclient.Client) *BabylonClientAdap
 	}
 }
 
-// BtcDelegations - returns btc delegations TODO: Consider doing quick retries for failed queries.
-func (bca *BabylonClientAdapter) BtcDelegations(offset uint64, limit uint64) ([]Delegation, error) {
-	activeDelegations, err := bca.DelegationsByStatus(btcstakingtypes.BTCDelegationStatus_ACTIVE, offset, limit)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch active delegations: %w", err)
-	}
-
-	verifiedDelegations, err := bca.DelegationsByStatus(btcstakingtypes.BTCDelegationStatus_VERIFIED, offset, limit)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch verified delegations: %w", err)
-	}
-
-	// Combine results
-	allDelegations := append(activeDelegations, verifiedDelegations...)
-
-	return allDelegations, nil
-}
-
 // DelegationsByStatus - returns btc delegations by status
 func (bca *BabylonClientAdapter) DelegationsByStatus(
 	status btcstakingtypes.BTCDelegationStatus, offset uint64, limit uint64) ([]Delegation, error) {
