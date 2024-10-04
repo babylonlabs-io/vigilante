@@ -100,7 +100,7 @@ func (td *TrackedDelegations) RemoveDelegation(stakingTxHash chainhash.Hash) {
 func (td *TrackedDelegations) HasDelegationChanged(
 	stakingTxHash chainhash.Hash,
 	newDelegation *newDelegation,
-) (bool, bool) {
+) (exists bool, changed bool) {
 	td.mu.Lock()
 	defer td.mu.Unlock()
 
