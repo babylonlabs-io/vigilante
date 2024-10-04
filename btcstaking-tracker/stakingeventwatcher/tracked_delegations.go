@@ -2,6 +2,7 @@ package stakingeventwatcher
 
 import (
 	"fmt"
+	"reflect"
 	"sync"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
@@ -9,9 +10,10 @@ import (
 )
 
 type TrackedDelegation struct {
-	StakingTx        *wire.MsgTx
-	StakingOutputIdx uint32
-	UnbondingOutput  *wire.TxOut
+	StakingTx             *wire.MsgTx
+	StakingOutputIdx      uint32
+	UnbondingOutput       *wire.TxOut
+	DelegationStartHeight uint64
 }
 
 type TrackedDelegations struct {
@@ -60,11 +62,14 @@ func (td *TrackedDelegations) AddDelegation(
 	StakingTx *wire.MsgTx,
 	StakingOutputIdx uint32,
 	UnbondingOutput *wire.TxOut,
+	delegationStartHeight uint64,
+	shouldUpdate bool,
 ) (*TrackedDelegation, error) {
 	delegation := &TrackedDelegation{
-		StakingTx:        StakingTx,
-		StakingOutputIdx: StakingOutputIdx,
-		UnbondingOutput:  UnbondingOutput,
+		StakingTx:             StakingTx,
+		StakingOutputIdx:      StakingOutputIdx,
+		UnbondingOutput:       UnbondingOutput,
+		DelegationStartHeight: delegationStartHeight,
 	}
 
 	stakingTxHash := StakingTx.TxHash()
@@ -73,6 +78,11 @@ func (td *TrackedDelegations) AddDelegation(
 	defer td.mu.Unlock()
 
 	if _, ok := td.mapping[stakingTxHash]; ok {
+		if shouldUpdate {
+			// Update the existing delegation
+			td.mapping[stakingTxHash] = delegation
+			return delegation, nil
+		}
 		return nil, fmt.Errorf("delegation already tracked for staking tx hash %s", stakingTxHash)
 	}
 
@@ -85,4 +95,30 @@ func (td *TrackedDelegations) RemoveDelegation(stakingTxHash chainhash.Hash) {
 	defer td.mu.Unlock()
 
 	delete(td.mapping, stakingTxHash)
+}
+
+func (td *TrackedDelegations) HasDelegationChanged(
+	stakingTxHash chainhash.Hash,
+	newDelegation *newDelegation,
+) (bool, bool) {
+	td.mu.Lock()
+	defer td.mu.Unlock()
+
+	// Check if the delegation exists in the map
+	existingDelegation, exists := td.mapping[stakingTxHash]
+	if !exists {
+		// If it doesn't exist, return false for changed, and false for exists
+		return false, false
+	}
+
+	// Compare fields to check if the delegation has changed
+	if existingDelegation.StakingOutputIdx != newDelegation.stakingOutputIdx ||
+		existingDelegation.StakingTx.TxHash() != newDelegation.stakingTx.TxHash() ||
+		!reflect.DeepEqual(existingDelegation.UnbondingOutput, newDelegation.unbondingOutput) ||
+		existingDelegation.DelegationStartHeight != newDelegation.delegationStartHeight {
+		return true, true // The delegation has changed and it exists
+	}
+
+	// The delegation exists but hasn't changed
+	return false, true
 }
