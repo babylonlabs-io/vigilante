@@ -113,7 +113,6 @@ func (td *TrackedDelegations) HasDelegationChanged(
 
 	// Compare fields to check if the delegation has changed
 	if existingDelegation.StakingOutputIdx != newDelegation.stakingOutputIdx ||
-		existingDelegation.StakingTx.TxHash() != newDelegation.stakingTx.TxHash() ||
 		!reflect.DeepEqual(existingDelegation.UnbondingOutput, newDelegation.unbondingOutput) ||
 		existingDelegation.DelegationStartHeight != newDelegation.delegationStartHeight {
 		return true, true // The delegation has changed and it exists
