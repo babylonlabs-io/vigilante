@@ -75,7 +75,7 @@ func GetBTCStakingTracker() *cobra.Command {
 
 			bsMetrics := metrics.NewBTCStakingTrackerMetrics()
 
-			bstracker := bst.NewBTCSTakingTracker(
+			bstracker := bst.NewBTCStakingTracker(
 				btcClient,
 				btcNotifier,
 				bbnClient,

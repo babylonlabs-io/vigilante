@@ -176,6 +176,22 @@ func (mr *MockBTCClientMockRecorder) Stop() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockBTCClient)(nil).Stop))
 }
 
+// TxDetails mocks base method.
+func (m *MockBTCClient) TxDetails(txHash *chainhash.Hash, pkScript []byte) (*chainntnfs.TxConfirmation, btcclient.TxStatus, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TxDetails", txHash, pkScript)
+	ret0, _ := ret[0].(*chainntnfs.TxConfirmation)
+	ret1, _ := ret[1].(btcclient.TxStatus)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// TxDetails indicates an expected call of TxDetails.
+func (mr *MockBTCClientMockRecorder) TxDetails(txHash, pkScript interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TxDetails", reflect.TypeOf((*MockBTCClient)(nil).TxDetails), txHash, pkScript)
+}
+
 // WaitForShutdown mocks base method.
 func (m *MockBTCClient) WaitForShutdown() {
 	m.ctrl.T.Helper()

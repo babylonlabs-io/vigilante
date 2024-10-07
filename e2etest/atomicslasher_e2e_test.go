@@ -49,7 +49,7 @@ func TestAtomicSlasher(t *testing.T) {
 	bstCfg := config.DefaultBTCStakingTrackerConfig()
 	bstCfg.CheckDelegationsInterval = 1 * time.Second
 
-	bsTracker := bst.NewBTCSTakingTracker(
+	bsTracker := bst.NewBTCStakingTracker(
 		tm.BTCClient,
 		backend,
 		tm.BabylonClient,
@@ -171,7 +171,7 @@ func TestAtomicSlasher_Unbonding(t *testing.T) {
 
 	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
 
-	bsTracker := bst.NewBTCSTakingTracker(
+	bsTracker := bst.NewBTCStakingTracker(
 		tm.BTCClient,
 		backend,
 		tm.BabylonClient,
