@@ -207,7 +207,7 @@ func (sew *StakingEventWatcher) fetchDelegations() {
 				continue
 			}
 
-			addToUnbonding := func(delegation Delegation) {
+			addToUnbondingFunc := func(delegation Delegation) {
 				del := &newDelegation{
 					stakingTxHash:         delegation.StakingTx.TxHash(),
 					stakingTx:             delegation.StakingTx,
@@ -216,14 +216,19 @@ func (sew *StakingEventWatcher) fetchDelegations() {
 					unbondingOutput:       delegation.UnbondingOutput,
 				}
 
-				// if we already have this delegation, skip it
+				// if we already have this delegation, we still want to check if it has changed,
 				// we should track both verified and active status for unbonding
-				if sew.unbondingTracker.GetDelegation(delegation.StakingTx.TxHash()) == nil {
+				changed, exists := sew.unbondingTracker.HasDelegationChanged(delegation.StakingTx.TxHash(), del)
+				if exists && changed {
+					// Delegation exists and has changed, push the update.
+					utils.PushOrQuit(sew.unbondingDelegationChan, del, sew.quit)
+				} else if !exists {
+					// Delegation doesn't exist, push the new delegation.
 					utils.PushOrQuit(sew.unbondingDelegationChan, del, sew.quit)
 				}
 			}
 
-			addToPending := func(delegation Delegation) {
+			addToPendingFunc := func(delegation Delegation) {
 				del := &newDelegation{
 					stakingTxHash:         delegation.StakingTx.TxHash(),
 					stakingTx:             delegation.StakingTx,
@@ -237,6 +242,8 @@ func (sew *StakingEventWatcher) fetchDelegations() {
 						del.stakingTx,
 						del.stakingOutputIdx,
 						del.unbondingOutput,
+						del.delegationStartHeight,
+						false,
 					)
 				}
 			}
@@ -246,21 +253,21 @@ func (sew *StakingEventWatcher) fetchDelegations() {
 
 			go func() {
 				defer wg.Done()
-				if err = sew.checkBabylonDelegations(btcstakingtypes.BTCDelegationStatus_ACTIVE, addToUnbonding); err != nil {
+				if err = sew.checkBabylonDelegations(btcstakingtypes.BTCDelegationStatus_ACTIVE, addToUnbondingFunc); err != nil {
 					sew.logger.Errorf("error checking babylon delegations: %v", err)
 				}
 			}()
 
 			go func() {
 				defer wg.Done()
-				if err = sew.checkBabylonDelegations(btcstakingtypes.BTCDelegationStatus_VERIFIED, addToUnbonding); err != nil {
+				if err = sew.checkBabylonDelegations(btcstakingtypes.BTCDelegationStatus_VERIFIED, addToUnbondingFunc); err != nil {
 					sew.logger.Errorf("error checking babylon delegations: %v", err)
 				}
 			}()
 
 			go func() {
 				defer wg.Done()
-				if err = sew.checkBabylonDelegations(btcstakingtypes.BTCDelegationStatus_VERIFIED, addToPending); err != nil {
+				if err = sew.checkBabylonDelegations(btcstakingtypes.BTCDelegationStatus_VERIFIED, addToPendingFunc); err != nil {
 					sew.logger.Errorf("error checking babylon delegations: %v", err)
 				}
 			}()
@@ -457,6 +464,8 @@ func (sew *StakingEventWatcher) handleUnbondedDelegations() {
 				activeDel.stakingTx,
 				activeDel.stakingOutputIdx,
 				activeDel.unbondingOutput,
+				activeDel.delegationStartHeight,
+				true,
 			)
 
 			if err != nil {
