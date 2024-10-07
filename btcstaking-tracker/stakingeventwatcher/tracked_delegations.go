@@ -2,7 +2,6 @@ package stakingeventwatcher
 
 import (
 	"fmt"
-	"reflect"
 	"sync"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
@@ -111,10 +110,8 @@ func (td *TrackedDelegations) HasDelegationChanged(
 		return false, false
 	}
 
-	// Compare fields to check if the delegation has changed
-	if existingDelegation.StakingOutputIdx != newDelegation.stakingOutputIdx ||
-		!reflect.DeepEqual(existingDelegation.UnbondingOutput, newDelegation.unbondingOutput) ||
-		existingDelegation.DelegationStartHeight != newDelegation.delegationStartHeight {
+	// Compare height to check if the delegation has changed
+	if existingDelegation.DelegationStartHeight != newDelegation.delegationStartHeight {
 		return true, true // The delegation has changed and it exists
 	}
 
