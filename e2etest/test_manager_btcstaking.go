@@ -214,7 +214,7 @@ func (tm *TestManager) CreateBTCDelegation(
 func (tm *TestManager) CreateBTCDelegationWithoutIncl(
 	t *testing.T,
 	fpSK *btcec.PrivateKey,
-) (*datagen.TestStakingSlashingInfo, *datagen.TestUnbondingSlashingInfo, *btcec.PrivateKey) {
+) (*wire.MsgTx, *datagen.TestStakingSlashingInfo, *datagen.TestUnbondingSlashingInfo, *btcec.PrivateKey) {
 	signerAddr := tm.BabylonClient.MustGetAddr()
 	addr := sdk.MustAccAddressFromBech32(signerAddr)
 
@@ -311,34 +311,7 @@ func (tm *TestManager) CreateBTCDelegationWithoutIncl(
 		stakingOutIdx,
 	)
 
-	// send staking tx to Bitcoin node's mempool
-	_, err = tm.BTCClient.SendRawTransaction(stakingMsgTx, true)
-	require.NoError(t, err)
-
-	require.Eventually(t, func() bool {
-		return len(tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{stakingMsgTxHash})) == 1
-	}, eventuallyWaitTimeOut, eventuallyPollTime)
-
-	mBlock := tm.mineBlock(t)
-	require.Equal(t, 2, len(mBlock.Transactions))
-
-	// wait until staking tx is on Bitcoin
-	require.Eventually(t, func() bool {
-		_, err := tm.BTCClient.GetRawTransaction(stakingMsgTxHash)
-		return err == nil
-	}, eventuallyWaitTimeOut, eventuallyPollTime)
-
-	// insert k empty blocks to Bitcoin
-	btccParamsResp, err := tm.BabylonClient.BTCCheckpointParams()
-	require.NoError(t, err)
-	btccParams := btccParamsResp.Params
-	for i := 0; i < int(btccParams.BtcConfirmationDepth); i++ {
-		tm.mineBlock(t)
-	}
-
-	tm.CatchUpBTCLightClient(t)
-
-	return stakingSlashingInfo, unbondingSlashingInfo, tm.WalletPrivKey
+	return stakingMsgTx, stakingSlashingInfo, unbondingSlashingInfo, tm.WalletPrivKey
 }
 
 func (tm *TestManager) createStakingAndSlashingTx(
