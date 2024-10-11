@@ -8,6 +8,11 @@ builds:
     binary: vigilante
     hooks:
       pre:
+        - apt update && apt install -y wget libc6-dev libc6-dev-static musl-tools
+        - find /usr -name 'libm.a'
+        - find /usr -name 'libmvec.a'
+        - mv /usr/x86_64-linux-gnu/lib/libm.a /usr/x86_64-linux-gnu/libm-2.31.a
+        - mv /usr/x86_64-linux-gnu/lib/libmvec.a /usr/lib/x86_64-linux-gnu/libmvec.a
         - wget https://github.com/CosmWasm/wasmvm/releases/download/{{ .Env.COSMWASM_VERSION }}/libwasmvm_muslc.x86_64.a -O /usr/lib/x86_64-linux-gnu/libwasmvm_muslc.x86_64.a
     goos:
       - linux
@@ -20,7 +25,7 @@ builds:
     ldflags:
       - -w -s
       - -linkmode=external
-      - -extldflags '-Wl,-z,muldefs -static'
+      - -extldflags '-Wl,-z,muldefs -static -lpthread -lm'
     flags:
       - -mod=readonly
       - -trimpath
@@ -30,31 +35,32 @@ builds:
       - muslc
       - osusergo
 
-  - id: vigilante-darwin-arm64
-    main: ./cmd/vigilante/main.go
-    binary: vigilante
-    hooks:
-      pre:
-        - wget https://github.com/CosmWasm/wasmvm/releases/download/{{ .Env.COSMWASM_VERSION }}/libwasmvmstatic_darwin.a -O /lib/libwasmvmstatic_darwin.a
-    goos:
-      - darwin
-    goarch:
-      - arm64
-    env:
-      - GO111MODULE=on
-      - CGO_ENABLED=1
-      - CC=oa64-clang
-      - CGO_LDFLAGS=-L/lib -Wl,-rpath,/lib
-    ldflags:
-      - -w -s
-      - -linkmode=external
-    flags:
-      - -mod=readonly
-      - -trimpath
-    tags:
-      - netgo
-      - ledger
-      - static_wasm
+# todo uncomment
+#  - id: vigilante-darwin-arm64
+#    main: ./cmd/vigilante/main.go
+#    binary: vigilante
+#    hooks:
+#      pre:
+#        - wget https://github.com/CosmWasm/wasmvm/releases/download/{{ .Env.COSMWASM_VERSION }}/libwasmvmstatic_darwin.a -O /lib/libwasmvmstatic_darwin.a
+#    goos:
+#      - darwin
+#    goarch:
+#      - arm64
+#    env:
+#      - GO111MODULE=on
+#      - CGO_ENABLED=1
+#      - CC=oa64-clang
+#      - CGO_LDFLAGS=-L/lib -Wl,-rpath,/lib
+#    ldflags:
+#      - -w -s
+#      - -linkmode=external
+#    flags:
+#      - -mod=readonly
+#      - -trimpath
+#    tags:
+#      - netgo
+#      - ledger
+#      - static_wasm
 
 archives:
   - id: zipped
