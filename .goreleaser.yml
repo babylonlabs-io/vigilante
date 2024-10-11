@@ -1,3 +1,5 @@
+version: 2
+
 project_name: vigilante
 
 builds:
@@ -18,6 +20,33 @@ builds:
       - -trimpath
     tags:
       - netgo
+      - osusergo
+
+  - id: vigilante-darwin-arm64
+    main: ./cmd/vigilante/main.go
+    binary: vigilante
+    hooks:
+      pre:
+        - wget https://github.com/CosmWasm/wasmvm/releases/download/{{ .Env.COSMWASM_VERSION }}/libwasmvmstatic_darwin.a -O /lib/libwasmvmstatic_darwin.a
+    goos:
+      - darwin
+    goarch:
+      - arm64
+    env:
+      - GO111MODULE=on
+      - CGO_ENABLED=1
+      - CC=oa64-clang
+      - CGO_LDFLAGS=-L/lib
+    ldflags:
+      - -w -s
+      - -linkmode=external
+    flags:
+      - -mod=readonly
+      - -trimpath
+    tags:
+      - netgo
+      - ledger
+      - muslc
       - osusergo
 
 archives:
