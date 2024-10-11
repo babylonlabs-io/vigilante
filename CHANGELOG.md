@@ -36,3 +36,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
+
+### Improvements
+
+* [#76](https://github.com/babylonlabs-io/vigilante/pull/76) add goreleaser 
+  setup and move out changelog reminder

@@ -21,3 +21,4 @@
 main
 tmp/
 build/
+dist/
