@@ -8,18 +8,26 @@ builds:
     binary: vigilante
     hooks:
       pre:
-        - wget https://github.com/CosmWasm/wasmvm/releases/download/{{ .Env.COSMWASM_VERSION }}/libwasmvm_muslc.x86_64.a -O /usr/lib/libwasmvm_muslc.x86_64.a
+        - wget https://github.com/CosmWasm/wasmvm/releases/download/{{ .Env.COSMWASM_VERSION }}/libwasmvm_muslc.x86_64.a -O /usr/lib/x86_64-linux-gnu/libwasmvm_muslc.x86_64.a
     goos:
       - linux
     goarch:
       - amd64
     env:
       - GO111MODULE=on
+      - CGO_ENABLED=1
+      - CC=x86_64-linux-gnu-gcc
+    ldflags:
+      - -w -s
+      - -linkmode=external
+      - -extldflags '-Wl,-z,muldefs -static'
     flags:
       - -mod=readonly
       - -trimpath
     tags:
       - netgo
+      - ledger
+      - muslc
       - osusergo
 
   - id: vigilante-darwin-arm64
