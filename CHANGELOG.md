@@ -39,5 +39,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Improvements
 
+* [#77](https://github.com/babylonlabs-io/vigilante/pull/77) add arm64 static build
+
 * [#76](https://github.com/babylonlabs-io/vigilante/pull/76) add goreleaser 
   setup and move out changelog reminder

@@ -115,6 +115,7 @@ release-snapshot:
 		--clean \
 		--snapshot \
 		--skip=publish,validate \
+		--verbose
 
 # NOTE: By default, the CI will handle the release process.
 # this is for manually releasing.
