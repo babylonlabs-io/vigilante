@@ -1,0 +1,52 @@
+project_name: vigilante
+
+builds:
+  - id: vigilante-linux-amd64
+    main: ./cmd/vigilante/main.go
+    binary: vigilante
+    hooks:
+      pre:
+        - wget https://github.com/CosmWasm/wasmvm/releases/download/{{ .Env.COSMWASM_VERSION }}/libwasmvm_muslc.x86_64.a -O /usr/lib/libwasmvm_muslc.x86_64.a
+    goos:
+      - linux
+    goarch:
+      - amd64
+    env:
+      - GO111MODULE=on
+    flags:
+      - -mod=readonly
+      - -trimpath
+    tags:
+      - netgo
+      - osusergo
+
+archives:
+  - id: zipped
+    builds:
+      - vigilante-linux-amd64
+    name_template: "{{.ProjectName}}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    format: tar.gz
+    files:
+      - none*
+  - id: binaries
+    builds:
+      - vigilante-linux-amd64
+    name_template: "{{.ProjectName}}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    format: binary
+    files:
+      - none*
+
+checksum:
+  name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
+  algorithm: sha256
+
+release:
+  github:
+    owner: babylonlabs-io
+    name: vigilante
+
+# Docs: https://goreleaser.com/customization/changelog/
+changelog:
+  disable: true
+
+dist: dist
