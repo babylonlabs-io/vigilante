@@ -36,8 +36,9 @@ builds:
       - GO111MODULE=on
       - CGO_ENABLED=1
       - CC=oa64-clang
-      - CGO_LDFLAGS=-L/lib
+      - CGO_LDFLAGS=-L/lib -Wl,-rpath,/lib
     ldflags:
+      - -X github.com/cosmos/cosmos-sdk/version.BuildTags=netgo,ledger,static_wasm
       - -w -s
       - -linkmode=external
     flags:
@@ -46,8 +47,7 @@ builds:
     tags:
       - netgo
       - ledger
-      - muslc
-      - osusergo
+      - static_wasm
 
 archives:
   - id: zipped
