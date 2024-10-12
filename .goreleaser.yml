@@ -8,11 +8,6 @@ builds:
     binary: vigilante
     hooks:
       pre:
-        - apt update && apt install -y wget libc6-dev libc6-dev-static musl-tools
-        - find /usr -name 'libm.a'
-        - find /usr -name 'libmvec.a'
-        - mv /usr/x86_64-linux-gnu/lib/libm.a /usr/x86_64-linux-gnu/libm-2.31.a
-        - mv /usr/x86_64-linux-gnu/lib/libmvec.a /usr/lib/x86_64-linux-gnu/libmvec.a
         - wget https://github.com/CosmWasm/wasmvm/releases/download/{{ .Env.COSMWASM_VERSION }}/libwasmvm_muslc.x86_64.a -O /usr/lib/x86_64-linux-gnu/libwasmvm_muslc.x86_64.a
     goos:
       - linux
@@ -25,7 +20,7 @@ builds:
     ldflags:
       - -w -s
       - -linkmode=external
-      - -extldflags '-Wl,-z,muldefs -static -lpthread -lm'
+      - -extldflags '-Wl,-z,muldefs -static -lm'
     flags:
       - -mod=readonly
       - -trimpath
