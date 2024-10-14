@@ -68,6 +68,7 @@ func TestSubmitterSubmission(t *testing.T) {
 		tm.Config.Common.MaxRetryTimes,
 		metrics.NewSubmitterMetrics(),
 		testutil.MakeTestBackend(t),
+		tm.Config.BTC.WalletName,
 	)
 
 	vigilantSubmitter.Start()
@@ -144,6 +145,7 @@ func TestSubmitterSubmissionReplace(t *testing.T) {
 		tm.Config.Common.MaxRetryTimes,
 		metrics.NewSubmitterMetrics(),
 		testutil.MakeTestBackend(t),
+		tm.Config.BTC.WalletName,
 	)
 
 	vigilantSubmitter.Start()

@@ -49,7 +49,7 @@ func TestGetChangeAddress(t *testing.T) {
 	cfg := config.DefaultSubmitterConfig()
 	logger, err := config.NewRootLogger("auto", "debug")
 	require.NoError(t, err)
-	testRelayer := relayer.New(wallet, []byte("bbnt"), btctxformatter.CurrentVersion, submitterAddr,
+	testRelayer := relayer.New(wallet, btcConfig.WalletName, []byte("bbnt"), btctxformatter.CurrentVersion, submitterAddr,
 		submitterMetrics.RelayerMetrics, nil, &cfg, logger, testutil.MakeTestBackend(t))
 
 	// 1. only SegWit Bech32 addresses

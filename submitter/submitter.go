@@ -45,6 +45,7 @@ func New(
 	retrySleepTime, maxRetrySleepTime time.Duration, maxRetryTimes uint,
 	submitterMetrics *metrics.SubmitterMetrics,
 	db kvdb.Backend,
+	walletName string,
 ) (*Submitter, error) {
 	logger := parentLogger.With(zap.String("module", "submitter"))
 	var (
@@ -80,6 +81,7 @@ func New(
 
 	r := relayer.New(
 		btcWallet,
+		walletName,
 		checkpointTag,
 		btctxformatter.CurrentVersion,
 		submitterAddr,

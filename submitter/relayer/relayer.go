@@ -52,10 +52,12 @@ type Relayer struct {
 	metrics                 *metrics.RelayerMetrics
 	config                  *config.SubmitterConfig
 	logger                  *zap.SugaredLogger
+	walletName              string
 }
 
 func New(
 	wallet btcclient.BTCWallet,
+	walletName string,
 	tag btctxformatter.BabylonTag,
 	version btctxformatter.FormatVersion,
 	submitterAddress sdk.AccAddress,
@@ -74,6 +76,7 @@ func New(
 	return &Relayer{
 		Estimator:               est,
 		BTCWallet:               wallet,
+		walletName:              walletName,
 		store:                   subStore,
 		tag:                     tag,
 		version:                 version,
@@ -487,9 +490,9 @@ func (rl *Relayer) ChainTwoTxAndSend(data1 []byte, data2 []byte) (*types.BtcTxIn
 func (rl *Relayer) buildTxWithData(data []byte, firstTx *wire.MsgTx) (*types.BtcTxInfo, error) {
 	tx := wire.NewMsgTx(wire.TxVersion)
 
-	isFirstTx := firstTx != nil
+	isSecondTx := firstTx != nil
 
-	if isFirstTx {
+	if isSecondTx {
 		txID := firstTx.TxHash()
 		outPoint := wire.NewOutPoint(&txID, changePosition)
 		txIn := wire.NewTxIn(outPoint, nil, nil)
@@ -518,9 +521,20 @@ func (rl *Relayer) buildTxWithData(data []byte, firstTx *wire.MsgTx) (*types.Btc
 
 	// we want to ensure that firstTx has change output, but for the second transaction we can ignore this
 	hasChange := len(rawTxResult.Transaction.TxOut) > changePosition
-	// fail so we retry, first tx must have change output
-	if isFirstTx && !hasChange {
-		return nil, fmt.Errorf("transaction doesn't have change output %s", rawTxResult.Transaction.TxID())
+	// let's manually add a change output with 546 satoshis
+	if !isSecondTx && !hasChange {
+		changeAddr, err := rl.BTCWallet.GetRawChangeAddress(rl.walletName)
+		if err != nil {
+			return nil, fmt.Errorf("err getting raw change address %w", err)
+		}
+
+		changePkScript, err := txscript.PayToAddrScript(changeAddr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create script for change address: %s err %w", changeAddr, err)
+		}
+
+		changeOutput := wire.NewTxOut(546, changePkScript)
+		rawTxResult.Transaction.AddTxOut(changeOutput)
 	}
 
 	rl.logger.Debugf("Building a BTC tx using %s with data %x", rawTxResult.Transaction.TxID(), data)
