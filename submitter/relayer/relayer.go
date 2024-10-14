@@ -516,6 +516,7 @@ func (rl *Relayer) buildTxWithData(data []byte, firstTx *wire.MsgTx) (*types.Btc
 		return nil, err
 	}
 
+	// we want to ensure that firstTx has change output, but for the second transaction we can ignore this
 	hasChange := len(rawTxResult.Transaction.TxOut) > changePosition
 	// fail so we retry, first tx must have change output
 	if isFirstTx && !hasChange {
