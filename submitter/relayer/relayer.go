@@ -514,6 +514,10 @@ func (rl *Relayer) buildTxWithData(data []byte, firstTx *wire.MsgTx) (*types.Btc
 		return nil, err
 	}
 
+	if len(rawTxResult.Transaction.TxOut) <= changePosition {
+		return nil, fmt.Errorf("transaction doesn't have change output %s", rawTxResult.Transaction.TxID())
+	}
+
 	rl.logger.Debugf("Building a BTC tx using %s with data %x", rawTxResult.Transaction.TxID(), data)
 
 	_, addresses, _, err := txscript.ExtractPkScriptAddrs(
