@@ -79,6 +79,7 @@ func GetSubmitterCmd() *cobra.Command {
 				cfg.Common.MaxRetryTimes,
 				submitterMetrics,
 				dbBackend,
+				cfg.BTC.WalletName,
 			)
 			if err != nil {
 				panic(fmt.Errorf("failed to create vigilante submitter: %w", err))

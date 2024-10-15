@@ -52,10 +52,12 @@ type Relayer struct {
 	metrics                 *metrics.RelayerMetrics
 	config                  *config.SubmitterConfig
 	logger                  *zap.SugaredLogger
+	walletName              string
 }
 
 func New(
 	wallet btcclient.BTCWallet,
+	walletName string,
 	tag btctxformatter.BabylonTag,
 	version btctxformatter.FormatVersion,
 	submitterAddress sdk.AccAddress,
@@ -74,6 +76,7 @@ func New(
 	return &Relayer{
 		Estimator:               est,
 		BTCWallet:               wallet,
+		walletName:              walletName,
 		store:                   subStore,
 		tag:                     tag,
 		version:                 version,
@@ -487,7 +490,9 @@ func (rl *Relayer) ChainTwoTxAndSend(data1 []byte, data2 []byte) (*types.BtcTxIn
 func (rl *Relayer) buildTxWithData(data []byte, firstTx *wire.MsgTx) (*types.BtcTxInfo, error) {
 	tx := wire.NewMsgTx(wire.TxVersion)
 
-	if firstTx != nil {
+	isSecondTx := firstTx != nil
+
+	if isSecondTx {
 		txID := firstTx.TxHash()
 		outPoint := wire.NewOutPoint(&txID, changePosition)
 		txIn := wire.NewTxIn(outPoint, nil, nil)
@@ -514,33 +519,56 @@ func (rl *Relayer) buildTxWithData(data []byte, firstTx *wire.MsgTx) (*types.Btc
 		return nil, err
 	}
 
+	// we want to ensure that firstTx has change output, but for the second transaction we can ignore this
+	hasChange := len(rawTxResult.Transaction.TxOut) > changePosition
+	// let's manually add a change output with 546 satoshis
+	if !isSecondTx && !hasChange {
+		changeAddr, err := rl.BTCWallet.GetRawChangeAddress(rl.walletName)
+		if err != nil {
+			return nil, fmt.Errorf("err getting raw change address %w", err)
+		}
+
+		changePkScript, err := txscript.PayToAddrScript(changeAddr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create script for change address: %s err %w", changeAddr, err)
+		}
+
+		changeOutput := wire.NewTxOut(int64(dustThreshold), changePkScript)
+		rawTxResult.Transaction.AddTxOut(changeOutput)
+	}
+
 	rl.logger.Debugf("Building a BTC tx using %s with data %x", rawTxResult.Transaction.TxID(), data)
 
-	_, addresses, _, err := txscript.ExtractPkScriptAddrs(
-		rawTxResult.Transaction.TxOut[changePosition].PkScript,
-		rl.GetNetParams(),
-	)
+	if hasChange {
+		_, addresses, _, err := txscript.ExtractPkScriptAddrs(
+			rawTxResult.Transaction.TxOut[changePosition].PkScript,
+			rl.GetNetParams(),
+		)
 
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
+
+		if len(addresses) == 0 {
+			return nil, errors.New("no change address found")
+		}
+
+		rl.logger.Debugf("Got a change address %v", addresses[0].String())
 	}
-
-	if len(addresses) == 0 {
-		return nil, errors.New("no change address found")
-	}
-
-	changeAddr := addresses[0]
-	rl.logger.Debugf("Got a change address %v", changeAddr.String())
 
 	txSize, err := calculateTxVirtualSize(rawTxResult.Transaction)
 	if err != nil {
 		return nil, err
 	}
 
-	changeAmount := btcutil.Amount(rawTxResult.Transaction.TxOut[changePosition].Value)
+	var changeAmount btcutil.Amount
+	if hasChange {
+		changeAmount = btcutil.Amount(rawTxResult.Transaction.TxOut[changePosition].Value)
+	}
+
 	minRelayFee := rl.calcMinRelayFee(txSize)
 
-	if changeAmount < minRelayFee {
+	if hasChange && changeAmount < minRelayFee {
 		return nil, fmt.Errorf("the value of the utxo is not sufficient for relaying the tx. Require: %v. Have: %v", minRelayFee, changeAmount)
 	}
 
@@ -550,7 +578,7 @@ func (rl *Relayer) buildTxWithData(data []byte, firstTx *wire.MsgTx) (*types.Btc
 		txFee = minRelayFee
 	}
 	// ensuring the tx fee is not higher than the utxo value
-	if changeAmount < txFee {
+	if hasChange && changeAmount < txFee {
 		return nil, fmt.Errorf("the value of the utxo is not sufficient for paying the calculated fee of the tx. Calculated: %v. Have: %v", txFee, changeAmount)
 	}
 
@@ -568,7 +596,7 @@ func (rl *Relayer) buildTxWithData(data []byte, firstTx *wire.MsgTx) (*types.Btc
 
 	change := changeAmount - txFee
 
-	if change < dustThreshold {
+	if hasChange && change < dustThreshold {
 		return nil, fmt.Errorf("change amount is %v less then dust treshold %v", change, dustThreshold)
 	}
 
@@ -576,10 +604,9 @@ func (rl *Relayer) buildTxWithData(data []byte, firstTx *wire.MsgTx) (*types.Btc
 		txFee, changeAmount, txSize, hex.EncodeToString(signedTxBytes.Bytes()))
 
 	return &types.BtcTxInfo{
-		Tx:            tx,
-		ChangeAddress: changeAddr,
-		Size:          txSize,
-		Fee:           txFee,
+		Tx:   tx,
+		Size: txSize,
+		Fee:  txFee,
 	}, nil
 }
 

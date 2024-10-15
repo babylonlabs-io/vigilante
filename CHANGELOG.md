@@ -39,6 +39,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Improvements
 
+* [#79](https://github.com/babylonlabs-io/vigilante/pull/79) handle no change output when building tx
+
 * [#77](https://github.com/babylonlabs-io/vigilante/pull/77) add arm64 static build
 
 * [#76](https://github.com/babylonlabs-io/vigilante/pull/76) add goreleaser 
