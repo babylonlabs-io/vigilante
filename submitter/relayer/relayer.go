@@ -533,7 +533,7 @@ func (rl *Relayer) buildTxWithData(data []byte, firstTx *wire.MsgTx) (*types.Btc
 			return nil, fmt.Errorf("failed to create script for change address: %s err %w", changeAddr, err)
 		}
 
-		changeOutput := wire.NewTxOut(546, changePkScript)
+		changeOutput := wire.NewTxOut(int64(dustThreshold), changePkScript)
 		rawTxResult.Transaction.AddTxOut(changeOutput)
 	}
 
