@@ -18,14 +18,14 @@ import (
 )
 
 type GenesisInfo struct {
-	baseBTCHeight uint64
+	baseBTCHeight uint32
 	epochInterval uint64
 	checkpointTag string
 	valSet        checkpointingtypes.ValidatorWithBlsKeySet
 }
 
 func NewGenesisInfo(
-	baseBTCHeight uint64,
+	baseBTCHeight uint32,
 	epochInterval uint64,
 	checkpointTag string,
 	valSet *checkpointingtypes.ValidatorWithBlsKeySet,
@@ -41,7 +41,7 @@ func NewGenesisInfo(
 // GetGenesisInfoFromFile reads genesis info from the provided genesis file
 func GetGenesisInfoFromFile(filePath string) (*GenesisInfo, error) {
 	var (
-		baseBTCHeight uint64
+		baseBTCHeight uint32
 		epochInterval uint64
 		checkpointTag string
 		valSet        checkpointingtypes.ValidatorWithBlsKeySet
@@ -156,7 +156,7 @@ func GetBtccheckpointGenesisStateFromAppState(cdc codec.Codec, appState map[stri
 	return genesisState
 }
 
-func (gi *GenesisInfo) GetBaseBTCHeight() uint64 {
+func (gi *GenesisInfo) GetBaseBTCHeight() uint32 {
 	return gi.baseBTCHeight
 }
 
@@ -172,6 +172,6 @@ func (gi *GenesisInfo) GetCheckpointTag() string {
 	return gi.checkpointTag
 }
 
-func (gi *GenesisInfo) SetBaseBTCHeight(height uint64) {
+func (gi *GenesisInfo) SetBaseBTCHeight(height uint32) {
 	gi.baseBTCHeight = height
 }

@@ -1,7 +1,9 @@
 package monitor
 
 import (
+	"encoding/hex"
 	"fmt"
+
 	"github.com/avast/retry-go/v4"
 	"github.com/babylonlabs-io/vigilante/retrywrap"
 
@@ -23,7 +25,28 @@ func (m *Monitor) QueryInfoForNextEpoch(epoch uint64) (*types.EpochInfo, error) 
 		return nil, fmt.Errorf("failed to query BLS key set for epoch %v: %w", epoch, err)
 	}
 
-	return types.NewEpochInfo(epoch, ckpttypes.ValidatorWithBlsKeySet{ValSet: res.ValidatorWithBlsKeys}), nil
+	blsKeys, err := convertFromBlsPublicKeyListResponse(res.ValidatorWithBlsKeys)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert BLS key response set for epoch %v: %w", epoch, err)
+	}
+	return types.NewEpochInfo(epoch, ckpttypes.ValidatorWithBlsKeySet{ValSet: blsKeys}), nil
+}
+
+func convertFromBlsPublicKeyListResponse(valBLSKeys []*ckpttypes.BlsPublicKeyListResponse) ([]*ckpttypes.ValidatorWithBlsKey, error) {
+	blsPublicKeyListResponse := make([]*ckpttypes.ValidatorWithBlsKey, len(valBLSKeys))
+
+	for i, valBlsKey := range valBLSKeys {
+		blsKey, err := hex.DecodeString(valBlsKey.BlsPubKeyHex)
+		if err != nil {
+			return nil, err
+		}
+		blsPublicKeyListResponse[i] = &ckpttypes.ValidatorWithBlsKey{
+			ValidatorAddress: valBlsKey.ValidatorAddress,
+			BlsPubKey:        blsKey,
+			VotingPower:      valBlsKey.VotingPower,
+		}
+	}
+	return blsPublicKeyListResponse, nil
 }
 
 // FindTipConfirmedEpoch tries to find the last confirmed epoch number from Babylon

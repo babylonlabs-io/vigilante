@@ -21,8 +21,8 @@ var (
 )
 
 type consistencyCheckInfo struct {
-	bbnLatestBlockHeight uint64
-	startSyncHeight      uint64
+	bbnLatestBlockHeight uint32
+	startSyncHeight      uint32
 }
 
 // checkConsistency checks whether the `max(bbn_tip_height - confirmation_depth, bbn_base_height)` block is same
@@ -41,7 +41,7 @@ func (r *Reporter) checkConsistency() (*consistencyCheckInfo, error) {
 		return nil, err
 	}
 
-	var consistencyCheckHeight uint64
+	var consistencyCheckHeight uint32
 	if tipRes.Header.Height >= baseRes.Header.Height+r.btcConfirmationDepth {
 		consistencyCheckHeight = tipRes.Header.Height - r.btcConfirmationDepth
 	} else {
@@ -106,7 +106,7 @@ func (r *Reporter) bootstrap() error {
 
 	// trim cache to the latest k+w blocks on BTC (which are same as in BBN)
 	maxEntries := r.btcConfirmationDepth + r.checkpointFinalizationTimeout
-	if err = r.btcCache.Resize(maxEntries); err != nil {
+	if err = r.btcCache.Resize(uint64(maxEntries)); err != nil {
 		r.logger.Errorf("Failed to resize BTC cache: %v", err)
 		panic(err)
 	}
@@ -174,9 +174,9 @@ func (r *Reporter) bootstrapWithRetries() {
 func (r *Reporter) initBTCCache() error {
 	var (
 		err                  error
-		bbnLatestBlockHeight uint64
-		bbnBaseHeight        uint64
-		baseHeight           uint64
+		bbnLatestBlockHeight uint32
+		bbnBaseHeight        uint32
+		baseHeight           uint32
 		ibs                  []*types.IndexedBlock
 	)
 
@@ -226,9 +226,9 @@ func (r *Reporter) initBTCCache() error {
 func (r *Reporter) waitUntilBTCSync() error {
 	var (
 		btcLatestBlockHash   *chainhash.Hash
-		btcLatestBlockHeight uint64
+		btcLatestBlockHeight uint32
 		bbnLatestBlockHash   *chainhash.Hash
-		bbnLatestBlockHeight uint64
+		bbnLatestBlockHeight uint32
 		err                  error
 	)
 
@@ -284,7 +284,7 @@ func (r *Reporter) waitUntilBTCSync() error {
 	return nil
 }
 
-func (r *Reporter) checkHeaderConsistency(consistencyCheckHeight uint64) error {
+func (r *Reporter) checkHeaderConsistency(consistencyCheckHeight uint32) error {
 	var err error
 
 	consistencyCheckBlock := r.btcCache.FindBlock(consistencyCheckHeight)

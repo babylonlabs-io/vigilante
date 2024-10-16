@@ -1,9 +1,10 @@
 package types_test
 
 import (
-	"github.com/stretchr/testify/require"
 	"math/rand"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/babylonlabs-io/babylon/testutil/datagen"
 	vdatagen "github.com/babylonlabs-io/vigilante/testutil/datagen"
@@ -68,7 +69,7 @@ func FuzzBtcCache(f *testing.F) {
 		// Find a random block in the cache
 		randIdx := datagen.RandomInt(r, int(numBlocks))
 		randIb := ibs[randIdx]
-		randIbHeight := uint64(randIb.Height)
+		randIbHeight := uint32(randIb.Height)
 		foundIb := cache.FindBlock(randIbHeight)
 		require.NotNil(t, foundIb)
 		require.Equal(t, foundIb, randIb)

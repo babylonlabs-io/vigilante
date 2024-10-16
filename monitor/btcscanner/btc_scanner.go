@@ -2,8 +2,9 @@ package btcscanner
 
 import (
 	"fmt"
-	notifier "github.com/lightningnetwork/lnd/chainntnfs"
 	"sync"
+
+	notifier "github.com/lightningnetwork/lnd/chainntnfs"
 
 	"github.com/babylonlabs-io/babylon/btctxformatter"
 	ckpttypes "github.com/babylonlabs-io/babylon/x/checkpointing/types"
@@ -19,12 +20,12 @@ import (
 var _ Scanner = (*BtcScanner)(nil)
 
 type Scanner interface {
-	Start(startHeight uint64)
+	Start(startHeight uint32)
 	Stop()
 
 	GetCheckpointsChan() chan *types.CheckpointRecord
 	GetConfirmedBlocksChan() chan *types.IndexedBlock
-	GetBaseHeight() uint64
+	GetBaseHeight() uint32
 }
 
 type BtcScanner struct {
@@ -36,9 +37,9 @@ type BtcScanner struct {
 	btcNotifier notifier.ChainNotifier
 
 	// the BTC height the scanner starts
-	baseHeight uint64
+	baseHeight uint32
 	// the BTC confirmation depth
-	k uint64
+	k uint32
 
 	confirmedTipBlock   *types.IndexedBlock
 	confirmedBlocksChan chan *types.IndexedBlock
@@ -77,7 +78,7 @@ func New(
 		logger:                parentLogger.With(zap.String("module", "btcscanner")).Sugar(),
 		btcClient:             btcClient,
 		btcNotifier:           btcNotifier,
-		k:                     monitorCfg.BtcConfirmationDepth,
+		k:                     uint32(monitorCfg.BtcConfirmationDepth),
 		ckptCache:             ckptCache,
 		unconfirmedBlockCache: unconfirmedBlockCache,
 		confirmedBlocksChan:   confirmedBlocksChan,
@@ -89,7 +90,7 @@ func New(
 }
 
 // Start starts the scanning process from curBTCHeight to tipHeight
-func (bs *BtcScanner) Start(startHeight uint64) {
+func (bs *BtcScanner) Start(startHeight uint32) {
 	if bs.started.Load() {
 		bs.logger.Info("the BTC scanner is already started")
 		return
@@ -136,15 +137,15 @@ func (bs *BtcScanner) Start(startHeight uint64) {
 // Bootstrap syncs with BTC by getting the confirmed blocks and the caching the unconfirmed blocks
 func (bs *BtcScanner) Bootstrap() {
 	var (
-		firstUnconfirmedHeight uint64
+		firstUnconfirmedHeight uint32
 		confirmedBlock         *types.IndexedBlock
 		err                    error
 	)
 
 	if bs.confirmedTipBlock != nil {
-		firstUnconfirmedHeight = uint64(bs.confirmedTipBlock.Height + 1)
+		firstUnconfirmedHeight = uint32(bs.confirmedTipBlock.Height + 1)
 	} else {
-		firstUnconfirmedHeight = bs.GetBaseHeight()
+		firstUnconfirmedHeight = uint32(bs.GetBaseHeight())
 	}
 
 	bs.logger.Infof("the bootstrapping starts at %d", firstUnconfirmedHeight)
@@ -250,7 +251,7 @@ func (bs *BtcScanner) matchAndPop() (*types.CheckpointRecord, error) {
 
 	return &types.CheckpointRecord{
 		RawCheckpoint:      rawCheckpoint,
-		FirstSeenBtcHeight: uint64(ckptSegments.Segments[0].AssocBlock.Height),
+		FirstSeenBtcHeight: uint32(ckptSegments.Segments[0].AssocBlock.Height),
 	}, nil
 }
 
@@ -283,13 +284,13 @@ func (bs *BtcScanner) Stop() {
 	close(bs.quit)
 }
 
-func (bs *BtcScanner) GetBaseHeight() uint64 {
+func (bs *BtcScanner) GetBaseHeight() uint32 {
 	bs.mu.Lock()
 	defer bs.mu.Unlock()
 	return bs.baseHeight
 }
 
-func (bs *BtcScanner) SetBaseHeight(h uint64) {
+func (bs *BtcScanner) SetBaseHeight(h uint32) {
 	bs.mu.Lock()
 	defer bs.mu.Unlock()
 	bs.baseHeight = h
@@ -306,12 +307,12 @@ func (bs *BtcScanner) SetBtcClient(c btcclient.BTCClient) {
 }
 
 // GetK returns the value of k - confirmation depth
-func (bs *BtcScanner) GetK() uint64 {
+func (bs *BtcScanner) GetK() uint32 {
 	return bs.k
 }
 
 // SetK sets the value of k - confirmation depth
-func (bs *BtcScanner) SetK(k uint64) {
+func (bs *BtcScanner) SetK(k uint32) {
 	bs.k = k
 }
 

@@ -3,6 +3,7 @@ package btcscanner
 import (
 	"errors"
 	"fmt"
+
 	"github.com/btcsuite/btcd/wire"
 	"github.com/lightningnetwork/lnd/chainntnfs"
 )
@@ -91,7 +92,7 @@ func (bs *BtcScanner) handleNewBlock(height int32, header *wire.BlockHeader) err
 	bs.unconfirmedBlockCache.Add(ib)
 
 	// still unconfirmed
-	if bs.unconfirmedBlockCache.Size() <= bs.k {
+	if uint32(bs.unconfirmedBlockCache.Size()) <= bs.k {
 		return nil
 	}
 

@@ -1,6 +1,9 @@
 package monitor_test
 
 import (
+	"math/rand"
+	"testing"
+
 	bbndatagen "github.com/babylonlabs-io/babylon/testutil/datagen"
 	bbntypes "github.com/babylonlabs-io/babylon/types"
 	btclctypes "github.com/babylonlabs-io/babylon/x/btclightclient/types"
@@ -11,8 +14,6 @@ import (
 	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
-	"math/rand"
-	"testing"
 )
 
 func FuzzLivenessChecker(f *testing.F) {
@@ -44,13 +45,13 @@ func FuzzLivenessChecker(f *testing.F) {
 		// 1. normal case, checkpoint is reported, h1 < h2 < h3, h3 - h1 < MaxLiveBtcHeights
 		h1 := bbndatagen.RandomIntOtherThan(r, 0, 50)
 		h2 := bbndatagen.RandomIntOtherThan(r, 0, 50) + h1
-		cr.FirstSeenBtcHeight = h2
+		cr.FirstSeenBtcHeight = uint32(h2)
 		h3 := bbndatagen.RandomIntOtherThan(r, 0, 50) + h2
 		mockBabylonClient.EXPECT().EndedEpochBTCHeight(gomock.Eq(cr.EpochNum())).Return(
-			&monitortypes.QueryEndedEpochBtcHeightResponse{BtcLightClientHeight: h1}, nil,
+			&monitortypes.QueryEndedEpochBtcHeightResponse{BtcLightClientHeight: uint32(h1)}, nil,
 		).AnyTimes()
 		mockBabylonClient.EXPECT().ReportedCheckpointBTCHeight(gomock.Eq(cr.ID())).Return(
-			&monitortypes.QueryReportedCheckpointBtcHeightResponse{BtcLightClientHeight: h3}, nil,
+			&monitortypes.QueryReportedCheckpointBtcHeightResponse{BtcLightClientHeight: uint32(h3)}, nil,
 		)
 		err = m.CheckLiveness(cr)
 		require.NoError(t, err)
@@ -58,7 +59,7 @@ func FuzzLivenessChecker(f *testing.F) {
 		// 2. attack case, checkpoint is reported, h1 < h2 < h3, h3 - h1 > MaxLiveBtcHeights
 		h3 = bbndatagen.RandomIntOtherThan(r, 0, 50) + h2 + maxGap
 		mockBabylonClient.EXPECT().ReportedCheckpointBTCHeight(gomock.Eq(cr.ID())).Return(
-			&monitortypes.QueryReportedCheckpointBtcHeightResponse{BtcLightClientHeight: h3}, nil,
+			&monitortypes.QueryReportedCheckpointBtcHeightResponse{BtcLightClientHeight: uint32(h3)}, nil,
 		)
 		err = m.CheckLiveness(cr)
 		require.ErrorIs(t, err, types.ErrLivenessAttack)
@@ -66,13 +67,13 @@ func FuzzLivenessChecker(f *testing.F) {
 		// 3. normal case, checkpoint is not reported, h1 < h2 < h4, h4 - h1 < MaxLiveBtcHeights
 		h4 := bbndatagen.RandomIntOtherThan(r, 0, 50) + h2
 		mockBabylonClient.EXPECT().ReportedCheckpointBTCHeight(gomock.Eq(cr.ID())).Return(
-			&monitortypes.QueryReportedCheckpointBtcHeightResponse{BtcLightClientHeight: uint64(0)},
+			&monitortypes.QueryReportedCheckpointBtcHeightResponse{BtcLightClientHeight: uint32(0)},
 			monitortypes.ErrCheckpointNotReported,
 		)
 		randHashBytes := bbntypes.BTCHeaderHashBytes(bbndatagen.GenRandomByteArray(r, 32))
 		mockBabylonClient.EXPECT().BTCHeaderChainTip().Return(
 			&btclctypes.QueryTipResponse{
-				Header: &btclctypes.BTCHeaderInfoResponse{Height: h4, HashHex: randHashBytes.MarshalHex()}},
+				Header: &btclctypes.BTCHeaderInfoResponse{Height: uint32(h4), HashHex: randHashBytes.MarshalHex()}},
 			nil,
 		)
 		err = m.CheckLiveness(cr)
@@ -81,13 +82,13 @@ func FuzzLivenessChecker(f *testing.F) {
 		// 4. attack case, checkpoint is not reported, h1 < h2 < h4, h4 - h1 > MaxLiveBtcHeights
 		h4 = bbndatagen.RandomIntOtherThan(r, 0, 50) + h2 + maxGap
 		mockBabylonClient.EXPECT().ReportedCheckpointBTCHeight(gomock.Eq(cr.ID())).Return(
-			&monitortypes.QueryReportedCheckpointBtcHeightResponse{BtcLightClientHeight: uint64(0)},
+			&monitortypes.QueryReportedCheckpointBtcHeightResponse{BtcLightClientHeight: uint32(0)},
 			monitortypes.ErrCheckpointNotReported,
 		)
 		randHashBytes = bbntypes.BTCHeaderHashBytes(bbndatagen.GenRandomByteArray(r, 32))
 		mockBabylonClient.EXPECT().BTCHeaderChainTip().Return(
 			&btclctypes.QueryTipResponse{
-				Header: &btclctypes.BTCHeaderInfoResponse{Height: h4, HashHex: randHashBytes.MarshalHex()},
+				Header: &btclctypes.BTCHeaderInfoResponse{Height: uint32(h4), HashHex: randHashBytes.MarshalHex()},
 			},
 			nil,
 		)

@@ -262,6 +262,7 @@ func BuildUnbondingSlashingTxWithWitness(
 		0,
 		delSlashingSig,
 		covAdaptorSigs,
+		bsParams.CovenantQuorum,
 		slashingSpendInfo,
 	)
 	if err != nil {
@@ -364,6 +365,7 @@ func BuildSlashingTxWithWitness(
 		d.StakingOutputIdx,
 		delSigSlash,
 		covAdaptorSigs,
+		bsParams.CovenantQuorum,
 		slashingSpendInfo,
 	)
 	if err != nil {

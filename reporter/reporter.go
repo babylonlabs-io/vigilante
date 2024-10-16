@@ -3,10 +3,11 @@ package reporter
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/babylonlabs-io/vigilante/retrywrap"
-	notifier "github.com/lightningnetwork/lnd/chainntnfs"
 	"sync"
 	"time"
+
+	"github.com/babylonlabs-io/vigilante/retrywrap"
+	notifier "github.com/lightningnetwork/lnd/chainntnfs"
 
 	"github.com/avast/retry-go/v4"
 	"github.com/babylonlabs-io/babylon/btctxformatter"
@@ -33,8 +34,8 @@ type Reporter struct {
 	// Internal states of the reporter
 	CheckpointCache               *types.CheckpointCache
 	btcCache                      *types.BTCCache
-	btcConfirmationDepth          uint64
-	checkpointFinalizationTimeout uint64
+	btcConfirmationDepth          uint32
+	checkpointFinalizationTimeout uint32
 	metrics                       *metrics.ReporterMetrics
 	wg                            sync.WaitGroup
 	started                       bool

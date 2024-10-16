@@ -49,10 +49,10 @@ func (m *Monitor) runLivenessChecker() {
 //     H4 - min(H1, H2) > max_live_btc_heights (if the checkpoint is not reported), return error
 func (m *Monitor) CheckLiveness(cr *types.CheckpointRecord) error {
 	var (
-		btcHeightEpochEnded   uint64 // the BTC light client height when the epoch ends (obtained from Babylon)
-		btcHeightFirstSeen    uint64 // the BTC height at which the unique checkpoint first appears (obtained from BTC)
-		btcHeightCkptReported uint64 // the tip height of BTC light client when the checkpoint is reported (obtained from Babylon)
-		currentBtcTipHeight   uint64 // the current tip height of BTC light client (obtained from Babylon)
+		btcHeightEpochEnded   uint32 // the BTC light client height when the epoch ends (obtained from Babylon)
+		btcHeightFirstSeen    uint32 // the BTC height at which the unique checkpoint first appears (obtained from BTC)
+		btcHeightCkptReported uint32 // the tip height of BTC light client when the checkpoint is reported (obtained from Babylon)
+		currentBtcTipHeight   uint32 // the current tip height of BTC light client (obtained from Babylon)
 		gap                   int    // the gap between two BTC heights
 		err                   error
 	)

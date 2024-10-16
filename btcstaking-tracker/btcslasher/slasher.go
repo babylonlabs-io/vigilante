@@ -3,11 +3,12 @@ package btcslasher
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"golang.org/x/sync/semaphore"
-	"sync"
-	"time"
 
 	bbn "github.com/babylonlabs-io/babylon/types"
 	bstypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
@@ -35,7 +36,7 @@ type BTCSlasher struct {
 
 	// parameters
 	netParams              *chaincfg.Params
-	btcFinalizationTimeout uint64
+	btcFinalizationTimeout uint32
 	retrySleepTime         time.Duration
 	maxRetrySleepTime      time.Duration
 	maxRetryTimes          uint

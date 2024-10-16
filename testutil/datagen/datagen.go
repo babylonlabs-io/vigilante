@@ -1,9 +1,10 @@
 package datagen
 
 import (
+	"math/rand"
+
 	"github.com/babylonlabs-io/babylon/testutil/datagen"
 	"github.com/babylonlabs-io/vigilante/types"
-	"math/rand"
 )
 
 func GenerateRandomCheckpointRecord(r *rand.Rand) *types.CheckpointRecord {
@@ -12,6 +13,6 @@ func GenerateRandomCheckpointRecord(r *rand.Rand) *types.CheckpointRecord {
 
 	return &types.CheckpointRecord{
 		RawCheckpoint:      rawCheckpoint,
-		FirstSeenBtcHeight: btcHeight,
+		FirstSeenBtcHeight: uint32(btcHeight),
 	}
 }

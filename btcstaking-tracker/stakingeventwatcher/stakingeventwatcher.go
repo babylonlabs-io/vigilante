@@ -5,13 +5,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
+	"sync/atomic"
+	"time"
+
 	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
 	btcstakingtypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/types"
-	"sync"
-	"sync/atomic"
-	"time"
 
 	"github.com/avast/retry-go/v4"
 	"github.com/babylonlabs-io/vigilante/config"
@@ -50,7 +51,7 @@ type newDelegation struct {
 	stakingTxHash         chainhash.Hash
 	stakingTx             *wire.MsgTx
 	stakingOutputIdx      uint32
-	delegationStartHeight uint64
+	delegationStartHeight uint32
 	unbondingOutput       *wire.TxOut
 }
 
