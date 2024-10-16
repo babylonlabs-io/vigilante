@@ -39,9 +39,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Improvements
 
+* [#80](https://github.com/babylonlabs-io/vigilante/pull/80) bump babylon to use
+uint32 in BTC block heights and BLS valset response
 * [#79](https://github.com/babylonlabs-io/vigilante/pull/79) handle no change output when building tx
-
 * [#77](https://github.com/babylonlabs-io/vigilante/pull/77) add arm64 static build
-
-* [#76](https://github.com/babylonlabs-io/vigilante/pull/76) add goreleaser 
+* [#76](https://github.com/babylonlabs-io/vigilante/pull/76) add goreleaser
   setup and move out changelog reminder
