@@ -37,6 +37,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+## v0.13.0
+
 ### Improvements
 
 * [#80](https://github.com/babylonlabs-io/vigilante/pull/80) bump babylon to use
