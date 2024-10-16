@@ -63,6 +63,6 @@ func FuzzGetGenesisInfoFromFile(f *testing.F) {
 		require.NoError(t, err)
 		require.Equal(t, uint64(epochInterval), genesisInfo.epochInterval)
 		require.Len(t, genesisInfo.valSet.ValSet, validatorNum)
-		require.Equal(t, uint64(baseHeight), genesisInfo.baseBTCHeight)
+		require.Equal(t, uint32(baseHeight), genesisInfo.baseBTCHeight)
 	})
 }

@@ -20,19 +20,19 @@ func FuzzBootStrap(f *testing.F) {
 	f.Fuzz(func(t *testing.T, seed int64) {
 		t.Parallel()
 		r := rand.New(rand.NewSource(seed))
-		k := datagen.RandomIntOtherThan(r, 0, 10)
+		k := uint32(datagen.RandomIntOtherThan(r, 0, 10))
 		// Generate a random number of blocks
-		numBlocks := datagen.RandomIntOtherThan(r, 0, 100) + k // make sure we have at least k+1 entry
+		numBlocks := datagen.RandomIntOtherThan(r, 0, 100) + uint64(k) // make sure we have at least k+1 entry
 		chainIndexedBlocks := vdatagen.GetRandomIndexedBlocks(r, numBlocks)
 		baseHeight := chainIndexedBlocks[0].Height
 		bestHeight := chainIndexedBlocks[len(chainIndexedBlocks)-1].Height
 		ctl := gomock.NewController(t)
 		defer ctl.Finish()
 		mockBtcClient := mocks.NewMockBTCClient(ctl)
-		confirmedBlocks := chainIndexedBlocks[:numBlocks-k]
-		mockBtcClient.EXPECT().GetBestBlock().Return(uint64(bestHeight), nil)
+		confirmedBlocks := chainIndexedBlocks[:numBlocks-uint64(k)]
+		mockBtcClient.EXPECT().GetBestBlock().Return(uint32(bestHeight), nil)
 		for i := 0; i < int(numBlocks); i++ {
-			mockBtcClient.EXPECT().GetBlockByHeight(gomock.Eq(uint64(chainIndexedBlocks[i].Height))).
+			mockBtcClient.EXPECT().GetBlockByHeight(gomock.Eq(uint32(chainIndexedBlocks[i].Height))).
 				Return(chainIndexedBlocks[i], nil, nil).AnyTimes()
 		}
 
@@ -40,7 +40,7 @@ func FuzzBootStrap(f *testing.F) {
 		require.NoError(t, err)
 		var btcScanner btcscanner.BtcScanner
 		btcScanner.SetBtcClient(mockBtcClient)
-		btcScanner.SetBaseHeight(uint64(baseHeight))
+		btcScanner.SetBaseHeight(uint32(baseHeight))
 		btcScanner.SetK(k)
 		btcScanner.SetConfirmedBlocksChan(make(chan *types.IndexedBlock))
 		btcScanner.SetUnconfirmedBlockCache(cache)

@@ -130,7 +130,7 @@ func (b *BTCCache) size() uint64 {
 }
 
 // GetLastBlocks returns list of blocks between the given stopHeight and the tip of the chain in cache
-func (b *BTCCache) GetLastBlocks(stopHeight uint64) ([]*IndexedBlock, error) {
+func (b *BTCCache) GetLastBlocks(stopHeight uint32) ([]*IndexedBlock, error) {
 	b.RLock()
 	defer b.RUnlock()
 
@@ -178,7 +178,7 @@ func (b *BTCCache) TrimConfirmedBlocks(k int) []*IndexedBlock {
 }
 
 // FindBlock uses binary search to find the block with the given height in cache
-func (b *BTCCache) FindBlock(blockHeight uint64) *IndexedBlock {
+func (b *BTCCache) FindBlock(blockHeight uint32) *IndexedBlock {
 	b.RLock()
 	defer b.RUnlock()
 

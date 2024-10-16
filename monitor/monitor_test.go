@@ -1,6 +1,7 @@
 package monitor_test
 
 import (
+	"encoding/hex"
 	"math/rand"
 	"testing"
 
@@ -121,7 +122,7 @@ func FuzzVerifyCheckpoint(f *testing.F) {
 		for _, tc := range testCases {
 			mockBabylonClient.EXPECT().BlsPublicKeyList(gomock.Eq(tc.btcCheckpoint.EpochNum), gomock.Nil()).Return(
 				&ckpttypes.QueryBlsPublicKeyListResponse{
-					ValidatorWithBlsKeys: valSet.ValSet,
+					ValidatorWithBlsKeys: convertToBlsPublicKeyListResponse(valSet.ValSet),
 				}, nil).AnyTimes()
 			err := m.UpdateEpochInfo(btcCheckpoint.EpochNum)
 			require.NoError(t, err)
@@ -134,4 +135,17 @@ func FuzzVerifyCheckpoint(f *testing.F) {
 			}
 		}
 	})
+}
+
+func convertToBlsPublicKeyListResponse(valBLSKeys []*ckpttypes.ValidatorWithBlsKey) []*ckpttypes.BlsPublicKeyListResponse {
+	blsPublicKeyListResponse := make([]*ckpttypes.BlsPublicKeyListResponse, len(valBLSKeys))
+
+	for i, valBlsKey := range valBLSKeys {
+		blsPublicKeyListResponse[i] = &ckpttypes.BlsPublicKeyListResponse{
+			ValidatorAddress: valBlsKey.ValidatorAddress,
+			BlsPubKeyHex:     hex.EncodeToString(valBlsKey.BlsPubKey),
+			VotingPower:      valBlsKey.VotingPower,
+		}
+	}
+	return blsPublicKeyListResponse
 }

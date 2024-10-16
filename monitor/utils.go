@@ -1,6 +1,6 @@
 package monitor
 
-func minBTCHeight(h1, h2 uint64) uint64 {
+func minBTCHeight(h1, h2 uint32) uint32 {
 	if h1 > h2 {
 		return h2
 	}

@@ -43,7 +43,7 @@ func (m *MockBTCClient) EXPECT() *MockBTCClientMockRecorder {
 }
 
 // FindTailBlocksByHeight mocks base method.
-func (m *MockBTCClient) FindTailBlocksByHeight(height uint64) ([]*types.IndexedBlock, error) {
+func (m *MockBTCClient) FindTailBlocksByHeight(height uint32) ([]*types.IndexedBlock, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindTailBlocksByHeight", height)
 	ret0, _ := ret[0].([]*types.IndexedBlock)
@@ -58,10 +58,10 @@ func (mr *MockBTCClientMockRecorder) FindTailBlocksByHeight(height interface{}) 
 }
 
 // GetBestBlock mocks base method.
-func (m *MockBTCClient) GetBestBlock() (uint64, error) {
+func (m *MockBTCClient) GetBestBlock() (uint32, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetBestBlock")
-	ret0, _ := ret[0].(uint64)
+	ret0, _ := ret[0].(uint32)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -89,7 +89,7 @@ func (mr *MockBTCClientMockRecorder) GetBlockByHash(blockHash interface{}) *gomo
 }
 
 // GetBlockByHeight mocks base method.
-func (m *MockBTCClient) GetBlockByHeight(height uint64) (*types.IndexedBlock, *wire.MsgBlock, error) {
+func (m *MockBTCClient) GetBlockByHeight(height uint32) (*types.IndexedBlock, *wire.MsgBlock, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetBlockByHeight", height)
 	ret0, _ := ret[0].(*types.IndexedBlock)

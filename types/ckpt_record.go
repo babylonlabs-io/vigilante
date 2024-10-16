@@ -6,10 +6,10 @@ import (
 
 type CheckpointRecord struct {
 	RawCheckpoint      *ckpttypes.RawCheckpoint
-	FirstSeenBtcHeight uint64
+	FirstSeenBtcHeight uint32
 }
 
-func NewCheckpointRecord(ckpt *ckpttypes.RawCheckpoint, height uint64) *CheckpointRecord {
+func NewCheckpointRecord(ckpt *ckpttypes.RawCheckpoint, height uint32) *CheckpointRecord {
 	return &CheckpointRecord{RawCheckpoint: ckpt, FirstSeenBtcHeight: height}
 }
 

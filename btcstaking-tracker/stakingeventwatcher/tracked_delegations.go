@@ -12,7 +12,7 @@ type TrackedDelegation struct {
 	StakingTx             *wire.MsgTx
 	StakingOutputIdx      uint32
 	UnbondingOutput       *wire.TxOut
-	DelegationStartHeight uint64
+	DelegationStartHeight uint32
 }
 
 type TrackedDelegations struct {
@@ -61,7 +61,7 @@ func (td *TrackedDelegations) AddDelegation(
 	StakingTx *wire.MsgTx,
 	StakingOutputIdx uint32,
 	UnbondingOutput *wire.TxOut,
-	delegationStartHeight uint64,
+	delegationStartHeight uint32,
 	shouldUpdate bool,
 ) (*TrackedDelegation, error) {
 	delegation := &TrackedDelegation{

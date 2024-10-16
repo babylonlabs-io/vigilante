@@ -15,10 +15,10 @@ import (
 type BTCClient interface {
 	Stop()
 	WaitForShutdown()
-	GetBestBlock() (uint64, error)
+	GetBestBlock() (uint32, error)
 	GetBlockByHash(blockHash *chainhash.Hash) (*types.IndexedBlock, *wire.MsgBlock, error)
-	FindTailBlocksByHeight(height uint64) ([]*types.IndexedBlock, error)
-	GetBlockByHeight(height uint64) (*types.IndexedBlock, *wire.MsgBlock, error)
+	FindTailBlocksByHeight(height uint32) ([]*types.IndexedBlock, error)
+	GetBlockByHeight(height uint32) (*types.IndexedBlock, *wire.MsgBlock, error)
 	GetTxOut(txHash *chainhash.Hash, index uint32, mempool bool) (*btcjson.GetTxOutResult, error)
 	SendRawTransaction(tx *wire.MsgTx, allowHighFees bool) (*chainhash.Hash, error)
 	GetTransaction(txHash *chainhash.Hash) (*btcjson.GetTransactionResult, error)

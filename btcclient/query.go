@@ -13,13 +13,13 @@ import (
 )
 
 // GetBestBlock returns the height of the best block
-func (c *Client) GetBestBlock() (uint64, error) {
+func (c *Client) GetBestBlock() (uint32, error) {
 	height, err := c.getBlockCountWithRetry()
 	if err != nil {
 		return 0, err
 	}
 
-	return uint64(height), nil
+	return uint32(height), nil
 }
 
 func (c *Client) GetBlockByHash(blockHash *chainhash.Hash) (*types.IndexedBlock, *wire.MsgBlock, error) {
@@ -38,7 +38,7 @@ func (c *Client) GetBlockByHash(blockHash *chainhash.Hash) (*types.IndexedBlock,
 }
 
 // GetBlockByHeight returns a block with the given height
-func (c *Client) GetBlockByHeight(height uint64) (*types.IndexedBlock, *wire.MsgBlock, error) {
+func (c *Client) GetBlockByHeight(height uint32) (*types.IndexedBlock, *wire.MsgBlock, error) {
 	blockHash, err := c.getBlockHashWithRetry(height)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get block by height %d: %w", height, err)
@@ -78,7 +78,7 @@ func (c *Client) getBestBlockHashWithRetry() (*chainhash.Hash, error) {
 	return blockHash, nil
 }
 
-func (c *Client) getBlockHashWithRetry(height uint64) (*chainhash.Hash, error) {
+func (c *Client) getBlockHashWithRetry(height uint32) (*chainhash.Hash, error) {
 	var (
 		blockHash *chainhash.Hash
 		err       error
@@ -96,7 +96,7 @@ func (c *Client) getBlockHashWithRetry(height uint64) (*chainhash.Hash, error) {
 		retry.Attempts(c.maxRetryTimes),
 	); err != nil {
 		c.logger.Debug(
-			"failed to query the block hash", zap.Uint64("height", height), zap.Error(err))
+			"failed to query the block hash", zap.Uint32("height", height), zap.Error(err))
 	}
 
 	return blockHash, nil
@@ -152,8 +152,8 @@ func (c *Client) getBlockVerboseWithRetry(hash *chainhash.Hash) (*btcjson.GetBlo
 
 // getChainBlocks returns a chain of indexed blocks from the block at baseHeight to the tipBlock
 // note: the caller needs to ensure that tipBlock is on the blockchain
-func (c *Client) getChainBlocks(baseHeight uint64, tipBlock *types.IndexedBlock) ([]*types.IndexedBlock, error) {
-	tipHeight := uint64(tipBlock.Height)
+func (c *Client) getChainBlocks(baseHeight uint32, tipBlock *types.IndexedBlock) ([]*types.IndexedBlock, error) {
+	tipHeight := uint32(tipBlock.Height)
 	if tipHeight < baseHeight {
 		return nil, fmt.Errorf("the tip block height %v is less than the base height %v", tipHeight, baseHeight)
 	}
@@ -195,13 +195,13 @@ func (c *Client) getBestIndexedBlock() (*types.IndexedBlock, error) {
 }
 
 // FindTailBlocksByHeight returns the chain of blocks from the block at baseHeight to the tip
-func (c *Client) FindTailBlocksByHeight(baseHeight uint64) ([]*types.IndexedBlock, error) {
+func (c *Client) FindTailBlocksByHeight(baseHeight uint32) ([]*types.IndexedBlock, error) {
 	tipIb, err := c.getBestIndexedBlock()
 	if err != nil {
 		return nil, err
 	}
 
-	if baseHeight > uint64(tipIb.Height) {
+	if baseHeight > uint32(tipIb.Height) {
 		return nil, fmt.Errorf("invalid base height %d, should not be higher than tip block %d", baseHeight, tipIb.Height)
 	}
 

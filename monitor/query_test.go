@@ -31,7 +31,7 @@ func FuzzQueryInfoForNextEpoch(f *testing.F) {
 		bbnCli := monitor.NewMockBabylonQueryClient(ctrl)
 		bbnCli.EXPECT().BlsPublicKeyList(gomock.Eq(e), gomock.Nil()).Return(
 			&ckpttypes.QueryBlsPublicKeyListResponse{
-				ValidatorWithBlsKeys: valSet.ValSet,
+				ValidatorWithBlsKeys: convertToBlsPublicKeyListResponse(valSet.ValSet),
 			},
 			nil,
 		).AnyTimes()

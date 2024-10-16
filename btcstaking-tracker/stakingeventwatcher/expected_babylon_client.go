@@ -3,6 +3,7 @@ package stakingeventwatcher
 import (
 	"context"
 	"fmt"
+
 	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
 
 	"cosmossdk.io/errors"
@@ -18,7 +19,7 @@ import (
 type Delegation struct {
 	StakingTx             *wire.MsgTx
 	StakingOutputIdx      uint32
-	DelegationStartHeight uint64
+	DelegationStartHeight uint32
 	UnbondingOutput       *wire.TxOut
 	HasProof              bool
 }

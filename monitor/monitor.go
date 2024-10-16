@@ -3,11 +3,12 @@ package monitor
 import (
 	"encoding/hex"
 	"fmt"
+	"sort"
+	"sync"
+
 	"github.com/babylonlabs-io/vigilante/monitor/store"
 	notifier "github.com/lightningnetwork/lnd/chainntnfs"
 	"github.com/lightningnetwork/lnd/kvdb"
-	"sort"
-	"sync"
 
 	"github.com/btcsuite/btcd/wire"
 	"github.com/pkg/errors"
@@ -110,7 +111,7 @@ func (m *Monitor) SetLogger(logger *zap.SugaredLogger) {
 }
 
 // Start starts the verification core
-func (m *Monitor) Start(baseHeight uint64) {
+func (m *Monitor) Start(baseHeight uint32) {
 	if m.started.Load() {
 		m.logger.Info("the Monitor is already started")
 		return
@@ -135,14 +136,14 @@ func (m *Monitor) Start(baseHeight uint64) {
 	}
 
 	// get the height from db if it exists otherwise use the baseHeight provided from genesis
-	var startHeight uint64
+	var startHeight uint32
 	dbHeight, exists, err := m.store.LatestHeight()
 	if err != nil {
 		panic(fmt.Errorf("error getting latest height from db %w", err))
 	} else if !exists {
 		startHeight = baseHeight
 	} else {
-		startHeight = dbHeight + 1
+		startHeight = uint32(dbHeight) + 1
 	}
 
 	// starting BTC scanner
@@ -180,7 +181,7 @@ func (m *Monitor) Start(baseHeight uint64) {
 	m.logger.Info("the Monitor is stopped")
 }
 
-func (m *Monitor) runBTCScanner(startHeight uint64) {
+func (m *Monitor) runBTCScanner(startHeight uint32) {
 	m.BTCScanner.Start(startHeight)
 	m.wg.Done()
 }

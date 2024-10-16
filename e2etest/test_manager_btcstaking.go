@@ -3,9 +3,13 @@ package e2etest
 import (
 	"bytes"
 	"context"
-	sdkmath "cosmossdk.io/math"
 	"encoding/hex"
 	"fmt"
+	"math/rand"
+	"testing"
+	"time"
+
+	sdkmath "cosmossdk.io/math"
 	"github.com/avast/retry-go/v4"
 	"github.com/babylonlabs-io/babylon/btcstaking"
 	txformat "github.com/babylonlabs-io/babylon/btctxformatter"
@@ -29,9 +33,6 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/stretchr/testify/require"
-	"math/rand"
-	"testing"
-	"time"
 )
 
 var (
@@ -43,7 +44,7 @@ var (
 	)
 )
 
-func (tm *TestManager) getBTCUnbondingTime(t *testing.T) uint64 {
+func (tm *TestManager) getBTCUnbondingTime(t *testing.T) uint32 {
 	bsParams, err := tm.BabylonClient.BTCStakingParams()
 	require.NoError(t, err)
 	btccParams, err := tm.BabylonClient.BTCCheckpointParams()
