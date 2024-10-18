@@ -484,7 +484,7 @@ func (sew *StakingEventWatcher) handleUnbondedDelegations() {
 			spendEv, err := sew.btcNotifier.RegisterSpendNtfn(
 				&stakingOutpoint,
 				activeDel.stakingTx.TxOut[activeDel.stakingOutputIdx].PkScript,
-				uint32(activeDel.delegationStartHeight),
+				activeDel.delegationStartHeight,
 			)
 
 			if err != nil {
@@ -539,6 +539,10 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() error {
 	}
 
 	for _, del := range delegations {
+		if del.ActivationInProgress {
+			continue
+		}
+
 		txHash := del.StakingTx.TxHash()
 		details, status, err := sew.btcClient.TxDetails(&txHash, del.StakingTx.TxOut[del.StakingOutputIdx].PkScript)
 		if err != nil {
@@ -571,6 +575,10 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 	ctx, cancel := sew.quitContext()
 	defer cancel()
 
+	if err := sew.pendingTracker.UpdateActivation(stakingTxHash, true); err != nil {
+		sew.logger.Debugf("skipping tx %s is not in pending tracker", stakingTxHash)
+	}
+
 	_ = retry.Do(func() error {
 		verified, err := sew.babylonNodeAdapter.IsDelegationVerified(stakingTxHash)
 		if err != nil {
@@ -590,6 +598,7 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 		sew.metrics.ReportedActivateDelegationsCounter.Inc()
 
 		sew.pendingTracker.RemoveDelegation(stakingTxHash)
+		sew.logger.Debugf("staking tx activated %s", stakingTxHash.String())
 
 		return nil
 	},
