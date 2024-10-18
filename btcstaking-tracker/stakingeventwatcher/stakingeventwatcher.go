@@ -177,7 +177,7 @@ func (sew *StakingEventWatcher) checkBabylonDelegations(status btcstakingtypes.B
 			return fmt.Errorf("error fetching active delegations from babylon: %v", err)
 		}
 
-		sew.logger.Debugf("fetched %d delegations from babylon", len(delegations))
+		sew.logger.Debugf("fetched %d delegations from babylon by status %s", len(delegations), status)
 
 		for _, delegation := range delegations {
 			addDel(delegation)
