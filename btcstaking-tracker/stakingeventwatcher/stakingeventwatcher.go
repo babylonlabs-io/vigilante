@@ -576,7 +576,7 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 	defer cancel()
 
 	if err := sew.pendingTracker.UpdateActivation(stakingTxHash, true); err != nil {
-		sew.logger.Debugf("skipping tx %s is not in pending tracker", stakingTxHash)
+		sew.logger.Debugf("skipping tx %s is not in pending tracker, err: %v", stakingTxHash, err)
 	}
 
 	_ = retry.Do(func() error {
