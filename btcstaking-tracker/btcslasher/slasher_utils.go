@@ -424,7 +424,7 @@ func (bs *BTCSlasher) getAllActiveAndUnbondedBTCDelegations(
 				}
 				if strings.EqualFold(del.StatusDesc, bstypes.BTCDelegationStatus_UNBONDED.String()) &&
 					len(del.UndelegationResponse.CovenantSlashingSigs) >= int(bsParams.CovenantQuorum) &&
-					len(del.UndelegationResponse.DelegatorUnbondingSigHex) > 0 {
+					len(del.UndelegationResponse.DelegatorUnbondingInfoResponse.SpendStakeTxHex) > 0 {
 					// NOTE: Babylon considers a BTC delegation to be unbonded once it
 					// receives staker signature for unbonding transaction, no matter
 					// whether the unbonding tx's timelock has expired. In monitor's view we need to try to slash every

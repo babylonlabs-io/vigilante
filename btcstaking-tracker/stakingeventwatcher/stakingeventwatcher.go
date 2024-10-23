@@ -443,8 +443,14 @@ func (sew *StakingEventWatcher) watchForSpend(spendEvent *notifier.SpendEvent, t
 		sew.metrics.DetectedUnbondingTransactionsCounter.Inc()
 		// We found valid unbonding tx. We need to try to report it to babylon.
 		// We stop reporting if delegation is no longer active or we succeed.
+		proof, err := sew.waitForStakeSpendInclusionProof(quitCtx, spendingTx)
+		if err != nil {
+			// todo(lazar): log and report a metric, push to removalChan
+			sew.logger.Errorf("unbonding tx %s for staking tx %s proof not built", spendingTxHash, delegationId)
+			return
+		}
 		sew.logger.Debugf("found unbonding tx %s for staking tx %s", spendingTxHash, delegationId)
-		sew.reportUnbondingToBabylon(quitCtx, delegationId, spendingTx, nil)
+		sew.reportUnbondingToBabylon(quitCtx, delegationId, spendingTx, proof)
 		sew.logger.Debugf("unbonding tx %s for staking tx %s reported to babylon", spendingTxHash, delegationId)
 	}
 
@@ -457,7 +463,10 @@ func (sew *StakingEventWatcher) watchForSpend(spendEvent *notifier.SpendEvent, t
 
 func (sew *StakingEventWatcher) buildSpendingTxProof(spendingTx *wire.MsgTx) (*btcstakingtypes.InclusionProof, error) {
 	txHash := spendingTx.TxHash()
-	details, status, err := sew.btcClient.TxDetails(&txHash, spendingTx.TxOut[0].PkScript) // todo(lazar):find out which index
+	if len(spendingTx.TxOut) == 0 {
+		return nil, fmt.Errorf("stake spending tx has no outputs")
+	}
+	details, status, err := sew.btcClient.TxDetails(&txHash, spendingTx.TxOut[0].PkScript)
 	if err != nil {
 		return nil, err
 	}
@@ -475,6 +484,40 @@ func (sew *StakingEventWatcher) buildSpendingTxProof(spendingTx *wire.MsgTx) (*b
 	}
 
 	return btcstakingtypes.NewInclusionProofFromSpvProof(proof), nil
+}
+
+// waitForStakeSpendInclusionProof polls btc until stake spend tx has inclusion proof built
+func (sew *StakingEventWatcher) waitForStakeSpendInclusionProof(
+	ctx context.Context,
+	spendingTx *wire.MsgTx,
+) (*btcstakingtypes.InclusionProof, error) {
+	var (
+		proof *btcstakingtypes.InclusionProof
+		err   error
+	)
+	_ = retry.Do(func() error {
+		proof, err = sew.buildSpendingTxProof(spendingTx)
+		if err != nil {
+			return err
+		}
+
+		if proof == nil {
+			return fmt.Errorf("proof not yet built")
+		}
+
+		return nil
+	},
+		retry.Context(ctx),
+		retryForever,
+		fixedDelyTypeWithJitter,
+		retry.MaxDelay(sew.cfg.CheckDelegationActiveInterval),
+		retry.MaxJitter(sew.cfg.RetryJitter),
+		retry.OnRetry(func(n uint, err error) {
+			sew.logger.Debugf("retrying checking if stake spending tx is in chain %s. Attempt: %d. Err: %v", spendingTx.TxHash(), n, err)
+		}),
+	)
+
+	return proof, nil
 }
 
 func (sew *StakingEventWatcher) handleUnbondedDelegations() {

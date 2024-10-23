@@ -103,6 +103,8 @@ func TestUnbondingWatcher(t *testing.T) {
 	minedBlock := tm.mineBlock(t)
 	require.Equal(t, 2, len(minedBlock.Transactions))
 
+	tm.CatchUpBTCLightClient(t)
+
 	require.Eventually(t, func() bool {
 		resp, err := tm.BabylonClient.BTCDelegation(stakingSlashingInfo.StakingTx.TxHash().String())
 		require.NoError(t, err)

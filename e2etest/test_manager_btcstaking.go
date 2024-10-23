@@ -491,10 +491,15 @@ func (tm *TestManager) Undelegate(
 	)
 	require.NoError(t, err)
 
+	var unbondingTxBuf bytes.Buffer
+	err = unbondingSlashingInfo.UnbondingTx.Serialize(&unbondingTxBuf)
+	require.NoError(t, err)
+
 	msgUndel := &bstypes.MsgBTCUndelegate{
-		Signer:         signerAddr,
-		StakingTxHash:  stakingSlashingInfo.StakingTx.TxHash().String(),
-		UnbondingTxSig: bbn.NewBIP340SignatureFromBTCSig(unbondingTxSchnorrSig),
+		Signer:                        signerAddr,
+		StakingTxHash:                 stakingSlashingInfo.StakingTx.TxHash().String(),
+		StakeSpendingTx:               unbondingTxBuf.Bytes(),
+		StakeSpendingTxInclusionProof: nil,
 	}
 	_, err = tm.BabylonClient.ReliablySendMsg(context.Background(), msgUndel, nil, nil)
 	require.NoError(t, err)

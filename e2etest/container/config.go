@@ -26,6 +26,7 @@ const (
 func NewImageConfig(t *testing.T) ImageConfig {
 	babylondVersion, err := testutil.GetBabylonVersion()
 	require.NoError(t, err)
+	babylondVersion = "6a0ccacc41435a249316a77fe6e1e06aeb654d13" // todo(lazar): remove this when we have a tag
 
 	return ImageConfig{
 		BitcoindRepository: dockerBitcoindRepository,
