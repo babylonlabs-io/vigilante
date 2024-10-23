@@ -98,8 +98,17 @@ func FuzzSlasher_Bootstrapping(f *testing.F) {
 		// mock an evidence with this finality provider
 		evidence, err := datagen.GenRandomEvidence(r, fpSK, 100)
 		require.NoError(t, err)
+		er := &ftypes.EvidenceResponse{
+			FpBtcPkHex:           evidence.FpBtcPk.MarshalHex(),
+			BlockHeight:          evidence.BlockHeight,
+			PubRand:              evidence.PubRand,
+			CanonicalAppHash:     evidence.CanonicalAppHash,
+			ForkAppHash:          evidence.ForkAppHash,
+			CanonicalFinalitySig: evidence.CanonicalFinalitySig,
+			ForkFinalitySig:      evidence.ForkFinalitySig,
+		}
 		mockBabylonQuerier.EXPECT().ListEvidences(gomock.Any(), gomock.Any()).Return(&ftypes.QueryListEvidencesResponse{
-			Evidences:  []*ftypes.Evidence{evidence},
+			Evidences:  []*ftypes.EvidenceResponse{er},
 			Pagination: &query.PageResponse{NextKey: nil},
 		}, nil).Times(1)
 
