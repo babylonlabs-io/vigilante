@@ -438,6 +438,12 @@ func (sew *StakingEventWatcher) watchForSpend(spendEvent *notifier.SpendEvent, t
 		// As we only care about unbonding transactions, we do not need to take additional actions.
 		// We start polling babylon for delegation to stop being active, and then delete it from unbondingTracker.
 		sew.logger.Debugf("Spending tx %s for staking tx %s is not unbonding tx. Info: %v", spendingTxHash, delegationId, err)
+		proof, err := sew.waitForStakeSpendInclusionProof(quitCtx, spendingTx)
+		if err != nil {
+			sew.logger.Errorf("unbonding tx %s for staking tx %s proof not built", spendingTxHash, delegationId)
+			return
+		}
+		sew.reportUnbondingToBabylon(quitCtx, delegationId, spendingTx, proof)
 		sew.waitForDelegationToStopBeingActive(quitCtx, delegationId)
 	} else {
 		sew.metrics.DetectedUnbondingTransactionsCounter.Inc()
@@ -445,7 +451,6 @@ func (sew *StakingEventWatcher) watchForSpend(spendEvent *notifier.SpendEvent, t
 		// We stop reporting if delegation is no longer active or we succeed.
 		proof, err := sew.waitForStakeSpendInclusionProof(quitCtx, spendingTx)
 		if err != nil {
-			// todo(lazar): log and report a metric, push to removalChan
 			sew.logger.Errorf("unbonding tx %s for staking tx %s proof not built", spendingTxHash, delegationId)
 			return
 		}
@@ -464,7 +469,7 @@ func (sew *StakingEventWatcher) watchForSpend(spendEvent *notifier.SpendEvent, t
 func (sew *StakingEventWatcher) buildSpendingTxProof(spendingTx *wire.MsgTx) (*btcstakingtypes.InclusionProof, error) {
 	txHash := spendingTx.TxHash()
 	if len(spendingTx.TxOut) == 0 {
-		return nil, fmt.Errorf("stake spending tx has no outputs")
+		panic(fmt.Errorf("stake spending tx has no outputs %s", spendingTx.TxHash().String())) // this is a software error
 	}
 	details, status, err := sew.btcClient.TxDetails(&txHash, spendingTx.TxOut[0].PkScript)
 	if err != nil {

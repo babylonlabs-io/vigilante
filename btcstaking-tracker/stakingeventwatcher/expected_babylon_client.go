@@ -1,7 +1,6 @@
 package stakingeventwatcher
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 
@@ -116,20 +115,19 @@ func (bca *BabylonClientAdapter) ReportUnbonding(
 	inclusionProof *btcstakingtypes.InclusionProof) error {
 	signer := bca.babylonClient.MustGetAddr()
 
-	var stakeSpendingTxBuf bytes.Buffer
-	if err := stakeSpendingTx.Serialize(&stakeSpendingTxBuf); err != nil {
+	stakeSpendingBytes, err := bbn.SerializeBTCTx(stakeSpendingTx)
+	if err != nil {
 		return err
 	}
 
 	msg := btcstakingtypes.MsgBTCUndelegate{
 		Signer:                        signer,
 		StakingTxHash:                 stakingTxHash.String(),
-		StakeSpendingTx:               stakeSpendingTxBuf.Bytes(),
+		StakeSpendingTx:               stakeSpendingBytes,
 		StakeSpendingTxInclusionProof: inclusionProof,
 	}
 
 	resp, err := bca.babylonClient.ReliablySendMsg(ctx, &msg, []*errors.Error{}, []*errors.Error{})
-
 	if err != nil && resp != nil {
 		return fmt.Errorf("msg MsgBTCUndelegate failed exeuction with code %d and error %w", resp.Code, err)
 	}
@@ -149,7 +147,7 @@ func (bca *BabylonClientAdapter) BtcClientTipHeight() (uint32, error) {
 		return 0, fmt.Errorf("failed to retrieve btc light client tip from babyln: %w", err)
 	}
 
-	return uint32(resp.Header.Height), nil
+	return resp.Header.Height, nil
 }
 
 // ActivateDelegation provides inclusion proof to activate delegation
