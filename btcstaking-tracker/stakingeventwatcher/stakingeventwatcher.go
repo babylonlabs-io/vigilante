@@ -374,7 +374,8 @@ func (sew *StakingEventWatcher) waitForDelegationToStopBeingActive(
 func (sew *StakingEventWatcher) reportUnbondingToBabylon(
 	ctx context.Context,
 	stakingTxHash chainhash.Hash,
-	unbondingSignature *schnorr.Signature,
+	stakeSpendingTx *wire.MsgTx,
+	proof *btcstakingtypes.InclusionProof,
 ) {
 	_ = retry.Do(func() error {
 		active, err := sew.babylonNodeAdapter.IsDelegationActive(stakingTxHash)
@@ -394,7 +395,7 @@ func (sew *StakingEventWatcher) reportUnbondingToBabylon(
 			return nil
 		}
 
-		if err = sew.babylonNodeAdapter.ReportUnbonding(ctx, stakingTxHash, unbondingSignature); err != nil {
+		if err = sew.babylonNodeAdapter.ReportUnbonding(ctx, stakingTxHash, stakeSpendingTx, proof); err != nil {
 			sew.metrics.FailedReportedUnbondingTransactions.Inc()
 			return fmt.Errorf("error reporting unbonding tx %s to babylon: %v", stakingTxHash, err)
 		}
@@ -426,7 +427,7 @@ func (sew *StakingEventWatcher) watchForSpend(spendEvent *notifier.SpendEvent, t
 		return
 	}
 
-	schnorrSignature, err := tryParseStakerSignatureFromSpentTx(spendingTx, td)
+	_, err := tryParseStakerSignatureFromSpentTx(spendingTx, td)
 	delegationId := td.StakingTx.TxHash()
 	spendingTxHash := spendingTx.TxHash()
 
@@ -443,7 +444,7 @@ func (sew *StakingEventWatcher) watchForSpend(spendEvent *notifier.SpendEvent, t
 		// We found valid unbonding tx. We need to try to report it to babylon.
 		// We stop reporting if delegation is no longer active or we succeed.
 		sew.logger.Debugf("found unbonding tx %s for staking tx %s", spendingTxHash, delegationId)
-		sew.reportUnbondingToBabylon(quitCtx, delegationId, schnorrSignature)
+		sew.reportUnbondingToBabylon(quitCtx, delegationId, spendingTx, nil)
 		sew.logger.Debugf("unbonding tx %s for staking tx %s reported to babylon", spendingTxHash, delegationId)
 	}
 
@@ -452,6 +453,28 @@ func (sew *StakingEventWatcher) watchForSpend(spendEvent *notifier.SpendEvent, t
 		&delegationInactive{stakingTxHash: delegationId},
 		sew.quit,
 	)
+}
+
+func (sew *StakingEventWatcher) buildSpendingTxProof(spendingTx *wire.MsgTx) (*btcstakingtypes.InclusionProof, error) {
+	txHash := spendingTx.TxHash()
+	details, status, err := sew.btcClient.TxDetails(&txHash, spendingTx.TxOut[0].PkScript) // todo(lazar):find out which index
+	if err != nil {
+		return nil, err
+	}
+
+	if status != btcclient.TxInChain {
+		return nil, nil
+	}
+
+	btcTxs := types.GetWrappedTxs(details.Block)
+	ib := types.NewIndexedBlock(int32(details.BlockHeight), &details.Block.Header, btcTxs)
+
+	proof, err := ib.GenSPVProof(int(details.TxIndex))
+	if err != nil {
+		return nil, err
+	}
+
+	return btcstakingtypes.NewInclusionProofFromSpvProof(proof), nil
 }
 
 func (sew *StakingEventWatcher) handleUnbondedDelegations() {
