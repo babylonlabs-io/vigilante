@@ -13,6 +13,7 @@ type TrackedDelegation struct {
 	StakingOutputIdx      uint32
 	UnbondingOutput       *wire.TxOut
 	DelegationStartHeight uint32
+	ActivationInProgress  bool
 }
 
 type TrackedDelegations struct {
@@ -117,4 +118,19 @@ func (td *TrackedDelegations) HasDelegationChanged(
 
 	// The delegation exists but hasn't changed
 	return false, true
+}
+
+func (td *TrackedDelegations) UpdateActivation(tx chainhash.Hash, inProgress bool) error {
+	td.mu.Lock()
+	defer td.mu.Unlock()
+
+	delegation, ok := td.mapping[tx]
+
+	if !ok {
+		return fmt.Errorf("delegation with tx hash %s not found", tx.String())
+	}
+
+	delegation.ActivationInProgress = inProgress
+
+	return nil
 }
