@@ -342,35 +342,6 @@ func tryParseStakerSignatureFromSpentTx(tx *wire.MsgTx, td *TrackedDelegation) (
 	return schnorr.ParseSignature(stakerSignature)
 }
 
-// waitForDelegationToStopBeingActive polls babylon until delegation is no longer active.
-func (sew *StakingEventWatcher) waitForDelegationToStopBeingActive(
-	ctx context.Context,
-	stakingTxHash chainhash.Hash,
-) {
-	_ = retry.Do(func() error {
-		active, err := sew.babylonNodeAdapter.IsDelegationActive(stakingTxHash)
-
-		if err != nil {
-			return fmt.Errorf("error checking if delegation is active: %v", err)
-		}
-
-		if !active {
-			return nil
-		}
-
-		return fmt.Errorf("delegation for staking tx %s is still active", stakingTxHash)
-	},
-		retry.Context(ctx),
-		retryForever,
-		fixedDelyTypeWithJitter,
-		retry.MaxDelay(sew.cfg.CheckDelegationActiveInterval),
-		retry.MaxJitter(sew.cfg.RetryJitter),
-		retry.OnRetry(func(n uint, err error) {
-			sew.logger.Debugf("retrying checking if delegation is active for staking tx %s. Attempt: %d. Err: %v", stakingTxHash, n, err)
-		}),
-	)
-}
-
 func (sew *StakingEventWatcher) reportUnbondingToBabylon(
 	ctx context.Context,
 	stakingTxHash chainhash.Hash,
