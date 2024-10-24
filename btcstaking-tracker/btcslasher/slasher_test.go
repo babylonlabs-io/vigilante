@@ -261,10 +261,10 @@ func FuzzSlasher(f *testing.F) {
 			err = unbondingSlashingInfo.UnbondingTx.Serialize(&unbondingTxBuffer)
 			require.NoError(t, err)
 			unbondingBTCDel.BtcUndelegation = &bstypes.BTCUndelegation{
-				UnbondingTx:           unbondingTxBuffer.Bytes(),
-				SlashingTx:            unbondingSlashingInfo.SlashingTx,
-				DelegatorSlashingSig:  delSlashingSig,
-				DelegatorUnbondingSig: delSlashingSig,
+				UnbondingTx:            unbondingTxBuffer.Bytes(),
+				SlashingTx:             unbondingSlashingInfo.SlashingTx,
+				DelegatorSlashingSig:   delSlashingSig,
+				DelegatorUnbondingInfo: &bstypes.DelegatorUnbondingInfo{SpendStakeTx: unbondingTxBuffer.Bytes()},
 				// TODO: currently requires only one sig, in reality requires all of them
 				CovenantSlashingSigs:     covenantSlashingSigs,
 				CovenantUnbondingSigList: covenantUnbondingSigs,

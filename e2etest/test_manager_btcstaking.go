@@ -472,7 +472,8 @@ func (tm *TestManager) Undelegate(
 	t *testing.T,
 	stakingSlashingInfo *datagen.TestStakingSlashingInfo,
 	unbondingSlashingInfo *datagen.TestUnbondingSlashingInfo,
-	delSK *btcec.PrivateKey) (*datagen.TestUnbondingSlashingInfo, *schnorr.Signature) {
+	delSK *btcec.PrivateKey,
+	catchUpLightClientFunc func()) (*datagen.TestUnbondingSlashingInfo, *schnorr.Signature) {
 	signerAddr := tm.BabylonClient.MustGetAddr()
 
 	// TODO: This generates unbonding tx signature, move it to undelegate
@@ -491,14 +492,9 @@ func (tm *TestManager) Undelegate(
 	)
 	require.NoError(t, err)
 
-	msgUndel := &bstypes.MsgBTCUndelegate{
-		Signer:         signerAddr,
-		StakingTxHash:  stakingSlashingInfo.StakingTx.TxHash().String(),
-		UnbondingTxSig: bbn.NewBIP340SignatureFromBTCSig(unbondingTxSchnorrSig),
-	}
-	_, err = tm.BabylonClient.ReliablySendMsg(context.Background(), msgUndel, nil, nil)
+	var unbondingTxBuf bytes.Buffer
+	err = unbondingSlashingInfo.UnbondingTx.Serialize(&unbondingTxBuf)
 	require.NoError(t, err)
-	t.Logf("submitted MsgBTCUndelegate")
 
 	resp, err := tm.BabylonClient.BTCDelegation(stakingSlashingInfo.StakingTx.TxHash().String())
 	require.NoError(t, err)
@@ -526,6 +522,22 @@ func (tm *TestManager) Undelegate(
 
 	mBlock := tm.mineBlock(t)
 	require.Equal(t, 2, len(mBlock.Transactions))
+
+	catchUpLightClientFunc()
+
+	unbondingTxInfo := getTxInfo(t, mBlock)
+	msgUndel := &bstypes.MsgBTCUndelegate{
+		Signer:          signerAddr,
+		StakingTxHash:   stakingSlashingInfo.StakingTx.TxHash().String(),
+		StakeSpendingTx: unbondingTxBuf.Bytes(),
+		StakeSpendingTxInclusionProof: &bstypes.InclusionProof{
+			Key:   unbondingTxInfo.Key,
+			Proof: unbondingTxInfo.Proof,
+		},
+	}
+	_, err = tm.BabylonClient.ReliablySendMsg(context.Background(), msgUndel, nil, nil)
+	require.NoError(t, err)
+	t.Logf("submitted MsgBTCUndelegate")
 
 	// wait until unbonding tx is on Bitcoin
 	require.Eventually(t, func() bool {

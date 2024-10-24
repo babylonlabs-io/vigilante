@@ -24,13 +24,13 @@ const (
 
 // NewImageConfig returns ImageConfig needed for running e2e test.
 func NewImageConfig(t *testing.T) ImageConfig {
-	babylondVersion, err := testutil.GetBabylonVersion()
+	babylonVersion, err := testutil.GetBabylonVersion()
 	require.NoError(t, err)
 
 	return ImageConfig{
 		BitcoindRepository: dockerBitcoindRepository,
 		BitcoindVersion:    dockerBitcoindVersionTag,
 		BabylonRepository:  dockerBabylondRepository,
-		BabylonVersion:     babylondVersion,
+		BabylonVersion:     babylonVersion,
 	}
 }

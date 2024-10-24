@@ -218,7 +218,7 @@ func TestAtomicSlasher_Unbonding(t *testing.T) {
 	/*
 		the victim BTC delegation unbonds
 	*/
-	tm.Undelegate(t, stakingSlashingInfo, unbondingSlashingInfo, btcDelSK)
+	tm.Undelegate(t, stakingSlashingInfo, unbondingSlashingInfo, btcDelSK, func() { tm.CatchUpBTCLightClient(t) })
 
 	/*
 		finality provider builds unbonding slashing tx witness and sends it to Bitcoin

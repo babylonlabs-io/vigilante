@@ -10,8 +10,8 @@ import (
 
 	types "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
 	types0 "github.com/babylonlabs-io/babylon/x/btcstaking/types"
-	schnorr "github.com/btcsuite/btcd/btcec/v2/schnorr"
 	chainhash "github.com/btcsuite/btcd/chaincfg/chainhash"
+	wire "github.com/btcsuite/btcd/wire"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -113,15 +113,15 @@ func (mr *MockBabylonNodeAdapterMockRecorder) IsDelegationVerified(stakingTxHash
 }
 
 // ReportUnbonding mocks base method.
-func (m *MockBabylonNodeAdapter) ReportUnbonding(ctx context.Context, stakingTxHash chainhash.Hash, stakerUnbondingSig *schnorr.Signature) error {
+func (m *MockBabylonNodeAdapter) ReportUnbonding(ctx context.Context, stakingTxHash chainhash.Hash, stakeSpendingTx *wire.MsgTx, inclusionProof *types0.InclusionProof) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReportUnbonding", ctx, stakingTxHash, stakerUnbondingSig)
+	ret := m.ctrl.Call(m, "ReportUnbonding", ctx, stakingTxHash, stakeSpendingTx, inclusionProof)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ReportUnbonding indicates an expected call of ReportUnbonding.
-func (mr *MockBabylonNodeAdapterMockRecorder) ReportUnbonding(ctx, stakingTxHash, stakerUnbondingSig interface{}) *gomock.Call {
+func (mr *MockBabylonNodeAdapterMockRecorder) ReportUnbonding(ctx, stakingTxHash, stakeSpendingTx, inclusionProof interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportUnbonding", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).ReportUnbonding), ctx, stakingTxHash, stakerUnbondingSig)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportUnbonding", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).ReportUnbonding), ctx, stakingTxHash, stakeSpendingTx, inclusionProof)
 }

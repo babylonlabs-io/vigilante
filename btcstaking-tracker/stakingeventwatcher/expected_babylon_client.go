@@ -10,7 +10,6 @@ import (
 	bbnclient "github.com/babylonlabs-io/babylon/client/client"
 	bbn "github.com/babylonlabs-io/babylon/types"
 	btcstakingtypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
-	"github.com/btcsuite/btcd/btcec/v2/schnorr"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/cosmos/cosmos-sdk/types/query"
@@ -28,7 +27,8 @@ type BabylonNodeAdapter interface {
 	DelegationsByStatus(status btcstakingtypes.BTCDelegationStatus, offset uint64, limit uint64) ([]Delegation, error)
 	IsDelegationActive(stakingTxHash chainhash.Hash) (bool, error)
 	IsDelegationVerified(stakingTxHash chainhash.Hash) (bool, error)
-	ReportUnbonding(ctx context.Context, stakingTxHash chainhash.Hash, stakerUnbondingSig *schnorr.Signature) error
+	ReportUnbonding(ctx context.Context, stakingTxHash chainhash.Hash, stakeSpendingTx *wire.MsgTx,
+		inclusionProof *btcstakingtypes.InclusionProof) error
 	BtcClientTipHeight() (uint32, error)
 	ActivateDelegation(ctx context.Context, stakingTxHash chainhash.Hash, proof *btcctypes.BTCSpvProof) error
 }
@@ -111,17 +111,23 @@ func (bca *BabylonClientAdapter) IsDelegationVerified(stakingTxHash chainhash.Ha
 func (bca *BabylonClientAdapter) ReportUnbonding(
 	ctx context.Context,
 	stakingTxHash chainhash.Hash,
-	stakerUnbondingSig *schnorr.Signature) error {
+	stakeSpendingTx *wire.MsgTx,
+	inclusionProof *btcstakingtypes.InclusionProof) error {
 	signer := bca.babylonClient.MustGetAddr()
 
+	stakeSpendingBytes, err := bbn.SerializeBTCTx(stakeSpendingTx)
+	if err != nil {
+		return err
+	}
+
 	msg := btcstakingtypes.MsgBTCUndelegate{
-		Signer:         signer,
-		StakingTxHash:  stakingTxHash.String(),
-		UnbondingTxSig: bbn.NewBIP340SignatureFromBTCSig(stakerUnbondingSig),
+		Signer:                        signer,
+		StakingTxHash:                 stakingTxHash.String(),
+		StakeSpendingTx:               stakeSpendingBytes,
+		StakeSpendingTxInclusionProof: inclusionProof,
 	}
 
 	resp, err := bca.babylonClient.ReliablySendMsg(ctx, &msg, []*errors.Error{}, []*errors.Error{})
-
 	if err != nil && resp != nil {
 		return fmt.Errorf("msg MsgBTCUndelegate failed exeuction with code %d and error %w", resp.Code, err)
 	}
@@ -141,7 +147,7 @@ func (bca *BabylonClientAdapter) BtcClientTipHeight() (uint32, error) {
 		return 0, fmt.Errorf("failed to retrieve btc light client tip from babyln: %w", err)
 	}
 
-	return uint32(resp.Header.Height), nil
+	return resp.Header.Height, nil
 }
 
 // ActivateDelegation provides inclusion proof to activate delegation

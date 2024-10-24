@@ -187,7 +187,7 @@ func TestSlasher_SlashingUnbonding(t *testing.T) {
 	stakingSlashingInfo1, unbondingSlashingInfo1, stakerPrivKey1 := tm.CreateBTCDelegation(t, fpSK)
 
 	// undelegate
-	unbondingSlashingInfo, _ := tm.Undelegate(t, stakingSlashingInfo1, unbondingSlashingInfo1, stakerPrivKey1)
+	unbondingSlashingInfo, _ := tm.Undelegate(t, stakingSlashingInfo1, unbondingSlashingInfo1, stakerPrivKey1, func() { tm.CatchUpBTCLightClient(t) })
 
 	// commit public randomness, vote and equivocate
 	tm.VoteAndEquivocate(t, fpSK)

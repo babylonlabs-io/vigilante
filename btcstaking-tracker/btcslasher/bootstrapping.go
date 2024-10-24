@@ -2,6 +2,7 @@ package btcslasher
 
 import (
 	"fmt"
+	"github.com/babylonlabs-io/babylon/types"
 
 	ftypes "github.com/babylonlabs-io/babylon/x/finality/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
@@ -22,16 +23,29 @@ func (bs *BTCSlasher) Bootstrap(startHeight uint64) error {
 
 	// handle all evidences since the given start height, i.e., for each evidence,
 	// extract its SK and try to slash all BTC delegations under it
-	err := bs.handleAllEvidences(startHeight, func(evidences []*ftypes.Evidence) error {
+	err := bs.handleAllEvidences(startHeight, func(evidences []*ftypes.EvidenceResponse) error {
 		var accumulatedErrs error // we use this variable to accumulate errors
 
 		for _, evidence := range evidences {
-			fpBTCPK := evidence.FpBtcPk
-			fpBTCPKHex := fpBTCPK.MarshalHex()
+			fpBTCPKHex := evidence.FpBtcPkHex
 			bs.logger.Infof("found evidence for finality provider %s at height %d after start height %d", fpBTCPKHex, evidence.BlockHeight, startHeight)
 
+			btcPK, err := types.NewBIP340PubKeyFromHex(fpBTCPKHex)
+			if err != nil {
+				return fmt.Errorf("err parsing fp btc %w", err)
+			}
+
+			e := ftypes.Evidence{
+				FpBtcPk:              btcPK,
+				BlockHeight:          evidence.BlockHeight,
+				PubRand:              evidence.PubRand,
+				CanonicalAppHash:     evidence.CanonicalAppHash,
+				ForkAppHash:          evidence.ForkAppHash,
+				CanonicalFinalitySig: evidence.CanonicalFinalitySig,
+				ForkFinalitySig:      evidence.ForkFinalitySig,
+			}
 			// extract the SK of the slashed finality provider
-			fpBTCSK, err := evidence.ExtractBTCSK()
+			fpBTCSK, err := e.ExtractBTCSK()
 			if err != nil {
 				bs.logger.Errorf("failed to extract BTC SK of the slashed finality provider %s: %v", fpBTCPKHex, err)
 				accumulatedErrs = multierror.Append(accumulatedErrs, err)
@@ -57,7 +71,7 @@ func (bs *BTCSlasher) Bootstrap(startHeight uint64) error {
 	return nil
 }
 
-func (bs *BTCSlasher) handleAllEvidences(startHeight uint64, handleFunc func(evidences []*ftypes.Evidence) error) error {
+func (bs *BTCSlasher) handleAllEvidences(startHeight uint64, handleFunc func(evidences []*ftypes.EvidenceResponse) error) error {
 	pagination := query.PageRequest{Limit: defaultPaginationLimit}
 	for {
 		resp, err := bs.BBNQuerier.ListEvidences(startHeight, &pagination)
