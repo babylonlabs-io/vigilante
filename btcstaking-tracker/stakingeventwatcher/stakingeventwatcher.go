@@ -444,7 +444,6 @@ func (sew *StakingEventWatcher) watchForSpend(spendEvent *notifier.SpendEvent, t
 			return
 		}
 		sew.reportUnbondingToBabylon(quitCtx, delegationId, spendingTx, proof)
-		sew.waitForDelegationToStopBeingActive(quitCtx, delegationId)
 	} else {
 		sew.metrics.DetectedUnbondingTransactionsCounter.Inc()
 		// We found valid unbonding tx. We need to try to report it to babylon.
