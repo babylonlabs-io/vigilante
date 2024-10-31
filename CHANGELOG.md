@@ -37,6 +37,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+* [#90](https://github.com/babylonlabs-io/vigilante/pull/90) upgrade babylon to v0.15.0
+
 ## v0.14.0
 
 ### Bug Fixes
