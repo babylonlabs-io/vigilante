@@ -612,7 +612,13 @@ func (rl *Relayer) buildTxWithData(data []byte, firstTx *wire.MsgTx) (*types.Btc
 
 // getFeeRate returns the estimated fee rate, ensuring it within [tx-fee-max, tx-fee-min]
 func (rl *Relayer) getFeeRate() chainfee.SatPerKVByte {
-	fee, err := rl.EstimateFeePerKW(uint32(rl.GetBTCConfig().TargetBlockNum))
+	targetBlockNum := rl.GetBTCConfig().TargetBlockNum
+
+	// check we are within the uint32 range
+	if targetBlockNum < 0 || targetBlockNum > int64(^uint32(0)) {
+		panic(fmt.Errorf("targetBlockNum (%d) is out of uint32 range", targetBlockNum)) //software bug, panic
+	}
+	fee, err := rl.EstimateFeePerKW(uint32(targetBlockNum))
 	if err != nil {
 		defaultFee := rl.GetBTCConfig().DefaultFee
 		rl.logger.Errorf("failed to estimate transaction fee. Using default fee %v: %s", defaultFee, err.Error())

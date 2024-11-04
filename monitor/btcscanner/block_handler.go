@@ -18,6 +18,9 @@ func (bs *BtcScanner) bootstrapAndBlockEventHandler() {
 	var blockEpoch *chainntnfs.BlockEpoch
 	bestKnownBlock := bs.unconfirmedBlockCache.Tip()
 	if bestKnownBlock != nil {
+		if bestKnownBlock.Height > math.MaxInt32 {
+			panic(fmt.Errorf("block height exceeds int32 range: %d", bestKnownBlock.Height))
+		}
 		hash := bestKnownBlock.BlockHash()
 		blockEpoch = &chainntnfs.BlockEpoch{
 			Hash:        &hash,
