@@ -22,7 +22,7 @@ type SubmitterConfig struct {
 	// ResubmitFeeMultiplier is used to multiply the estimated bumped fee in resubmission
 	ResubmitFeeMultiplier float64 `mapstructure:"resubmit-fee-multiplier"`
 	// PollingIntervalSeconds defines the intervals (in seconds) between each polling of Babylon checkpoints
-	PollingIntervalSeconds uint `mapstructure:"polling-interval-seconds"`
+	PollingIntervalSeconds int64 `mapstructure:"polling-interval-seconds"`
 	// ResendIntervalSeconds defines the time (in seconds) which the submitter awaits
 	// before resubmitting checkpoints to BTC
 	ResendIntervalSeconds uint `mapstructure:"resend-interval-seconds"`
@@ -37,6 +37,10 @@ func (cfg *SubmitterConfig) Validate() error {
 
 	if cfg.ResubmitFeeMultiplier < 1 {
 		return errors.New("invalid resubmit-fee-multiplier, should not be less than 1")
+	}
+
+	if cfg.PollingIntervalSeconds < 0 {
+		return errors.New("invalid polling-interval-seconds, should not be less than 0")
 	}
 
 	return nil

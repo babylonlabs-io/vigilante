@@ -191,6 +191,10 @@ func (m *Monitor) runBTCScanner(startHeight uint32) {
 }
 
 func (m *Monitor) handleNewConfirmedHeader(block *types.IndexedBlock) error {
+	if block.Height < 0 {
+		return fmt.Errorf("block height is negative: %d", block.Height)
+	}
+
 	if err := m.checkHeaderConsistency(block.Header); err != nil {
 		return err
 	}
