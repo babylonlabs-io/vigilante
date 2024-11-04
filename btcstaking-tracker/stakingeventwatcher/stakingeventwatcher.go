@@ -119,6 +119,9 @@ func (sew *StakingEventWatcher) Start() error {
 		// we registered for notifications with `nil` so we should receive best block immediately
 		select {
 		case block := <-blockEventNotifier.Epochs:
+			if block.Height < 0 {
+				panic(fmt.Errorf("received negative block height: %d", block.Height))
+			}
 			sew.currentBestBlockHeight.Store(uint32(block.Height))
 		case <-sew.quit:
 			startErr = errors.New("watcher quit before finishing start")
@@ -157,6 +160,9 @@ func (sew *StakingEventWatcher) handleNewBlocks(blockNotifier *notifier.BlockEpo
 		case block, ok := <-blockNotifier.Epochs:
 			if !ok {
 				return
+			}
+			if block.Height < 0 {
+				panic(fmt.Errorf("received negative block height: %d", block.Height))
 			}
 			sew.currentBestBlockHeight.Store(uint32(block.Height))
 			sew.logger.Debugf("Received new best btc block: %d", block.Height)

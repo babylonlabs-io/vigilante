@@ -214,6 +214,10 @@ func BuildUnbondingSlashingTxWithWitness(
 		return nil, fmt.Errorf("failed to convert covenant pks to BTC pks: %v", err)
 	}
 
+	if d.UnbondingTime > uint32(^uint16(0)) {
+		panic(fmt.Errorf("unbondingTime (%d) exceeds maximum for uint16", d.UnbondingTime))
+	}
+
 	// get unbonding info
 	unbondingInfo, err := btcstaking.BuildUnbondingInfo(
 		d.BtcPk.MustToBTCPK(),
@@ -322,6 +326,7 @@ func BuildSlashingTxWithWitness(
 	}
 
 	// get staking info
+	// #nosec G115 -- performed the conversion check above
 	stakingInfo, err := btcstaking.BuildStakingInfo(
 		d.BtcPk.MustToBTCPK(),
 		fpBtcPkList,

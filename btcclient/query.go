@@ -153,6 +153,10 @@ func (c *Client) getBlockVerboseWithRetry(hash *chainhash.Hash) (*btcjson.GetBlo
 // getChainBlocks returns a chain of indexed blocks from the block at baseHeight to the tipBlock
 // note: the caller needs to ensure that tipBlock is on the blockchain
 func (c *Client) getChainBlocks(baseHeight uint32, tipBlock *types.IndexedBlock) ([]*types.IndexedBlock, error) {
+	if tipBlock.Height < 0 {
+		panic(fmt.Errorf("received negative block height: %d", tipBlock.Height))
+	}
+
 	tipHeight := uint32(tipBlock.Height)
 	if tipHeight < baseHeight {
 		return nil, fmt.Errorf("the tip block height %v is less than the base height %v", tipHeight, baseHeight)
@@ -201,7 +205,7 @@ func (c *Client) FindTailBlocksByHeight(baseHeight uint32) ([]*types.IndexedBloc
 		return nil, err
 	}
 
-	if baseHeight > uint32(tipIb.Height) {
+	if int32(baseHeight) > tipIb.Height {
 		return nil, fmt.Errorf("invalid base height %d, should not be higher than tip block %d", baseHeight, tipIb.Height)
 	}
 

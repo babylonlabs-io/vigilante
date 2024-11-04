@@ -1,6 +1,7 @@
 package atomicslasher
 
 import (
+	"fmt"
 	"time"
 
 	bstypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
@@ -58,6 +59,9 @@ func (as *AtomicSlasher) slashingTxTracker() {
 				return
 			}
 			// record BTC tip
+			if blockEpoch.Height < 0 {
+				panic(fmt.Errorf("received negative block height: %d", blockEpoch.Height))
+			}
 			as.btcTipHeight.Store(uint32(blockEpoch.Height))
 			as.logger.Debug("Received new best btc block", zap.Int32("height", blockEpoch.Height))
 			// get full BTC block
