@@ -125,11 +125,11 @@ func (b *BTCCache) Size() uint64 {
 }
 
 // thread-unsafe version of Size
-func (b *BTCCache) size() uint32 {
-	return uint32(len(b.blocks))
+func (b *BTCCache) size() int {
+	return len(b.blocks)
 }
 
-// GetLastBlocks returns list of blocks between the given stopHeight and the tip of the chain in cache
+// GetLastBlocks return list of blocks between the given stopHeight and the tip of the chain in cache
 func (b *BTCCache) GetLastBlocks(stopHeight uint32) ([]*IndexedBlock, error) {
 	b.RLock()
 	defer b.RUnlock()
