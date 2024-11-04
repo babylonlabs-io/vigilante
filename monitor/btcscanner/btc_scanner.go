@@ -78,7 +78,7 @@ func New(
 		logger:                parentLogger.With(zap.String("module", "btcscanner")).Sugar(),
 		btcClient:             btcClient,
 		btcNotifier:           btcNotifier,
-		k:                     uint32(monitorCfg.BtcConfirmationDepth),
+		k:                     monitorCfg.BtcConfirmationDepth,
 		ckptCache:             ckptCache,
 		unconfirmedBlockCache: unconfirmedBlockCache,
 		confirmedBlocksChan:   confirmedBlocksChan,

@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"sync"
 )
@@ -30,7 +31,7 @@ func (b *BTCCache) Init(ibs []*IndexedBlock) error {
 	b.Lock()
 	defer b.Unlock()
 
-	if len(ibs) > int(b.maxEntries) {
+	if uint64(len(ibs)) > b.maxEntries {
 		return ErrTooManyEntries
 	}
 
@@ -232,6 +233,10 @@ func (b *BTCCache) Trim() {
 	// dereference b.blocks[:len(b.blocks)-int(b.maxEntries)] to ensure they will be garbage-collected
 	for i := range b.blocks[:len(b.blocks)-int(b.maxEntries)] {
 		b.blocks[i] = nil
+	}
+
+	if b.maxEntries > uint64(math.MaxInt) {
+		panic(fmt.Errorf("maxEntries %d exceeds int range", b.maxEntries))
 	}
 
 	b.blocks = b.blocks[len(b.blocks)-int(b.maxEntries):]

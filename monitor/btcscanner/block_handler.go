@@ -3,6 +3,7 @@ package btcscanner
 import (
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/btcsuite/btcd/wire"
 	"github.com/lightningnetwork/lnd/chainntnfs"
@@ -91,7 +92,12 @@ func (bs *BtcScanner) handleNewBlock(height int32, header *wire.BlockHeader) err
 	// otherwise, add the block to the cache
 	bs.unconfirmedBlockCache.Add(ib)
 
+	if bs.unconfirmedBlockCache.Size() > math.MaxInt64 {
+		panic(fmt.Errorf("unconfirmedBlockCache exceeds uint32"))
+	}
+
 	// still unconfirmed
+	// #nosec G115 -- performed the conversion check above
 	if uint32(bs.unconfirmedBlockCache.Size()) <= bs.k {
 		return nil
 	}

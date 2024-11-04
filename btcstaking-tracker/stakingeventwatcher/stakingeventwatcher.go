@@ -183,7 +183,7 @@ func (sew *StakingEventWatcher) checkBabylonDelegations(status btcstakingtypes.B
 			addDel(delegation)
 		}
 
-		if len(delegations) < int(sew.cfg.NewDelegationsBatchSize) {
+		if uint64(len(delegations)) < sew.cfg.NewDelegationsBatchSize {
 			// we received fewer delegations than we asked for; it means went through all of them
 			return nil
 		}

@@ -3,6 +3,7 @@ package btcslasher
 import (
 	"encoding/hex"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/avast/retry-go/v4"
@@ -314,6 +315,10 @@ func BuildSlashingTxWithWitness(
 	covenantBtcPkList, err := bbn.NewBTCPKsFromBIP340PKs(bsParams.CovenantPks)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert covenant pks to BTC pks: %v", err)
+	}
+
+	if d.TotalSat > math.MaxInt64 {
+		panic(fmt.Errorf("TotalSat %d exceeds int64 range", d.TotalSat))
 	}
 
 	// get staking info

@@ -203,7 +203,7 @@ func (rl *Relayer) MaybeResubmitSecondCheckpointTx(ckpt *ckpttypes.RawCheckpoint
 
 	// record the metrics of the resent tx2
 	rl.metrics.NewSubmittedCheckpointSegmentGaugeVec.WithLabelValues(
-		strconv.Itoa(int(ckptEpoch)),
+		strconv.FormatUint(ckptEpoch, 10),
 		"1",
 		resubmittedTx2.TxId.String(),
 		strconv.Itoa(int(resubmittedTx2.Fee)),
@@ -374,7 +374,7 @@ func (rl *Relayer) logAndRecordCheckpointMetrics(tx1, tx2 *types.BtcTxInfo, epoc
 
 	// Record metrics for the first transaction
 	rl.metrics.NewSubmittedCheckpointSegmentGaugeVec.WithLabelValues(
-		strconv.Itoa(int(epochNum)),
+		strconv.FormatUint(epochNum, 10),
 		"0",
 		tx1.Tx.TxHash().String(),
 		strconv.Itoa(int(tx1.Fee)),
@@ -382,7 +382,7 @@ func (rl *Relayer) logAndRecordCheckpointMetrics(tx1, tx2 *types.BtcTxInfo, epoc
 
 	// Record metrics for the second transaction
 	rl.metrics.NewSubmittedCheckpointSegmentGaugeVec.WithLabelValues(
-		strconv.Itoa(int(epochNum)),
+		strconv.FormatUint(epochNum, 10),
 		"1",
 		tx2.Tx.TxHash().String(),
 		strconv.Itoa(int(tx2.Fee)),

@@ -26,7 +26,7 @@ type MonitorConfig struct {
 	// Max lasting BTC heights that a checkpoint is not reported before an alarm is sent
 	MaxLiveBtcHeights uint64 `mapstructure:"max-live-btc-heights"`
 	// the confirmation depth to consider a BTC block as confirmed
-	BtcConfirmationDepth uint64 `mapstructure:"btc-confirmation-depth"`
+	BtcConfirmationDepth uint32 `mapstructure:"btc-confirmation-depth"`
 	// whether to enable liveness checker
 	EnableLivenessChecker bool `mapstructure:"enable-liveness-checker"`
 	// DatabaseConfig stores lates epoch and height used for faster bootstrap

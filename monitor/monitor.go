@@ -3,6 +3,7 @@ package monitor
 import (
 	"encoding/hex"
 	"fmt"
+	"math"
 	"sort"
 	"sync"
 
@@ -143,6 +144,9 @@ func (m *Monitor) Start(baseHeight uint32) {
 	} else if !exists {
 		startHeight = baseHeight
 	} else {
+		if dbHeight > math.MaxUint32 {
+			panic(fmt.Errorf("dbHeight %d exceeds uint32 range", dbHeight))
+		}
 		startHeight = uint32(dbHeight) + 1
 	}
 

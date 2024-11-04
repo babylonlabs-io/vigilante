@@ -2,6 +2,7 @@ package monitor
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/pkg/errors"
@@ -12,6 +13,10 @@ import (
 )
 
 func (m *Monitor) runLivenessChecker() {
+	if m.Cfg.LivenessCheckIntervalSeconds > uint64(math.MaxInt64/time.Second) {
+		panic(fmt.Errorf("LivenessCheckIntervalSeconds %d exceeds int64 range when converted to time.Duration", m.Cfg.LivenessCheckIntervalSeconds))
+	}
+	// #nosec G115 -- performed the conversion check above
 	ticker := time.NewTicker(time.Duration(m.Cfg.LivenessCheckIntervalSeconds) * time.Second)
 
 	m.logger.Infof("liveness checker is started, checking liveness every %d seconds", m.Cfg.LivenessCheckIntervalSeconds)
@@ -89,7 +94,7 @@ func (m *Monitor) CheckLiveness(cr *types.CheckpointRecord) error {
 		return fmt.Errorf("the gap %d between two BTC heights should not be negative", gap)
 	}
 
-	if gap > int(m.Cfg.MaxLiveBtcHeights) {
+	if uint64(gap) > m.Cfg.MaxLiveBtcHeights {
 		return fmt.Errorf("%w: the gap BTC height is %d, larger than the threshold %d", types.ErrLivenessAttack, gap, m.Cfg.MaxLiveBtcHeights)
 	}
 
