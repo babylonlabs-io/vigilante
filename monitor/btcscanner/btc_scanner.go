@@ -1,6 +1,7 @@
 package btcscanner
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
@@ -143,9 +144,13 @@ func (bs *BtcScanner) Bootstrap() {
 	)
 
 	if bs.confirmedTipBlock != nil {
-		firstUnconfirmedHeight = uint32(bs.confirmedTipBlock.Height + 1)
+		if bs.confirmedTipBlock.Height < 0 {
+			panic("confirmedTipBlock.Height is negative")
+		}
+
+		firstUnconfirmedHeight = uint32(bs.confirmedTipBlock.Height + 1) // #nosec G115 this is safe now
 	} else {
-		firstUnconfirmedHeight = uint32(bs.GetBaseHeight())
+		firstUnconfirmedHeight = bs.GetBaseHeight()
 	}
 
 	bs.logger.Infof("the bootstrapping starts at %d", firstUnconfirmedHeight)
@@ -249,6 +254,11 @@ func (bs *BtcScanner) matchAndPop() (*types.CheckpointRecord, error) {
 		return nil, fmt.Errorf("failed to decode raw checkpoint bytes: %w", err)
 	}
 
+	if ckptSegments.Segments[0].AssocBlock.Height < 0 {
+		return nil, errors.New("assocBlock.Height is negative, cannot convert to uint32")
+	}
+
+	// #nosec G115 safe now
 	return &types.CheckpointRecord{
 		RawCheckpoint:      rawCheckpoint,
 		FirstSeenBtcHeight: uint32(ckptSegments.Segments[0].AssocBlock.Height),

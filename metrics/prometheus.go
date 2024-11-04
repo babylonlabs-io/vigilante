@@ -2,8 +2,9 @@ package metrics
 
 import (
 	"net/http"
-	_ "net/http/pprof"
+	_ "net/http/pprof" // #nosec G108 we want this
 	"regexp"
+	"time"
 
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/prometheus/client_golang/prometheus"
@@ -37,5 +38,12 @@ func start(addr string, reg *prometheus.Registry) {
 	}
 	log := metricsLogger.With(zap.String("module", "metrics")).Sugar()
 	log.Infof("Successfully started Prometheus metrics server at %s", addr)
-	log.Fatal(http.ListenAndServe(addr, nil))
+	srv := &http.Server{
+		Addr:         addr,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+	if err := srv.ListenAndServe(); err != nil {
+		log.Fatalf("Failed to start metrics server: %v", err)
+	}
 }
