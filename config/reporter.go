@@ -14,7 +14,7 @@ const (
 // ReporterConfig defines configuration for the reporter.
 type ReporterConfig struct {
 	NetParams       string `mapstructure:"netparams"`          // should be mainnet|testnet|simnet|signet
-	BTCCacheSize    uint64 `mapstructure:"btc_cache_size"`     // size of the BTC cache
+	BTCCacheSize    uint32 `mapstructure:"btc_cache_size"`     // size of the BTC cache
 	MaxHeadersInMsg uint32 `mapstructure:"max_headers_in_msg"` // maximum number of headers in a MsgInsertHeaders message
 }
 

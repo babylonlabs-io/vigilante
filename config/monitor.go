@@ -20,7 +20,7 @@ type MonitorConfig struct {
 	// Max number of BTC blocks in the buffer
 	BtcBlockBufferSize uint64 `mapstructure:"btc-block-buffer-size"`
 	// Max number of BTC blocks in the cache
-	BtcCacheSize uint64 `mapstructure:"btc-cache-size"`
+	BtcCacheSize uint32 `mapstructure:"btc-cache-size"`
 	// Intervals between each liveness check in seconds
 	LivenessCheckIntervalSeconds uint64 `mapstructure:"liveness-check-interval-seconds"`
 	// Max lasting BTC heights that a checkpoint is not reported before an alarm is sent

@@ -99,7 +99,7 @@ func (bs *BtcScanner) handleNewBlock(height uint32, header *wire.BlockHeader) er
 	// otherwise, add the block to the cache
 	bs.unconfirmedBlockCache.Add(ib)
 
-	if bs.unconfirmedBlockCache.Size() > math.MaxInt64 {
+	if bs.unconfirmedBlockCache.Size() > math.MaxInt32 {
 		panic(fmt.Errorf("unconfirmedBlockCache exceeds uint32"))
 	}
 

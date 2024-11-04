@@ -13,7 +13,7 @@ type BTCCache struct {
 	sync.RWMutex
 }
 
-func NewBTCCache(maxEntries uint64) (*BTCCache, error) {
+func NewBTCCache(maxEntries uint32) (*BTCCache, error) {
 	// if maxEntries is 0, it means that the cache is disabled
 	if maxEntries == 0 {
 		return nil, ErrInvalidMaxEntries
@@ -21,7 +21,7 @@ func NewBTCCache(maxEntries uint64) (*BTCCache, error) {
 
 	return &BTCCache{
 		blocks:     make([]*IndexedBlock, 0, maxEntries),
-		maxEntries: uint32(maxEntries),
+		maxEntries: maxEntries,
 	}, nil
 }
 
@@ -58,10 +58,10 @@ func (b *BTCCache) Add(ib *IndexedBlock) {
 
 // Thread-unsafe version of Add
 func (b *BTCCache) add(ib *IndexedBlock) {
-	if b.size() > b.maxEntries {
+	if b.size() > int(b.maxEntries) {
 		panic(ErrTooManyEntries)
 	}
-	if b.size() == b.maxEntries {
+	if b.size() == int(b.maxEntries) {
 		// dereference the 0-th block to ensure it will be garbage-collected
 		// see https://stackoverflow.com/questions/55045402/memory-leak-in-golang-slice
 		b.blocks[0] = nil
@@ -117,11 +117,11 @@ func (b *BTCCache) RemoveAll() {
 }
 
 // Size returns the size of the cache. Thread-safe.
-func (b *BTCCache) Size() uint64 {
+func (b *BTCCache) Size() int {
 	b.RLock()
 	defer b.RUnlock()
 
-	return uint64(b.size())
+	return b.size()
 }
 
 // thread-unsafe version of Size
@@ -188,7 +188,7 @@ func (b *BTCCache) FindBlock(blockHeight uint32) *IndexedBlock {
 		return nil
 	}
 
-	leftBound := uint32(0)
+	leftBound := 0
 	rightBound := b.size() - 1
 
 	for leftBound <= rightBound {
@@ -208,14 +208,14 @@ func (b *BTCCache) FindBlock(blockHeight uint32) *IndexedBlock {
 	return nil
 }
 
-func (b *BTCCache) Resize(maxEntries uint64) error {
+func (b *BTCCache) Resize(maxEntries uint32) error {
 	b.Lock()
 	defer b.Unlock()
 
 	if maxEntries == 0 {
 		return ErrInvalidMaxEntries
 	}
-	b.maxEntries = uint32(maxEntries)
+	b.maxEntries = maxEntries
 	return nil
 }
 
@@ -225,7 +225,7 @@ func (b *BTCCache) Trim() {
 	defer b.Unlock()
 
 	// cache size is smaller than maxEntries, can't trim
-	if b.size() < b.maxEntries {
+	if b.size() < int(b.maxEntries) {
 		return
 	}
 

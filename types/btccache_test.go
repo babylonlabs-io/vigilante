@@ -33,7 +33,7 @@ func FuzzBtcCache(f *testing.F) {
 			invalidMaxEntries = true
 		}
 
-		cache, err := types.NewBTCCache(maxEntries)
+		cache, err := types.NewBTCCache(uint32(maxEntries))
 		if err != nil {
 			if !invalidMaxEntries {
 				t.Fatalf("NewBTCCache returned error %s", err)
@@ -64,7 +64,7 @@ func FuzzBtcCache(f *testing.F) {
 			t.Skip("Skipping test with invalid numBlocks")
 		}
 
-		require.Equal(t, numBlocks, cache.Size())
+		require.Equal(t, numBlocks, uint64(cache.Size()))
 
 		// Find a random block in the cache
 		randIdx := datagen.RandomInt(r, int(numBlocks))
@@ -82,7 +82,7 @@ func FuzzBtcCache(f *testing.F) {
 		for _, ib := range blocksToAdd {
 			cache.Add(ib)
 		}
-		require.Equal(t, prevCacheHeight+int32(addCount), cache.Tip().Height)
+		require.Equal(t, prevCacheHeight+int32(addCount), int32(cache.Tip().Height))
 		require.Equal(t, blocksToAdd[addCount-1], cache.Tip())
 
 		// ensure block heights in cache are in increasing order
@@ -118,7 +118,7 @@ func FuzzBtcCache(f *testing.F) {
 		}
 
 		// Remove random number of blocks from the cache
-		prevSize := cache.Size()
+		prevSize := uint64(cache.Size())
 		deleteCount := datagen.RandomInt(r, int(prevSize))
 		cacheBlocksBeforeDeletion := cache.GetAllBlocks()
 		for i := 0; i < int(deleteCount); i++ {
@@ -126,7 +126,7 @@ func FuzzBtcCache(f *testing.F) {
 			require.NoError(t, err)
 		}
 		cacheBlocksAfterDeletion := cache.GetAllBlocks()
-		require.Equal(t, prevSize-deleteCount, cache.Size())
+		require.Equal(t, prevSize-deleteCount, uint64(cache.Size()))
 		require.Equal(t, cacheBlocksBeforeDeletion[:len(cacheBlocksBeforeDeletion)-int(deleteCount)], cacheBlocksAfterDeletion)
 	})
 }

@@ -36,7 +36,7 @@ func FuzzBootStrap(f *testing.F) {
 				Return(chainIndexedBlocks[i], nil, nil).AnyTimes()
 		}
 
-		cache, err := types.NewBTCCache(numBlocks)
+		cache, err := types.NewBTCCache(uint32(numBlocks))
 		require.NoError(t, err)
 		var btcScanner btcscanner.BtcScanner
 		btcScanner.SetBtcClient(mockBtcClient)
