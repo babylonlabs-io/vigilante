@@ -47,7 +47,11 @@ func (bs *BtcScanner) bootstrapAndBlockEventHandler() {
 				return // channel closed
 			}
 
-			if err := bs.handleNewBlock(epoch.Height, epoch.BlockHeader); err != nil {
+			if epoch.Height < 0 {
+				panic(fmt.Errorf("received negative epoch height: %d", epoch.Height)) // software bug, panic
+			}
+
+			if err := bs.handleNewBlock(uint32(epoch.Height), epoch.BlockHeader); err != nil {
 				bs.logger.Warnf("failed to handle block at height %d: %s, "+
 					"need to restart the bootstrapping process", epoch.Height, err.Error())
 				bs.Bootstrap()
@@ -58,14 +62,14 @@ func (bs *BtcScanner) bootstrapAndBlockEventHandler() {
 
 // handleNewBlock handles blocks from the BTC client
 // if new confirmed blocks are found, send them through the channel
-func (bs *BtcScanner) handleNewBlock(height int32, header *wire.BlockHeader) error {
+func (bs *BtcScanner) handleNewBlock(height uint32, header *wire.BlockHeader) error {
 	// get cache tip
 	cacheTip := bs.unconfirmedBlockCache.Tip()
 	if cacheTip == nil {
 		return errors.New("no unconfirmed blocks found")
 	}
 
-	if cacheTip.Height >= uint32(height) {
+	if cacheTip.Height >= height {
 		bs.logger.Debugf(
 			"the connecting block (height: %d, hash: %s) is too early, skipping the block",
 			height,
@@ -74,7 +78,7 @@ func (bs *BtcScanner) handleNewBlock(height int32, header *wire.BlockHeader) err
 		return nil
 	}
 
-	if cacheTip.Height+1 < uint32(height) {
+	if cacheTip.Height+1 < height {
 		return fmt.Errorf("missing blocks, expected block height: %d, got: %d", cacheTip.Height+1, height)
 	}
 
