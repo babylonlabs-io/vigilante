@@ -199,7 +199,7 @@ func GetRandomIndexedBlocks(r *rand.Rand, numBlocks uint64) []*types.IndexedBloc
 
 	block, _ := GenRandomBlock(r, 1, nil)
 	prevHeight := r.Int31n(math.MaxInt32 - int32(numBlocks))
-	ib := types.NewIndexedBlockFromMsgBlock(prevHeight, block)
+	ib := types.NewIndexedBlockFromMsgBlock(uint32(prevHeight), block)
 	prevHash := ib.Header.BlockHash()
 
 	ibs = GetRandomIndexedBlocksFromHeight(r, numBlocks-1, prevHeight, prevHash)
@@ -212,7 +212,7 @@ func GetRandomIndexedBlocksFromHeight(r *rand.Rand, numBlocks uint64, rootHeight
 	var (
 		ibs        []*types.IndexedBlock
 		prevHash   = rootHash
-		prevHeight = rootHeight
+		prevHeight = uint32(rootHeight)
 	)
 
 	for i := 0; i < int(numBlocks); i++ {

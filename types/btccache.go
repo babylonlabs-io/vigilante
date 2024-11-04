@@ -2,14 +2,13 @@ package types
 
 import (
 	"fmt"
-	"math"
 	"sort"
 	"sync"
 )
 
 type BTCCache struct {
 	blocks     []*IndexedBlock
-	maxEntries uint64
+	maxEntries uint32
 
 	sync.RWMutex
 }
@@ -22,7 +21,7 @@ func NewBTCCache(maxEntries uint64) (*BTCCache, error) {
 
 	return &BTCCache{
 		blocks:     make([]*IndexedBlock, 0, maxEntries),
-		maxEntries: maxEntries,
+		maxEntries: uint32(maxEntries),
 	}, nil
 }
 
@@ -31,7 +30,7 @@ func (b *BTCCache) Init(ibs []*IndexedBlock) error {
 	b.Lock()
 	defer b.Unlock()
 
-	if uint64(len(ibs)) > b.maxEntries {
+	if len(ibs) > int(b.maxEntries) {
 		return ErrTooManyEntries
 	}
 
@@ -122,12 +121,12 @@ func (b *BTCCache) Size() uint64 {
 	b.RLock()
 	defer b.RUnlock()
 
-	return b.size()
+	return uint64(b.size())
 }
 
 // thread-unsafe version of Size
-func (b *BTCCache) size() uint64 {
-	return uint64(len(b.blocks))
+func (b *BTCCache) size() uint32 {
+	return uint32(len(b.blocks))
 }
 
 // GetLastBlocks returns list of blocks between the given stopHeight and the tip of the chain in cache
@@ -137,13 +136,13 @@ func (b *BTCCache) GetLastBlocks(stopHeight uint32) ([]*IndexedBlock, error) {
 
 	firstHeight := b.blocks[0].Height
 	lastHeight := b.blocks[len(b.blocks)-1].Height
-	if int32(stopHeight) < firstHeight || lastHeight < int32(stopHeight) {
+	if (stopHeight) < firstHeight || lastHeight < (stopHeight) {
 		return []*IndexedBlock{}, fmt.Errorf("the given stopHeight %d is out of range [%d, %d] of BTC cache", stopHeight, firstHeight, lastHeight)
 	}
 
 	var j int
 	for i := len(b.blocks) - 1; i >= 0; i-- {
-		if b.blocks[i].Height == int32(stopHeight) {
+		if b.blocks[i].Height == (stopHeight) {
 			j = i
 			break
 		}
@@ -185,21 +184,21 @@ func (b *BTCCache) FindBlock(blockHeight uint32) *IndexedBlock {
 
 	firstHeight := b.blocks[0].Height
 	lastHeight := b.blocks[len(b.blocks)-1].Height
-	if int32(blockHeight) < firstHeight || lastHeight < int32(blockHeight) {
+	if (blockHeight) < firstHeight || lastHeight < (blockHeight) {
 		return nil
 	}
 
-	leftBound := uint64(0)
+	leftBound := uint32(0)
 	rightBound := b.size() - 1
 
 	for leftBound <= rightBound {
 		midPoint := leftBound + (rightBound-leftBound)/2
 
-		if b.blocks[midPoint].Height == int32(blockHeight) {
+		if b.blocks[midPoint].Height == (blockHeight) {
 			return b.blocks[midPoint]
 		}
 
-		if b.blocks[midPoint].Height > int32(blockHeight) {
+		if b.blocks[midPoint].Height > (blockHeight) {
 			rightBound = midPoint - 1
 		} else {
 			leftBound = midPoint + 1
@@ -216,7 +215,7 @@ func (b *BTCCache) Resize(maxEntries uint64) error {
 	if maxEntries == 0 {
 		return ErrInvalidMaxEntries
 	}
-	b.maxEntries = maxEntries
+	b.maxEntries = uint32(maxEntries)
 	return nil
 }
 
@@ -233,10 +232,6 @@ func (b *BTCCache) Trim() {
 	// dereference b.blocks[:len(b.blocks)-int(b.maxEntries)] to ensure they will be garbage-collected
 	for i := range b.blocks[:len(b.blocks)-int(b.maxEntries)] {
 		b.blocks[i] = nil
-	}
-
-	if b.maxEntries > uint64(math.MaxInt) {
-		panic(fmt.Errorf("maxEntries %d exceeds int range", b.maxEntries))
 	}
 
 	b.blocks = b.blocks[len(b.blocks)-int(b.maxEntries):]

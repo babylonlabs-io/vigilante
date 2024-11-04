@@ -76,9 +76,9 @@ func FuzzBtcCache(f *testing.F) {
 
 		// Add random blocks to the cache
 		addCount := datagen.RandomIntOtherThan(r, 0, 1000)
-		prevCacheHeight := cache.Tip().Height
+		prevCacheHeight := int32(cache.Tip().Height)
 		cacheBlocksBeforeAddition := cache.GetAllBlocks()
-		blocksToAdd := vdatagen.GetRandomIndexedBlocksFromHeight(r, addCount, cache.Tip().Height, cache.Tip().BlockHash())
+		blocksToAdd := vdatagen.GetRandomIndexedBlocksFromHeight(r, addCount, int32(cache.Tip().Height), cache.Tip().BlockHash())
 		for _, ib := range blocksToAdd {
 			cache.Add(ib)
 		}
@@ -88,7 +88,7 @@ func FuzzBtcCache(f *testing.F) {
 		// ensure block heights in cache are in increasing order
 		var heights []int32
 		for _, ib := range cache.GetAllBlocks() {
-			heights = append(heights, ib.Height)
+			heights = append(heights, int32(ib.Height))
 		}
 		require.IsIncreasing(t, heights)
 

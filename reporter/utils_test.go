@@ -67,7 +67,7 @@ func FuzzProcessHeaders(f *testing.F) {
 		blocks, _, _ := vdatagen.GenRandomBlockchainWithBabylonTx(r, numBlocks, 0, 0)
 		ibs := []*types.IndexedBlock{}
 		for _, block := range blocks {
-			ibs = append(ibs, types.NewIndexedBlockFromMsgBlock(r.Int31(), block))
+			ibs = append(ibs, types.NewIndexedBlockFromMsgBlock(r.Uint32(), block))
 		}
 
 		_, mockBabylonClient, mockReporter := newMockReporter(t, ctrl)
@@ -111,7 +111,7 @@ func FuzzProcessCheckpoints(f *testing.F) {
 		ibs := []*types.IndexedBlock{}
 		numMatchedCkptsExpected := 0
 		for i, block := range blocks {
-			ibs = append(ibs, types.NewIndexedBlockFromMsgBlock(r.Int31(), block))
+			ibs = append(ibs, types.NewIndexedBlockFromMsgBlock(r.Uint32(), block))
 			if rawCkpts[i] != nil {
 				numMatchedCkptsExpected++
 			}

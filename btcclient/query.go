@@ -34,7 +34,7 @@ func (c *Client) GetBlockByHash(blockHash *chainhash.Hash) (*types.IndexedBlock,
 	}
 
 	btcTxs := types.GetWrappedTxs(mBlock)
-	return types.NewIndexedBlock(int32(blockInfo.Height), &mBlock.Header, btcTxs), mBlock, nil
+	return types.NewIndexedBlock(uint32(blockInfo.Height), &mBlock.Header, btcTxs), mBlock, nil
 }
 
 // GetBlockByHeight returns a block with the given height
@@ -51,7 +51,7 @@ func (c *Client) GetBlockByHeight(height uint32) (*types.IndexedBlock, *wire.Msg
 
 	btcTxs := types.GetWrappedTxs(mBlock)
 
-	return types.NewIndexedBlock(int32(height), &mBlock.Header, btcTxs), mBlock, nil
+	return types.NewIndexedBlock(height, &mBlock.Header, btcTxs), mBlock, nil
 }
 
 func (c *Client) getBestBlockHashWithRetry() (*chainhash.Hash, error) {
@@ -153,11 +153,7 @@ func (c *Client) getBlockVerboseWithRetry(hash *chainhash.Hash) (*btcjson.GetBlo
 // getChainBlocks returns a chain of indexed blocks from the block at baseHeight to the tipBlock
 // note: the caller needs to ensure that tipBlock is on the blockchain
 func (c *Client) getChainBlocks(baseHeight uint32, tipBlock *types.IndexedBlock) ([]*types.IndexedBlock, error) {
-	if tipBlock.Height < 0 {
-		panic(fmt.Errorf("received negative block height: %d", tipBlock.Height))
-	}
-
-	tipHeight := uint32(tipBlock.Height)
+	tipHeight := tipBlock.Height
 	if tipHeight < baseHeight {
 		return nil, fmt.Errorf("the tip block height %v is less than the base height %v", tipHeight, baseHeight)
 	}
@@ -205,7 +201,7 @@ func (c *Client) FindTailBlocksByHeight(baseHeight uint32) ([]*types.IndexedBloc
 		return nil, err
 	}
 
-	if int32(baseHeight) > tipIb.Height {
+	if baseHeight > tipIb.Height {
 		return nil, fmt.Errorf("invalid base height %d, should not be higher than tip block %d", baseHeight, tipIb.Height)
 	}
 

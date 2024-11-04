@@ -40,7 +40,7 @@ func (r *Reporter) handleNewBlock(height int32, header *wire.BlockHeader) error 
 		return fmt.Errorf("cache is empty, restart bootstrap process")
 	}
 
-	if cacheTip.Height >= height {
+	if cacheTip.Height >= uint32(height) {
 		r.logger.Debugf(
 			"the connecting block (height: %d, hash: %s) is too early, skipping the block",
 			height,
@@ -49,7 +49,7 @@ func (r *Reporter) handleNewBlock(height int32, header *wire.BlockHeader) error 
 		return nil
 	}
 
-	if cacheTip.Height+1 < height {
+	if cacheTip.Height+1 < uint32(height) {
 		return fmt.Errorf("missing blocks, expected block height: %d, got: %d", cacheTip.Height+1, height)
 	}
 

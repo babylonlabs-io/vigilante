@@ -457,7 +457,7 @@ func (sew *StakingEventWatcher) buildSpendingTxProof(spendingTx *wire.MsgTx) (*b
 	}
 
 	btcTxs := types.GetWrappedTxs(details.Block)
-	ib := types.NewIndexedBlock(int32(details.BlockHeight), &details.Block.Header, btcTxs)
+	ib := types.NewIndexedBlock(details.BlockHeight, &details.Block.Header, btcTxs)
 
 	proof, err := ib.GenSPVProof(int(details.TxIndex))
 	if err != nil {
@@ -602,7 +602,7 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() error {
 		}
 
 		btcTxs := types.GetWrappedTxs(details.Block)
-		ib := types.NewIndexedBlock(int32(details.BlockHeight), &details.Block.Header, btcTxs)
+		ib := types.NewIndexedBlock(details.BlockHeight, &details.Block.Header, btcTxs)
 
 		proof, err := ib.GenSPVProof(int(details.TxIndex))
 		if err != nil {

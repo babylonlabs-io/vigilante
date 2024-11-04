@@ -21,7 +21,7 @@ func (bs *BtcScanner) bootstrapAndBlockEventHandler() {
 		hash := bestKnownBlock.BlockHash()
 		blockEpoch = &chainntnfs.BlockEpoch{
 			Hash:        &hash,
-			Height:      bestKnownBlock.Height,
+			Height:      int32(bestKnownBlock.Height),
 			BlockHeader: bestKnownBlock.Header,
 		}
 	}
@@ -62,7 +62,7 @@ func (bs *BtcScanner) handleNewBlock(height int32, header *wire.BlockHeader) err
 		return errors.New("no unconfirmed blocks found")
 	}
 
-	if cacheTip.Height >= height {
+	if cacheTip.Height >= uint32(height) {
 		bs.logger.Debugf(
 			"the connecting block (height: %d, hash: %s) is too early, skipping the block",
 			height,
@@ -71,7 +71,7 @@ func (bs *BtcScanner) handleNewBlock(height int32, header *wire.BlockHeader) err
 		return nil
 	}
 
-	if cacheTip.Height+1 < height {
+	if cacheTip.Height+1 < uint32(height) {
 		return fmt.Errorf("missing blocks, expected block height: %d, got: %d", cacheTip.Height+1, height)
 	}
 
