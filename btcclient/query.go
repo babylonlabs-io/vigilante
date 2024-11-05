@@ -19,10 +19,6 @@ func (c *Client) GetBestBlock() (uint32, error) {
 		return 0, err
 	}
 
-	if height < 0 || height > int64(^uint32(0)) {
-		panic(fmt.Errorf("height (%d) is out of uint32 range", height)) //software bug, panic
-	}
-
 	return uint32(height), nil
 }
 
@@ -38,11 +34,7 @@ func (c *Client) GetBlockByHash(blockHash *chainhash.Hash) (*types.IndexedBlock,
 	}
 
 	btcTxs := types.GetWrappedTxs(mBlock)
-	height := blockInfo.Height
-	if height < 0 || height > int64(^uint32(0)) {
-		panic(fmt.Errorf("height (%d) is out of uint32 range", height)) //software bug, panic
-	}
-	return types.NewIndexedBlock(uint32(height), &mBlock.Header, btcTxs), mBlock, nil
+	return types.NewIndexedBlock(uint32(blockInfo.Height), &mBlock.Header, btcTxs), mBlock, nil
 }
 
 // GetBlockByHeight returns a block with the given height
