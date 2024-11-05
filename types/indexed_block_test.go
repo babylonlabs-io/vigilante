@@ -26,7 +26,7 @@ func FuzzIndexedBlock(f *testing.F) {
 
 		blocks, _, rawCkpts := vdatagen.GenRandomBlockchainWithBabylonTx(r, 100, 0, 0.4)
 		for i, block := range blocks {
-			ib := types.NewIndexedBlockFromMsgBlock(int32(i), block)
+			ib := types.NewIndexedBlockFromMsgBlock(uint32(i), block)
 
 			if rawCkpts[i] != nil { // Babylon tx
 				spvProof, err := ib.GenSPVProof(1)

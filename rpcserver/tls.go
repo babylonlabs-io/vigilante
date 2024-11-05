@@ -73,7 +73,7 @@ func generateRPCKeyPair(RPCKeyFile string, RPCCertFile string, writeKey bool) (t
 		}
 		err = os.WriteFile(RPCKeyFile, key, 0600)
 		if err != nil {
-			os.Remove(RPCCertFile) //nolint: errcheck
+			_ = os.Remove(RPCCertFile) //nolint: errcheck
 			return tls.Certificate{}, err
 		}
 	}

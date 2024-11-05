@@ -2,6 +2,7 @@ package btcclient
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/avast/retry-go/v4"
 	"github.com/btcsuite/btcd/btcjson"
@@ -19,6 +20,10 @@ func (c *Client) GetBestBlock() (uint32, error) {
 		return 0, err
 	}
 
+	if height < 0 || height > int64(math.MaxUint32) {
+		panic(fmt.Errorf("height (%d) is out of uint32 range", height)) //software bug, panic
+	}
+
 	return uint32(height), nil
 }
 
@@ -34,7 +39,11 @@ func (c *Client) GetBlockByHash(blockHash *chainhash.Hash) (*types.IndexedBlock,
 	}
 
 	btcTxs := types.GetWrappedTxs(mBlock)
-	return types.NewIndexedBlock(int32(blockInfo.Height), &mBlock.Header, btcTxs), mBlock, nil
+	height := blockInfo.Height
+	if height < 0 || height > int64(math.MaxUint32) {
+		panic(fmt.Errorf("height (%d) is out of uint32 range", height)) //software bug, panic
+	}
+	return types.NewIndexedBlock(uint32(height), &mBlock.Header, btcTxs), mBlock, nil
 }
 
 // GetBlockByHeight returns a block with the given height
@@ -51,7 +60,7 @@ func (c *Client) GetBlockByHeight(height uint32) (*types.IndexedBlock, *wire.Msg
 
 	btcTxs := types.GetWrappedTxs(mBlock)
 
-	return types.NewIndexedBlock(int32(height), &mBlock.Header, btcTxs), mBlock, nil
+	return types.NewIndexedBlock(height, &mBlock.Header, btcTxs), mBlock, nil
 }
 
 func (c *Client) getBestBlockHashWithRetry() (*chainhash.Hash, error) {
@@ -153,7 +162,7 @@ func (c *Client) getBlockVerboseWithRetry(hash *chainhash.Hash) (*btcjson.GetBlo
 // getChainBlocks returns a chain of indexed blocks from the block at baseHeight to the tipBlock
 // note: the caller needs to ensure that tipBlock is on the blockchain
 func (c *Client) getChainBlocks(baseHeight uint32, tipBlock *types.IndexedBlock) ([]*types.IndexedBlock, error) {
-	tipHeight := uint32(tipBlock.Height)
+	tipHeight := tipBlock.Height
 	if tipHeight < baseHeight {
 		return nil, fmt.Errorf("the tip block height %v is less than the base height %v", tipHeight, baseHeight)
 	}
@@ -201,7 +210,7 @@ func (c *Client) FindTailBlocksByHeight(baseHeight uint32) ([]*types.IndexedBloc
 		return nil, err
 	}
 
-	if baseHeight > uint32(tipIb.Height) {
+	if baseHeight > tipIb.Height {
 		return nil, fmt.Errorf("invalid base height %d, should not be higher than tip block %d", baseHeight, tipIb.Height)
 	}
 

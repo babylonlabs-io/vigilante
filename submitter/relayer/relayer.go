@@ -203,7 +203,7 @@ func (rl *Relayer) MaybeResubmitSecondCheckpointTx(ckpt *ckpttypes.RawCheckpoint
 
 	// record the metrics of the resent tx2
 	rl.metrics.NewSubmittedCheckpointSegmentGaugeVec.WithLabelValues(
-		strconv.Itoa(int(ckptEpoch)),
+		strconv.FormatUint(ckptEpoch, 10),
 		"1",
 		resubmittedTx2.TxId.String(),
 		strconv.Itoa(int(resubmittedTx2.Fee)),
@@ -374,7 +374,7 @@ func (rl *Relayer) logAndRecordCheckpointMetrics(tx1, tx2 *types.BtcTxInfo, epoc
 
 	// Record metrics for the first transaction
 	rl.metrics.NewSubmittedCheckpointSegmentGaugeVec.WithLabelValues(
-		strconv.Itoa(int(epochNum)),
+		strconv.FormatUint(epochNum, 10),
 		"0",
 		tx1.Tx.TxHash().String(),
 		strconv.Itoa(int(tx1.Fee)),
@@ -382,7 +382,7 @@ func (rl *Relayer) logAndRecordCheckpointMetrics(tx1, tx2 *types.BtcTxInfo, epoc
 
 	// Record metrics for the second transaction
 	rl.metrics.NewSubmittedCheckpointSegmentGaugeVec.WithLabelValues(
-		strconv.Itoa(int(epochNum)),
+		strconv.FormatUint(epochNum, 10),
 		"1",
 		tx2.Tx.TxHash().String(),
 		strconv.Itoa(int(tx2.Fee)),
@@ -612,7 +612,13 @@ func (rl *Relayer) buildTxWithData(data []byte, firstTx *wire.MsgTx) (*types.Btc
 
 // getFeeRate returns the estimated fee rate, ensuring it within [tx-fee-max, tx-fee-min]
 func (rl *Relayer) getFeeRate() chainfee.SatPerKVByte {
-	fee, err := rl.EstimateFeePerKW(uint32(rl.GetBTCConfig().TargetBlockNum))
+	targetBlockNum := rl.GetBTCConfig().TargetBlockNum
+
+	// check we are within the uint32 range
+	if targetBlockNum < 0 || targetBlockNum > int64(^uint32(0)) {
+		panic(fmt.Errorf("targetBlockNum (%d) is out of uint32 range", targetBlockNum)) //software bug, panic
+	}
+	fee, err := rl.EstimateFeePerKW(uint32(targetBlockNum))
 	if err != nil {
 		defaultFee := rl.GetBTCConfig().DefaultFee
 		rl.logger.Errorf("failed to estimate transaction fee. Using default fee %v: %s", defaultFee, err.Error())

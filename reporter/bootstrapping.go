@@ -106,7 +106,7 @@ func (r *Reporter) bootstrap() error {
 
 	// trim cache to the latest k+w blocks on BTC (which are same as in BBN)
 	maxEntries := r.btcConfirmationDepth + r.checkpointFinalizationTimeout
-	if err = r.btcCache.Resize(uint64(maxEntries)); err != nil {
+	if err = r.btcCache.Resize(maxEntries); err != nil {
 		r.logger.Errorf("Failed to resize BTC cache: %v", err)
 		panic(err)
 	}

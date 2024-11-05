@@ -3,6 +3,7 @@ package btcscanner
 import (
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/btcsuite/btcd/wire"
 	"github.com/lightningnetwork/lnd/chainntnfs"
@@ -17,10 +18,13 @@ func (bs *BtcScanner) bootstrapAndBlockEventHandler() {
 	var blockEpoch *chainntnfs.BlockEpoch
 	bestKnownBlock := bs.unconfirmedBlockCache.Tip()
 	if bestKnownBlock != nil {
+		if bestKnownBlock.Height > math.MaxInt32 {
+			panic(fmt.Errorf("block height exceeds int32 range: %d", bestKnownBlock.Height))
+		}
 		hash := bestKnownBlock.BlockHash()
 		blockEpoch = &chainntnfs.BlockEpoch{
 			Hash:        &hash,
-			Height:      bestKnownBlock.Height,
+			Height:      int32(bestKnownBlock.Height),
 			BlockHeader: bestKnownBlock.Header,
 		}
 	}
@@ -43,7 +47,11 @@ func (bs *BtcScanner) bootstrapAndBlockEventHandler() {
 				return // channel closed
 			}
 
-			if err := bs.handleNewBlock(epoch.Height, epoch.BlockHeader); err != nil {
+			if epoch.Height < 0 {
+				panic(fmt.Errorf("received negative epoch height: %d", epoch.Height)) // software bug, panic
+			}
+
+			if err := bs.handleNewBlock(uint32(epoch.Height), epoch.BlockHeader); err != nil {
 				bs.logger.Warnf("failed to handle block at height %d: %s, "+
 					"need to restart the bootstrapping process", epoch.Height, err.Error())
 				bs.Bootstrap()
@@ -54,7 +62,7 @@ func (bs *BtcScanner) bootstrapAndBlockEventHandler() {
 
 // handleNewBlock handles blocks from the BTC client
 // if new confirmed blocks are found, send them through the channel
-func (bs *BtcScanner) handleNewBlock(height int32, header *wire.BlockHeader) error {
+func (bs *BtcScanner) handleNewBlock(height uint32, header *wire.BlockHeader) error {
 	// get cache tip
 	cacheTip := bs.unconfirmedBlockCache.Tip()
 	if cacheTip == nil {
@@ -91,7 +99,12 @@ func (bs *BtcScanner) handleNewBlock(height int32, header *wire.BlockHeader) err
 	// otherwise, add the block to the cache
 	bs.unconfirmedBlockCache.Add(ib)
 
+	if bs.unconfirmedBlockCache.Size() > math.MaxInt32 {
+		panic(fmt.Errorf("unconfirmedBlockCache exceeds uint32"))
+	}
+
 	// still unconfirmed
+	// #nosec G115 -- performed the conversion check above
 	if uint32(bs.unconfirmedBlockCache.Size()) <= bs.k {
 		return nil
 	}

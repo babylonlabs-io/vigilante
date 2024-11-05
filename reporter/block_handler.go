@@ -22,7 +22,11 @@ func (r *Reporter) blockEventHandler(blockNotifier *chainntnfs.BlockEpochEvent) 
 				return // channel closed
 			}
 
-			if err := r.handleNewBlock(epoch.Height, epoch.BlockHeader); err != nil {
+			if epoch.Height < 0 {
+				panic(fmt.Errorf("received negative epoch height: %d", epoch.Height)) // software bug, panic
+			}
+
+			if err := r.handleNewBlock(uint32(epoch.Height), epoch.BlockHeader); err != nil {
 				r.logger.Warnf("Due to error in event processing: %v, bootstrap process need to be restarted", err)
 				r.bootstrapWithRetries()
 			}
@@ -34,7 +38,7 @@ func (r *Reporter) blockEventHandler(blockNotifier *chainntnfs.BlockEpochEvent) 
 }
 
 // handleNewBlock processes a new block, checking if it connects to the cache or requires bootstrapping.
-func (r *Reporter) handleNewBlock(height int32, header *wire.BlockHeader) error {
+func (r *Reporter) handleNewBlock(height uint32, header *wire.BlockHeader) error {
 	cacheTip := r.btcCache.Tip()
 	if cacheTip == nil {
 		return fmt.Errorf("cache is empty, restart bootstrap process")

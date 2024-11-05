@@ -119,6 +119,9 @@ func (sew *StakingEventWatcher) Start() error {
 		// we registered for notifications with `nil` so we should receive best block immediately
 		select {
 		case block := <-blockEventNotifier.Epochs:
+			if block.Height < 0 {
+				panic(fmt.Errorf("received negative block height: %d", block.Height))
+			}
 			sew.currentBestBlockHeight.Store(uint32(block.Height))
 		case <-sew.quit:
 			startErr = errors.New("watcher quit before finishing start")
@@ -158,6 +161,9 @@ func (sew *StakingEventWatcher) handleNewBlocks(blockNotifier *notifier.BlockEpo
 			if !ok {
 				return
 			}
+			if block.Height < 0 {
+				panic(fmt.Errorf("received negative block height: %d", block.Height))
+			}
 			sew.currentBestBlockHeight.Store(uint32(block.Height))
 			sew.logger.Debugf("Received new best btc block: %d", block.Height)
 		case <-sew.quit:
@@ -183,7 +189,7 @@ func (sew *StakingEventWatcher) checkBabylonDelegations(status btcstakingtypes.B
 			addDel(delegation)
 		}
 
-		if len(delegations) < int(sew.cfg.NewDelegationsBatchSize) {
+		if uint64(len(delegations)) < sew.cfg.NewDelegationsBatchSize {
 			// we received fewer delegations than we asked for; it means went through all of them
 			return nil
 		}
@@ -451,7 +457,7 @@ func (sew *StakingEventWatcher) buildSpendingTxProof(spendingTx *wire.MsgTx) (*b
 	}
 
 	btcTxs := types.GetWrappedTxs(details.Block)
-	ib := types.NewIndexedBlock(int32(details.BlockHeight), &details.Block.Header, btcTxs)
+	ib := types.NewIndexedBlock(details.BlockHeight, &details.Block.Header, btcTxs)
 
 	proof, err := ib.GenSPVProof(int(details.TxIndex))
 	if err != nil {
@@ -596,7 +602,7 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() error {
 		}
 
 		btcTxs := types.GetWrappedTxs(details.Block)
-		ib := types.NewIndexedBlock(int32(details.BlockHeight), &details.Block.Header, btcTxs)
+		ib := types.NewIndexedBlock(details.BlockHeight, &details.Block.Header, btcTxs)
 
 		proof, err := ib.GenSPVProof(int(details.TxIndex))
 		if err != nil {

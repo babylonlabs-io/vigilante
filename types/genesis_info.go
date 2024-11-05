@@ -79,10 +79,14 @@ func GetGenesisInfoFromFile(filePath string) (*GenesisInfo, error) {
 			msgCreateValidator := msgs[0].(*stakingtypes.MsgCreateValidator)
 
 			if gk.ValidatorAddress == msgCreateValidator.ValidatorAddress {
+				power := sdk.TokensToConsensusPower(msgCreateValidator.Value.Amount, sdk.DefaultPowerReduction)
+				if power < 0 {
+					return nil, fmt.Errorf("consensus power calculation returned a negative value")
+				}
 				keyWithPower := &checkpointingtypes.ValidatorWithBlsKey{
 					ValidatorAddress: msgCreateValidator.ValidatorAddress,
 					BlsPubKey:        *gk.BlsKey.Pubkey,
-					VotingPower:      uint64(sdk.TokensToConsensusPower(msgCreateValidator.Value.Amount, sdk.DefaultPowerReduction)),
+					VotingPower:      uint64(power),
 				}
 				valSet.ValSet = append(valSet.ValSet, keyWithPower)
 			}

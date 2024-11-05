@@ -16,16 +16,16 @@ import (
 // - txHash, txHashWitness, txIndex for each Tx
 // These are necessary for generating Merkle proof (and thus the `MsgInsertBTCSpvProof` message in babylon) of a certain tx
 type IndexedBlock struct {
-	Height int32
+	Height uint32
 	Header *wire.BlockHeader
 	Txs    []*btcutil.Tx
 }
 
-func NewIndexedBlock(height int32, header *wire.BlockHeader, txs []*btcutil.Tx) *IndexedBlock {
+func NewIndexedBlock(height uint32, header *wire.BlockHeader, txs []*btcutil.Tx) *IndexedBlock {
 	return &IndexedBlock{height, header, txs}
 }
 
-func NewIndexedBlockFromMsgBlock(height int32, block *wire.MsgBlock) *IndexedBlock {
+func NewIndexedBlockFromMsgBlock(height uint32, block *wire.MsgBlock) *IndexedBlock {
 	return &IndexedBlock{
 		height,
 		&block.Header,
@@ -34,7 +34,7 @@ func NewIndexedBlockFromMsgBlock(height int32, block *wire.MsgBlock) *IndexedBlo
 }
 
 func (ib *IndexedBlock) MsgBlock() *wire.MsgBlock {
-	msgTxs := []*wire.MsgTx{}
+	msgTxs := make([]*wire.MsgTx, 0, len(ib.Txs))
 	for _, tx := range ib.Txs {
 		msgTxs = append(msgTxs, tx.MsgTx())
 	}

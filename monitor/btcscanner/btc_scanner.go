@@ -78,7 +78,7 @@ func New(
 		logger:                parentLogger.With(zap.String("module", "btcscanner")).Sugar(),
 		btcClient:             btcClient,
 		btcNotifier:           btcNotifier,
-		k:                     uint32(monitorCfg.BtcConfirmationDepth),
+		k:                     monitorCfg.BtcConfirmationDepth,
 		ckptCache:             ckptCache,
 		unconfirmedBlockCache: unconfirmedBlockCache,
 		confirmedBlocksChan:   confirmedBlocksChan,
@@ -143,9 +143,9 @@ func (bs *BtcScanner) Bootstrap() {
 	)
 
 	if bs.confirmedTipBlock != nil {
-		firstUnconfirmedHeight = uint32(bs.confirmedTipBlock.Height + 1)
+		firstUnconfirmedHeight = bs.confirmedTipBlock.Height + 1
 	} else {
-		firstUnconfirmedHeight = uint32(bs.GetBaseHeight())
+		firstUnconfirmedHeight = bs.GetBaseHeight()
 	}
 
 	bs.logger.Infof("the bootstrapping starts at %d", firstUnconfirmedHeight)
@@ -251,7 +251,7 @@ func (bs *BtcScanner) matchAndPop() (*types.CheckpointRecord, error) {
 
 	return &types.CheckpointRecord{
 		RawCheckpoint:      rawCheckpoint,
-		FirstSeenBtcHeight: uint32(ckptSegments.Segments[0].AssocBlock.Height),
+		FirstSeenBtcHeight: ckptSegments.Segments[0].AssocBlock.Height,
 	}, nil
 }
 

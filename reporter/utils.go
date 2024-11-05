@@ -200,7 +200,7 @@ func (r *Reporter) matchAndSubmitCheckpoints(signer string) (int, error) {
 		tx1Block := ckpt.Segments[0].AssocBlock
 		tx2Block := ckpt.Segments[1].AssocBlock
 		r.metrics.NewReportedCheckpointGaugeVec.WithLabelValues(
-			strconv.Itoa(int(ckpt.Epoch)),
+			strconv.FormatUint(ckpt.Epoch, 10),
 			strconv.Itoa(int(tx1Block.Height)),
 			tx1Block.Txs[ckpt.Segments[0].TxIdx].Hash().String(),
 			tx2Block.Txs[ckpt.Segments[1].TxIdx].Hash().String(),

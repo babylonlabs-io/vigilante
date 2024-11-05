@@ -3,7 +3,7 @@ package relayer
 import (
 	"errors"
 	"github.com/btcsuite/btcd/btcutil"
-	"math/rand"
+	"math/rand/v2"
 )
 
 // GetChangeAddress randomly picks one address from local addresses that have received funds
@@ -35,8 +35,8 @@ func (rl *Relayer) GetChangeAddress() (btcutil.Address, error) {
 	}
 
 	if len(segwitBech32Addrs) != 0 {
-		return segwitBech32Addrs[rand.Intn(len(segwitBech32Addrs))], nil
+		return segwitBech32Addrs[(len(segwitBech32Addrs))-1], nil
 	}
-
-	return legacyAddrs[rand.Intn(len(legacyAddrs))], nil
+	// #nosec G404 -- using math/rand/v2
+	return legacyAddrs[rand.IntN(len(legacyAddrs))], nil
 }
