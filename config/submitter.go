@@ -40,7 +40,7 @@ func (cfg *SubmitterConfig) Validate() error {
 	}
 
 	if cfg.PollingIntervalSeconds < 0 {
-		return errors.New("invalid polling-interval-seconds, should not be less than 0")
+		return errors.New("invalid polling-interval-seconds, should be positive")
 	}
 
 	return nil

@@ -2,6 +2,7 @@ package btcclient
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/avast/retry-go/v4"
 	"github.com/btcsuite/btcd/btcjson"
@@ -19,7 +20,7 @@ func (c *Client) GetBestBlock() (uint32, error) {
 		return 0, err
 	}
 
-	if height < 0 || height > int64(^uint32(0)) {
+	if height < 0 || height > int64(math.MaxUint32) {
 		panic(fmt.Errorf("height (%d) is out of uint32 range", height)) //software bug, panic
 	}
 
@@ -39,7 +40,7 @@ func (c *Client) GetBlockByHash(blockHash *chainhash.Hash) (*types.IndexedBlock,
 
 	btcTxs := types.GetWrappedTxs(mBlock)
 	height := blockInfo.Height
-	if height < 0 || height > int64(^uint32(0)) {
+	if height < 0 || height > int64(math.MaxUint32) {
 		panic(fmt.Errorf("height (%d) is out of uint32 range", height)) //software bug, panic
 	}
 	return types.NewIndexedBlock(uint32(height), &mBlock.Header, btcTxs), mBlock, nil
