@@ -580,12 +580,7 @@ func (sew *StakingEventWatcher) handlerVerifiedDelegations() {
 // checkBtcForStakingTx gets a snapshot of current Delegations in cache
 // checks if staking tx is in BTC, generates a proof and invokes sending of MsgAddBTCDelegationInclusionProof
 func (sew *StakingEventWatcher) checkBtcForStakingTx() error {
-	delegations := sew.pendingTracker.GetDelegations()
-	if delegations == nil {
-		return nil
-	}
-
-	for _, del := range delegations {
+	for del := range sew.pendingTracker.DelegationsIter() {
 		if del.ActivationInProgress {
 			continue
 		}
