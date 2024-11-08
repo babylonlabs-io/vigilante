@@ -41,7 +41,7 @@ linters:
     - nakedret
     - nestif
     - nilerr
-    #    - nlreturn # Style wise I personally like this one, code is more readable
+    #    - nlreturn # Style wise I personally like this one, todo(lazar): unlax at somepoint, good practice
     - noctx
     - nonamedreturns
     - nosprintfhostport
