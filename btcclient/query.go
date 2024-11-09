@@ -82,6 +82,7 @@ func (c *Client) getBestBlockHashWithRetry() (*chainhash.Hash, error) {
 	); err != nil {
 		c.logger.Debug(
 			"failed to query the best block hash", zap.Error(err))
+		return nil, err
 	}
 
 	return blockHash, nil
@@ -106,6 +107,7 @@ func (c *Client) getBlockHashWithRetry(height uint32) (*chainhash.Hash, error) {
 	); err != nil {
 		c.logger.Debug(
 			"failed to query the block hash", zap.Uint32("height", height), zap.Error(err))
+		return nil, err
 	}
 
 	return blockHash, nil
@@ -130,6 +132,7 @@ func (c *Client) getBlockWithRetry(hash *chainhash.Hash) (*wire.MsgBlock, error)
 	); err != nil {
 		c.logger.Debug(
 			"failed to query the block", zap.String("hash", hash.String()), zap.Error(err))
+		return nil, err
 	}
 
 	return block, nil
@@ -154,6 +157,7 @@ func (c *Client) getBlockVerboseWithRetry(hash *chainhash.Hash) (*btcjson.GetBlo
 	); err != nil {
 		c.logger.Debug(
 			"failed to query the block verbose", zap.String("hash", hash.String()), zap.Error(err))
+		return nil, err
 	}
 
 	return blockVerbose, nil

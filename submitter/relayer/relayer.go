@@ -612,7 +612,7 @@ func (rl *Relayer) getFeeRate() chainfee.SatPerKVByte {
 
 	// check we are within the uint32 range
 	if targetBlockNum < 0 || targetBlockNum > int64(^uint32(0)) {
-		panic(fmt.Errorf("targetBlockNum (%d) is out of uint32 range", targetBlockNum)) //software bug, panic
+		panic(fmt.Errorf("targetBlockNum (%d) is out of uint32 range", targetBlockNum)) // software bug, panic
 	}
 	fee, err := rl.EstimateFeePerKW(uint32(targetBlockNum))
 	if err != nil {

@@ -29,6 +29,7 @@ import (
 	"github.com/babylonlabs-io/vigilante/testutil/mocks"
 )
 
+//nolint:maintidx // Ignoring high maintainability index for this fuzz test
 func FuzzSlasher(f *testing.F) {
 	datagen.AddRandomSeedsToFuzzer(f, 10)
 

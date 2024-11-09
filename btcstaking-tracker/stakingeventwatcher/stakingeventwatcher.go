@@ -415,8 +415,8 @@ func (sew *StakingEventWatcher) watchForSpend(spendEvent *notifier.SpendEvent, t
 		// As we only care about unbonding transactions, we do not need to take additional actions.
 		// We start polling babylon for delegation to stop being active, and then delete it from unbondingTracker.
 		sew.logger.Debugf("Spending tx %s for staking tx %s is not unbonding tx. Info: %v", spendingTxHash, delegationID, err)
-		proof, err := sew.waitForStakeSpendInclusionProof(quitCtx, spendingTx)
-		if err != nil {
+		proof := sew.waitForStakeSpendInclusionProof(quitCtx, spendingTx)
+		if proof == nil {
 			sew.logger.Errorf("unbonding tx %s for staking tx %s proof not built", spendingTxHash, delegationID)
 			return
 		}
@@ -425,8 +425,8 @@ func (sew *StakingEventWatcher) watchForSpend(spendEvent *notifier.SpendEvent, t
 		sew.metrics.DetectedUnbondingTransactionsCounter.Inc()
 		// We found valid unbonding tx. We need to try to report it to babylon.
 		// We stop reporting if delegation is no longer active or we succeed.
-		proof, err := sew.waitForStakeSpendInclusionProof(quitCtx, spendingTx)
-		if err != nil {
+		proof := sew.waitForStakeSpendInclusionProof(quitCtx, spendingTx)
+		if proof == nil {
 			sew.logger.Errorf("unbonding tx %s for staking tx %s proof not built", spendingTxHash, delegationID)
 			return
 		}
@@ -471,7 +471,7 @@ func (sew *StakingEventWatcher) buildSpendingTxProof(spendingTx *wire.MsgTx) (*b
 func (sew *StakingEventWatcher) waitForStakeSpendInclusionProof(
 	ctx context.Context,
 	spendingTx *wire.MsgTx,
-) (*btcstakingtypes.InclusionProof, error) {
+) *btcstakingtypes.InclusionProof {
 	var (
 		proof *btcstakingtypes.InclusionProof
 		err   error
@@ -498,7 +498,7 @@ func (sew *StakingEventWatcher) waitForStakeSpendInclusionProof(
 		}),
 	)
 
-	return proof, nil
+	return proof
 }
 
 func (sew *StakingEventWatcher) handleUnbondedDelegations() {
@@ -564,12 +564,7 @@ func (sew *StakingEventWatcher) handlerVerifiedDelegations() {
 		select {
 		case <-ticker.C:
 			sew.logger.Debug("Checking for new staking txs")
-
-			if err := sew.checkBtcForStakingTx(); err != nil {
-				sew.logger.Errorf("error checking verified delegations: %v", err)
-				continue
-			}
-
+			sew.checkBtcForStakingTx()
 		case <-sew.quit:
 			sew.logger.Debug("verified delegations loop quit")
 			return
@@ -579,10 +574,10 @@ func (sew *StakingEventWatcher) handlerVerifiedDelegations() {
 
 // checkBtcForStakingTx gets a snapshot of current Delegations in cache
 // checks if staking tx is in BTC, generates a proof and invokes sending of MsgAddBTCDelegationInclusionProof
-func (sew *StakingEventWatcher) checkBtcForStakingTx() error {
+func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 	delegations := sew.pendingTracker.GetDelegations()
 	if delegations == nil {
-		return nil
+		return
 	}
 
 	for _, del := range delegations {
@@ -612,8 +607,6 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() error {
 
 		go sew.activateBtcDelegation(txHash, proof)
 	}
-
-	return nil
 }
 
 // activateBtcDelegation invokes bbn client and send MsgAddBTCDelegationInclusionProof

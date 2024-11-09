@@ -88,5 +88,4 @@ func (sm *ReporterMetrics) RecordMetrics() {
 			sm.SecondsSinceLastCheckpointGauge.Inc()
 		}
 	}()
-
 }

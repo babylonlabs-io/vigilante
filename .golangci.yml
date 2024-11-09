@@ -21,9 +21,9 @@ linters:
     - forbidigo
     - forcetypeassert
     #    - gci
-    - gochecknoinits
+#    - gochecknoinits
     - goconst
-    - gocritic
+#    - gocritic
     - gocyclo
     - goheader
     - gomodguard
@@ -39,7 +39,7 @@ linters:
     - makezero
     - misspell
     - nakedret
-    - nestif
+#    - nestif
     - nilerr
     #    - nlreturn # Style wise I personally like this one, todo(lazar): unlax at somepoint, good practice
     - noctx

@@ -115,10 +115,7 @@ func (r *Reporter) bootstrap() error {
 
 	// fetch k+w blocks from cache and submit checkpoints
 	ibs = r.btcCache.GetAllBlocks()
-	_, _, err = r.ProcessCheckpoints(signer, ibs)
-	if err != nil {
-		r.logger.Warnf("Failed to submit checkpoints: %v", err)
-	}
+	_, _ = r.ProcessCheckpoints(signer, ibs)
 
 	r.logger.Info("Successfully finished bootstrapping")
 

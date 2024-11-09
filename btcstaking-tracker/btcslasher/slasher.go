@@ -194,7 +194,7 @@ func (bs *BTCSlasher) slashingEnforcer() {
 				)
 
 				// record the metrics of the slashed delegation
-				bs.metrics.RecordSlashedDelegation(slashRes.Del, slashRes.SlashingTxHash.String())
+				bs.metrics.RecordSlashedDelegation(slashRes.Del)
 			}
 		}
 	}

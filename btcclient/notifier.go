@@ -96,7 +96,7 @@ func (c *EmptyHintCache) PurgeConfirmHint(_ ...chainntnfs.ConfRequest) error {
 // // According to chain.BitcoindConfig docs it should also support tor if node backend
 // // works over tor.
 func BuildDialer(rpcHost string) func(string) (net.Conn, error) {
-	return func(addr string) (net.Conn, error) {
+	return func(_ string) (net.Conn, error) {
 		return net.Dial("tcp", rpcHost)
 	}
 }

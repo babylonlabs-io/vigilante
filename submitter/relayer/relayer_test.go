@@ -27,10 +27,10 @@ func Test_maybeResendFromStore(t *testing.T) {
 			getLatestCheckpoint: func() (*store.StoredCheckpoint, bool, error) {
 				return nil, false, nil
 			},
-			getRawTransaction: func(txHash *chainhash.Hash) (*btcutil.Tx, error) {
+			getRawTransaction: func(_ *chainhash.Hash) (*btcutil.Tx, error) {
 				return nil, nil
 			},
-			sendTransaction: func(tx *wire.MsgTx) (*chainhash.Hash, error) {
+			sendTransaction: func(_ *wire.MsgTx) (*chainhash.Hash, error) {
 				return nil, nil
 			},
 			expectedResult: false,
@@ -42,10 +42,10 @@ func Test_maybeResendFromStore(t *testing.T) {
 			getLatestCheckpoint: func() (*store.StoredCheckpoint, bool, error) {
 				return nil, false, errors.New("checkpoint error")
 			},
-			getRawTransaction: func(txHash *chainhash.Hash) (*btcutil.Tx, error) {
+			getRawTransaction: func(_ *chainhash.Hash) (*btcutil.Tx, error) {
 				return nil, nil
 			},
-			sendTransaction: func(tx *wire.MsgTx) (*chainhash.Hash, error) {
+			sendTransaction: func(_ *wire.MsgTx) (*chainhash.Hash, error) {
 				return nil, nil
 			},
 			expectedResult: false,
@@ -57,10 +57,10 @@ func Test_maybeResendFromStore(t *testing.T) {
 			getLatestCheckpoint: func() (*store.StoredCheckpoint, bool, error) {
 				return &store.StoredCheckpoint{Epoch: 456, Tx1: &wire.MsgTx{}, Tx2: &wire.MsgTx{}}, true, nil
 			},
-			getRawTransaction: func(txHash *chainhash.Hash) (*btcutil.Tx, error) {
+			getRawTransaction: func(_ *chainhash.Hash) (*btcutil.Tx, error) {
 				return nil, nil
 			},
-			sendTransaction: func(tx *wire.MsgTx) (*chainhash.Hash, error) {
+			sendTransaction: func(_ *wire.MsgTx) (*chainhash.Hash, error) {
 				return nil, nil
 			},
 			expectedResult: false,
@@ -72,10 +72,10 @@ func Test_maybeResendFromStore(t *testing.T) {
 			getLatestCheckpoint: func() (*store.StoredCheckpoint, bool, error) {
 				return &store.StoredCheckpoint{Epoch: 123, Tx1: &wire.MsgTx{}, Tx2: &wire.MsgTx{}}, true, nil
 			},
-			getRawTransaction: func(txHash *chainhash.Hash) (*btcutil.Tx, error) {
+			getRawTransaction: func(_ *chainhash.Hash) (*btcutil.Tx, error) {
 				return nil, errors.New("transaction not found") // Simulate transaction not found
 			},
-			sendTransaction: func(tx *wire.MsgTx) (*chainhash.Hash, error) {
+			sendTransaction: func(_ *wire.MsgTx) (*chainhash.Hash, error) {
 				return &chainhash.Hash{}, nil // Simulate successful send
 			},
 			expectedResult: true,
@@ -87,10 +87,10 @@ func Test_maybeResendFromStore(t *testing.T) {
 			getLatestCheckpoint: func() (*store.StoredCheckpoint, bool, error) {
 				return &store.StoredCheckpoint{Epoch: 123, Tx1: &wire.MsgTx{}, Tx2: &wire.MsgTx{}}, true, nil
 			},
-			getRawTransaction: func(txHash *chainhash.Hash) (*btcutil.Tx, error) {
+			getRawTransaction: func(_ *chainhash.Hash) (*btcutil.Tx, error) {
 				return nil, errors.New("transaction not found")
 			},
-			sendTransaction: func(tx *wire.MsgTx) (*chainhash.Hash, error) {
+			sendTransaction: func(_ *wire.MsgTx) (*chainhash.Hash, error) {
 				return nil, errors.New("send error")
 			},
 			expectedResult: false,

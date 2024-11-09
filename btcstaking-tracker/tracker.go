@@ -1,4 +1,4 @@
-package btcstaking_tracker
+package btcstakingtracker
 
 import (
 	"fmt"
