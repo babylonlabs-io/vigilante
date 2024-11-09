@@ -14,7 +14,8 @@ import (
 	"github.com/babylonlabs-io/vigilante/types"
 )
 
-func chunkBy[T any](items []T, chunkSize int) (chunks [][]T) {
+func chunkBy[T any](items []T, chunkSize int) [][]T {
+	var chunks [][]T
 	for chunkSize < len(items) {
 		items, chunks = items[chunkSize:], append(chunks, items[0:chunkSize:chunkSize])
 	}
@@ -144,7 +145,7 @@ func (r *Reporter) extractCheckpoints(ib *types.IndexedBlock) int {
 				r.logger.Errorf("Failed to add the ckpt segment in tx %v to the ckptCache: %v", tx.Hash(), err)
 				continue
 			}
-			numCkptSegs += 1
+			numCkptSegs++
 		}
 	}
 

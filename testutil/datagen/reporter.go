@@ -254,7 +254,7 @@ func GenRandomBlockchainWithBabylonTx(r *rand.Rand, n uint64, partialPercentage 
 		prevHash := blocks[len(blocks)-1].BlockHash()
 		if r.Float32() < partialPercentage {
 			msgBlock, rawCkpt = GenRandomBlock(r, 1, &prevHash)
-			numCkptSegs += 1
+			numCkptSegs++
 		} else if r.Float32() < partialPercentage+fullPercentage {
 			msgBlock, rawCkpt = GenRandomBlock(r, 2, &prevHash)
 			numCkptSegs += 2

@@ -33,10 +33,6 @@ const (
 	dustThreshold  btcutil.Amount = 546
 )
 
-var (
-	TxNotFoundErr = errors.New("-5: No such mempool or blockchain transaction. Use gettransaction for wallet transactions")
-)
-
 type GetLatestCheckpointFunc func() (*store.StoredCheckpoint, bool, error)
 type GetRawTransactionFunc func(txHash *chainhash.Hash) (*btcutil.Tx, error)
 type SendTransactionFunc func(tx *wire.MsgTx) (*chainhash.Hash, error)
@@ -140,7 +136,7 @@ func (rl *Relayer) SendCheckpointToBTC(ckpt *ckpttypes.RawCheckpointWithMetaResp
 
 		return nil
 	} else if rl.shouldSendTx2(ckptEpoch) {
-		rl.logger.Infof("Retrying to send tx2 for epoch %v, tx1 %s", ckptEpoch, rl.lastSubmittedCheckpoint.Tx1.TxId)
+		rl.logger.Infof("Retrying to send tx2 for epoch %v, tx1 %s", ckptEpoch, rl.lastSubmittedCheckpoint.Tx1.TxID)
 		submittedCkpt, err := rl.retrySendTx2(ckpt.Ckpt)
 		if err != nil {
 			return err
@@ -177,7 +173,7 @@ func (rl *Relayer) MaybeResubmitSecondCheckpointTx(ckpt *ckpttypes.RawCheckpoint
 		return nil
 	}
 
-	durSeconds := uint(time.Since(rl.lastSubmittedCheckpoint.Ts).Seconds())
+	durSeconds := uint(time.Since(rl.lastSubmittedCheckpoint.TS).Seconds())
 	if durSeconds < rl.config.ResendIntervalSeconds {
 		return nil
 	}
@@ -193,7 +189,7 @@ func (rl *Relayer) MaybeResubmitSecondCheckpointTx(ckpt *ckpttypes.RawCheckpoint
 	}
 
 	rl.logger.Debugf("Resending the second tx of the checkpoint %v, old fee of the second tx: %v Satoshis, txid: %s",
-		ckptEpoch, rl.lastSubmittedCheckpoint.Tx2.Fee, rl.lastSubmittedCheckpoint.Tx2.TxId.String())
+		ckptEpoch, rl.lastSubmittedCheckpoint.Tx2.Fee, rl.lastSubmittedCheckpoint.Tx2.TxID.String())
 
 	resubmittedTx2, err := rl.resendSecondTxOfCheckpointToBTC(rl.lastSubmittedCheckpoint.Tx2, bumpedFee)
 	if err != nil {
@@ -205,13 +201,13 @@ func (rl *Relayer) MaybeResubmitSecondCheckpointTx(ckpt *ckpttypes.RawCheckpoint
 	rl.metrics.NewSubmittedCheckpointSegmentGaugeVec.WithLabelValues(
 		strconv.FormatUint(ckptEpoch, 10),
 		"1",
-		resubmittedTx2.TxId.String(),
+		resubmittedTx2.TxID.String(),
 		strconv.Itoa(int(resubmittedTx2.Fee)),
 	).SetToCurrentTime()
 	rl.metrics.ResentCheckpointsCounter.Inc()
 
 	rl.logger.Infof("Successfully re-sent the second tx of the checkpoint %v, txid: %s, bumped fee: %v Satoshis",
-		rl.lastSubmittedCheckpoint.Epoch, resubmittedTx2.TxId.String(), resubmittedTx2.Fee)
+		rl.lastSubmittedCheckpoint.Epoch, resubmittedTx2.TxID.String(), resubmittedTx2.Fee)
 
 	// update the second tx of the last submitted checkpoint as it is replaced
 	rl.lastSubmittedCheckpoint.Tx2 = resubmittedTx2
@@ -255,7 +251,7 @@ func (rl *Relayer) calculateBumpedFee(ckptInfo *types.CheckpointInfo) btcutil.Am
 
 // resendSecondTxOfCheckpointToBTC resends the second tx of the checkpoint with bumpedFee
 func (rl *Relayer) resendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bumpedFee btcutil.Amount) (*types.BtcTxInfo, error) {
-	_, status, err := rl.TxDetails(rl.lastSubmittedCheckpoint.Tx2.TxId,
+	_, status, err := rl.TxDetails(rl.lastSubmittedCheckpoint.Tx2.TxID,
 		rl.lastSubmittedCheckpoint.Tx2.Tx.TxOut[changePosition].PkScript)
 	if err != nil {
 		return nil, err
@@ -263,7 +259,7 @@ func (rl *Relayer) resendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bumpedF
 
 	// No need to resend, transaction already confirmed
 	if status == btcclient.TxInChain {
-		rl.logger.Debugf("Transaction %v is already confirmed", rl.lastSubmittedCheckpoint.Tx2.TxId)
+		rl.logger.Debugf("Transaction %v is already confirmed", rl.lastSubmittedCheckpoint.Tx2.TxID)
 		return nil, nil
 	}
 
@@ -294,7 +290,7 @@ func (rl *Relayer) resendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bumpedF
 
 	// update tx info
 	tx2.Fee = bumpedFee
-	tx2.TxId = txID
+	tx2.TxID = txID
 
 	return tx2, nil
 }
@@ -404,7 +400,7 @@ func (rl *Relayer) convertCkptToTwoTxAndSubmit(ckpt *ckpttypes.RawCheckpointResp
 
 	return &types.CheckpointInfo{
 		Epoch: ckpt.EpochNum,
-		Ts:    time.Now(),
+		TS:    time.Now(),
 		Tx1:   tx1,
 		Tx2:   tx2,
 	}, nil
@@ -432,7 +428,7 @@ func (rl *Relayer) retrySendTx2(ckpt *ckpttypes.RawCheckpointResponse) (*types.C
 
 	return &types.CheckpointInfo{
 		Epoch: ckpt.EpochNum,
-		Ts:    time.Now(),
+		TS:    time.Now(),
 		Tx1:   tx1,
 		Tx2:   tx2,
 	}, nil
@@ -445,7 +441,7 @@ func (rl *Relayer) buildAndSendTx(data []byte, parentTx *wire.MsgTx) (*types.Btc
 		return nil, fmt.Errorf("failed to add data to tx: %w", err)
 	}
 
-	tx.TxId, err = rl.sendTxToBTC(tx.Tx)
+	tx.TxID, err = rl.sendTxToBTC(tx.Tx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send tx to BTC: %w", err)
 	}

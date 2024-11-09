@@ -40,7 +40,7 @@ func newUnbondingWatcherMetrics(registry *prometheus.Registry) *UnbondingWatcher
 		Registry: registry,
 		ReportedUnbondingTransactionsCounter: registerer.NewCounter(prometheus.CounterOpts{
 			Name: "unbonding_watcher_reported_unbonding_transactions",
-			Help: "The total number of unbonding transactions successfuly reported to Babylon node",
+			Help: "The total number of unbonding transactions successfully reported to Babylon node",
 		}),
 		FailedReportedUnbondingTransactions: registerer.NewCounter(prometheus.CounterOpts{
 			Name: "unbonding_watcher_failed_reported_unbonding_transactions",
@@ -64,7 +64,7 @@ func newUnbondingWatcherMetrics(registry *prometheus.Registry) *UnbondingWatcher
 		}),
 		ReportedActivateDelegationsCounter: registerer.NewCounter(prometheus.CounterOpts{
 			Name: "unbonding_watcher_reported_activate_delegations",
-			Help: "The total number of unbonding transactions successfuly reported to Babylon node",
+			Help: "The total number of unbonding transactions successfully reported to Babylon node",
 		}),
 	}
 

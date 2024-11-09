@@ -174,5 +174,4 @@ func (c *Client) TxDetails(txHash *chainhash.Hash, pkScript []byte) (*notifier.T
 	}
 
 	return c.getTxDetails(req, txNotFoundErrMsgBitcoind)
-
 }

@@ -126,7 +126,7 @@ func (bs *BTCSlasher) sendSlashingTx(
 	if err != nil {
 		// Warning: this can only be an error in Bitcoin side
 		return nil, fmt.Errorf(
-			"failed to check if BTC delegation %s under finality provider %s is slashable: %v",
+			"failed to check if BTC delegation %s under finality provider %s is slashable: %w",
 			del.BtcPk.MarshalHex(),
 			fpBTCPK.MarshalHex(),
 			err,
@@ -158,7 +158,7 @@ func (bs *BTCSlasher) sendSlashingTx(
 	if err != nil {
 		// Warning: this can only be a programming error in Babylon side
 		return nil, fmt.Errorf(
-			"failed to build witness for BTC delegation %s under finality provider %s: %v",
+			"failed to build witness for BTC delegation %s under finality provider %s: %w",
 			del.BtcPk.MarshalHex(),
 			fpBTCPK.MarshalHex(),
 			err,
@@ -174,7 +174,7 @@ func (bs *BTCSlasher) sendSlashingTx(
 	txHash, err = bs.BTCClient.SendRawTransaction(slashingMsgTxWithWitness, true)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"failed to submit slashing tx of BTC delegation %s under finality provider %s to Bitcoin: %v",
+			"failed to submit slashing tx of BTC delegation %s under finality provider %s to Bitcoin: %w",
 			del.BtcPk.MarshalHex(),
 			fpBTCPK.MarshalHex(),
 			err,
@@ -206,12 +206,12 @@ func BuildUnbondingSlashingTxWithWitness(
 
 	fpBtcPkList, err := bbn.NewBTCPKsFromBIP340PKs(d.FpBtcPkList)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert finality provider pks to BTC pks: %v", err)
+		return nil, fmt.Errorf("failed to convert finality provider pks to BTC pks: %w", err)
 	}
 
 	covenantBtcPkList, err := bbn.NewBTCPKsFromBIP340PKs(bsParams.CovenantPks)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert covenant pks to BTC pks: %v", err)
+		return nil, fmt.Errorf("failed to convert covenant pks to BTC pks: %w", err)
 	}
 
 	if d.UnbondingTime > uint32(^uint16(0)) {
@@ -229,11 +229,11 @@ func BuildUnbondingSlashingTxWithWitness(
 		btcNet,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not create BTC unbonding info: %v", err)
+		return nil, fmt.Errorf("could not create BTC unbonding info: %w", err)
 	}
 	slashingSpendInfo, err := unbondingInfo.SlashingPathSpendInfo()
 	if err != nil {
-		return nil, fmt.Errorf("could not get unbonding slashing spend info: %v", err)
+		return nil, fmt.Errorf("could not get unbonding slashing spend info: %w", err)
 	}
 
 	// get the list of covenant signatures encrypted by the given finality provider's PK
@@ -272,7 +272,7 @@ func BuildUnbondingSlashingTxWithWitness(
 	)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"failed to build witness for unbonding BTC delegation %s under finality provider %s: %v",
+			"failed to build witness for unbonding BTC delegation %s under finality provider %s: %w",
 			d.BtcPk.MarshalHex(),
 			bbn.NewBIP340PubKeyFromBTCPK(fpSK.PubKey()).MarshalHex(),
 			err,
@@ -313,12 +313,12 @@ func BuildSlashingTxWithWitness(
 
 	fpBtcPkList, err := bbn.NewBTCPKsFromBIP340PKs(d.FpBtcPkList)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert finality provider pks to BTC pks: %v", err)
+		return nil, fmt.Errorf("failed to convert finality provider pks to BTC pks: %w", err)
 	}
 
 	covenantBtcPkList, err := bbn.NewBTCPKsFromBIP340PKs(bsParams.CovenantPks)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert covenant pks to BTC pks: %v", err)
+		return nil, fmt.Errorf("failed to convert covenant pks to BTC pks: %w", err)
 	}
 
 	if d.TotalSat > math.MaxInt64 {
@@ -337,11 +337,11 @@ func BuildSlashingTxWithWitness(
 		btcNet,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not create BTC staking info: %v", err)
+		return nil, fmt.Errorf("could not create BTC staking info: %w", err)
 	}
 	slashingSpendInfo, err := stakingInfo.SlashingPathSpendInfo()
 	if err != nil {
-		return nil, fmt.Errorf("could not get slashing spend info: %v", err)
+		return nil, fmt.Errorf("could not get slashing spend info: %w", err)
 	}
 
 	// get the list of covenant signatures encrypted by the given finality provider's PK
@@ -380,7 +380,7 @@ func BuildSlashingTxWithWitness(
 	)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"failed to build witness for BTC delegation of %s under finality provider %s: %v",
+			"failed to build witness for BTC delegation of %s under finality provider %s: %w",
 			d.BtcPk.MarshalHex(),
 			bbn.NewBIP340PubKeyFromBTCPK(fpSK.PubKey()).MarshalHex(),
 			err,

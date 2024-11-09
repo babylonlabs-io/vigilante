@@ -62,7 +62,7 @@ func GetSubmitterCmd() *cobra.Command {
 			// register submitter metrics
 			submitterMetrics := metrics.NewSubmitterMetrics()
 
-			dbBackend, err := cfg.Submitter.DatabaseConfig.GetDbBackend()
+			dbBackend, err := cfg.Submitter.DatabaseConfig.GetDBBackend()
 			if err != nil {
 				panic(err)
 			}

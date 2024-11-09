@@ -21,7 +21,7 @@ func (c *Client) GetBestBlock() (uint32, error) {
 	}
 
 	if height < 0 || height > int64(math.MaxUint32) {
-		panic(fmt.Errorf("height (%d) is out of uint32 range", height)) //software bug, panic
+		panic(fmt.Errorf("height (%d) is out of uint32 range", height)) // software bug, panic
 	}
 
 	return uint32(height), nil
@@ -41,7 +41,7 @@ func (c *Client) GetBlockByHash(blockHash *chainhash.Hash) (*types.IndexedBlock,
 	btcTxs := types.GetWrappedTxs(mBlock)
 	height := blockInfo.Height
 	if height < 0 || height > int64(math.MaxUint32) {
-		panic(fmt.Errorf("height (%d) is out of uint32 range", height)) //software bug, panic
+		panic(fmt.Errorf("height (%d) is out of uint32 range", height)) // software bug, panic
 	}
 	return types.NewIndexedBlock(uint32(height), &mBlock.Header, btcTxs), mBlock, nil
 }
@@ -235,6 +235,7 @@ func (c *Client) getBlockCountWithRetry() (int64, error) {
 		retry.Attempts(c.maxRetryTimes),
 	); err != nil {
 		c.logger.Debug("failed to query get block count", zap.Error(err))
+		return 0, err
 	}
 
 	return height, nil

@@ -250,7 +250,6 @@ func (m *Monitor) VerifyCheckpoint(btcCkpt *checkpointingtypes.RawCheckpoint) er
 		return errors.Wrapf(types.ErrInvalidEpochNum,
 			"found a checkpoint with epoch %v, but the monitor expects epoch %v",
 			btcCkpt.EpochNum, m.GetCurrentEpoch())
-
 	}
 	// verify BLS sig of the BTC checkpoint
 	err := m.curEpoch.VerifyMultiSig(btcCkpt)

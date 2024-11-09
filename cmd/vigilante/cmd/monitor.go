@@ -79,7 +79,7 @@ func GetMonitorCmd() *cobra.Command {
 				panic(err)
 			}
 
-			dbBackend, err := cfg.Monitor.DatabaseConfig.GetDbBackend()
+			dbBackend, err := cfg.Monitor.DatabaseConfig.GetDBBackend()
 			if err != nil {
 				panic(err)
 			}
