@@ -2,6 +2,7 @@ package stakingeventwatcher
 
 import (
 	"fmt"
+	"iter"
 	"sync"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
@@ -56,6 +57,20 @@ func (td *TrackedDelegations) GetDelegations() []*TrackedDelegation {
 	}
 
 	return delegations
+}
+
+func (td *TrackedDelegations) DelegationsIter() iter.Seq[*TrackedDelegation] {
+	return func(yield func(*TrackedDelegation) bool) {
+		td.mu.RLock()
+		defer td.mu.RUnlock()
+
+		// we lock for the entirety of the iteration
+		for _, v := range td.mapping {
+			if !yield(v) {
+				return
+			}
+		}
+	}
 }
 
 func (td *TrackedDelegations) AddDelegation(
