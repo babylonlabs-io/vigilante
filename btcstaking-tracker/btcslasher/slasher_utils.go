@@ -50,14 +50,15 @@ func (bs *BTCSlasher) slashBTCDelegation(
 
 			txHash1, err1 := bs.sendSlashingTx(fpBTCPK, extractedfpBTCSK, del, false)
 			txHash2, err2 := bs.sendSlashingTx(fpBTCPK, extractedfpBTCSK, del, true)
-			if err1 != nil && err2 != nil {
+			switch {
+			case err1 != nil && err2 != nil:
 				// both attempts fail
 				accumulatedErrs = multierror.Append(accumulatedErrs, err1, err2)
 				txHash = nil
-			} else if err1 == nil {
+			case err1 == nil:
 				// slashing tx is submitted successfully
 				txHash = txHash1
-			} else if err2 == nil {
+			case err2 == nil:
 				// unbonding slashing tx is submitted successfully
 				txHash = txHash2
 			}

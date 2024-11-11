@@ -259,7 +259,8 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedFpBTCSK *btcec.PrivateKey) 
 
 	// Initialize a semaphore to control the number of concurrent operations
 	sem := semaphore.NewWeighted(bs.maxSlashingConcurrency)
-	delegations := append(activeBTCDels, unbondedBTCDels...)
+	activeBTCDels = append(activeBTCDels, unbondedBTCDels...)
+	delegations := activeBTCDels
 
 	// try to slash both staking and unbonding txs for each BTC delegation
 	// sign and submit slashing tx for each active and unbonded delegation

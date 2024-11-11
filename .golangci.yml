@@ -20,15 +20,12 @@ linters:
     - exhaustive
     - forbidigo
     - forcetypeassert
-    #    - gci
-#    - gochecknoinits
     - goconst
-#    - gocritic
+    - gocritic
     - gocyclo
     - goheader
     - gomodguard
     - goprintffuncname
-    #    - gosec
     - gosimple
     - govet
     - grouper
@@ -39,9 +36,8 @@ linters:
     - makezero
     - misspell
     - nakedret
-#    - nestif
     - nilerr
-    #    - nlreturn # Style wise I personally like this one, todo(lazar): unlax at somepoint, good practice
+#    - nlreturn # Style wise I personally like this one, todo(lazar): unlax at somepoint, good practice
     - noctx
     - nonamedreturns
     - nosprintfhostport
@@ -58,7 +54,6 @@ linters:
     - typecheck
     - unconvert
     - unparam
-    - unused
     - usestdlibvars
     - unused
     - wastedassign
@@ -78,11 +73,6 @@ issues:
         - errcheck
         - dupl
         - gosec
-    # Run some linter only for test files by excluding its issues for everything else.
     - path-except: _test\.go
       linters:
         - forbidigo
-    # Exclude `lll` issues for long lines with `go:generate`.
-    - linters:
-        - lll
-      source: "^//go:generate "
