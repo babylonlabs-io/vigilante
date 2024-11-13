@@ -28,11 +28,9 @@ func (cb *CheckpointsBookkeeper) Add(cr *CheckpointRecord) {
 
 	if !cb.has(id) {
 		cb.checkpointRecords[id] = cr
-	} else {
+	} else if cb.checkpointRecords[id].FirstSeenBtcHeight > cr.FirstSeenBtcHeight {
 		// replace with the older one if the checkpoint id exists
-		if cb.checkpointRecords[id].FirstSeenBtcHeight > cr.FirstSeenBtcHeight {
-			cb.checkpointRecords[id] = cr
-		}
+		cb.checkpointRecords[id] = cr
 	}
 }
 

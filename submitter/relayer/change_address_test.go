@@ -53,7 +53,8 @@ func TestGetChangeAddress(t *testing.T) {
 		submitterMetrics.RelayerMetrics, nil, &cfg, logger, testutil.MakeTestBackend(t))
 
 	// 1. only SegWit Bech32 addresses
-	segWitBech32Addrs := append(SegWitBech32p2wshAddrsStr, SegWitBech32p2wpkhAddrsStr...)
+	SegWitBech32p2wshAddrsStr = append(SegWitBech32p2wshAddrsStr, SegWitBech32p2wpkhAddrsStr...)
+	segWitBech32Addrs := SegWitBech32p2wshAddrsStr
 	wallet.EXPECT().ListUnspent().Return(getAddrsResult(segWitBech32Addrs), nil)
 	changeAddr, err := testRelayer.GetChangeAddress()
 	require.NoError(t, err)
@@ -70,7 +71,8 @@ func TestGetChangeAddress(t *testing.T) {
 	require.NoError(t, err)
 
 	// 3. SegWit-Bech32 + legacy addresses, should only return SegWit-Bech32 addresses
-	addrs := append(segWitBech32Addrs, legacyAddrsStr...)
+	segWitBech32Addrs = append(segWitBech32Addrs, legacyAddrsStr...)
+	addrs := segWitBech32Addrs
 	wallet.EXPECT().ListUnspent().Return(getAddrsResult(addrs), nil)
 	changeAddr, err = testRelayer.GetChangeAddress()
 	require.NoError(t, err)

@@ -74,20 +74,20 @@ func (td *TrackedDelegations) DelegationsIter() iter.Seq[*TrackedDelegation] {
 }
 
 func (td *TrackedDelegations) AddDelegation(
-	StakingTx *wire.MsgTx,
-	StakingOutputIdx uint32,
-	UnbondingOutput *wire.TxOut,
+	stakingTx *wire.MsgTx,
+	stakingOutputIdx uint32,
+	unbondingOutput *wire.TxOut,
 	delegationStartHeight uint32,
 	shouldUpdate bool,
 ) (*TrackedDelegation, error) {
 	delegation := &TrackedDelegation{
-		StakingTx:             StakingTx,
-		StakingOutputIdx:      StakingOutputIdx,
-		UnbondingOutput:       UnbondingOutput,
+		StakingTx:             stakingTx,
+		StakingOutputIdx:      stakingOutputIdx,
+		UnbondingOutput:       unbondingOutput,
 		DelegationStartHeight: delegationStartHeight,
 	}
 
-	stakingTxHash := StakingTx.TxHash()
+	stakingTxHash := stakingTx.TxHash()
 
 	td.mu.Lock()
 	defer td.mu.Unlock()
@@ -115,7 +115,7 @@ func (td *TrackedDelegations) RemoveDelegation(stakingTxHash chainhash.Hash) {
 func (td *TrackedDelegations) HasDelegationChanged(
 	stakingTxHash chainhash.Hash,
 	newDelegation *newDelegation,
-) (exists bool, changed bool) {
+) (bool, bool) {
 	td.mu.Lock()
 	defer td.mu.Unlock()
 

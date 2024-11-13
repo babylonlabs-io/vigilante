@@ -22,7 +22,7 @@ import (
 )
 
 func newMockReporter(t *testing.T, ctrl *gomock.Controller) (
-	*mocks.MockBTCClient, *reporter.MockBabylonClient, *reporter.Reporter) {
+	*reporter.MockBabylonClient, *reporter.Reporter) {
 	cfg := config.DefaultConfig()
 	logger, err := cfg.CreateLogger()
 	require.NoError(t, err)
@@ -47,7 +47,7 @@ func newMockReporter(t *testing.T, ctrl *gomock.Controller) (
 	)
 	require.NoError(t, err)
 
-	return mockBTCClient, mockBabylonClient, r
+	return mockBabylonClient, r
 }
 
 // FuzzProcessHeaders fuzz tests ProcessHeaders()
@@ -70,7 +70,7 @@ func FuzzProcessHeaders(f *testing.F) {
 			ibs = append(ibs, types.NewIndexedBlockFromMsgBlock(r.Uint32(), block))
 		}
 
-		_, mockBabylonClient, mockReporter := newMockReporter(t, ctrl)
+		mockBabylonClient, mockReporter := newMockReporter(t, ctrl)
 
 		// a random number of blocks exists on chain
 		numBlocksOnChain := r.Intn(int(numBlocks))
@@ -101,7 +101,7 @@ func FuzzProcessCheckpoints(f *testing.F) {
 		defer ctrl.Finish()
 		r := rand.New(rand.NewSource(seed))
 
-		_, mockBabylonClient, mockReporter := newMockReporter(t, ctrl)
+		mockBabylonClient, mockReporter := newMockReporter(t, ctrl)
 		// inserting SPV proofs is always successful
 		mockBabylonClient.EXPECT().InsertBTCSpvProof(gomock.Any(), gomock.Any()).Return(&pv.RelayerTxResponse{Code: 0}, nil).AnyTimes()
 
@@ -117,9 +117,8 @@ func FuzzProcessCheckpoints(f *testing.F) {
 			}
 		}
 
-		numCkptSegs, numMatchedCkpts, err := mockReporter.ProcessCheckpoints("", ibs)
+		numCkptSegs, numMatchedCkpts := mockReporter.ProcessCheckpoints("", ibs)
 		require.Equal(t, numCkptSegsExpected, numCkptSegs)
 		require.Equal(t, numMatchedCkptsExpected, numMatchedCkpts)
-		require.NoError(t, err)
 	})
 }

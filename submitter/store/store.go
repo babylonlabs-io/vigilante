@@ -21,8 +21,8 @@ var (
 )
 
 var (
-	// ErrCorruptedDb For some reason, db on disk representation have changed
-	ErrCorruptedDb = errors.New("db is corrupted")
+	// ErrCorruptedDB For some reason, db on disk representation have changed
+	ErrCorruptedDB = errors.New("db is corrupted")
 	// ErrNotFound Value not found
 	ErrNotFound = errors.New("not found")
 )
@@ -109,7 +109,7 @@ func (s *SubmitterStore) get(key, bucketName []byte) ([]byte, bool, error) {
 	err := s.db.View(func(tx walletdb.ReadTx) error {
 		b := tx.ReadBucket(bucketName)
 		if b == nil {
-			return ErrCorruptedDb
+			return ErrCorruptedDB
 		}
 
 		byteVal := b.Get(key)
@@ -136,7 +136,7 @@ func (s *SubmitterStore) put(key []byte, val []byte, bucketName []byte) error {
 	return kvdb.Batch(s.db, func(tx kvdb.RwTx) error {
 		bucket := tx.ReadWriteBucket(bucketName)
 		if bucket == nil {
-			return ErrCorruptedDb
+			return ErrCorruptedDB
 		}
 
 		return bucket.Put(key, val)

@@ -29,7 +29,6 @@ type consistencyCheckInfo struct {
 // between BBN header chain and BTC main chain.` This makes sure that already confirmed chain is the same from point
 // of view of both chains.
 func (r *Reporter) checkConsistency() (*consistencyCheckInfo, error) {
-
 	tipRes, err := r.babylonClient.BTCHeaderChainTip()
 	if err != nil {
 		return nil, err
@@ -116,10 +115,7 @@ func (r *Reporter) bootstrap() error {
 
 	// fetch k+w blocks from cache and submit checkpoints
 	ibs = r.btcCache.GetAllBlocks()
-	_, _, err = r.ProcessCheckpoints(signer, ibs)
-	if err != nil {
-		r.logger.Warnf("Failed to submit checkpoints: %v", err)
-	}
+	_, _ = r.ProcessCheckpoints(signer, ibs)
 
 	r.logger.Info("Successfully finished bootstrapping")
 
@@ -158,7 +154,6 @@ func (r *Reporter) bootstrapWithRetries() {
 		bootstrapErrReportType, retry.OnRetry(func(n uint, err error) {
 			r.logger.Warnf("Failed to bootstap reporter: %v. Attempt: %d, Max attempts: %d", err, n+1, bootstrapAttempts)
 		})); err != nil {
-
 		if errors.Is(err, context.Canceled) {
 			// context was cancelled we do not need to anything more, app is quiting
 			return

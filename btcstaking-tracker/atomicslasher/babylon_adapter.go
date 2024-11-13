@@ -108,7 +108,7 @@ func (ba *BabylonAdapter) HandleAllBTCDelegations(handleFunc func(btcDel *bstype
 }
 
 func (ba *BabylonAdapter) IsFPSlashed(
-	ctx context.Context,
+	_ context.Context,
 	fpBTCPK *bbn.BIP340PubKey,
 ) (bool, error) {
 	fpResp, err := ba.bbnClient.FinalityProvider(fpBTCPK.MarshalHex())

@@ -13,7 +13,6 @@ import (
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	_ "github.com/btcsuite/btcd/database/ffldb"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 )
@@ -144,16 +143,18 @@ func GenRandomBlock(r *rand.Rand, numBabylonTxs int, prevHash *chainhash.Hash) (
 		rawCkpt   *btctxformatter.RawBtcCheckpoint
 	)
 
-	if numBabylonTxs == 2 {
-		randomTxs, rawCkpt = GenRandomBabylonTxPair(r)
-	} else if numBabylonTxs == 1 {
+	switch numBabylonTxs {
+	case 1:
 		randomTxs, _ = GenRandomBabylonTxPair(r)
 		randomTxs[1] = GenRandomTx(r)
 		rawCkpt = nil
-	} else {
+	case 2:
+		randomTxs, rawCkpt = GenRandomBabylonTxPair(r)
+	default:
 		randomTxs = []*wire.MsgTx{GenRandomTx(r), GenRandomTx(r)}
 		rawCkpt = nil
 	}
+
 	coinbaseTx := GenRandomTx(r)
 	msgTxs := []*wire.MsgTx{coinbaseTx}
 	msgTxs = append(msgTxs, randomTxs...)
@@ -252,13 +253,14 @@ func GenRandomBlockchainWithBabylonTx(r *rand.Rand, n uint64, partialPercentage 
 	for i := uint64(1); i < n; i++ {
 		var msgBlock *wire.MsgBlock
 		prevHash := blocks[len(blocks)-1].BlockHash()
-		if r.Float32() < partialPercentage {
+		switch {
+		case r.Float32() < partialPercentage:
 			msgBlock, rawCkpt = GenRandomBlock(r, 1, &prevHash)
-			numCkptSegs += 1
-		} else if r.Float32() < partialPercentage+fullPercentage {
+			numCkptSegs++
+		case r.Float32() < partialPercentage+fullPercentage:
 			msgBlock, rawCkpt = GenRandomBlock(r, 2, &prevHash)
 			numCkptSegs += 2
-		} else {
+		default:
 			msgBlock, rawCkpt = GenRandomBlock(r, 0, &prevHash)
 		}
 

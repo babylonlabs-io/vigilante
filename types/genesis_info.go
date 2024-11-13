@@ -54,7 +54,10 @@ func GetGenesisInfoFromFile(filePath string) (*GenesisInfo, error) {
 	}
 
 	tmpBabylon := app.NewTmpBabylonApp()
-	gentxModule := tmpBabylon.BasicModuleManager[genutiltypes.ModuleName].(genutil.AppModuleBasic)
+	gentxModule, ok := tmpBabylon.BasicModuleManager[genutiltypes.ModuleName].(genutil.AppModuleBasic)
+	if !ok {
+		return nil, fmt.Errorf("unexpected message type: %T", gentxModule)
+	}
 
 	checkpointingGenState := checkpointingtypes.GetGenesisStateFromAppState(tmpBabylon.AppCodec(), appState)
 	err = checkpointingGenState.Validate()
@@ -76,7 +79,10 @@ func GetGenesisInfoFromFile(filePath string) (*GenesisInfo, error) {
 			if len(msgs) == 0 {
 				return nil, errors.New("invalid genesis transaction")
 			}
-			msgCreateValidator := msgs[0].(*stakingtypes.MsgCreateValidator)
+			msgCreateValidator, ok := msgs[0].(*stakingtypes.MsgCreateValidator)
+			if !ok {
+				return nil, fmt.Errorf("unexpected message type: %T", msgs[0])
+			}
 
 			if gk.ValidatorAddress == msgCreateValidator.ValidatorAddress {
 				power := sdk.TokensToConsensusPower(msgCreateValidator.Value.Amount, sdk.DefaultPowerReduction)

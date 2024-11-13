@@ -59,7 +59,7 @@ func New(
 
 	keyPair, err := openRPCKeyPair(cfg.OneTimeTLSKey, cfg.RPCKeyFile, cfg.RPCCertFile)
 	if err != nil {
-		return nil, fmt.Errorf("open RPC key pair: %v", err)
+		return nil, fmt.Errorf("open RPC key pair: %w", err)
 	}
 	creds := credentials.NewServerTLSFromCert(&keyPair)
 

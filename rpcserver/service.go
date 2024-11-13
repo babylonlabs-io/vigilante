@@ -23,7 +23,7 @@ func StartVigilanteService(gs *grpc.Server) {
 	pb.RegisterVigilanteServiceServer(gs, &service{})
 }
 
-func (s *service) Version(ctx context.Context, req *pb.VersionRequest) (*pb.VersionResponse, error) {
+func (s *service) Version(_ context.Context, _ *pb.VersionRequest) (*pb.VersionResponse, error) {
 	return &pb.VersionResponse{
 		VersionString: verString,
 		Major:         verMajor,

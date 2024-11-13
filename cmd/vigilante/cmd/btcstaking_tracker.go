@@ -15,7 +15,7 @@ import (
 func GetBTCStakingTracker() *cobra.Command {
 	var babylonKeyDir string
 	var cfgFile = ""
-	var startHeight uint64 = 0
+	var startHeight uint64
 
 	cmd := &cobra.Command{
 		Use:   "bstracker",
@@ -143,7 +143,6 @@ func GetBTCStakingTracker() *cobra.Command {
 
 			<-interruptHandlersDone
 			rootLogger.Info("Shutdown complete")
-
 		},
 	}
 	cmd.Flags().StringVar(&babylonKeyDir, "babylon-key", "", "Directory of the Babylon key")
