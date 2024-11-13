@@ -40,7 +40,7 @@ RUN CGO_LDFLAGS="$CGO_LDFLAGS -lstdc++ -lm -lsodium" \
     LINK_STATICALLY=true \
     make build
 
-FROM alpine:3.16 AS run
+FROM alpine:3.20 AS run
 # Create a user
 RUN addgroup --gid 1138 -S vigilante && adduser --uid 1138 -S vigilante -G vigilante
 RUN apk add bash curl jq
