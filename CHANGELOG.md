@@ -40,6 +40,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 * [#94](https://github.com/babylonlabs-io/vigilante/pull/94) adds gosec and fixes gosec issues
 * [#96](https://github.com/babylonlabs-io/vigilante/pull/96) fixes potential stale data read
 * [#98](https://github.com/babylonlabs-io/vigilante/pull/98) fixes golangci configuration
+* [#102](https://github.com/babylonlabs-io/vigilante/pull/102) babylon v0.16.0 upgrade
 
 ## v0.15.0
 
