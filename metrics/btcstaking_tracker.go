@@ -68,9 +68,9 @@ func newUnbondingWatcherMetrics(registry *prometheus.Registry) *UnbondingWatcher
 			Help: "The total number of unbonding transactions successfully reported to Babylon node",
 		}),
 		MethodExecutionLatency: registerer.NewHistogramVec(prometheus.HistogramOpts{
-			Namespace: "unbonding_watcher_method_latency_seconds",
-			Help:      "Latency in seconds",
-			Buckets:   []float64{.001, .002, .005, .01, .025, .05, .1},
+			Name:    "unbonding_watcher_method_latency_seconds",
+			Help:    "Latency in seconds",
+			Buckets: []float64{.001, .002, .005, .01, .025, .05, .1},
 		}, []string{"method"}),
 	}
 
