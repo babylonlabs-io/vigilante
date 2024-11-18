@@ -31,6 +31,7 @@ type UnbondingWatcherMetrics struct {
 	DetectedNonUnbondingTransactionsCounter prometheus.Counter
 	FailedReportedActivateDelegations       prometheus.Counter
 	ReportedActivateDelegationsCounter      prometheus.Counter
+	MethodExecutionLatency                  *prometheus.HistogramVec
 }
 
 func newUnbondingWatcherMetrics(registry *prometheus.Registry) *UnbondingWatcherMetrics {
@@ -66,6 +67,11 @@ func newUnbondingWatcherMetrics(registry *prometheus.Registry) *UnbondingWatcher
 			Name: "unbonding_watcher_reported_activate_delegations",
 			Help: "The total number of unbonding transactions successfully reported to Babylon node",
 		}),
+		MethodExecutionLatency: registerer.NewHistogramVec(prometheus.HistogramOpts{
+			Namespace: "unbonding_watcher_method_latency_seconds",
+			Help:      "Latency in seconds",
+			Buckets:   []float64{.001, .002, .005, .01, .025, .05, .1},
+		}, []string{"method"}),
 	}
 
 	return uwMetrics

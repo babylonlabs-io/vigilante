@@ -175,6 +175,8 @@ func (sew *StakingEventWatcher) handleNewBlocks(blockNotifier *notifier.BlockEpo
 // checkBabylonDelegations iterates over all active babylon delegations, and reports not already
 // tracked delegations to the unbondingDelegationChan
 func (sew *StakingEventWatcher) checkBabylonDelegations(status btcstakingtypes.BTCDelegationStatus, addDel func(del Delegation)) error {
+	defer sew.latency(fmt.Sprintf("checkBabylonDelegations: %s", status))()
+
 	var i = uint64(0)
 	for {
 		delegations, err := sew.babylonNodeAdapter.DelegationsByStatus(status, i, sew.cfg.NewDelegationsBatchSize)
@@ -610,6 +612,8 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 	ctx, cancel := sew.quitContext()
 	defer cancel()
 
+	defer sew.latency("activateBtcDelegation")()
+
 	if err := sew.pendingTracker.UpdateActivation(stakingTxHash, true); err != nil {
 		sew.logger.Debugf("skipping tx %s is not in pending tracker, err: %v", stakingTxHash, err)
 	}
@@ -646,4 +650,15 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 			sew.logger.Debugf("retrying to submit activation tx, for staking tx: %s. Attempt: %d. Err: %v", stakingTxHash, n, err)
 		}),
 	)
+}
+
+func (sew *StakingEventWatcher) latency(method string) func() {
+	startTime := time.Now()
+	return func() {
+		duration := time.Since(startTime)
+		sew.logger.Debug("execution time",
+			zap.String("method", method),
+			zap.Duration("latency", duration))
+		sew.metrics.MethodExecutionLatency.WithLabelValues(method).Observe(duration.Seconds())
+	}
 }
