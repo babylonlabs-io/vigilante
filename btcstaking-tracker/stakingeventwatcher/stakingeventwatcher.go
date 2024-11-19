@@ -709,7 +709,7 @@ func (sew *StakingEventWatcher) latency(method string) func() {
 		duration := time.Since(startTime)
 		sew.logger.Debug("execution time",
 			zap.String("method", method),
-			zap.Duration("latency", duration))
+			zap.String("latency", duration.String()))
 		sew.metrics.MethodExecutionLatency.WithLabelValues(method).Observe(duration.Seconds())
 	}
 }

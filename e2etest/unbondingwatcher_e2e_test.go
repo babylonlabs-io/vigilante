@@ -1,11 +1,11 @@
-//go:build e2e
-// +build e2e
-
 package e2etest
 
 import (
+	"fmt"
 	btcstakingtypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
+	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"go.uber.org/zap"
+	"sync"
 	"testing"
 	"time"
 
@@ -180,15 +180,31 @@ func TestActivatingDelegation(t *testing.T) {
 		return err == nil
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
-	// insert k empty blocks to Bitcoin
-	btccParamsResp, err := tm.BabylonClient.BTCCheckpointParams()
-	require.NoError(t, err)
-	btccParams := btccParamsResp.Params
-	for i := 0; i < int(btccParams.BtcConfirmationDepth); i++ {
-		tm.mineBlock(t)
-	}
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// We want to introduce a latency to make sure that we are not trying to submit inclusion proof while the
+		// staking tx is not yet K-deep
+		time.Sleep(10 * time.Second)
+		// Insert k empty blocks to Bitcoin
+		btccParamsResp, err := tm.BabylonClient.BTCCheckpointParams()
+		if err != nil {
+			fmt.Println("Error fetching BTCCheckpointParams:", err)
+			return
+		}
+		for i := 0; i < int(btccParamsResp.Params.BtcConfirmationDepth); i++ {
+			tm.mineBlock(t)
+		}
+		tm.CatchUpBTCLightClient(t)
+	}()
 
-	tm.CatchUpBTCLightClient(t)
+	wg.Wait()
+
+	// we want to purposefully block here until we get some errors
+	require.Eventually(t, func() bool {
+		return promtestutil.ToFloat64(stakingTrackerMetrics.FailedReportedActivateDelegations) == 0
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
 	// created delegation lacks inclusion proof, once created it will be in
 	// pending status, once convenant signatures are added it will be in verified status,
