@@ -201,7 +201,7 @@ func TestActivatingDelegation(t *testing.T) {
 
 	wg.Wait()
 
-	// we want to purposefully block here until we get some errors
+	// make sure we didn't submit any "invalid" incl proof
 	require.Eventually(t, func() bool {
 		return promtestutil.ToFloat64(stakingTrackerMetrics.FailedReportedActivateDelegations) == 0
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
