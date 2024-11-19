@@ -38,7 +38,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## Unreleased
 
 ### Improvements
+
 * [#105](https://github.com/babylonlabs-io/vigilante/pull/105) Measure latency
+* [#106](https://github.com/babylonlabs-io/vigilante/pull/106) Wait for stacking tx to be k-deep
+
 
 ## v0.16.0
 
