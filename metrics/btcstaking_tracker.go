@@ -31,6 +31,7 @@ type UnbondingWatcherMetrics struct {
 	DetectedNonUnbondingTransactionsCounter prometheus.Counter
 	FailedReportedActivateDelegations       prometheus.Counter
 	ReportedActivateDelegationsCounter      prometheus.Counter
+	MethodExecutionLatency                  *prometheus.HistogramVec
 }
 
 func newUnbondingWatcherMetrics(registry *prometheus.Registry) *UnbondingWatcherMetrics {
@@ -40,7 +41,7 @@ func newUnbondingWatcherMetrics(registry *prometheus.Registry) *UnbondingWatcher
 		Registry: registry,
 		ReportedUnbondingTransactionsCounter: registerer.NewCounter(prometheus.CounterOpts{
 			Name: "unbonding_watcher_reported_unbonding_transactions",
-			Help: "The total number of unbonding transactions successfuly reported to Babylon node",
+			Help: "The total number of unbonding transactions successfully reported to Babylon node",
 		}),
 		FailedReportedUnbondingTransactions: registerer.NewCounter(prometheus.CounterOpts{
 			Name: "unbonding_watcher_failed_reported_unbonding_transactions",
@@ -64,8 +65,13 @@ func newUnbondingWatcherMetrics(registry *prometheus.Registry) *UnbondingWatcher
 		}),
 		ReportedActivateDelegationsCounter: registerer.NewCounter(prometheus.CounterOpts{
 			Name: "unbonding_watcher_reported_activate_delegations",
-			Help: "The total number of unbonding transactions successfuly reported to Babylon node",
+			Help: "The total number of unbonding transactions successfully reported to Babylon node",
 		}),
+		MethodExecutionLatency: registerer.NewHistogramVec(prometheus.HistogramOpts{
+			Name:    "unbonding_watcher_method_latency_seconds",
+			Help:    "Latency in seconds",
+			Buckets: []float64{.001, .002, .005, .01, .025, .05, .1},
+		}, []string{"method"}),
 	}
 
 	return uwMetrics
@@ -112,7 +118,7 @@ func newSlasherMetrics(registry *prometheus.Registry) *SlasherMetrics {
 	return metrics
 }
 
-func (sm *SlasherMetrics) RecordSlashedDelegation(del *types.BTCDelegationResponse, txHashStr string) {
+func (sm *SlasherMetrics) RecordSlashedDelegation(del *types.BTCDelegationResponse) {
 	// refresh time of the slashed delegation gauge for each (fp, del) pair
 	for _, pk := range del.FpBtcPkList {
 		sm.SlashedDelegationGaugeVec.WithLabelValues(

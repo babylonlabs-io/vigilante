@@ -139,14 +139,14 @@ func (m *Monitor) Start(baseHeight uint32) {
 	// get the height from db if it exists otherwise use the baseHeight provided from genesis
 	var startHeight uint32
 	dbHeight, exists, err := m.store.LatestHeight()
-	if err != nil {
+	switch {
+	case err != nil:
 		panic(fmt.Errorf("error getting latest height from db %w", err))
-	} else if !exists {
+	case !exists:
 		startHeight = baseHeight
-	} else {
-		if dbHeight > math.MaxUint32 {
-			panic(fmt.Errorf("dbHeight %d exceeds uint32 range", dbHeight))
-		}
+	case dbHeight > math.MaxUint32:
+		panic(fmt.Errorf("dbHeight %d exceeds uint32 range", dbHeight))
+	default:
 		startHeight = uint32(dbHeight) + 1
 	}
 
@@ -250,7 +250,6 @@ func (m *Monitor) VerifyCheckpoint(btcCkpt *checkpointingtypes.RawCheckpoint) er
 		return errors.Wrapf(types.ErrInvalidEpochNum,
 			"found a checkpoint with epoch %v, but the monitor expects epoch %v",
 			btcCkpt.EpochNum, m.GetCurrentEpoch())
-
 	}
 	// verify BLS sig of the BTC checkpoint
 	err := m.curEpoch.VerifyMultiSig(btcCkpt)

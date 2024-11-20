@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	defaultDbName = "vigilante.db"
+	defaultDBName = "vigilante.db"
 )
 
 type DBConfig struct {
@@ -48,7 +48,7 @@ func DefaultDBConfig() *DBConfig {
 func DefaultDBConfigWithHomePath(homePath string) *DBConfig {
 	return &DBConfig{
 		DBPath:            DataDir(homePath),
-		DBFileName:        defaultDbName,
+		DBFileName:        defaultDBName,
 		NoFreelistSync:    true,
 		AutoCompact:       false,
 		AutoCompactMinAge: kvdb.DefaultBoltAutoCompactMinAge,
@@ -78,6 +78,6 @@ func (cfg *DBConfig) Validate() error {
 	return nil
 }
 
-func (cfg *DBConfig) GetDbBackend() (kvdb.Backend, error) {
+func (cfg *DBConfig) GetDBBackend() (kvdb.Backend, error) {
 	return kvdb.GetBoltBackend(cfg.ToBoltBackendConfig())
 }

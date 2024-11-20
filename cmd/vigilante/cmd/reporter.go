@@ -118,7 +118,6 @@ func GetReporterCmd() *cobra.Command {
 
 			<-interruptHandlersDone
 			rootLogger.Info("Shutdown complete")
-
 		},
 	}
 	cmd.Flags().StringVar(&babylonKeyDir, "babylon-key-dir", "", "Directory of the Babylon key")

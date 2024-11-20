@@ -12,20 +12,20 @@ import (
 	"github.com/btcsuite/btcd/wire"
 )
 
-type slashingPath int
+type SlashingPath int
 
 const (
-	slashStakingTx slashingPath = iota
+	slashStakingTx SlashingPath = iota
 	slashUnbondingTx
 )
 
 type SlashingTxInfo struct {
-	path          slashingPath
+	path          SlashingPath
 	StakingTxHash chainhash.Hash
 	SlashingMsgTx *wire.MsgTx
 }
 
-func NewSlashingTxInfo(path slashingPath, stakingTxHash chainhash.Hash, slashingMsgTx *wire.MsgTx) *SlashingTxInfo {
+func NewSlashingTxInfo(path SlashingPath, stakingTxHash chainhash.Hash, slashingMsgTx *wire.MsgTx) *SlashingTxInfo {
 	return &SlashingTxInfo{
 		path:          path,
 		StakingTxHash: stakingTxHash,
@@ -139,7 +139,7 @@ func (bdi *BTCDelegationIndex) Remove(stakingTxHash chainhash.Hash) {
 	delete(bdi.unbondingSlashingTxMap, del.UnbondingSlashingTxHash)
 }
 
-func (bdi *BTCDelegationIndex) FindSlashedBTCDelegation(txHash chainhash.Hash) (*TrackedDelegation, slashingPath) {
+func (bdi *BTCDelegationIndex) FindSlashedBTCDelegation(txHash chainhash.Hash) (*TrackedDelegation, SlashingPath) {
 	bdi.Lock()
 	defer bdi.Unlock()
 

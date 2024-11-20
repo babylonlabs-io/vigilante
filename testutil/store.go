@@ -14,7 +14,7 @@ func MakeTestBackend(t *testing.T) kvdb.Backend {
 
 	cfg.DBPath = tempDirName
 
-	backend, err := cfg.GetDbBackend()
+	backend, err := cfg.GetDBBackend()
 	require.NoError(t, err)
 
 	t.Cleanup(func() {

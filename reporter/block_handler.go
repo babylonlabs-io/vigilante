@@ -96,9 +96,7 @@ func (r *Reporter) processNewBlock(ib *types.IndexedBlock) error {
 	}
 
 	// Process checkpoints
-	if _, _, err := r.ProcessCheckpoints(signer, headersToProcess); err != nil {
-		r.logger.Warnf("Failed to submit checkpoints: %v", err)
-	}
+	_, _ = r.ProcessCheckpoints(signer, headersToProcess)
 
 	return nil
 }

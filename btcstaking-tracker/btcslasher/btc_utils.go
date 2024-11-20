@@ -21,7 +21,7 @@ func (bs *BTCSlasher) isTaprootOutputSpendable(txBytes []byte, outIdx uint32) (b
 	stakingMsgTx, err := bbn.NewBTCTxFromBytes(txBytes)
 	if err != nil {
 		return false, fmt.Errorf(
-			"failed to convert staking tx to MsgTx: %v",
+			"failed to convert staking tx to MsgTx: %w",
 			err,
 		)
 	}
@@ -33,7 +33,7 @@ func (bs *BTCSlasher) isTaprootOutputSpendable(txBytes []byte, outIdx uint32) (b
 	txOut, err := bs.BTCClient.GetTxOut(&stakingMsgTxHash, outIdx, true)
 	if err != nil {
 		return false, fmt.Errorf(
-			"failed to get the output of tx %s: %v",
+			"failed to get the output of tx %s: %w",
 			stakingMsgTxHash.String(),
 			err,
 		)

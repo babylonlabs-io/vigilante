@@ -124,7 +124,7 @@ func (as *AtomicSlasher) selectiveSlashingReporter() {
 			cancel()
 			if err != nil {
 				as.logger.Error(
-					"failed to get BTC staking paramter at version",
+					"failed to get BTC staking parameter at version",
 					zap.Uint32("version", paramsVersion),
 					zap.Error(err),
 				)

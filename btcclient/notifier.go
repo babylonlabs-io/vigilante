@@ -31,14 +31,14 @@ type Bitcoind struct {
 
 func DefaultBitcoindConfig() Bitcoind {
 	return Bitcoind{
-		RPCHost:              config.DefaultRpcBtcNodeHost,
-		RPCUser:              config.DefaultBtcNodeRpcUser,
-		RPCPass:              config.DefaultBtcNodeRpcPass,
+		RPCHost:              config.DefaultRPCBtcNodeHost,
+		RPCUser:              config.DefaultBtcNodeRPCUser,
+		RPCPass:              config.DefaultBtcNodeRPCPass,
 		RPCPolling:           true,
 		BlockPollingInterval: 30 * time.Second,
 		TxPollingInterval:    30 * time.Second,
 		EstimateMode:         config.DefaultBtcNodeEstimateMode,
-		BlockCacheSize:       config.DefaultBtcblockCacheSize,
+		BlockCacheSize:       config.DefaultBtcBlockCacheSize,
 		ZMQPubRawBlock:       config.DefaultZmqBlockEndpoint,
 		ZMQPubRawTx:          config.DefaultZmqTxEndpoint,
 		ZMQReadDeadline:      30 * time.Second,
@@ -71,23 +71,23 @@ type EmptyHintCache struct{}
 
 var _ HintCache = (*EmptyHintCache)(nil)
 
-func (c *EmptyHintCache) CommitSpendHint(height uint32, spendRequests ...chainntnfs.SpendRequest) error {
+func (c *EmptyHintCache) CommitSpendHint(_ uint32, _ ...chainntnfs.SpendRequest) error {
 	return nil
 }
-func (c *EmptyHintCache) QuerySpendHint(spendRequest chainntnfs.SpendRequest) (uint32, error) {
+func (c *EmptyHintCache) QuerySpendHint(_ chainntnfs.SpendRequest) (uint32, error) {
 	return 0, nil
 }
-func (c *EmptyHintCache) PurgeSpendHint(spendRequests ...chainntnfs.SpendRequest) error {
+func (c *EmptyHintCache) PurgeSpendHint(_ ...chainntnfs.SpendRequest) error {
 	return nil
 }
 
-func (c *EmptyHintCache) CommitConfirmHint(height uint32, confRequests ...chainntnfs.ConfRequest) error {
+func (c *EmptyHintCache) CommitConfirmHint(_ uint32, _ ...chainntnfs.ConfRequest) error {
 	return nil
 }
-func (c *EmptyHintCache) QueryConfirmHint(confRequest chainntnfs.ConfRequest) (uint32, error) {
+func (c *EmptyHintCache) QueryConfirmHint(_ chainntnfs.ConfRequest) (uint32, error) {
 	return 0, nil
 }
-func (c *EmptyHintCache) PurgeConfirmHint(confRequests ...chainntnfs.ConfRequest) error {
+func (c *EmptyHintCache) PurgeConfirmHint(_ ...chainntnfs.ConfRequest) error {
 	return nil
 }
 
@@ -96,7 +96,7 @@ func (c *EmptyHintCache) PurgeConfirmHint(confRequests ...chainntnfs.ConfRequest
 // // According to chain.BitcoindConfig docs it should also support tor if node backend
 // // works over tor.
 func BuildDialer(rpcHost string) func(string) (net.Conn, error) {
-	return func(addr string) (net.Conn, error) {
+	return func(_ string) (net.Conn, error) {
 		return net.Dial("tcp", rpcHost)
 	}
 }

@@ -6,15 +6,14 @@ import (
 	"github.com/babylonlabs-io/vigilante/retrywrap"
 	"strconv"
 
-	pv "github.com/cosmos/relayer/v2/relayer/provider"
-
 	"github.com/avast/retry-go/v4"
 	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
 	btclctypes "github.com/babylonlabs-io/babylon/x/btclightclient/types"
 	"github.com/babylonlabs-io/vigilante/types"
 )
 
-func chunkBy[T any](items []T, chunkSize int) (chunks [][]T) {
+func chunkBy[T any](items []T, chunkSize int) [][]T {
+	var chunks [][]T
 	for chunkSize < len(items) {
 		items, chunks = items[chunkSize:], append(chunks, items[0:chunkSize:chunkSize])
 	}
@@ -144,19 +143,17 @@ func (r *Reporter) extractCheckpoints(ib *types.IndexedBlock) int {
 				r.logger.Errorf("Failed to add the ckpt segment in tx %v to the ckptCache: %v", tx.Hash(), err)
 				continue
 			}
-			numCkptSegs += 1
+			numCkptSegs++
 		}
 	}
 
 	return numCkptSegs
 }
 
-func (r *Reporter) matchAndSubmitCheckpoints(signer string) (int, error) {
+func (r *Reporter) matchAndSubmitCheckpoints(signer string) int {
 	var (
-		res                  *pv.RelayerTxResponse
 		proofs               []*btcctypes.BTCSpvProof
 		msgInsertBTCSpvProof *btcctypes.MsgInsertBTCSpvProof
-		err                  error
 	)
 
 	// get matched ckpt parts from the ckptCache
@@ -166,7 +163,7 @@ func (r *Reporter) matchAndSubmitCheckpoints(signer string) (int, error) {
 
 	if numMatchedCkpts == 0 {
 		r.logger.Debug("Found no matched pair of checkpoint segments in this match attempt")
-		return numMatchedCkpts, nil
+		return numMatchedCkpts
 	}
 
 	// for each matched checkpoint, wrap to MsgInsertBTCSpvProof and send to Babylon
@@ -188,7 +185,7 @@ func (r *Reporter) matchAndSubmitCheckpoints(signer string) (int, error) {
 		msgInsertBTCSpvProof = types.MustNewMsgInsertBTCSpvProof(signer, proofs)
 
 		// submit the checkpoint to Babylon
-		res, err = r.babylonClient.InsertBTCSpvProof(context.Background(), msgInsertBTCSpvProof)
+		res, err := r.babylonClient.InsertBTCSpvProof(context.Background(), msgInsertBTCSpvProof)
 		if err != nil {
 			r.logger.Errorf("Failed to submit MsgInsertBTCSpvProof with error %v", err)
 			r.metrics.FailedCheckpointsCounter.Inc()
@@ -207,12 +204,12 @@ func (r *Reporter) matchAndSubmitCheckpoints(signer string) (int, error) {
 		).SetToCurrentTime()
 	}
 
-	return numMatchedCkpts, nil
+	return numMatchedCkpts
 }
 
 // ProcessCheckpoints tries to extract checkpoint segments from a list of blocks, find matched checkpoint segments, and report matched checkpoints
 // It returns the number of extracted checkpoint segments, and the number of matched checkpoints
-func (r *Reporter) ProcessCheckpoints(signer string, ibs []*types.IndexedBlock) (int, int, error) {
+func (r *Reporter) ProcessCheckpoints(signer string, ibs []*types.IndexedBlock) (int, int) {
 	var numCkptSegs int
 
 	// extract ckpt segments from the blocks
@@ -225,7 +222,7 @@ func (r *Reporter) ProcessCheckpoints(signer string, ibs []*types.IndexedBlock) 
 	}
 
 	// match and submit checkpoint segments
-	numMatchedCkpts, err := r.matchAndSubmitCheckpoints(signer)
+	numMatchedCkpts := r.matchAndSubmitCheckpoints(signer)
 
-	return numCkptSegs, numMatchedCkpts, err
+	return numCkptSegs, numMatchedCkpts
 }

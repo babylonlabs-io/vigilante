@@ -81,14 +81,14 @@ func (cfg *BTCConfig) Validate() error {
 	return nil
 }
 
+// Config for polling jitter in bitcoind client, with polling enabled
 const (
-	// Config for polling jittner in bitcoind client, with polling enabled
 	DefaultTxPollingJitter     = 0.5
-	DefaultRpcBtcNodeHost      = "127.0.01:18556"
-	DefaultBtcNodeRpcUser      = "rpcuser"
-	DefaultBtcNodeRpcPass      = "rpcpass"
+	DefaultRPCBtcNodeHost      = "127.0.01:18556"
+	DefaultBtcNodeRPCUser      = "rpcuser"
+	DefaultBtcNodeRPCPass      = "rpcpass"
 	DefaultBtcNodeEstimateMode = "CONSERVATIVE"
-	DefaultBtcblockCacheSize   = 20 * 1024 * 1024 // 20 MB
+	DefaultBtcBlockCacheSize   = 20 * 1024 * 1024 // 20 MB
 	DefaultZmqSeqEndpoint      = "tcp://127.0.0.1:28333"
 	DefaultZmqBlockEndpoint    = "tcp://127.0.0.1:29001"
 	DefaultZmqTxEndpoint       = "tcp://127.0.0.1:29002"
@@ -96,7 +96,7 @@ const (
 
 func DefaultBTCConfig() BTCConfig {
 	return BTCConfig{
-		Endpoint:          DefaultRpcBtcNodeHost,
+		Endpoint:          DefaultRPCBtcNodeHost,
 		WalletPassword:    "walletpass",
 		WalletName:        "default",
 		WalletLockTime:    10,
@@ -106,8 +106,8 @@ func DefaultBTCConfig() BTCConfig {
 		EstimateMode:      DefaultBtcNodeEstimateMode,
 		TargetBlockNum:    1,
 		NetParams:         types.BtcSimnet.String(),
-		Username:          DefaultBtcNodeRpcUser,
-		Password:          DefaultBtcNodeRpcPass,
+		Username:          DefaultBtcNodeRPCUser,
+		Password:          DefaultBtcNodeRPCPass,
 		ReconnectAttempts: 3,
 		ZmqSeqEndpoint:    DefaultZmqSeqEndpoint,
 		ZmqBlockEndpoint:  DefaultZmqBlockEndpoint,

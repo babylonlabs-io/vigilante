@@ -15,11 +15,7 @@ func main() {
 	rootCmd := cmd.NewRootCmd()
 
 	if err := rootCmd.Execute(); err != nil {
-		switch e := err.(type) {
-		// TODO: dedicated error codes for vigilantes
-		default:
-			fmt.Print(e.Error())
-			os.Exit(1)
-		}
+		fmt.Print(err.Error())
+		os.Exit(1)
 	}
 }
