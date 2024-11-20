@@ -2,17 +2,29 @@ package stakingeventwatcher
 
 import (
 	"context"
+	sdkerrors "cosmossdk.io/errors"
 	"fmt"
+	"github.com/avast/retry-go/v4"
+	btclctypes "github.com/babylonlabs-io/babylon/x/btclightclient/types"
+	"github.com/babylonlabs-io/vigilante/config"
+	"github.com/cosmos/cosmos-sdk/client"
+	"strings"
+	"time"
 
-	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
-
-	"cosmossdk.io/errors"
+	"errors"
 	bbnclient "github.com/babylonlabs-io/babylon/client/client"
 	bbn "github.com/babylonlabs-io/babylon/types"
+	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
 	btcstakingtypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/cosmos/cosmos-sdk/types/query"
+)
+
+var (
+	ErrHeaderNotKnownToBabylon       = errors.New("btc header not known to babylon")
+	ErrHeaderOnBabylonLCFork         = errors.New("btc header is on babylon btc light client fork")
+	ErrBabylonBtcLightClientNotReady = errors.New("babylon btc light client is not ready to receive delegation")
 )
 
 type Delegation struct {
@@ -23,6 +35,10 @@ type Delegation struct {
 	HasProof              bool
 }
 
+type BabylonParams struct {
+	ConfirmationTimeBlocks uint32 // K-deep
+}
+
 type BabylonNodeAdapter interface {
 	DelegationsByStatus(status btcstakingtypes.BTCDelegationStatus, offset uint64, limit uint64) ([]Delegation, error)
 	IsDelegationActive(stakingTxHash chainhash.Hash) (bool, error)
@@ -31,17 +47,21 @@ type BabylonNodeAdapter interface {
 		inclusionProof *btcstakingtypes.InclusionProof) error
 	BtcClientTipHeight() (uint32, error)
 	ActivateDelegation(ctx context.Context, stakingTxHash chainhash.Hash, proof *btcctypes.BTCSpvProof) error
+	QueryHeaderDepth(headerHash *chainhash.Hash) (uint32, error)
+	Params() (*BabylonParams, error)
 }
 
 type BabylonClientAdapter struct {
 	babylonClient *bbnclient.Client
+	cfg           *config.BTCStakingTrackerConfig
 }
 
 var _ BabylonNodeAdapter = (*BabylonClientAdapter)(nil)
 
-func NewBabylonClientAdapter(babylonClient *bbnclient.Client) *BabylonClientAdapter {
+func NewBabylonClientAdapter(babylonClient *bbnclient.Client, cfg *config.BTCStakingTrackerConfig) *BabylonClientAdapter {
 	return &BabylonClientAdapter{
 		babylonClient: babylonClient,
+		cfg:           cfg,
 	}
 }
 
@@ -127,7 +147,7 @@ func (bca *BabylonClientAdapter) ReportUnbonding(
 		StakeSpendingTxInclusionProof: inclusionProof,
 	}
 
-	resp, err := bca.babylonClient.ReliablySendMsg(ctx, &msg, []*errors.Error{}, []*errors.Error{})
+	resp, err := bca.babylonClient.ReliablySendMsg(ctx, &msg, []*sdkerrors.Error{}, []*sdkerrors.Error{})
 	if err != nil && resp != nil {
 		return fmt.Errorf("msg MsgBTCUndelegate failed exeuction with code %d and error %w", resp.Code, err)
 	}
@@ -161,7 +181,7 @@ func (bca *BabylonClientAdapter) ActivateDelegation(
 		StakingTxInclusionProof: btcstakingtypes.NewInclusionProofFromSpvProof(proof),
 	}
 
-	resp, err := bca.babylonClient.ReliablySendMsg(ctx, &msg, []*errors.Error{}, []*errors.Error{})
+	resp, err := bca.babylonClient.ReliablySendMsg(ctx, &msg, []*sdkerrors.Error{}, []*sdkerrors.Error{})
 
 	if err != nil && resp != nil {
 		return fmt.Errorf("msg MsgAddBTCDelegationInclusionProof failed exeuction with code %d and error %w", resp.Code, err)
@@ -172,4 +192,53 @@ func (bca *BabylonClientAdapter) ActivateDelegation(
 	}
 
 	return nil
+}
+
+func (bca *BabylonClientAdapter) QueryHeaderDepth(headerHash *chainhash.Hash) (uint32, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	clientCtx := client.Context{Client: bca.babylonClient.RPCClient}
+	queryClient := btclctypes.NewQueryClient(clientCtx)
+
+	var response *btclctypes.QueryHeaderDepthResponse
+	if err := retry.Do(func() error {
+		depthResponse, err := queryClient.HeaderDepth(ctx, &btclctypes.QueryHeaderDepthRequest{Hash: headerHash.String()})
+		if err != nil {
+			return err
+		}
+		response = depthResponse
+		return nil
+	},
+		retry.Attempts(5),
+		retry.MaxDelay(bca.cfg.RetrySubmitUnbondingTxInterval),
+		retry.MaxJitter(bca.cfg.RetryJitter),
+		retry.LastErrorOnly(true)); err != nil {
+		if strings.Contains(err.Error(), btclctypes.ErrHeaderDoesNotExist.Error()) {
+			return 0, fmt.Errorf("%s: %w", err.Error(), ErrHeaderNotKnownToBabylon)
+		}
+		return 0, err
+	}
+
+	return response.Depth, nil
+}
+
+func (bca *BabylonClientAdapter) Params() (*BabylonParams, error) {
+	var bccParams *btcctypes.Params
+	if err := retry.Do(func() error {
+		response, err := bca.babylonClient.BTCCheckpointParams()
+		if err != nil {
+			return err
+		}
+		bccParams = &response.Params
+
+		return nil
+	}, retry.Attempts(5),
+		retry.MaxDelay(bca.cfg.RetrySubmitUnbondingTxInterval),
+		retry.MaxJitter(bca.cfg.RetryJitter),
+		retry.LastErrorOnly(true)); err != nil {
+		return nil, err
+	}
+
+	return &BabylonParams{ConfirmationTimeBlocks: bccParams.BtcConfirmationDepth}, nil
 }

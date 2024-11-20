@@ -577,6 +577,12 @@ func (sew *StakingEventWatcher) handlerVerifiedDelegations() {
 // checkBtcForStakingTx gets a snapshot of current Delegations in cache
 // checks if staking tx is in BTC, generates a proof and invokes sending of MsgAddBTCDelegationInclusionProof
 func (sew *StakingEventWatcher) checkBtcForStakingTx() {
+	params, err := sew.babylonNodeAdapter.Params()
+	if err != nil {
+		sew.logger.Errorf("error getting tx params %v", err)
+		return
+	}
+
 	for del := range sew.pendingTracker.DelegationsIter() {
 		if del.ActivationInProgress {
 			continue
@@ -602,13 +608,17 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 			continue
 		}
 
-		go sew.activateBtcDelegation(txHash, proof)
+		go sew.activateBtcDelegation(txHash, proof, details.Block.BlockHash(), params.ConfirmationTimeBlocks)
 	}
 }
 
 // activateBtcDelegation invokes bbn client and send MsgAddBTCDelegationInclusionProof
 func (sew *StakingEventWatcher) activateBtcDelegation(
-	stakingTxHash chainhash.Hash, proof *btcctypes.BTCSpvProof) {
+	stakingTxHash chainhash.Hash,
+	proof *btcctypes.BTCSpvProof,
+	inclusionBlockHash chainhash.Hash,
+	requiredDepth uint32,
+) {
 	ctx, cancel := sew.quitContext()
 	defer cancel()
 
@@ -617,6 +627,8 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 	if err := sew.pendingTracker.UpdateActivation(stakingTxHash, true); err != nil {
 		sew.logger.Debugf("skipping tx %s is not in pending tracker, err: %v", stakingTxHash, err)
 	}
+
+	sew.waitForRequiredDepth(ctx, stakingTxHash, &inclusionBlockHash, requiredDepth)
 
 	_ = retry.Do(func() error {
 		verified, err := sew.babylonNodeAdapter.IsDelegationVerified(stakingTxHash)
@@ -652,13 +664,52 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 	)
 }
 
+func (sew *StakingEventWatcher) waitForRequiredDepth(
+	ctx context.Context,
+	stakingTxHash chainhash.Hash,
+	inclusionBlockHash *chainhash.Hash,
+	requiredDepth uint32,
+) {
+	var depth uint32
+	_ = retry.Do(func() error {
+		var err error
+		depth, err = sew.babylonNodeAdapter.QueryHeaderDepth(inclusionBlockHash)
+		if err != nil {
+			// If the header is not known to babylon, or it is on LCFork, then most probably
+			// lc is not up to date, we should retry sending delegation after some time.
+			if errors.Is(err, ErrHeaderNotKnownToBabylon) || errors.Is(err, ErrHeaderOnBabylonLCFork) {
+				return fmt.Errorf("btc light client error %s: %w", err.Error(), ErrBabylonBtcLightClientNotReady)
+			}
+
+			return fmt.Errorf("error while getting delegation data: %w", err)
+		}
+
+		if depth < requiredDepth {
+			return fmt.Errorf("btc lc not ready, required depth: %d, current depth: %d: %w",
+				requiredDepth, depth, ErrBabylonBtcLightClientNotReady)
+		}
+
+		return nil
+	},
+		retry.Context(ctx),
+		retryForever,
+		fixedDelyTypeWithJitter,
+		retry.MaxDelay(sew.cfg.RetrySubmitUnbondingTxInterval),
+		retry.MaxJitter(sew.cfg.RetryJitter),
+		retry.OnRetry(func(n uint, err error) {
+			sew.logger.Debugf("waiting for staking tx: %s to be k-deep. Current[%d], required[%d]. "+
+				"Attempt: %d. Err: %v", stakingTxHash, depth, requiredDepth, n, err)
+		}),
+	)
+}
+
 func (sew *StakingEventWatcher) latency(method string) func() {
 	startTime := time.Now()
 	return func() {
 		duration := time.Since(startTime)
 		sew.logger.Debug("execution time",
 			zap.String("method", method),
-			zap.Duration("latency", duration))
+			zap.String("latency", duration.String()))
 		sew.metrics.MethodExecutionLatency.WithLabelValues(method).Observe(duration.Seconds())
 	}
 }

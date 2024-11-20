@@ -112,6 +112,36 @@ func (mr *MockBabylonNodeAdapterMockRecorder) IsDelegationVerified(stakingTxHash
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsDelegationVerified", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).IsDelegationVerified), stakingTxHash)
 }
 
+// Params mocks base method.
+func (m *MockBabylonNodeAdapter) Params() (*BabylonParams, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Params")
+	ret0, _ := ret[0].(*BabylonParams)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Params indicates an expected call of Params.
+func (mr *MockBabylonNodeAdapterMockRecorder) Params() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Params", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).Params))
+}
+
+// QueryHeaderDepth mocks base method.
+func (m *MockBabylonNodeAdapter) QueryHeaderDepth(headerHash *chainhash.Hash) (uint32, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueryHeaderDepth", headerHash)
+	ret0, _ := ret[0].(uint32)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// QueryHeaderDepth indicates an expected call of QueryHeaderDepth.
+func (mr *MockBabylonNodeAdapterMockRecorder) QueryHeaderDepth(headerHash interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryHeaderDepth", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).QueryHeaderDepth), headerHash)
+}
+
 // ReportUnbonding mocks base method.
 func (m *MockBabylonNodeAdapter) ReportUnbonding(ctx context.Context, stakingTxHash chainhash.Hash, stakeSpendingTx *wire.MsgTx, inclusionProof *types0.InclusionProof) error {
 	m.ctrl.T.Helper()

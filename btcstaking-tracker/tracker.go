@@ -68,7 +68,7 @@ func NewBTCStakingTracker(
 	logger := parentLogger.With(zap.String("module", "btcstaking-tracker"))
 
 	// watcher routine
-	babylonAdapter := uw.NewBabylonClientAdapter(bbnClient)
+	babylonAdapter := uw.NewBabylonClientAdapter(bbnClient, cfg)
 	watcher := uw.NewStakingEventWatcher(
 		btcNotifier,
 		btcClient,
