@@ -37,6 +37,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+* [#100](https://github.com/babylonlabs-io/vigilante/pull/100) bump docker workflow to 0.10.2,
+fix some dockerfile issue
 * [#94](https://github.com/babylonlabs-io/vigilante/pull/94) adds gosec and fixes gosec issues
 * [#96](https://github.com/babylonlabs-io/vigilante/pull/96) fixes potential stale data read
 
