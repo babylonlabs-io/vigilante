@@ -50,7 +50,12 @@ func (tm *TestManager) getBTCUnbondingTime(t *testing.T) uint32 {
 	btccParams, err := tm.BabylonClient.BTCCheckpointParams()
 	require.NoError(t, err)
 
-	return bstypes.MinimumUnbondingTime(&bsParams.Params, &btccParams.Params) + 1
+	m := sdkmath.Max[uint32](
+		bsParams.Params.MinUnbondingTimeBlocks,
+		btccParams.Params.CheckpointFinalizationTimeout,
+	)
+
+	return m + 1
 }
 
 func (tm *TestManager) CreateFinalityProvider(t *testing.T) (*bstypes.FinalityProvider, *btcec.PrivateKey) {
