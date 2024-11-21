@@ -39,6 +39,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 * [#100](https://github.com/babylonlabs-io/vigilante/pull/100) bump docker workflow to 0.10.2,
 fix some dockerfile issue
+* [#111](https://github.com/babylonlabs-io/vigilante/pull/111) updates bbn to v0.17.0
 
 ## v0.16.1
 
