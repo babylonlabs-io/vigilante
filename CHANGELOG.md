@@ -38,6 +38,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## Unreleased
 
 * [#113](https://github.com/babylonlabs-io/vigilante/pull/113) goreleaser wasm version
+* [#115](https://github.com/babylonlabs-io/vigilante/pull/115) updates bbn to v0.17.1
 
 
 ## v0.17.0
