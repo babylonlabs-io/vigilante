@@ -109,7 +109,7 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 	}, nil)
 	require.NoError(t, err)
 
-	err = testRpcClient.WalletPassphrase(passphrase, 600)
+	err = testRpcClient.WalletPassphrase(passphrase, 6000)
 	require.NoError(t, err)
 
 	walletPrivKey, err := importPrivateKey(btcHandler)

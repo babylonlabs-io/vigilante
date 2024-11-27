@@ -99,7 +99,7 @@ func TestUnbondingWatcher(t *testing.T) {
 
 	var wg sync.WaitGroup
 	wg.Add(expectedUnbonds)
-	for _, del := range delegations {
+	for i, del := range delegations {
 		go func() {
 			defer wg.Done()
 			stakingSlashingInfo := del.stakingSlashingInfo
@@ -142,6 +142,9 @@ func TestUnbondingWatcher(t *testing.T) {
 				return len(tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{&unbondingTxHash})) == 1
 			}, eventuallyWaitTimeOut, eventuallyPollTime)
 		}()
+		if (i+1)%100 == 0 {
+			time.Sleep(7 * time.Second)
+		}
 	}
 
 	wg.Wait()
