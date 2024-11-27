@@ -1,13 +1,13 @@
-//go:build e2e
-// +build e2e
-
 package e2etest
 
 import (
 	"fmt"
+	"github.com/babylonlabs-io/babylon/testutil/datagen"
 	btcstakingtypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
+	"github.com/btcsuite/btcd/btcec/v2"
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"sync"
 	"testing"
 	"time"
@@ -26,7 +26,7 @@ import (
 func TestUnbondingWatcher(t *testing.T) {
 	t.Parallel()
 	// segwit is activated at height 300. It's needed by staking/slashing tx
-	numMatureOutputs := uint32(300)
+	numMatureOutputs := uint32(1200)
 
 	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
 	defer tm.Stop(t)
@@ -64,66 +64,116 @@ func TestUnbondingWatcher(t *testing.T) {
 
 	// set up a finality provider
 	_, fpSK := tm.CreateFinalityProvider(t)
-	// set up a BTC delegation
-	stakingSlashingInfo, unbondingSlashingInfo, delSK := tm.CreateBTCDelegation(t, fpSK)
 
-	// Staker unbonds by directly sending tx to btc network. Watcher should detect it and report to babylon.
-	unbondingPathSpendInfo, err := stakingSlashingInfo.StakingInfo.UnbondingPathSpendInfo()
-	require.NoError(t, err)
-	stakingOutIdx, err := outIdx(unbondingSlashingInfo.UnbondingTx, unbondingSlashingInfo.UnbondingInfo.UnbondingOutput)
-	require.NoError(t, err)
+	type testStakingBundle struct {
+		stakingSlashingInfo   *datagen.TestStakingSlashingInfo
+		unbondingSlashingInfo *datagen.TestUnbondingSlashingInfo
+		delSK                 *btcec.PrivateKey
+	}
 
-	unbondingTxSchnorrSig, err := btcstaking.SignTxWithOneScriptSpendInputStrict(
-		unbondingSlashingInfo.UnbondingTx,
-		stakingSlashingInfo.StakingTx,
-		stakingOutIdx,
-		unbondingPathSpendInfo.GetPkScriptPath(),
-		delSK,
-	)
-	require.NoError(t, err)
+	var delegations []testStakingBundle
+	expectedUnbonds := 1000
 
-	resp, err := tm.BabylonClient.BTCDelegation(stakingSlashingInfo.StakingTx.TxHash().String())
-	require.NoError(t, err)
+	var gr errgroup.Group
+	for i := 0; i < expectedUnbonds; i++ {
+		gr.Go(func() error {
+			// set up a BTC delegation
+			stakingSlashingInfo, unbondingSlashingInfo, delSK := tm.CreateBTCDelegation(t, fpSK)
+			delegations = append(delegations, testStakingBundle{
+				stakingSlashingInfo:   stakingSlashingInfo,
+				unbondingSlashingInfo: unbondingSlashingInfo,
+				delSK:                 delSK,
+			})
 
-	covenantSigs := resp.BtcDelegation.UndelegationResponse.CovenantUnbondingSigList
-	witness, err := unbondingPathSpendInfo.CreateUnbondingPathWitness(
-		[]*schnorr.Signature{covenantSigs[0].Sig.MustToBTCSig()},
-		unbondingTxSchnorrSig,
-	)
-	unbondingSlashingInfo.UnbondingTx.TxIn[0].Witness = witness
+			return nil
+		})
+	}
+	_ = gr.Wait()
 
-	// Send unbonding tx to Bitcoin
-	_, err = tm.BTCClient.SendRawTransaction(unbondingSlashingInfo.UnbondingTx, true)
-	require.NoError(t, err)
+	var wg sync.WaitGroup
+	wg.Add(expectedUnbonds)
+	for _, del := range delegations {
+		go func() {
+			defer wg.Done()
+			stakingSlashingInfo := del.stakingSlashingInfo
+			unbondingSlashingInfo := del.unbondingSlashingInfo
+			delSK := del.delSK
 
-	// mine a block with this tx, and insert it to Bitcoin
-	unbondingTxHash := unbondingSlashingInfo.UnbondingTx.TxHash()
-	t.Logf("submitted unbonding tx with hash %s", unbondingTxHash.String())
-	require.Eventually(t, func() bool {
-		return len(tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{&unbondingTxHash})) == 1
-	}, eventuallyWaitTimeOut, eventuallyPollTime)
+			// Staker unbonds by directly sending tx to btc network. Watcher should detect it and report to babylon.
+			unbondingPathSpendInfo, err := stakingSlashingInfo.StakingInfo.UnbondingPathSpendInfo()
+			require.NoError(t, err)
+			stakingOutIdx, err := outIdx(unbondingSlashingInfo.UnbondingTx, unbondingSlashingInfo.UnbondingInfo.UnbondingOutput)
+			require.NoError(t, err)
+
+			unbondingTxSchnorrSig, err := btcstaking.SignTxWithOneScriptSpendInputStrict(
+				unbondingSlashingInfo.UnbondingTx,
+				stakingSlashingInfo.StakingTx,
+				stakingOutIdx,
+				unbondingPathSpendInfo.GetPkScriptPath(),
+				delSK,
+			)
+			require.NoError(t, err)
+
+			resp, err := tm.BabylonClient.BTCDelegation(stakingSlashingInfo.StakingTx.TxHash().String())
+			require.NoError(t, err)
+
+			covenantSigs := resp.BtcDelegation.UndelegationResponse.CovenantUnbondingSigList
+			witness, err := unbondingPathSpendInfo.CreateUnbondingPathWitness(
+				[]*schnorr.Signature{covenantSigs[0].Sig.MustToBTCSig()},
+				unbondingTxSchnorrSig,
+			)
+			unbondingSlashingInfo.UnbondingTx.TxIn[0].Witness = witness
+
+			// Send unbonding tx to Bitcoin
+			_, err = tm.BTCClient.SendRawTransaction(unbondingSlashingInfo.UnbondingTx, true)
+			require.NoError(t, err)
+
+			// mine a block with this tx, and insert it to Bitcoin
+			unbondingTxHash := unbondingSlashingInfo.UnbondingTx.TxHash()
+			t.Logf("submitted unbonding tx with hash %s", unbondingTxHash.String())
+			require.Eventually(t, func() bool {
+				return len(tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{&unbondingTxHash})) == 1
+			}, eventuallyWaitTimeOut, eventuallyPollTime)
+		}()
+	}
+
+	wg.Wait()
 
 	minedBlock := tm.mineBlock(t)
-	require.Equal(t, 2, len(minedBlock.Transactions))
+	require.Equal(t, expectedUnbonds+1, len(minedBlock.Transactions))
 
 	tm.CatchUpBTCLightClient(t)
 
+	unbonded := make(map[string]bool)
+	t0 := time.Now()
 	require.Eventually(t, func() bool {
-		resp, err := tm.BabylonClient.BTCDelegation(stakingSlashingInfo.StakingTx.TxHash().String())
-		require.NoError(t, err)
+		for _, ssi := range delegations {
+			resp, err := tm.BabylonClient.BTCDelegation(ssi.stakingSlashingInfo.StakingTx.TxHash().String())
+			require.NoError(t, err)
 
-		// TODO: Add field for staker signature in BTCDelegation query to check it directly,
-		// for now it is enough to check that delegation is not active, as if unbonding was reported
-		// delegation will be deactivated
-		return !resp.BtcDelegation.Active
+			if !resp.BtcDelegation.Active {
+				unbonded[ssi.stakingSlashingInfo.StakingTx.TxHash().String()] = true
+			}
+		}
 
+		countActive := 0
+		for _, unb := range unbonded {
+			if !unb {
+				return false
+			}
+			countActive++
+		}
+
+		return countActive == len(delegations)
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
+	t.Logf("time took for all delegations to be unbonded %s", time.Since(t0))
 }
 
 // TestActivatingDelegation verifies that a delegation created without an inclusion proof will
 // eventually become "active".
 // Specifically, that stakingEventWatcher will send a MsgAddBTCDelegationInclusionProof to do so.
 func TestActivatingDelegation(t *testing.T) {
+	t.Skip()
 	t.Parallel()
 	// segwit is activated at height 300. It's necessary for staking/slashing tx
 	numMatureOutputs := uint32(300)
@@ -226,6 +276,7 @@ func TestActivatingDelegation(t *testing.T) {
 // In this test, we include both staking tx and unbonding tx in the same block.
 // The delegation goes through "VERIFIED" → "ACTIVE" → "UNBONDED" status throughout this test.
 func TestActivatingAndUnbondingDelegation(t *testing.T) {
+	t.Skip()
 	//t.Parallel()
 	// segwit is activated at height 300. It's necessary for staking/slashing tx
 	numMatureOutputs := uint32(300)

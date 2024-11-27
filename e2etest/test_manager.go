@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -61,6 +62,7 @@ type TestManager struct {
 	Config          *config.Config
 	WalletPrivKey   *btcec.PrivateKey
 	manger          *container.Manager
+	mu              sync.Mutex
 }
 
 func initBTCClientWithSubscriber(t *testing.T, cfg *config.Config) *btcclient.Client {
