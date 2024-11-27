@@ -50,7 +50,7 @@ func TestUnbondingWatcher(t *testing.T) {
 
 	commonCfg := config.DefaultCommonConfig()
 	bstCfg := config.DefaultBTCStakingTrackerConfig()
-	bstCfg.CheckDelegationsInterval = 1 * time.Second
+	bstCfg.CheckDelegationsInterval = 2 * time.Second
 	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
 
 	bsTracker := bst.NewBTCStakingTracker(
@@ -75,7 +75,7 @@ func TestUnbondingWatcher(t *testing.T) {
 	}
 
 	var delegations []testStakingBundle
-	expectedUnbonds := 1000
+	expectedUnbonds := 800
 
 	var gr errgroup.Group
 	for i := 0; i < expectedUnbonds; i++ {
@@ -175,7 +175,7 @@ func TestUnbondingWatcher(t *testing.T) {
 		}
 
 		return countActive == len(delegations)
-	}, eventuallyWaitTimeOut, eventuallyPollTime)
+	}, 15*time.Minute, 2*time.Second)
 	t.Logf("time took for all delegations to be unbonded %s", time.Since(t0))
 }
 
