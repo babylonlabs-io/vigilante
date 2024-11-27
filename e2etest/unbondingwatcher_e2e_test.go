@@ -90,6 +90,10 @@ func TestUnbondingWatcher(t *testing.T) {
 
 			return nil
 		})
+		// wait for a bit to combat contention
+		if (i+1)%100 == 0 {
+			time.Sleep(7 * time.Second)
+		}
 	}
 	_ = gr.Wait()
 
