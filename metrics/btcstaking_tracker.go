@@ -32,6 +32,7 @@ type UnbondingWatcherMetrics struct {
 	FailedReportedActivateDelegations       prometheus.Counter
 	ReportedActivateDelegationsCounter      prometheus.Counter
 	NumberOfActivationInProgress            prometheus.Gauge
+	NumberOfVerifiedDelegations             prometheus.Gauge
 	MethodExecutionLatency                  *prometheus.HistogramVec
 }
 
@@ -85,6 +86,11 @@ func newUnbondingWatcherMetrics(registry *prometheus.Registry) *UnbondingWatcher
 			Namespace: "vigilante",
 			Name:      "unbonding_watcher_number_of_activation_in_progress",
 			Help:      "The number of activations in progress",
+		}),
+		NumberOfVerifiedDelegations: registerer.NewGauge(prometheus.GaugeOpts{
+			Namespace: "vigilante",
+			Name:      "unbonding_watcher_number_of_verified_delegations",
+			Help:      "The number of verified delegations",
 		}),
 	}
 

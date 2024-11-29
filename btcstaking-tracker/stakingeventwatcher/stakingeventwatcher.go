@@ -75,6 +75,7 @@ type StakingEventWatcher struct {
 	babylonNodeAdapter BabylonNodeAdapter
 	unbondingTracker   *TrackedDelegations
 	pendingTracker     *TrackedDelegations
+	inProgressTracker  *TrackedDelegations
 
 	unbondingDelegationChan chan *newDelegation
 
@@ -100,6 +101,7 @@ func NewStakingEventWatcher(
 		metrics:                 metrics,
 		unbondingTracker:        NewTrackedDelegations(),
 		pendingTracker:          NewTrackedDelegations(),
+		inProgressTracker:       NewTrackedDelegations(),
 		unbondingDelegationChan: make(chan *newDelegation),
 		unbondingRemovalChan:    make(chan *delegationInactive),
 	}
@@ -254,6 +256,7 @@ func (sew *StakingEventWatcher) fetchDelegations() {
 						del.delegationStartHeight,
 						false,
 					)
+					sew.metrics.NumberOfVerifiedDelegations.Inc()
 				}
 			}
 
@@ -584,7 +587,7 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 	}
 
 	for del := range sew.pendingTracker.DelegationsIter() {
-		if del.ActivationInProgress {
+		if inProgDel := sew.inProgressTracker.GetDelegation(del.StakingTx.TxHash()); inProgDel != nil && inProgDel.ActivationInProgress {
 			continue
 		}
 
@@ -608,6 +611,11 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 			continue
 		}
 
+		if _, err = sew.inProgressTracker.AddDel(del, false); err != nil {
+			sew.logger.Debugf("error adding del %s", err)
+			continue
+		}
+
 		go sew.activateBtcDelegation(txHash, proof, details.Block.BlockHash(), params.ConfirmationTimeBlocks)
 	}
 }
@@ -626,17 +634,6 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 	defer cancel()
 
 	defer sew.latency("activateBtcDelegation")()
-
-	if err := sew.pendingTracker.UpdateActivation(stakingTxHash, true); err != nil {
-		sew.logger.Debugf("skipping tx %s is not in pending tracker, err: %v", stakingTxHash, err)
-	}
-
-	defer func() {
-		// in case we don't succeed activating, reset the in progress flag
-		if err := sew.pendingTracker.UpdateActivation(stakingTxHash, false); err != nil {
-			sew.logger.Debugf("skipping tx %s is not in pending tracker [this is ok], err: %v", stakingTxHash, err)
-		}
-	}()
 
 	sew.waitForRequiredDepth(ctx, stakingTxHash, &inclusionBlockHash, requiredDepth)
 
@@ -661,6 +658,9 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 		sew.metrics.ReportedActivateDelegationsCounter.Inc()
 
 		sew.pendingTracker.RemoveDelegation(stakingTxHash)
+		sew.inProgressTracker.RemoveDelegation(stakingTxHash)
+
+		sew.metrics.NumberOfVerifiedDelegations.Dec()
 		sew.logger.Debugf("staking tx activated %s", stakingTxHash.String())
 
 		return nil
@@ -682,6 +682,8 @@ func (sew *StakingEventWatcher) waitForRequiredDepth(
 	inclusionBlockHash *chainhash.Hash,
 	requiredDepth uint32,
 ) {
+	defer sew.latency("waitForRequiredDepth")()
+
 	var depth uint32
 	_ = retry.Do(func() error {
 		var err error

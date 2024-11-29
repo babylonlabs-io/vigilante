@@ -105,6 +105,28 @@ func (td *TrackedDelegations) AddDelegation(
 	return delegation, nil
 }
 
+func (td *TrackedDelegations) AddDel(
+	delegation *TrackedDelegation,
+	shouldUpdate bool,
+) (*TrackedDelegation, error) {
+	td.mu.Lock()
+	defer td.mu.Unlock()
+
+	stakingTxHash := delegation.StakingTx.TxHash()
+
+	if _, ok := td.mapping[stakingTxHash]; ok {
+		if shouldUpdate {
+			// Update the existing delegation
+			td.mapping[stakingTxHash] = delegation
+			return delegation, nil
+		}
+		return nil, fmt.Errorf("delegation already tracked for staking tx hash %s", stakingTxHash)
+	}
+
+	td.mapping[stakingTxHash] = delegation
+	return delegation, nil
+}
+
 func (td *TrackedDelegations) RemoveDelegation(stakingTxHash chainhash.Hash) {
 	td.mu.Lock()
 	defer td.mu.Unlock()
