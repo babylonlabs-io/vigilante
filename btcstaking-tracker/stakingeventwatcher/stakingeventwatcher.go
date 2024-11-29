@@ -674,7 +674,6 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 			sew.logger.Debugf("retrying to submit activation tx, for staking tx: %s. Attempt: %d. Err: %v", stakingTxHash, n, err)
 		}),
 	)
-
 }
 
 func (sew *StakingEventWatcher) waitForRequiredDepth(
