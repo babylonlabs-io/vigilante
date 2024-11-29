@@ -37,6 +37,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Improvements
+
+* [#123](https://github.com/babylonlabs-io/vigilante/pull/123) more metrics for bstracker
+
 ## v0.17.1
 
 ### Improvements
