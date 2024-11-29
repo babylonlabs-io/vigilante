@@ -31,6 +31,7 @@ type UnbondingWatcherMetrics struct {
 	DetectedNonUnbondingTransactionsCounter prometheus.Counter
 	FailedReportedActivateDelegations       prometheus.Counter
 	ReportedActivateDelegationsCounter      prometheus.Counter
+	NumberOfActivationInProgress            prometheus.Gauge
 	MethodExecutionLatency                  *prometheus.HistogramVec
 }
 
@@ -40,38 +41,51 @@ func newUnbondingWatcherMetrics(registry *prometheus.Registry) *UnbondingWatcher
 	uwMetrics := &UnbondingWatcherMetrics{
 		Registry: registry,
 		ReportedUnbondingTransactionsCounter: registerer.NewCounter(prometheus.CounterOpts{
-			Name: "unbonding_watcher_reported_unbonding_transactions",
-			Help: "The total number of unbonding transactions successfully reported to Babylon node",
+			Namespace: "vigilante",
+			Name:      "unbonding_watcher_reported_unbonding_transactions",
+			Help:      "The total number of unbonding transactions successfully reported to Babylon node",
 		}),
 		FailedReportedUnbondingTransactions: registerer.NewCounter(prometheus.CounterOpts{
-			Name: "unbonding_watcher_failed_reported_unbonding_transactions",
-			Help: "The total number times reporting unbonding transactions to Babylon node failed",
+			Namespace: "vigilante",
+			Name:      "unbonding_watcher_failed_reported_unbonding_transactions",
+			Help:      "The total number times reporting unbonding transactions to Babylon node failed",
 		}),
 		NumberOfTrackedActiveDelegations: registerer.NewGauge(prometheus.GaugeOpts{
-			Name: "unbonding_watcher_tracked_active_delegations",
-			Help: "The number of active delegations tracked by unbonding watcher",
+			Namespace: "vigilante",
+			Name:      "unbonding_watcher_tracked_active_delegations",
+			Help:      "The number of active delegations tracked by unbonding watcher",
 		}),
 		DetectedUnbondingTransactionsCounter: registerer.NewCounter(prometheus.CounterOpts{
-			Name: "unbonding_watcher_detected_unbonding_transactions",
-			Help: "The total number of unbonding transactions detected by unbonding watcher",
+			Namespace: "vigilante",
+			Name:      "unbonding_watcher_detected_unbonding_transactions",
+			Help:      "The total number of unbonding transactions detected by unbonding watcher",
 		}),
 		DetectedNonUnbondingTransactionsCounter: registerer.NewCounter(prometheus.CounterOpts{
-			Name: "unbonding_watcher_detected_non_unbonding_transactions",
-			Help: "The total number of non unbonding (slashing or withdrawal) transactions detected by unbonding watcher",
+			Namespace: "vigilante",
+			Name:      "unbonding_watcher_detected_non_unbonding_transactions",
+			Help:      "The total number of non unbonding (slashing or withdrawal) transactions detected by unbonding watcher",
 		}),
 		FailedReportedActivateDelegations: registerer.NewCounter(prometheus.CounterOpts{
-			Name: "unbonding_watcher_failed_reported_activate_delegation",
-			Help: "The total number times reporting activation delegation failed on Babylon node",
+			Namespace: "vigilante",
+			Name:      "unbonding_watcher_failed_reported_activate_delegation",
+			Help:      "The total number times reporting activation delegation failed on Babylon node",
 		}),
 		ReportedActivateDelegationsCounter: registerer.NewCounter(prometheus.CounterOpts{
-			Name: "unbonding_watcher_reported_activate_delegations",
-			Help: "The total number of unbonding transactions successfully reported to Babylon node",
+			Namespace: "vigilante",
+			Name:      "unbonding_watcher_reported_activate_delegations",
+			Help:      "The total number of unbonding transactions successfully reported to Babylon node",
 		}),
 		MethodExecutionLatency: registerer.NewHistogramVec(prometheus.HistogramOpts{
-			Name:    "unbonding_watcher_method_latency_seconds",
-			Help:    "Latency in seconds",
-			Buckets: []float64{.001, .002, .005, .01, .025, .05, .1},
+			Namespace: "vigilante",
+			Name:      "unbonding_watcher_method_latency_seconds",
+			Help:      "Latency in seconds",
+			Buckets:   []float64{.001, .002, .005, .01, .025, .05, .1},
 		}, []string{"method"}),
+		NumberOfActivationInProgress: registerer.NewGauge(prometheus.GaugeOpts{
+			Namespace: "vigilante",
+			Name:      "unbonding_watcher_number_of_activation_in_progress",
+			Help:      "The number of activations in progress",
+		}),
 	}
 
 	return uwMetrics
