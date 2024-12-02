@@ -37,6 +37,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+## v0.17.3
+
 ### Improvements
 
 * [#127](https://github.com/babylonlabs-io/vigilante/pull/127) fix long lock time
