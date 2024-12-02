@@ -73,14 +73,16 @@ type StakingEventWatcher struct {
 	// TODO: Ultimately all requests to babylon should go through some kind of semaphore
 	// to avoid spamming babylon with requests
 	babylonNodeAdapter BabylonNodeAdapter
-	unbondingTracker   *TrackedDelegations
-	pendingTracker     *TrackedDelegations
-	inProgressTracker  *TrackedDelegations
+	// keeps track of unbonding delegations, used as a cache to avoid registering ntfn twice
+	unbondingTracker *TrackedDelegations
+	// keeps track of verified delegations to be activated, periodically iterate over them and try to activate them
+	pendingTracker *TrackedDelegations
+	// keeps track of delegations that are verified, and we are trying to activate
+	inProgressTracker *TrackedDelegations
 
 	unbondingDelegationChan chan *newDelegation
-
-	unbondingRemovalChan   chan *delegationInactive
-	currentBestBlockHeight atomic.Uint32
+	unbondingRemovalChan    chan *delegationInactive
+	currentBestBlockHeight  atomic.Uint32
 }
 
 func NewStakingEventWatcher(
@@ -231,10 +233,10 @@ func (sew *StakingEventWatcher) fetchDelegations() {
 				// we should track both verified and active status for unbonding
 				changed, exists := sew.unbondingTracker.HasDelegationChanged(delegation.StakingTx.TxHash(), del)
 				if exists && changed {
-					// Delegation exists and has changed, push the update.
+					// The Delegation exists and has changed, push the update.
 					utils.PushOrQuit(sew.unbondingDelegationChan, del, sew.quit)
 				} else if !exists {
-					// Delegation doesn't exist, push the new delegation.
+					// The Delegation doesn't exist, push the new delegation.
 					utils.PushOrQuit(sew.unbondingDelegationChan, del, sew.quit)
 				}
 			}
@@ -611,7 +613,13 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 			continue
 		}
 
-		if _, err = sew.inProgressTracker.AddDel(del, false); err != nil {
+		if _, err = sew.inProgressTracker.AddDelegation(
+			del.StakingTx,
+			del.StakingOutputIdx,
+			del.UnbondingOutput,
+			del.DelegationStartHeight,
+			false,
+		); err != nil {
 			sew.logger.Warnf("add del: %s", err)
 			continue
 		}
