@@ -659,7 +659,6 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 		sew.metrics.ReportedActivateDelegationsCounter.Inc()
 
 		sew.pendingTracker.RemoveDelegation(stakingTxHash)
-		sew.inProgressTracker.RemoveDelegation(stakingTxHash)
 
 		sew.metrics.NumberOfVerifiedDelegations.Dec()
 		sew.logger.Debugf("staking tx activated %s", stakingTxHash.String())
