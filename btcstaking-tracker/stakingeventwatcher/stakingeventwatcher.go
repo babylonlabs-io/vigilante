@@ -634,6 +634,7 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 	defer cancel()
 
 	defer sew.latency("activateBtcDelegation")()
+	defer sew.inProgressTracker.RemoveDelegation(stakingTxHash)
 
 	sew.waitForRequiredDepth(ctx, stakingTxHash, &inclusionBlockHash, requiredDepth)
 
