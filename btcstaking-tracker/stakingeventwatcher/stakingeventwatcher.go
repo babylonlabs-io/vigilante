@@ -612,7 +612,7 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 		}
 
 		if _, err = sew.inProgressTracker.AddDel(del, false); err != nil {
-			sew.logger.Debugf("error adding del %s", err)
+			sew.logger.Warnf("add del: %s", err)
 			continue
 		}
 
