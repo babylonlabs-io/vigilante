@@ -37,6 +37,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Improvements
+
+* [#132](https://github.com/babylonlabs-io/vigilante/pull/132) bump bbn v0.18.0
+
 ## v0.17.3
 
 ### Improvements
