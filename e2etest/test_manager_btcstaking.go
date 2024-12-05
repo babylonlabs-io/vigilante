@@ -47,15 +47,8 @@ var (
 func (tm *TestManager) getBTCUnbondingTime(t *testing.T) uint32 {
 	bsParams, err := tm.BabylonClient.BTCStakingParams()
 	require.NoError(t, err)
-	btccParams, err := tm.BabylonClient.BTCCheckpointParams()
-	require.NoError(t, err)
 
-	m := sdkmath.Max[uint32](
-		bsParams.Params.MinUnbondingTimeBlocks,
-		btccParams.Params.CheckpointFinalizationTimeout,
-	)
-
-	return m + 1
+	return bsParams.Params.UnbondingTimeBlocks
 }
 
 func (tm *TestManager) CreateFinalityProvider(t *testing.T) (*bstypes.FinalityProvider, *btcec.PrivateKey) {
@@ -191,7 +184,7 @@ func (tm *TestManager) CreateBTCDelegation(
 		SlashingTx:           stakingSlashingInfo.SlashingTx,
 		DelegatorSlashingSig: delegatorSig,
 		// Unbonding related data
-		UnbondingTime:                 uint32(tm.getBTCUnbondingTime(t)),
+		UnbondingTime:                 tm.getBTCUnbondingTime(t),
 		UnbondingTx:                   unbondingTxBytes,
 		UnbondingValue:                unbondingSlashingInfo.UnbondingInfo.UnbondingOutput.Value,
 		UnbondingSlashingTx:           unbondingSlashingInfo.SlashingTx,
