@@ -37,6 +37,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Improvements
+
+* [#136](https://github.com/babylonlabs-io/vigilante/pull/136) rate limit activations
+
 ## v0.18.0
 
 ### Improvements
