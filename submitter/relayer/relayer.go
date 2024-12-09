@@ -181,6 +181,10 @@ func (rl *Relayer) MaybeResubmitSecondCheckpointTx(ckpt *ckpttypes.RawCheckpoint
 	rl.logger.Debugf("The checkpoint for epoch %v was sent more than %v seconds ago but not included on BTC",
 		ckptEpoch, rl.config.ResendIntervalSeconds)
 
+	if rl.lastSubmittedCheckpoint.Tx1 == nil || rl.lastSubmittedCheckpoint.Tx2 == nil {
+		return fmt.Errorf("tx1 and tx2 in rl.lastSubmittedCheckpoint is nil, tx1 %v, tx2 %v", rl.lastSubmittedCheckpoint.Tx1, rl.lastSubmittedCheckpoint.Tx2)
+	}
+
 	bumpedFee := rl.calculateBumpedFee(rl.lastSubmittedCheckpoint)
 
 	// make sure the bumped fee is effective
