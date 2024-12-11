@@ -208,6 +208,7 @@ func (as *AtomicSlasher) selectiveSlashingReporter() {
 
 			// stop tracking the delegations under this finality provider
 			as.btcDelIndex.Remove(stakingTxHash)
+			as.metrics.TrackedBTCDelegationsGauge.Dec()
 
 		case <-as.quit:
 			return
