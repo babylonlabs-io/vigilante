@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"golang.org/x/sync/semaphore"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -26,8 +27,9 @@ import (
 )
 
 var (
-	fixedDelyTypeWithJitter = retry.DelayType(retry.CombineDelay(retry.FixedDelay, retry.RandomDelay))
-	retryForever            = retry.Attempts(0)
+	fixedDelyTypeWithJitter  = retry.DelayType(retry.CombineDelay(retry.FixedDelay, retry.RandomDelay))
+	retryForever             = retry.Attempts(0)
+	maxConcurrentActivations = int64(1000)
 )
 
 func (sew *StakingEventWatcher) quitContext() (context.Context, func()) {
@@ -83,6 +85,7 @@ type StakingEventWatcher struct {
 	unbondingDelegationChan chan *newDelegation
 	unbondingRemovalChan    chan *delegationInactive
 	currentBestBlockHeight  atomic.Uint32
+	activationLimiter       *semaphore.Weighted
 }
 
 func NewStakingEventWatcher(
@@ -106,6 +109,7 @@ func NewStakingEventWatcher(
 		inProgressTracker:       NewTrackedDelegations(),
 		unbondingDelegationChan: make(chan *newDelegation),
 		unbondingRemovalChan:    make(chan *delegationInactive),
+		activationLimiter:       semaphore.NewWeighted(maxConcurrentActivations), // todo(lazar): this should be in config
 	}
 }
 
@@ -613,6 +617,11 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 			continue
 		}
 
+		if err := sew.activationLimiter.Acquire(context.Background(), 1); err != nil {
+			sew.logger.Warnf("error acquiring a activation semaphore %s", err)
+			continue
+		}
+
 		if _, err = sew.inProgressTracker.AddDelegation(
 			del.StakingTx,
 			del.StakingOutputIdx,
@@ -624,7 +633,10 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 			continue
 		}
 
-		go sew.activateBtcDelegation(txHash, proof, details.Block.BlockHash(), params.ConfirmationTimeBlocks)
+		go func() {
+			defer sew.activationLimiter.Release(1)
+			sew.activateBtcDelegation(txHash, proof, details.Block.BlockHash(), params.ConfirmationTimeBlocks)
+		}()
 	}
 }
 
