@@ -37,6 +37,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Bug Fixes
+
+* [#140](https://github.com/babylonlabs-io/vigilante/pull/140) fix panic in submitter
+
 ## v0.18.0
 
 ### Improvements
