@@ -68,7 +68,7 @@ mocks:
 	$(MOCKGEN_CMD) -source=btcstaking-tracker/atomicslasher/expected_babylon_client.go -package atomicslasher -destination btcstaking-tracker/atomicslasher/mock_babylon_client.go
 	$(MOCKGEN_CMD) -source=btcstaking-tracker/stakingeventwatcher/expected_babylon_client.go -package stakingeventwatcher -destination btcstaking-tracker/stakingeventwatcher/mock_babylon_client.go
 
-.PHONY: build test test-e2e build-docker rm-docker mocks update-changelog
+.PHONY: build test test-e2e build-docker rm-docker mocks
 
 proto-gen:
 	@$(call print, "Compiling protos.")
