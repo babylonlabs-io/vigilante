@@ -76,6 +76,7 @@ func NewReporterMetrics() *ReporterMetrics {
 			},
 		),
 	}
+
 	return metrics
 }
 

@@ -93,6 +93,7 @@ func New(
 func (bs *BtcScanner) Start(startHeight uint32) {
 	if bs.started.Load() {
 		bs.logger.Info("the BTC scanner is already started")
+
 		return
 	}
 
@@ -103,6 +104,7 @@ func (bs *BtcScanner) Start(startHeight uint32) {
 
 	if err := bs.btcNotifier.Start(); err != nil {
 		bs.logger.Errorf("Failed starting notifier")
+
 		return
 	}
 
@@ -268,11 +270,13 @@ func (bs *BtcScanner) tryToExtractCkptSegment(b *types.IndexedBlock) bool {
 			err := bs.ckptCache.AddSegment(ckptSeg)
 			if err != nil {
 				bs.logger.Errorf("Failed to add the ckpt segment in tx %v to the ckptCache: %v", tx.Hash(), err)
+
 				continue
 			}
 			found = true
 		}
 	}
+
 	return found
 }
 
@@ -287,6 +291,7 @@ func (bs *BtcScanner) Stop() {
 func (bs *BtcScanner) GetBaseHeight() uint32 {
 	bs.mu.Lock()
 	defer bs.mu.Unlock()
+
 	return bs.baseHeight
 }
 

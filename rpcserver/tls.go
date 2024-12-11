@@ -27,6 +27,7 @@ func openRPCKeyPair(oneTimeTLSKey bool, rpcKeyFile string, rpcCertFile string) (
 	case oneTimeTLSKey && keyExists:
 		err := fmt.Errorf("one time TLS keys are enabled, but TLS key "+
 			"`%s` already exists", rpcKeyFile)
+
 		return tls.Certificate{}, err
 	case oneTimeTLSKey:
 		return generateRPCKeyPair(rpcKeyFile, rpcCertFile, false)
@@ -74,6 +75,7 @@ func generateRPCKeyPair(rpcKeyFile string, rpcCertFile string, writeKey bool) (t
 		err = os.WriteFile(rpcKeyFile, key, 0600)
 		if err != nil {
 			_ = os.Remove(rpcCertFile) //nolint: errcheck
+
 			return tls.Certificate{}, err
 		}
 	}

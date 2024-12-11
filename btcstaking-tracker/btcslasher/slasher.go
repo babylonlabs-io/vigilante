@@ -126,6 +126,7 @@ func (bs *BTCSlasher) Start() error {
 		// load module parameters
 		if err := bs.LoadParams(); err != nil {
 			startErr = err
+
 			return
 		}
 
@@ -162,6 +163,7 @@ func (bs *BTCSlasher) slashingEnforcer() {
 		select {
 		case <-bs.quit:
 			bs.logger.Debug("handle delegations loop quit")
+
 			return
 		case fpBTCSK, ok := <-bs.slashedFPSKChan:
 			if !ok {
@@ -169,6 +171,7 @@ func (bs *BTCSlasher) slashingEnforcer() {
 				// is out of slasher's control. So we need to ensure the channel
 				// is not closed yet
 				bs.logger.Debug("slashedFKSK channel is already closed, terminating the slashing enforcer")
+
 				return
 			}
 			// slash all the BTC delegations of this finality provider
@@ -213,6 +216,7 @@ func (bs *BTCSlasher) equivocationTracker() {
 		select {
 		case <-bs.quit:
 			bs.logger.Debug("handle delegations loop quit")
+
 			return
 		case resultEvent := <-bs.finalitySigChan:
 			evidence := filterEvidence(&resultEvent)
@@ -230,6 +234,7 @@ func (bs *BTCSlasher) equivocationTracker() {
 			fpBTCSK, err := evidence.ExtractBTCSK()
 			if err != nil {
 				bs.logger.Errorf("failed to extract BTC SK of the slashed finality provider %s: %v", fpBTCPKHex, err)
+
 				continue
 			}
 
@@ -274,6 +279,7 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedFpBTCSK *btcec.PrivateKey) 
 			// Acquire the semaphore before interacting with the BTC node
 			if err := sem.Acquire(ctx, 1); err != nil {
 				bs.logger.Errorf("failed to acquire semaphore: %v", err)
+
 				return
 			}
 			defer sem.Release(1)
@@ -309,5 +315,6 @@ func (bs *BTCSlasher) Stop() error {
 
 		bs.logger.Info("stopped slasher")
 	})
+
 	return stopErr
 }

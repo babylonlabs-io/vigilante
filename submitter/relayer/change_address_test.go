@@ -97,5 +97,6 @@ func contains(s []string, e string) bool {
 			return true
 		}
 	}
+
 	return false
 }

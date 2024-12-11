@@ -41,5 +41,6 @@ func NewMonitorMetrics() *MonitorMetrics {
 			Help: "The total number of detected liveness attacks",
 		}),
 	}
+
 	return metrics
 }

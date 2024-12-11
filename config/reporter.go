@@ -28,6 +28,7 @@ func (cfg *ReporterConfig) Validate() error {
 	if cfg.MaxHeadersInMsg < maxHeadersInMsg {
 		return fmt.Errorf("max_headers_in_msg has to be at least %d", maxHeadersInMsg)
 	}
+
 	return nil
 }
 

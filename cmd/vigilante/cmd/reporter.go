@@ -122,5 +122,6 @@ func GetReporterCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&babylonKeyDir, "babylon-key-dir", "", "Directory of the Babylon key")
 	cmd.Flags().StringVar(&cfgFile, "config", config.DefaultConfigFile(), "config file")
+
 	return cmd
 }

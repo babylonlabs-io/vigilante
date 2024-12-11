@@ -26,6 +26,7 @@ func NewCkptSegment(tag btctxformatter.BabylonTag, version btctxformatter.Format
 	if err != nil {
 		return nil
 	}
+
 	return &CkptSegment{
 		BabylonData: bbnData,
 		TxIdx:       tx.Index(),

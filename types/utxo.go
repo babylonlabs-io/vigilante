@@ -43,6 +43,7 @@ func NewUTXO(r *btcjson.ListUnspentResult, net *chaincfg.Params) (*UTXO, error) 
 		Amount:   amount,
 		Addr:     prevAddr,
 	}
+
 	return utxo, nil
 }
 

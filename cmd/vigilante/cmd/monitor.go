@@ -133,5 +133,6 @@ func GetMonitorCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&genesisFile, genesisFileNameFlag, GenesisFileNameDefault, "genesis file")
 	cmd.Flags().StringVar(&cfgFile, "config", config.DefaultConfigFile(), "config file")
+
 	return cmd
 }

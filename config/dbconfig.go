@@ -75,6 +75,7 @@ func (cfg *DBConfig) Validate() error {
 	if cfg.DBFileName == "" {
 		return fmt.Errorf("DB file name cannot be empty")
 	}
+
 	return nil
 }
 

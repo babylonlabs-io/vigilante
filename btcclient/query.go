@@ -43,6 +43,7 @@ func (c *Client) GetBlockByHash(blockHash *chainhash.Hash) (*types.IndexedBlock,
 	if height < 0 || height > int64(math.MaxUint32) {
 		panic(fmt.Errorf("height (%d) is out of uint32 range", height)) // software bug, panic
 	}
+
 	return types.NewIndexedBlock(uint32(height), &mBlock.Header, btcTxs), mBlock, nil
 }
 
@@ -74,6 +75,7 @@ func (c *Client) getBestBlockHashWithRetry() (*chainhash.Hash, error) {
 		if err != nil {
 			return err
 		}
+
 		return nil
 	},
 		retry.Delay(c.retrySleepTime),
@@ -82,6 +84,7 @@ func (c *Client) getBestBlockHashWithRetry() (*chainhash.Hash, error) {
 	); err != nil {
 		c.logger.Debug(
 			"failed to query the best block hash", zap.Error(err))
+
 		return nil, err
 	}
 
@@ -99,6 +102,7 @@ func (c *Client) getBlockHashWithRetry(height uint32) (*chainhash.Hash, error) {
 		if err != nil {
 			return err
 		}
+
 		return nil
 	},
 		retry.Delay(c.retrySleepTime),
@@ -107,6 +111,7 @@ func (c *Client) getBlockHashWithRetry(height uint32) (*chainhash.Hash, error) {
 	); err != nil {
 		c.logger.Debug(
 			"failed to query the block hash", zap.Uint32("height", height), zap.Error(err))
+
 		return nil, err
 	}
 
@@ -124,6 +129,7 @@ func (c *Client) getBlockWithRetry(hash *chainhash.Hash) (*wire.MsgBlock, error)
 		if err != nil {
 			return err
 		}
+
 		return nil
 	},
 		retry.Delay(c.retrySleepTime),
@@ -132,6 +138,7 @@ func (c *Client) getBlockWithRetry(hash *chainhash.Hash) (*wire.MsgBlock, error)
 	); err != nil {
 		c.logger.Debug(
 			"failed to query the block", zap.String("hash", hash.String()), zap.Error(err))
+
 		return nil, err
 	}
 
@@ -149,6 +156,7 @@ func (c *Client) getBlockVerboseWithRetry(hash *chainhash.Hash) (*btcjson.GetBlo
 		if err != nil {
 			return err
 		}
+
 		return nil
 	},
 		retry.Delay(c.retrySleepTime),
@@ -157,6 +165,7 @@ func (c *Client) getBlockVerboseWithRetry(hash *chainhash.Hash) (*btcjson.GetBlo
 	); err != nil {
 		c.logger.Debug(
 			"failed to query the block verbose", zap.String("hash", hash.String()), zap.Error(err))
+
 		return nil, err
 	}
 
@@ -232,6 +241,7 @@ func (c *Client) getBlockCountWithRetry() (int64, error) {
 		if err != nil {
 			return err
 		}
+
 		return nil
 	},
 		retry.Delay(c.retrySleepTime),
@@ -239,6 +249,7 @@ func (c *Client) getBlockCountWithRetry() (int64, error) {
 		retry.Attempts(c.maxRetryTimes),
 	); err != nil {
 		c.logger.Debug("failed to query get block count", zap.Error(err))
+
 		return 0, err
 	}
 

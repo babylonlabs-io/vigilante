@@ -29,6 +29,7 @@ func toWrappedTx(txHex string) (*btcutil.Tx, error) {
 		return nil, err
 	}
 	wrappedTx := btcutil.NewTx(tx)
+
 	return wrappedTx, nil
 }
 

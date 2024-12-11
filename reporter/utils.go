@@ -17,6 +17,7 @@ func chunkBy[T any](items []T, chunkSize int) [][]T {
 	for chunkSize < len(items) {
 		items, chunks = items[chunkSize:], append(chunks, items[0:chunkSize:chunkSize])
 	}
+
 	return append(chunks, items)
 }
 
@@ -35,6 +36,7 @@ func (r *Reporter) getHeaderMsgsToSubmit(signer string, ibs []*types.IndexedBloc
 		var res *btclctypes.QueryContainsBytesResponse
 		err = retrywrap.Do(func() error {
 			res, err = r.babylonClient.ContainsBTCBlock(&blockHash)
+
 			return err
 		},
 			retry.Delay(r.retrySleepTime),
@@ -45,6 +47,7 @@ func (r *Reporter) getHeaderMsgsToSubmit(signer string, ibs []*types.IndexedBloc
 		}
 		if !res.Contains {
 			startPoint = i
+
 			break
 		}
 	}
@@ -52,6 +55,7 @@ func (r *Reporter) getHeaderMsgsToSubmit(signer string, ibs []*types.IndexedBloc
 	// all headers are duplicated, no need to submit
 	if startPoint == -1 {
 		r.logger.Info("All headers are duplicated, no need to submit")
+
 		return []*btclctypes.MsgInsertHeaders{}, nil
 	}
 
@@ -78,6 +82,7 @@ func (r *Reporter) submitHeaderMsgs(msg *btclctypes.MsgInsertHeaders) error {
 			return err
 		}
 		r.logger.Infof("Successfully submitted %d headers to Babylon with response code %v", len(msg.Headers), res.Code)
+
 		return nil
 	},
 		retry.Delay(r.retrySleepTime),
@@ -85,6 +90,7 @@ func (r *Reporter) submitHeaderMsgs(msg *btclctypes.MsgInsertHeaders) error {
 	)
 	if err != nil {
 		r.metrics.FailedHeadersCounter.Add(float64(len(msg.Headers)))
+
 		return fmt.Errorf("failed to submit headers: %w", err)
 	}
 
@@ -109,6 +115,7 @@ func (r *Reporter) ProcessHeaders(signer string, ibs []*types.IndexedBlock) (int
 	// skip if no header to submit
 	if len(headerMsgsToSubmit) == 0 {
 		r.logger.Info("No new headers to submit")
+
 		return 0, nil
 	}
 
@@ -132,6 +139,7 @@ func (r *Reporter) extractCheckpoints(ib *types.IndexedBlock) int {
 	for _, tx := range ib.Txs {
 		if tx == nil {
 			r.logger.Warnf("Found a nil tx in block %v", ib.BlockHash())
+
 			continue
 		}
 
@@ -141,6 +149,7 @@ func (r *Reporter) extractCheckpoints(ib *types.IndexedBlock) int {
 			r.logger.Infof("Found a checkpoint segment in tx %v with index %d: %v", tx.Hash(), ckptSeg.Index, ckptSeg.Data)
 			if err := r.CheckpointCache.AddSegment(ckptSeg); err != nil {
 				r.logger.Errorf("Failed to add the ckpt segment in tx %v to the ckptCache: %v", tx.Hash(), err)
+
 				continue
 			}
 			numCkptSegs++
@@ -163,6 +172,7 @@ func (r *Reporter) matchAndSubmitCheckpoints(signer string) int {
 
 	if numMatchedCkpts == 0 {
 		r.logger.Debug("Found no matched pair of checkpoint segments in this match attempt")
+
 		return numMatchedCkpts
 	}
 
@@ -189,6 +199,7 @@ func (r *Reporter) matchAndSubmitCheckpoints(signer string) int {
 		if err != nil {
 			r.logger.Errorf("Failed to submit MsgInsertBTCSpvProof with error %v", err)
 			r.metrics.FailedCheckpointsCounter.Inc()
+
 			continue
 		}
 		r.logger.Infof("Successfully submitted MsgInsertBTCSpvProof with response %d", res.Code)

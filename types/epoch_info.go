@@ -56,6 +56,7 @@ func (ei *EpochInfo) Equal(epochInfo *EpochInfo) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -73,5 +74,6 @@ func (ei *EpochInfo) VerifyMultiSig(ckpt *ckpttypes.RawCheckpoint) error {
 	if !valid || err != nil {
 		return ErrInvalidMultiSig
 	}
+
 	return nil
 }

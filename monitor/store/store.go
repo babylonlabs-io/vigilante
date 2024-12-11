@@ -97,6 +97,7 @@ func (s *MonitorStore) get(key, bucketName []byte) (uint64, bool, error) {
 		if errors.Is(err, ErrNotFound) {
 			return 0, false, nil
 		}
+
 		return 0, false, err
 	}
 
@@ -119,6 +120,7 @@ func uint64FromBytes(b []byte) (uint64, error) {
 	if len(b) != 8 {
 		return 0, fmt.Errorf("invalid byte slice length: expected 8, got %d", len(b))
 	}
+
 	return binary.BigEndian.Uint64(b), nil
 }
 
@@ -126,5 +128,6 @@ func uint64FromBytes(b []byte) (uint64, error) {
 func uint64ToBytes(v uint64) []byte {
 	var buf [8]byte
 	binary.BigEndian.PutUint64(buf[:], v)
+
 	return buf[:]
 }

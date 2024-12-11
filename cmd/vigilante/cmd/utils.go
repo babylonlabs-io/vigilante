@@ -62,10 +62,12 @@ func mainInterruptHandler() {
 		case sig := <-interruptChannel:
 			fmt.Printf("Received signal (%s).  Shutting down...", sig)
 			invokeCallbacks()
+
 			return
 		case <-simulateInterruptChannel:
 			fmt.Printf("Received shutdown request.  Shutting down...")
 			invokeCallbacks()
+
 			return
 
 		case handler := <-addHandlerChannel:

@@ -208,6 +208,7 @@ func (bca *BabylonClientAdapter) QueryHeaderDepth(headerHash *chainhash.Hash) (u
 			return err
 		}
 		response = depthResponse
+
 		return nil
 	},
 		retry.Attempts(5),
@@ -217,6 +218,7 @@ func (bca *BabylonClientAdapter) QueryHeaderDepth(headerHash *chainhash.Hash) (u
 		if strings.Contains(err.Error(), btclctypes.ErrHeaderDoesNotExist.Error()) {
 			return 0, fmt.Errorf("%s: %w", err.Error(), ErrHeaderNotKnownToBabylon)
 		}
+
 		return 0, err
 	}
 
