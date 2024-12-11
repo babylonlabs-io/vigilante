@@ -89,6 +89,7 @@ func NewSubmitterMetrics() *SubmitterMetrics {
 		}),
 		RelayerMetrics: newRelayerMetrics(registry),
 	}
+
 	return metrics
 }
 

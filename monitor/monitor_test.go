@@ -147,5 +147,6 @@ func convertToBlsPublicKeyListResponse(valBLSKeys []*ckpttypes.ValidatorWithBlsK
 			VotingPower:      valBlsKey.VotingPower,
 		}
 	}
+
 	return blsPublicKeyListResponse
 }

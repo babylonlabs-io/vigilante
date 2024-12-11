@@ -12,7 +12,8 @@ type CheckpointsBookkeeper struct {
 }
 
 func NewCheckpointsBookkeeper() *CheckpointsBookkeeper {
-	records := make(map[string]*CheckpointRecord, 0)
+	records := make(map[string]*CheckpointRecord)
+
 	return &CheckpointsBookkeeper{
 		checkpointRecords: records,
 	}
@@ -43,6 +44,7 @@ func (cb *CheckpointsBookkeeper) Remove(id string) {
 
 func (cb *CheckpointsBookkeeper) has(id string) bool {
 	_, exists := cb.checkpointRecords[id]
+
 	return exists
 }
 

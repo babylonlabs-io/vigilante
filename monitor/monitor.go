@@ -115,6 +115,7 @@ func (m *Monitor) SetLogger(logger *zap.SugaredLogger) {
 func (m *Monitor) Start(baseHeight uint32) {
 	if m.started.Load() {
 		m.logger.Info("the Monitor is already started")
+
 		return
 	}
 
@@ -216,6 +217,7 @@ func (m *Monitor) handleNewConfirmedCheckpoint(ckpt *types.CheckpointRecord) err
 		}
 		// skip the error if it is not ErrInconsistentBlockHash and verify the next BTC checkpoint
 		m.logger.Infof("invalid BTC checkpoint found at epoch %v: %s", m.GetCurrentEpoch(), err.Error())
+
 		return nil
 	}
 
@@ -276,6 +278,7 @@ func (m *Monitor) VerifyCheckpoint(btcCkpt *checkpointingtypes.RawCheckpoint) er
 			"Babylon checkpoint's BlockHash %s, BTC checkpoint's BlockHash %s",
 			ckpt.BlockHash.String(), btcCkpt.BlockHash)
 	}
+
 	return nil
 }
 

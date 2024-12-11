@@ -105,6 +105,7 @@ func (b *BTCCache) RemoveLast() error {
 	// dereference the last block to ensure it will be garbage-collected
 	b.blocks[len(b.blocks)-1] = nil
 	b.blocks = b.blocks[:len(b.blocks)-1]
+
 	return nil
 }
 
@@ -144,6 +145,7 @@ func (b *BTCCache) GetLastBlocks(stopHeight uint32) ([]*IndexedBlock, error) {
 	for i := len(b.blocks) - 1; i >= 0; i-- {
 		if b.blocks[i].Height == (stopHeight) {
 			j = i
+
 			break
 		}
 	}
@@ -216,6 +218,7 @@ func (b *BTCCache) Resize(maxEntries uint32) error {
 		return ErrInvalidMaxEntries
 	}
 	b.maxEntries = maxEntries
+
 	return nil
 }
 

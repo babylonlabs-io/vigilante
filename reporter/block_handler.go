@@ -19,6 +19,7 @@ func (r *Reporter) blockEventHandler(blockNotifier *chainntnfs.BlockEpochEvent) 
 		case epoch, open := <-blockNotifier.Epochs:
 			if !open {
 				r.logger.Errorf("Block event channel is closed")
+
 				return // channel closed
 			}
 
@@ -50,6 +51,7 @@ func (r *Reporter) handleNewBlock(height uint32, header *wire.BlockHeader) error
 			height,
 			header.BlockHash().String(),
 		)
+
 		return nil
 	}
 
@@ -62,6 +64,7 @@ func (r *Reporter) handleNewBlock(height uint32, header *wire.BlockHeader) error
 	if parentHash != cacheTip.BlockHash() {
 		// If the block doesn't connect, clear the cache and bootstrap
 		r.btcCache.RemoveAll()
+
 		return fmt.Errorf("block does not connect to the cache, diff hash, bootstrap required")
 	}
 
@@ -85,6 +88,7 @@ func (r *Reporter) processNewBlock(ib *types.IndexedBlock) error {
 
 	if len(headersToProcess) == 0 {
 		r.logger.Debug("No new headers to submit to Babylon")
+
 		return nil
 	}
 

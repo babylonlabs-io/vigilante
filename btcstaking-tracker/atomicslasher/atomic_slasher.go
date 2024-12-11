@@ -56,6 +56,7 @@ func New(
 ) *AtomicSlasher {
 	logger := parentLogger.With(zap.String("module", "atomic_slasher"))
 	bbnAdapter := NewBabylonAdapter(logger, cfg, retrySleepTime, maxRetrySleepTime, maxRetryTimes, bbnClient)
+
 	return &AtomicSlasher{
 		quit:              make(chan struct{}),
 		cfg:               cfg,
@@ -87,6 +88,7 @@ func (as *AtomicSlasher) Start() error {
 
 		as.logger.Info("atomic slasher started")
 	})
+
 	return startErr
 }
 
@@ -99,6 +101,7 @@ func (as *AtomicSlasher) Stop() error {
 		as.wg.Wait()
 		as.logger.Info("stopping atomic slasher")
 	})
+
 	return stopErr
 }
 

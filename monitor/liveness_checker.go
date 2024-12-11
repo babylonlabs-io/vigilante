@@ -34,6 +34,7 @@ func (m *Monitor) runLivenessChecker() {
 				if err != nil {
 					m.logger.Errorf("the checkpoint at epoch %d is detected being censored: %s", c.EpochNum(), err.Error())
 					m.metrics.LivenessAttacksCounter.Inc()
+
 					continue
 				}
 				m.logger.Debugf("the checkpoint at epoch %d has passed the liveness check", c.EpochNum())

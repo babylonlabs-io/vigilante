@@ -69,6 +69,7 @@ func New(
 	}
 
 	metrics.ResendIntervalSecondsGauge.Set(float64(config.ResendIntervalSeconds))
+
 	return &Relayer{
 		Estimator:               est,
 		BTCWallet:               wallet,
@@ -100,6 +101,7 @@ func (rl *Relayer) SendCheckpointToBTC(ckpt *ckpttypes.RawCheckpointWithMetaResp
 
 	storeCkptFunc := func(tx1, tx2 *wire.MsgTx, epochNum uint64) error {
 		storedCkpt := store.NewStoredCheckpoint(tx1, tx2, epochNum)
+
 		return rl.store.PutCheckpoint(storedCkpt)
 	}
 
@@ -161,6 +163,7 @@ func (rl *Relayer) MaybeResubmitSecondCheckpointTx(ckpt *ckpttypes.RawCheckpoint
 	if ckpt.Status != ckpttypes.Sealed {
 		rl.logger.Errorf("The checkpoint for epoch %v is not sealed", ckptEpoch)
 		rl.metrics.InvalidCheckpointCounter.Inc()
+
 		return nil
 	}
 
@@ -170,6 +173,7 @@ func (rl *Relayer) MaybeResubmitSecondCheckpointTx(ckpt *ckpttypes.RawCheckpoint
 			ckptEpoch, lastSubmittedEpoch)
 		rl.metrics.InvalidCheckpointCounter.Inc()
 		// we do not consider this case as a failed submission but a software bug
+
 		return nil
 	}
 
@@ -194,6 +198,7 @@ func (rl *Relayer) MaybeResubmitSecondCheckpointTx(ckpt *ckpttypes.RawCheckpoint
 	resubmittedTx2, err := rl.resendSecondTxOfCheckpointToBTC(rl.lastSubmittedCheckpoint.Tx2, bumpedFee)
 	if err != nil {
 		rl.metrics.FailedResentCheckpointsCounter.Inc()
+
 		return fmt.Errorf("failed to re-send the second tx of the checkpoint %v: %w", rl.lastSubmittedCheckpoint.Epoch, err)
 	}
 
@@ -217,6 +222,7 @@ func (rl *Relayer) MaybeResubmitSecondCheckpointTx(ckpt *ckpttypes.RawCheckpoint
 		rl.lastSubmittedCheckpoint.Tx2.Tx,
 		rl.lastSubmittedCheckpoint.Epoch,
 	)
+
 	return rl.store.PutCheckpoint(storedCkpt)
 }
 
@@ -260,6 +266,7 @@ func (rl *Relayer) resendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bumpedF
 	// No need to resend, transaction already confirmed
 	if status == btcclient.TxInChain {
 		rl.logger.Debugf("Transaction %v is already confirmed", rl.lastSubmittedCheckpoint.Tx2.TxID)
+
 		return nil, nil
 	}
 
@@ -618,6 +625,7 @@ func (rl *Relayer) getFeeRate() chainfee.SatPerKVByte {
 	if err != nil {
 		defaultFee := rl.GetBTCConfig().DefaultFee
 		rl.logger.Errorf("failed to estimate transaction fee. Using default fee %v: %s", defaultFee, err.Error())
+
 		return defaultFee
 	}
 

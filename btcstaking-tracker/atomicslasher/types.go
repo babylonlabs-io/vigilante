@@ -190,6 +190,7 @@ func parseSlashingTxWitness(
 		if len(fpWitnessStack[i]) != 0 {
 			fpIdx = i
 			fpPK = &fpPKs[i]
+
 			break
 		}
 	}

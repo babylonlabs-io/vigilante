@@ -51,6 +51,7 @@ func (ba *BabylonAdapter) BTCStakingParams(ctx context.Context, version uint32) 
 				return err
 			}
 			bsParams = &resp.Params
+
 			return nil
 		},
 		retry.Context(ctx),
@@ -71,6 +72,7 @@ func (ba *BabylonAdapter) BTCDelegation(ctx context.Context, stakingTxHashHex st
 				return err
 			}
 			resp = resp2
+
 			return nil
 		},
 		retry.Context(ctx),
@@ -132,5 +134,6 @@ func (ba *BabylonAdapter) ReportSelectiveSlashing(
 
 	// TODO: what are unrecoverable/expected errors?
 	_, err := ba.bbnClient.ReliablySendMsg(ctx, msg, []*errors.Error{}, []*errors.Error{})
+
 	return err
 }

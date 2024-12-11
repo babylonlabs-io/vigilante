@@ -292,6 +292,7 @@ func findFPIdxInWitness(fpBTCPK *bbn.BIP340PubKey, fpBtcPkList []bbn.BIP340PubKe
 			return i, nil
 		}
 	}
+
 	return 0, fmt.Errorf("the given finality provider's PK is not found in the BTC delegation")
 }
 
@@ -461,9 +462,11 @@ func filterEvidence(resultEvent *coretypes.ResultEvent) *ftypes.Evidence {
 				if err := jsonpb.UnmarshalString(eventData[0], &evidence); err != nil {
 					continue
 				}
+
 				return &evidence
 			}
 		}
 	}
+
 	return nil
 }

@@ -42,6 +42,7 @@ func (c *CheckpointCache) AddSegment(ckptSeg *CkptSegment) error {
 	}
 	hash := sha256.Sum256(ckptSeg.Data)
 	c.Segments[ckptSeg.Index][string(hash[:])] = ckptSeg
+
 	return nil
 }
 
@@ -89,6 +90,7 @@ func (c *CheckpointCache) PopEarliestCheckpoint() *Ckpt {
 	if c.HasCheckpoints() {
 		ckpt := c.Checkpoints[0]
 		c.Checkpoints = c.Checkpoints[1:]
+
 		return ckpt
 	}
 
@@ -100,6 +102,7 @@ func (c *CheckpointCache) NumSegments() int {
 	for _, segMap := range c.Segments {
 		size += len(segMap)
 	}
+
 	return size
 }
 

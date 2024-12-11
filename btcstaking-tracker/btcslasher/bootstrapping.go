@@ -49,6 +49,7 @@ func (bs *BTCSlasher) Bootstrap(startHeight uint64) error {
 			if err != nil {
 				bs.logger.Errorf("failed to extract BTC SK of the slashed finality provider %s: %v", fpBTCPKHex, err)
 				accumulatedErrs = multierror.Append(accumulatedErrs, err)
+
 				continue
 			}
 
@@ -57,6 +58,7 @@ func (bs *BTCSlasher) Bootstrap(startHeight uint64) error {
 			if err := bs.SlashFinalityProvider(fpBTCSK); err != nil {
 				bs.logger.Errorf("failed to slash finality provider %s: %v", fpBTCPKHex, err)
 				accumulatedErrs = multierror.Append(accumulatedErrs, err)
+
 				continue
 			}
 		}

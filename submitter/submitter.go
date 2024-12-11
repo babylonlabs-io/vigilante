@@ -54,6 +54,7 @@ func New(
 	)
 	err = retrywrap.Do(func() error {
 		btccheckpointParams, err = queryClient.BTCCheckpointParams()
+
 		return err
 	},
 		retry.Delay(retrySleepTime),
@@ -114,6 +115,7 @@ func (s *Submitter) Start() {
 		// Ignore when the vigilante is still running.
 		if s.started {
 			s.quitMu.Unlock()
+
 			return
 		}
 		s.started = true
@@ -141,6 +143,7 @@ func (s *Submitter) quitChan() <-chan struct{} {
 	s.quitMu.Lock()
 	c := s.quit
 	s.quitMu.Unlock()
+
 	return c
 }
 
@@ -186,6 +189,7 @@ func (s *Submitter) pollCheckpoints() {
 			err := s.poller.PollSealedCheckpoints()
 			if err != nil {
 				s.logger.Errorf("failed to query raw checkpoints: %v", err)
+
 				continue
 			}
 			s.logger.Debugf("Next polling happens in %v seconds", s.Cfg.PollingIntervalSeconds)
@@ -207,6 +211,7 @@ func (s *Submitter) processCheckpoints() {
 			if err := s.relayer.SendCheckpointToBTC(ckpt); err != nil {
 				s.logger.Errorf("Failed to submit the raw checkpoint for %v: %v", ckpt.Ckpt.EpochNum, err)
 				s.metrics.FailedCheckpointsCounter.Inc()
+
 				continue
 			}
 			if err := s.relayer.MaybeResubmitSecondCheckpointTx(ckpt); err != nil {

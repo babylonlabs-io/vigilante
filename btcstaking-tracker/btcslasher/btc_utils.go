@@ -12,6 +12,7 @@ import (
 // TODO: ensure k-deep?
 func (bs *BTCSlasher) isTxSubmittedToBitcoin(txHash *chainhash.Hash) bool {
 	_, err := bs.BTCClient.GetRawTransaction(txHash)
+
 	return err == nil
 }
 
@@ -43,6 +44,7 @@ func (bs *BTCSlasher) isTaprootOutputSpendable(txBytes []byte, outIdx uint32) (b
 			"tx %s output is already unspendable",
 			stakingMsgTxHash.String(),
 		)
+
 		return false, nil
 	}
 	// spendable

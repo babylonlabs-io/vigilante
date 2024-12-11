@@ -141,6 +141,7 @@ func (tracker *BTCStakingTracker) Bootstrap(startHeight uint64) error {
 	if err := tracker.btcSlasher.Bootstrap(startHeight); err != nil {
 		return fmt.Errorf("failed to bootstrap BTC staking tracker: %w", err)
 	}
+
 	return nil
 }
 
@@ -151,14 +152,17 @@ func (tracker *BTCStakingTracker) Start() error {
 
 		if err := tracker.stakingEventWatcher.Start(); err != nil {
 			startErr = err
+
 			return
 		}
 		if err := tracker.btcSlasher.Start(); err != nil {
 			startErr = err
+
 			return
 		}
 		if err := tracker.atomicSlasher.Start(); err != nil {
 			startErr = err
+
 			return
 		}
 
@@ -175,18 +179,22 @@ func (tracker *BTCStakingTracker) Stop() error {
 
 		if err := tracker.stakingEventWatcher.Stop(); err != nil {
 			stopErr = err
+
 			return
 		}
 		if err := tracker.btcSlasher.Stop(); err != nil {
 			stopErr = err
+
 			return
 		}
 		if err := tracker.atomicSlasher.Stop(); err != nil {
 			stopErr = err
+
 			return
 		}
 		if err := tracker.bbnClient.Stop(); err != nil {
 			stopErr = err
+
 			return
 		}
 
@@ -195,5 +203,6 @@ func (tracker *BTCStakingTracker) Stop() error {
 
 		tracker.logger.Info("stopped BTC staking tracker")
 	})
+
 	return stopErr
 }

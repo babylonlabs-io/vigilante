@@ -57,6 +57,7 @@ func genRandomSegments(r *rand.Rand, tag btctxformatter.BabylonTag, version btct
 		TxIdx:       r.Int(),
 		AssocBlock:  nil,
 	}
+
 	return ckptSeg1, ckptSeg2
 }
 
