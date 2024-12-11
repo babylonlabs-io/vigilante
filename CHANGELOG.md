@@ -44,6 +44,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Improvements
 
 * [#136](https://github.com/babylonlabs-io/vigilante/pull/136) rate limit activations
+* [#141](https://github.com/babylonlabs-io/vigilante/pull/141) decrement tracked delegations in atomic slasher
 
 ## v0.18.0
 
