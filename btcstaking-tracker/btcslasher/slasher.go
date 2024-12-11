@@ -21,9 +21,10 @@ import (
 )
 
 const (
-	txSubscriberName  = "tx-subscriber"
-	messageActionName = "/babylon.finality.v1.MsgAddFinalitySig"
-	evidenceEventName = "babylon.finality.v1.EventSlashedFinalityProvider.evidence"
+	txSubscriberName          = "tx-subscriber"
+	messageActionName         = "/babylon.finality.v1.MsgAddFinalitySig"
+	consumerMessageActionName = "/babylon.finality.v1.MsgEquivocationEvidence"
+	evidenceEventName         = "babylon.finality.v1.EventSlashedFinalityProvider.evidence"
 )
 
 type BTCSlasher struct {
@@ -43,6 +44,8 @@ type BTCSlasher struct {
 	// channel for finality signature messages, which might include
 	// equivocation evidences
 	finalitySigChan <-chan coretypes.ResultEvent
+	// channel for consumer fp equivocation evidences
+	equivocationEvidenceChan <-chan coretypes.ResultEvent
 	// channel for SKs of slashed finality providers
 	slashedFPSKChan chan *btcec.PrivateKey
 	// channel for receiving the slash result of each BTC delegation
@@ -132,10 +135,18 @@ func (bs *BTCSlasher) Start() error {
 		// start the subscriber to slashing events
 		// NOTE: at this point monitor has already started the Babylon querier routine
 		queryName := fmt.Sprintf("tm.event = 'Tx' AND message.action='%s'", messageActionName)
+		// subscribe to babylon fp slashing events
 		bs.finalitySigChan, startErr = bs.BBNQuerier.Subscribe(txSubscriberName, queryName)
 		if startErr != nil {
 			return
 		}
+		// subscribe to consumer fp slashing events
+		queryName = fmt.Sprintf("tm.event = 'Tx' AND message.action='%s'", consumerMessageActionName)
+		bs.equivocationEvidenceChan, startErr = bs.BBNQuerier.Subscribe(txSubscriberName, queryName)
+		if startErr != nil {
+			return
+		}
+
 		// BTC slasher has started
 		bs.logger.Debugf("slasher routine has started subscribing %s", queryName)
 
@@ -200,6 +211,31 @@ func (bs *BTCSlasher) slashingEnforcer() {
 	}
 }
 
+func (bs *BTCSlasher) handleEvidence(evt *coretypes.ResultEvent, isConsumer bool) {
+	evidence := filterEvidence(evt)
+
+	if evidence == nil {
+		return
+	}
+
+	fpBTCPKHex := evidence.FpBtcPk.MarshalHex()
+	fpType := "babylon"
+	if isConsumer {
+		fpType = "consumer"
+	}
+	bs.logger.Infof("new equivocating %s finality provider %s to be slashed", fpType, fpBTCPKHex)
+	bs.logger.Debugf("found equivocation evidence of %s finality provider %s: %v", fpType, fpBTCPKHex, evidence)
+
+	// extract the SK of the slashed finality provider
+	fpBTCSK, err := evidence.ExtractBTCSK()
+	if err != nil {
+		bs.logger.Errorf("failed to extract BTC SK of the slashed %s finality provider %s: %v", fpType, fpBTCPKHex, err)
+		return
+	}
+
+	bs.slashedFPSKChan <- fpBTCSK
+}
+
 // equivocationTracker is a routine to track the equivocation events on Babylon,
 // extract equivocating finality providers' SKs, and sen to slashing enforcer
 // routine
@@ -215,25 +251,9 @@ func (bs *BTCSlasher) equivocationTracker() {
 			bs.logger.Debug("handle delegations loop quit")
 			return
 		case resultEvent := <-bs.finalitySigChan:
-			evidence := filterEvidence(&resultEvent)
-
-			if evidence == nil {
-				// this event does not contain equivocation evidence, skip
-				continue
-			}
-
-			fpBTCPKHex := evidence.FpBtcPk.MarshalHex()
-			bs.logger.Infof("new equivocating finality provider %s to be slashed", fpBTCPKHex)
-			bs.logger.Debugf("found equivocation evidence of finality provider %s: %v", fpBTCPKHex, evidence)
-
-			// extract the SK of the slashed finality provider
-			fpBTCSK, err := evidence.ExtractBTCSK()
-			if err != nil {
-				bs.logger.Errorf("failed to extract BTC SK of the slashed finality provider %s: %v", fpBTCPKHex, err)
-				continue
-			}
-
-			bs.slashedFPSKChan <- fpBTCSK
+			bs.handleEvidence(&resultEvent, false)
+		case resultEvent := <-bs.equivocationEvidenceChan:
+			bs.handleEvidence(&resultEvent, true)
 		}
 	}
 }

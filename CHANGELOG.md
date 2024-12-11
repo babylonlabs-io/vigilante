@@ -37,6 +37,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+* [#135](https://github.com/babylonlabs-io/vigilante/pull/135) add opcc slashing event
+
 ## v0.18.0
 
 ### Improvements
