@@ -207,6 +207,7 @@ func (s *Submitter) processCheckpoints() {
 			if err := s.relayer.SendCheckpointToBTC(ckpt); err != nil {
 				s.logger.Errorf("Failed to submit the raw checkpoint for %v: %v", ckpt.Ckpt.EpochNum, err)
 				s.metrics.FailedCheckpointsCounter.Inc()
+				continue
 			}
 			if err := s.relayer.MaybeResubmitSecondCheckpointTx(ckpt); err != nil {
 				s.logger.Errorf("Failed to resubmit the raw checkpoint for %v: %v", ckpt.Ckpt.EpochNum, err)
