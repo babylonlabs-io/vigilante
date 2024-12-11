@@ -45,6 +45,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 * [#136](https://github.com/babylonlabs-io/vigilante/pull/136) rate limit activations
 * [#141](https://github.com/babylonlabs-io/vigilante/pull/141) decrement tracked delegations in atomic slasher
+* [#143](https://github.com/babylonlabs-io/vigilante/pull/143) adds nlreturn linter rule
 
 ## v0.18.0
 
