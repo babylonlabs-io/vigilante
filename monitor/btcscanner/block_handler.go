@@ -32,6 +32,7 @@ func (bs *BtcScanner) bootstrapAndBlockEventHandler() {
 	blockNotifier, err := bs.btcNotifier.RegisterBlockEpochNtfn(blockEpoch)
 	if err != nil {
 		bs.logger.Errorf("Failed registering block epoch notifier")
+
 		return
 	}
 	defer blockNotifier.Cancel()
@@ -40,10 +41,12 @@ func (bs *BtcScanner) bootstrapAndBlockEventHandler() {
 		select {
 		case <-bs.quit:
 			bs.btcClient.Stop()
+
 			return
 		case epoch, open := <-blockNotifier.Epochs:
 			if !open {
 				bs.logger.Errorf("Block event channel is closed")
+
 				return // channel closed
 			}
 
@@ -75,6 +78,7 @@ func (bs *BtcScanner) handleNewBlock(height uint32, header *wire.BlockHeader) er
 			height,
 			header.BlockHash().String(),
 		)
+
 		return nil
 	}
 

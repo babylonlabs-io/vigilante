@@ -96,12 +96,15 @@ func (td *TrackedDelegations) AddDelegation(
 		if shouldUpdate {
 			// Update the existing delegation
 			td.mapping[stakingTxHash] = delegation
+
 			return delegation, nil
 		}
+
 		return nil, fmt.Errorf("delegation already tracked for staking tx hash %s", stakingTxHash)
 	}
 
 	td.mapping[stakingTxHash] = delegation
+
 	return delegation, nil
 }
 

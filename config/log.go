@@ -44,6 +44,7 @@ func NewRootLogger(format string, logLevel string) (*zap.Logger, error) {
 	case "fatal":
 		level = zapcore.FatalLevel
 	}
+
 	return zap.New(zapcore.NewCore(
 		enc,
 		os.Stderr,

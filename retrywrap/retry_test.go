@@ -43,6 +43,7 @@ func TestWrapDo(t *testing.T) {
 			var attempts int
 			retryableFunc := func() error {
 				attempts++
+
 				return tt.retryableErr
 			}
 

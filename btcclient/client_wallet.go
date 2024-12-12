@@ -78,6 +78,7 @@ func (c *Client) GetNetParams() *chaincfg.Params {
 	if err != nil {
 		panic(fmt.Errorf("failed to get BTC network params: %w", err))
 	}
+
 	return net
 }
 
@@ -123,6 +124,7 @@ func (c *Client) GetHighUTXOAndSum() (*btcjson.ListUnspentResult, float64, error
 		}
 		sum += utxo.Amount
 	}
+
 	return &highUTXO, sum, nil
 }
 

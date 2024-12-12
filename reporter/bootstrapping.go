@@ -270,6 +270,7 @@ func (r *Reporter) waitUntilBTCSync() error {
 			bbnLatestBlockHeight = tipRes.Header.Height
 			if btcLatestBlockHeight > 0 && btcLatestBlockHeight >= bbnLatestBlockHeight {
 				r.logger.Infof("BTC chain (length %d) now catches up with BBN header chain (length %d), continue bootstrapping", btcLatestBlockHeight, bbnLatestBlockHeight)
+
 				break
 			}
 			r.logger.Infof("BTC chain (length %d) still falls behind BBN header chain (length %d), keep waiting", btcLatestBlockHeight, bbnLatestBlockHeight)

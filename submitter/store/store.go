@@ -126,6 +126,7 @@ func (s *SubmitterStore) get(key, bucketName []byte) ([]byte, bool, error) {
 		if errors.Is(err, ErrNotFound) {
 			return nil, false, nil
 		}
+
 		return nil, false, err
 	}
 

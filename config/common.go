@@ -34,6 +34,7 @@ func isOneOf(v string, list []string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -50,6 +51,7 @@ func (cfg *CommonConfig) Validate() error {
 	if cfg.MaxRetrySleepTime < 0 {
 		return errors.New("max-retry-sleep-time can't be negative")
 	}
+
 	return nil
 }
 

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"golang.org/x/sync/semaphore"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -26,8 +27,9 @@ import (
 )
 
 var (
-	fixedDelyTypeWithJitter = retry.DelayType(retry.CombineDelay(retry.FixedDelay, retry.RandomDelay))
-	retryForever            = retry.Attempts(0)
+	fixedDelyTypeWithJitter  = retry.DelayType(retry.CombineDelay(retry.FixedDelay, retry.RandomDelay))
+	retryForever             = retry.Attempts(0)
+	maxConcurrentActivations = int64(1000)
 )
 
 func (sew *StakingEventWatcher) quitContext() (context.Context, func()) {
@@ -83,6 +85,7 @@ type StakingEventWatcher struct {
 	unbondingDelegationChan chan *newDelegation
 	unbondingRemovalChan    chan *delegationInactive
 	currentBestBlockHeight  atomic.Uint32
+	activationLimiter       *semaphore.Weighted
 }
 
 func NewStakingEventWatcher(
@@ -106,6 +109,7 @@ func NewStakingEventWatcher(
 		inProgressTracker:       NewTrackedDelegations(),
 		unbondingDelegationChan: make(chan *newDelegation),
 		unbondingRemovalChan:    make(chan *delegationInactive),
+		activationLimiter:       semaphore.NewWeighted(maxConcurrentActivations), // todo(lazar): this should be in config
 	}
 }
 
@@ -117,6 +121,7 @@ func (sew *StakingEventWatcher) Start() error {
 		blockEventNotifier, err := sew.btcNotifier.RegisterBlockEpochNtfn(nil)
 		if err != nil {
 			startErr = err
+
 			return
 		}
 
@@ -129,6 +134,7 @@ func (sew *StakingEventWatcher) Start() error {
 			sew.currentBestBlockHeight.Store(uint32(block.Height))
 		case <-sew.quit:
 			startErr = errors.New("watcher quit before finishing start")
+
 			return
 		}
 
@@ -142,6 +148,7 @@ func (sew *StakingEventWatcher) Start() error {
 
 		sew.logger.Info("staking event watcher started")
 	})
+
 	return startErr
 }
 
@@ -153,6 +160,7 @@ func (sew *StakingEventWatcher) Stop() error {
 		sew.wg.Wait()
 		sew.logger.Info("stopped staking event watcher")
 	})
+
 	return stopErr
 }
 
@@ -289,6 +297,7 @@ func (sew *StakingEventWatcher) fetchDelegations() {
 			wg.Wait()
 		case <-sew.quit:
 			sew.logger.Debug("fetch delegations loop quit")
+
 			return
 		}
 	}
@@ -298,6 +307,7 @@ func (sew *StakingEventWatcher) syncedWithBabylon() (bool, error) {
 	btcLightClientTipHeight, err := sew.babylonNodeAdapter.BtcClientTipHeight()
 	if err != nil {
 		sew.logger.Errorf("error fetching babylon tip height: %v", err)
+
 		return false, err
 	}
 
@@ -305,6 +315,7 @@ func (sew *StakingEventWatcher) syncedWithBabylon() (bool, error) {
 
 	if currentBtcNodeHeight < btcLightClientTipHeight {
 		sew.logger.Debugf("btc light client tip height is %d, connected node best block height is %d. Waiting for node to catch up", btcLightClientTipHeight, currentBtcNodeHeight)
+
 		return false, nil
 	}
 
@@ -376,15 +387,18 @@ func (sew *StakingEventWatcher) reportUnbondingToBabylon(
 
 		if !active && !verified {
 			sew.logger.Debugf("cannot report unbonding. delegation for staking tx %s is no longer active", stakingTxHash)
+
 			return nil
 		}
 
 		if err = sew.babylonNodeAdapter.ReportUnbonding(ctx, stakingTxHash, stakeSpendingTx, proof); err != nil {
 			sew.metrics.FailedReportedUnbondingTransactions.Inc()
+
 			return fmt.Errorf("error reporting unbonding tx %s to babylon: %w", stakingTxHash, err)
 		}
 
 		sew.metrics.ReportedUnbondingTransactionsCounter.Inc()
+
 		return nil
 	},
 		retry.Context(ctx),
@@ -425,6 +439,7 @@ func (sew *StakingEventWatcher) watchForSpend(spendEvent *notifier.SpendEvent, t
 		proof := sew.waitForStakeSpendInclusionProof(quitCtx, spendingTx)
 		if proof == nil {
 			sew.logger.Errorf("unbonding tx %s for staking tx %s proof not built", spendingTxHash, delegationID)
+
 			return
 		}
 		sew.reportUnbondingToBabylon(quitCtx, delegationID, spendingTx, proof)
@@ -435,6 +450,7 @@ func (sew *StakingEventWatcher) watchForSpend(spendEvent *notifier.SpendEvent, t
 		proof := sew.waitForStakeSpendInclusionProof(quitCtx, spendingTx)
 		if proof == nil {
 			sew.logger.Errorf("unbonding tx %s for staking tx %s proof not built", spendingTxHash, delegationID)
+
 			return
 		}
 		sew.logger.Debugf("found unbonding tx %s for staking tx %s", spendingTxHash, delegationID)
@@ -525,6 +541,7 @@ func (sew *StakingEventWatcher) handleUnbondedDelegations() {
 
 			if err != nil {
 				sew.logger.Errorf("error adding delegation to unbondingTracker: %v", err)
+
 				continue
 			}
 
@@ -543,6 +560,7 @@ func (sew *StakingEventWatcher) handleUnbondedDelegations() {
 
 			if err != nil {
 				sew.logger.Errorf("error registering spend ntfn for staking tx %s: %v", activeDel.stakingTxHash, err)
+
 				continue
 			}
 
@@ -557,6 +575,7 @@ func (sew *StakingEventWatcher) handleUnbondedDelegations() {
 
 		case <-sew.quit:
 			sew.logger.Debug("handle delegations loop quit")
+
 			return
 		}
 	}
@@ -574,6 +593,7 @@ func (sew *StakingEventWatcher) handlerVerifiedDelegations() {
 			sew.checkBtcForStakingTx()
 		case <-sew.quit:
 			sew.logger.Debug("verified delegations loop quit")
+
 			return
 		}
 	}
@@ -585,6 +605,7 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 	params, err := sew.babylonNodeAdapter.Params()
 	if err != nil {
 		sew.logger.Errorf("error getting tx params %v", err)
+
 		return
 	}
 
@@ -597,6 +618,7 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 		details, status, err := sew.btcClient.TxDetails(&txHash, del.StakingTx.TxOut[del.StakingOutputIdx].PkScript)
 		if err != nil {
 			sew.logger.Debugf("error getting tx %v", txHash)
+
 			continue
 		}
 
@@ -610,6 +632,13 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 		proof, err := ib.GenSPVProof(int(details.TxIndex))
 		if err != nil {
 			sew.logger.Debugf("error making spv proof %s", err)
+
+			continue
+		}
+
+		if err := sew.activationLimiter.Acquire(context.Background(), 1); err != nil {
+			sew.logger.Warnf("error acquiring a activation semaphore %s", err)
+
 			continue
 		}
 
@@ -621,10 +650,14 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 			false,
 		); err != nil {
 			sew.logger.Warnf("add del: %s", err)
+
 			continue
 		}
 
-		go sew.activateBtcDelegation(txHash, proof, details.Block.BlockHash(), params.ConfirmationTimeBlocks)
+		go func() {
+			defer sew.activationLimiter.Release(1)
+			sew.activateBtcDelegation(txHash, proof, details.Block.BlockHash(), params.ConfirmationTimeBlocks)
+		}()
 	}
 }
 
@@ -656,11 +689,13 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 
 		if !verified {
 			sew.logger.Debugf("skipping tx %s is not in verified status", stakingTxHash)
+
 			return nil
 		}
 
 		if err := sew.babylonNodeAdapter.ActivateDelegation(ctx, stakingTxHash, proof); err != nil {
 			sew.metrics.FailedReportedActivateDelegations.Inc()
+
 			return fmt.Errorf("error reporting activate delegation tx %s to babylon: %w", stakingTxHash, err)
 		}
 
@@ -727,6 +762,7 @@ func (sew *StakingEventWatcher) waitForRequiredDepth(
 
 func (sew *StakingEventWatcher) latency(method string) func() {
 	startTime := time.Now()
+
 	return func() {
 		duration := time.Since(startTime)
 		sew.logger.Debugf("execution time for method: %s, duration: %s", method, duration.String())

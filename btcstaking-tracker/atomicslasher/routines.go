@@ -27,6 +27,7 @@ func (as *AtomicSlasher) btcDelegationTracker() {
 				}
 				as.btcDelIndex.Add(trackedDel)
 				as.metrics.TrackedBTCDelegationsGauge.Inc()
+
 				return nil
 			})
 			if err != nil {
@@ -46,6 +47,7 @@ func (as *AtomicSlasher) slashingTxTracker() {
 	blockNotifier, err := as.btcNotifier.RegisterBlockEpochNtfn(nil)
 	if err != nil {
 		as.logger.Error("failed to register block notifier", zap.Error(err))
+
 		return
 	}
 	defer blockNotifier.Cancel()
@@ -73,6 +75,7 @@ func (as *AtomicSlasher) slashingTxTracker() {
 					zap.String("block_hash", blockEpoch.Hash.String()),
 					zap.Error(err),
 				)
+
 				continue
 			}
 			// filter out slashing tx / unbonding slashing tx, and
@@ -115,6 +118,7 @@ func (as *AtomicSlasher) selectiveSlashingReporter() {
 					zap.String("staking_tx_hash", stakingTxHashStr),
 					zap.Error(err),
 				)
+
 				continue
 			}
 			// get parameter at the version of this BTC delegation
@@ -128,6 +132,7 @@ func (as *AtomicSlasher) selectiveSlashingReporter() {
 					zap.Uint32("version", paramsVersion),
 					zap.Error(err),
 				)
+
 				continue
 			}
 			// get covenant Schnorr signature in tx
@@ -143,6 +148,7 @@ func (as *AtomicSlasher) selectiveSlashingReporter() {
 					zap.String("staking_tx_hash", stakingTxHashStr),
 					zap.Error(err),
 				)
+
 				continue
 			}
 
@@ -156,6 +162,7 @@ func (as *AtomicSlasher) selectiveSlashingReporter() {
 					zap.String("fp_pk", fpPK.MarshalHex()),
 					zap.Error(err),
 				)
+
 				continue
 			}
 			cancel()
@@ -166,6 +173,7 @@ func (as *AtomicSlasher) selectiveSlashingReporter() {
 					zap.String("fp_pk", fpPK.MarshalHex()),
 					zap.Error(err),
 				)
+
 				continue
 			}
 
@@ -186,6 +194,7 @@ func (as *AtomicSlasher) selectiveSlashingReporter() {
 					zap.String("staking_tx_hash", stakingTxHashStr),
 					zap.Error(err),
 				)
+
 				continue
 			}
 
@@ -208,6 +217,7 @@ func (as *AtomicSlasher) selectiveSlashingReporter() {
 
 			// stop tracking the delegations under this finality provider
 			as.btcDelIndex.Remove(stakingTxHash)
+			as.metrics.TrackedBTCDelegationsGauge.Dec()
 
 		case <-as.quit:
 			return

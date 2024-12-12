@@ -29,6 +29,7 @@ func (m *Monitor) QueryInfoForNextEpoch(epoch uint64) (*types.EpochInfo, error) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert BLS key response set for epoch %v: %w", epoch, err)
 	}
+
 	return types.NewEpochInfo(epoch, ckpttypes.ValidatorWithBlsKeySet{ValSet: blsKeys}), nil
 }
 
@@ -46,6 +47,7 @@ func convertFromBlsPublicKeyListResponse(valBLSKeys []*ckpttypes.BlsPublicKeyLis
 			VotingPower:      valBlsKey.VotingPower,
 		}
 	}
+
 	return blsPublicKeyListResponse, nil
 }
 
@@ -81,6 +83,7 @@ func (m *Monitor) queryCurrentEpochWithRetry() (*epochingtypes.QueryCurrentEpoch
 		}
 
 		currentEpochRes = *res
+
 		return nil
 	},
 		retry.Delay(m.ComCfg.RetrySleepTime),
@@ -106,6 +109,7 @@ func (m *Monitor) queryRawCheckpointWithRetry(epoch uint64) (*ckpttypes.QueryRaw
 		}
 
 		rawCheckpointRes = *res
+
 		return nil
 	},
 		retry.Delay(m.ComCfg.RetrySleepTime),
@@ -131,6 +135,7 @@ func (m *Monitor) queryBlsPublicKeyListWithRetry(epoch uint64) (*ckpttypes.Query
 		}
 
 		blsPublicKeyListRes = *res
+
 		return nil
 	},
 		retry.Delay(m.ComCfg.RetrySleepTime),
@@ -156,6 +161,7 @@ func (m *Monitor) queryEndedEpochBTCHeightWithRetry(epoch uint64) (*monitortypes
 		}
 
 		endedEpochBTCHeightRes = *res
+
 		return nil
 	},
 		retry.Delay(m.ComCfg.RetrySleepTime),
@@ -181,6 +187,7 @@ func (m *Monitor) queryReportedCheckpointBTCHeightWithRetry(hashStr string) (*mo
 		}
 
 		reportedCheckpointBtcHeightRes = *res
+
 		return nil
 	},
 		retry.Delay(m.ComCfg.RetrySleepTime),
@@ -206,6 +213,7 @@ func (m *Monitor) queryBTCHeaderChainTipWithRetry() (*btclctypes.QueryTipRespons
 		}
 
 		btcHeaderChainTipRes = *res
+
 		return nil
 	},
 		retry.Delay(m.ComCfg.RetrySleepTime),
@@ -231,6 +239,7 @@ func (m *Monitor) queryContainsBTCBlockWithRetry(blockHash *chainhash.Hash) (*bt
 		}
 
 		containsBTCBlockRes = *res
+
 		return nil
 	},
 		retry.Delay(m.ComCfg.RetrySleepTime),

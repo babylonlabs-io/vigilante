@@ -30,6 +30,7 @@ func calcMerkleRoot(txns []*wire.MsgTx) chainhash.Hash {
 		utilTxns = append(utilTxns, btcutil.NewTx(tx))
 	}
 	merkles := blockchain.BuildMerkleTreeStore(utilTxns, false)
+
 	return *merkles[len(merkles)-1]
 }
 
@@ -187,6 +188,7 @@ func GenRandomBlock(r *rand.Rand, numBabylonTxs int, prevHash *chainhash.Hash) (
 		Header:       *header,
 		Transactions: msgTxs,
 	}
+
 	return block, rawCkpt
 }
 
@@ -205,6 +207,7 @@ func GetRandomIndexedBlocks(r *rand.Rand, numBlocks uint64) []*types.IndexedBloc
 
 	ibs = GetRandomIndexedBlocksFromHeight(r, numBlocks-1, prevHeight, prevHash)
 	ibs = append([]*types.IndexedBlock{ib}, ibs...)
+
 	return ibs
 }
 
@@ -267,5 +270,6 @@ func GenRandomBlockchainWithBabylonTx(r *rand.Rand, n uint64, partialPercentage 
 		blocks = append(blocks, msgBlock)
 		rawCkpts = append(rawCkpts, rawCkpt)
 	}
+
 	return blocks, numCkptSegs, rawCkpts
 }

@@ -315,6 +315,7 @@ func newBTCDelegatorDelegationsResponse(delegations []*bstypes.BTCDelegatorDeleg
 			delListResp = append(delListResp, bstypes.NewBTCDelegationResponse(del, status))
 		}
 	}
+
 	return &bstypes.BTCDelegatorDelegationsResponse{
 		Dels: delListResp,
 	}

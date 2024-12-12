@@ -61,6 +61,7 @@ func New(
 	)
 	err = retrywrap.Do(func() error {
 		btccParamsRes, err = babylonClient.BTCCheckpointParams()
+
 		return err
 	},
 		retry.Delay(retrySleepTime),
@@ -109,6 +110,7 @@ func (r *Reporter) Start() {
 		// Ignore when the vigilante is still running.
 		if r.started {
 			r.quitMu.Unlock()
+
 			return
 		}
 		r.started = true
@@ -119,12 +121,14 @@ func (r *Reporter) Start() {
 
 	if err := r.btcNotifier.Start(); err != nil {
 		r.logger.Errorf("Failed starting notifier")
+
 		return
 	}
 
 	blockNotifier, err := r.btcNotifier.RegisterBlockEpochNtfn(nil)
 	if err != nil {
 		r.logger.Errorf("Failed registering block epoch notifier")
+
 		return
 	}
 
@@ -142,6 +146,7 @@ func (r *Reporter) quitChan() <-chan struct{} {
 	r.quitMu.Lock()
 	c := r.quit
 	r.quitMu.Unlock()
+
 	return c
 }
 

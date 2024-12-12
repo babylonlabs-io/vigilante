@@ -119,5 +119,6 @@ func GetSubmitterCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&cfgFile, "config", config.DefaultConfigFile(), "config file")
+
 	return cmd
 }

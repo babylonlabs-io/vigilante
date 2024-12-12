@@ -43,6 +43,7 @@ func (cfg *MonitorConfig) Validate() error {
 	if cfg.BtcConfirmationDepth < defaultBtcConfirmationDepth {
 		return fmt.Errorf("btc-confirmation-depth should not be less than %d", defaultBtcConfirmationDepth)
 	}
+
 	return nil
 }
 

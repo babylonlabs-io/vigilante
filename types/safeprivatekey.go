@@ -22,6 +22,7 @@ func NewPrivateKeyWithMutex(key *secp256k1.PrivateKey) *PrivateKeyWithMutex {
 func (p *PrivateKeyWithMutex) GetKey() *secp256k1.PrivateKey {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
 	return p.key
 }
 

@@ -148,5 +148,6 @@ func GetBTCStakingTracker() *cobra.Command {
 	cmd.Flags().StringVar(&babylonKeyDir, "babylon-key", "", "Directory of the Babylon key")
 	cmd.Flags().StringVar(&cfgFile, "config", config.DefaultConfigFile(), "config file")
 	cmd.Flags().Uint64Var(&startHeight, "start-height", 0, "height that the BTC slasher starts scanning for evidences")
+
 	return cmd
 }
