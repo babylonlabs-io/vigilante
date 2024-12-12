@@ -233,6 +233,7 @@ func (bs *BTCSlasher) handleEvidence(evt *coretypes.ResultEvent, isConsumer bool
 	fpBTCSK, err := evidence.ExtractBTCSK()
 	if err != nil {
 		bs.logger.Errorf("failed to extract BTC SK of the slashed %s finality provider %s: %v", fpType, fpBTCPKHex, err)
+
 		return
 	}
 
