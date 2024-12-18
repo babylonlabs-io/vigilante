@@ -679,6 +679,7 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 
 	if err := sew.waitForRequiredDepth(ctx, stakingTxHash, &inclusionBlockHash, requiredDepth); err != nil {
 		sew.logger.Warnf("exceeded waiting for required depth, will try later: err %v", err)
+
 		return
 	}
 
@@ -731,6 +732,7 @@ func (sew *StakingEventWatcher) waitForRequiredDepth(
 	defer sew.latency("waitForRequiredDepth")()
 
 	var depth uint32
+
 	return retry.Do(func() error {
 		var err error
 		depth, err = sew.babylonNodeAdapter.QueryHeaderDepth(inclusionBlockHash)
