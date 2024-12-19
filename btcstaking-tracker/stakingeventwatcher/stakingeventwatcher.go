@@ -676,7 +676,8 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 	requiredDepth uint32,
 	done chan struct{},
 ) {
-	defer close(done)
+	var once sync.Once
+	defer once.Do(func() { close(done) })
 	sew.metrics.NumberOfActivationInProgress.Inc()
 	defer sew.metrics.NumberOfActivationInProgress.Dec()
 
@@ -714,7 +715,9 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 
 		sew.metrics.ReportedActivateDelegationsCounter.Inc()
 
-		close(done)
+		once.Do(func() {
+			close(done)
+		})
 
 		sew.pendingTracker.RemoveDelegation(stakingTxHash)
 		sew.metrics.NumberOfVerifiedDelegations.Dec()
