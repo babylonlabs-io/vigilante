@@ -84,7 +84,6 @@ type StakingEventWatcher struct {
 
 	unbondingDelegationChan chan *newDelegation
 	unbondingRemovalChan    chan *delegationInactive
-	pendingRemovalChan      chan *delegationInactive
 	currentBestBlockHeight  atomic.Uint32
 	activationLimiter       *semaphore.Weighted
 }
@@ -110,7 +109,6 @@ func NewStakingEventWatcher(
 		inProgressTracker:       NewTrackedDelegations(),
 		unbondingDelegationChan: make(chan *newDelegation),
 		unbondingRemovalChan:    make(chan *delegationInactive),
-		pendingRemovalChan:      make(chan *delegationInactive, 1000),
 		activationLimiter:       semaphore.NewWeighted(maxConcurrentActivations), // todo(lazar): this should be in config
 	}
 }
@@ -142,12 +140,11 @@ func (sew *StakingEventWatcher) Start() error {
 
 		sew.logger.Infof("Initial btc best block height is: %d", sew.currentBestBlockHeight.Load())
 
-		sew.wg.Add(5)
+		sew.wg.Add(4)
 		go sew.handleNewBlocks(blockEventNotifier)
 		go sew.handleUnbondedDelegations()
 		go sew.fetchDelegations()
 		go sew.handlerVerifiedDelegations()
-		go sew.handlerRemovalFromTracker()
 
 		sew.logger.Info("staking event watcher started")
 	})
@@ -777,22 +774,6 @@ func (sew *StakingEventWatcher) waitForRequiredDepth(
 				"Attempt: %d. Err: %v", stakingTxHash, depth, requiredDepth, n, err)
 		}),
 	)
-}
-
-func (sew *StakingEventWatcher) handlerRemovalFromTracker() {
-	defer sew.wg.Done()
-	for {
-		select {
-		case in := <-sew.pendingRemovalChan:
-			sew.logger.Debugf("Delegation with hash (%s) is verified, removing from tracker", in.stakingTxHash)
-			sew.pendingTracker.RemoveDelegation(in.stakingTxHash)
-			sew.metrics.NumberOfVerifiedDelegations.Dec()
-		case <-sew.quit:
-			sew.logger.Debug("handle delegations loop quit")
-
-			return
-		}
-	}
 }
 
 func (sew *StakingEventWatcher) latency(method string) func() {
