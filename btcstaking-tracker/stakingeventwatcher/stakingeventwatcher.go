@@ -609,7 +609,7 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 		return
 	}
 
-	for del := range sew.pendingTracker.DelegationsIter() {
+	for del := range sew.pendingTracker.DelegationsIter(1000) {
 		if inProgDel := sew.inProgressTracker.GetDelegation(del.StakingTx.TxHash()); inProgDel != nil && inProgDel.ActivationInProgress {
 			continue
 		}
@@ -677,7 +677,11 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 	defer sew.latency("activateBtcDelegation")()
 	defer sew.inProgressTracker.RemoveDelegation(stakingTxHash)
 
-	sew.waitForRequiredDepth(ctx, stakingTxHash, &inclusionBlockHash, requiredDepth)
+	if err := sew.waitForRequiredDepth(ctx, stakingTxHash, &inclusionBlockHash, requiredDepth); err != nil {
+		sew.logger.Warnf("exceeded waiting for required depth, will try later: err %v", err)
+
+		return
+	}
 
 	defer sew.latency("activateDelegationRPC")()
 
@@ -702,8 +706,8 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 		sew.metrics.ReportedActivateDelegationsCounter.Inc()
 
 		sew.pendingTracker.RemoveDelegation(stakingTxHash)
-
 		sew.metrics.NumberOfVerifiedDelegations.Dec()
+
 		sew.logger.Debugf("staking tx activated %s", stakingTxHash.String())
 
 		return nil
@@ -724,11 +728,12 @@ func (sew *StakingEventWatcher) waitForRequiredDepth(
 	stakingTxHash chainhash.Hash,
 	inclusionBlockHash *chainhash.Hash,
 	requiredDepth uint32,
-) {
+) error {
 	defer sew.latency("waitForRequiredDepth")()
 
 	var depth uint32
-	_ = retry.Do(func() error {
+
+	return retry.Do(func() error {
 		var err error
 		depth, err = sew.babylonNodeAdapter.QueryHeaderDepth(inclusionBlockHash)
 		if err != nil {
@@ -749,7 +754,7 @@ func (sew *StakingEventWatcher) waitForRequiredDepth(
 		return nil
 	},
 		retry.Context(ctx),
-		retryForever,
+		retry.Attempts(10),
 		fixedDelyTypeWithJitter,
 		retry.MaxDelay(sew.cfg.RetrySubmitUnbondingTxInterval),
 		retry.MaxJitter(sew.cfg.RetryJitter),
