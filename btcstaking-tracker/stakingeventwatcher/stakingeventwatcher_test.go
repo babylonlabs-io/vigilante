@@ -18,6 +18,7 @@ import (
 )
 
 func TestHandlingDelegations(t *testing.T) {
+	t.Parallel()
 	r := rand.New(rand.NewSource(time.Now().Unix()))
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
