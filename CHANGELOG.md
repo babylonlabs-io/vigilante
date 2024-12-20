@@ -37,6 +37,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+## v0.19.0
+
 ### Bug Fixes
 
 * [#138](https://github.com/babylonlabs-io/vigilante/pull/138) fix: panic in SendCheckpointToBTC
