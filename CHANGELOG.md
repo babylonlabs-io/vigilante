@@ -48,6 +48,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 * [#141](https://github.com/babylonlabs-io/vigilante/pull/141) decrement tracked delegations in atomic slasher
 * [#143](https://github.com/babylonlabs-io/vigilante/pull/143) adds nlreturn linter rule
 * [#145](https://github.com/babylonlabs-io/vigilante/pull/145) fix: tracked delegation mutex
+* [#147](https://github.com/babylonlabs-io/vigilante/pull/147) babylon to v1.0.0-rc.1
 
 ## v0.18.0
 
