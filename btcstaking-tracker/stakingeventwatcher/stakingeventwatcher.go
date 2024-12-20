@@ -656,7 +656,7 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 
 		go func() {
 			defer sew.activationLimiter.Release(1)
-			go sew.activateBtcDelegation(txHash, proof, details.Block.BlockHash(), params.ConfirmationTimeBlocks)
+			sew.activateBtcDelegation(txHash, proof, details.Block.BlockHash(), params.ConfirmationTimeBlocks)
 		}()
 	}
 }
