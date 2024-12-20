@@ -35,7 +35,6 @@ func (td *TrackedDelegations) GetDelegation(stakingTxHash chainhash.Hash) *Track
 	defer td.mu.RUnlock()
 
 	del, ok := td.mapping[stakingTxHash]
-
 	if !ok {
 		return nil
 	}
@@ -59,16 +58,72 @@ func (td *TrackedDelegations) GetDelegations() []*TrackedDelegation {
 	return delegations
 }
 
-func (td *TrackedDelegations) DelegationsIter() iter.Seq[*TrackedDelegation] {
-	return func(yield func(*TrackedDelegation) bool) {
-		td.mu.RLock()
-		defer td.mu.RUnlock()
+// Clone creates a deep copy of the TrackedDelegation
+func (td *TrackedDelegation) Clone() *TrackedDelegation {
+	if td == nil {
+		return nil
+	}
 
-		// we lock for the entirety of the iteration
-		for _, v := range td.mapping {
-			if !yield(v) {
-				return
+	// Deep copy the StakingTx
+	var stakingTx *wire.MsgTx
+	if td.StakingTx != nil {
+		stakingTx = td.StakingTx.Copy()
+	}
+
+	// Deep copy the UnbondingOutput
+	var unbondingOutput *wire.TxOut
+	if td.UnbondingOutput != nil {
+		unbondingOutput = &wire.TxOut{
+			Value:    td.UnbondingOutput.Value,
+			PkScript: append([]byte(nil), td.UnbondingOutput.PkScript...),
+		}
+	}
+
+	return &TrackedDelegation{
+		StakingTx:             stakingTx,
+		StakingOutputIdx:      td.StakingOutputIdx,
+		UnbondingOutput:       unbondingOutput,
+		DelegationStartHeight: td.DelegationStartHeight,
+		ActivationInProgress:  td.ActivationInProgress,
+	}
+}
+
+// DelegationsIter returns an iterator that yields copies of delegations in chunks
+func (td *TrackedDelegations) DelegationsIter(chunkSize int) iter.Seq[*TrackedDelegation] {
+	if chunkSize <= 0 {
+		chunkSize = 100 // Default chunk size
+	}
+
+	return func(yield func(*TrackedDelegation) bool) {
+		offset := 0
+		for {
+			td.mu.RLock()
+			chunk := make([]*TrackedDelegation, 0, chunkSize)
+			i := 0
+			for _, v := range td.mapping {
+				if i >= offset && len(chunk) < chunkSize {
+					chunk = append(chunk, v.Clone())
+				}
+				i++
+				if len(chunk) >= chunkSize {
+					break
+				}
 			}
+			remainingItems := len(td.mapping) - offset
+			td.mu.RUnlock()
+
+			// Process the chunk
+			for _, delegation := range chunk {
+				if !yield(delegation) {
+					return
+				}
+			}
+
+			// Check if we've processed all items
+			if remainingItems <= chunkSize {
+				break
+			}
+			offset += chunkSize
 		}
 	}
 }
@@ -119,8 +174,8 @@ func (td *TrackedDelegations) HasDelegationChanged(
 	stakingTxHash chainhash.Hash,
 	newDelegation *newDelegation,
 ) (bool, bool) {
-	td.mu.Lock()
-	defer td.mu.Unlock()
+	td.mu.RLock()
+	defer td.mu.RUnlock()
 
 	// Check if the delegation exists in the map
 	existingDelegation, exists := td.mapping[stakingTxHash]
@@ -151,4 +206,11 @@ func (td *TrackedDelegations) UpdateActivation(tx chainhash.Hash, inProgress boo
 	delegation.ActivationInProgress = inProgress
 
 	return nil
+}
+
+func (td *TrackedDelegations) Count() int {
+	td.mu.RLock()
+	defer td.mu.RUnlock()
+
+	return len(td.mapping)
 }

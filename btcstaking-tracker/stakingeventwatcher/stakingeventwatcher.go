@@ -609,7 +609,7 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 		return
 	}
 
-	for del := range sew.pendingTracker.DelegationsIter() {
+	for del := range sew.pendingTracker.DelegationsIter(1000) {
 		if inProgDel := sew.inProgressTracker.GetDelegation(del.StakingTx.TxHash()); inProgDel != nil && inProgDel.ActivationInProgress {
 			continue
 		}
@@ -656,11 +656,7 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 
 		go func() {
 			defer sew.activationLimiter.Release(1)
-			done := make(chan struct{})
-
-			go sew.activateBtcDelegation(txHash, proof, details.Block.BlockHash(), params.ConfirmationTimeBlocks, done)
-
-			<-done
+			go sew.activateBtcDelegation(txHash, proof, details.Block.BlockHash(), params.ConfirmationTimeBlocks)
 		}()
 	}
 }
@@ -671,10 +667,7 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 	proof *btcctypes.BTCSpvProof,
 	inclusionBlockHash chainhash.Hash,
 	requiredDepth uint32,
-	done chan struct{},
 ) {
-	var once sync.Once
-	defer once.Do(func() { close(done) })
 	sew.metrics.NumberOfActivationInProgress.Inc()
 	defer sew.metrics.NumberOfActivationInProgress.Dec()
 
@@ -711,10 +704,6 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 		}
 
 		sew.metrics.ReportedActivateDelegationsCounter.Inc()
-
-		once.Do(func() {
-			close(done)
-		})
 
 		sew.pendingTracker.RemoveDelegation(stakingTxHash)
 		sew.metrics.NumberOfVerifiedDelegations.Dec()
