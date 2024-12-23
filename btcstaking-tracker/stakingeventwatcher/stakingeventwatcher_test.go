@@ -17,6 +17,9 @@ import (
 	"time"
 )
 
+// TestHandlingDelegations - Validates the following:
+//   - All expected delegations are activated, as indicated by the metrics.
+//   - The `pendingTracker` is empty after processing, confirming all delegations are handled.
 func TestHandlingDelegations(t *testing.T) {
 	t.Parallel()
 	r := rand.New(rand.NewSource(time.Now().Unix()))
@@ -49,7 +52,7 @@ func TestHandlingDelegations(t *testing.T) {
 
 	defer close(sew.quit)
 
-	expectedActivated := 1000
+	expectedActivated := 5000
 	delegations := make([]Delegation, 0, expectedActivated)
 	for i := 0; i < expectedActivated; i++ {
 		stk := datagen.GenRandomTx(r)
@@ -61,10 +64,18 @@ func TestHandlingDelegations(t *testing.T) {
 			HasProof:              false,
 		})
 	}
+	callCounter := 0
+	maxCalls := 10
 
 	mockBabylonNodeAdapter.EXPECT().
 		DelegationsByStatus(gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(delegations, nil).AnyTimes()
+		DoAndReturn(func(_, _, _ interface{}) ([]Delegation, error) {
+			if callCounter < maxCalls {
+				callCounter++
+				return delegations, nil
+			}
+			return nil, nil
+		}).AnyTimes()
 
 	mockBabylonNodeAdapter.EXPECT().
 		ActivateDelegation(gomock.Any(), gomock.Any(), gomock.Any()).
@@ -95,5 +106,9 @@ func TestHandlingDelegations(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		return promtestutil.ToFloat64(sew.metrics.ReportedActivateDelegationsCounter) >= float64(expectedActivated)
+	}, 60*time.Second, 100*time.Millisecond)
+
+	require.Eventually(t, func() bool {
+		return sew.pendingTracker.Count() == 0
 	}, 60*time.Second, 100*time.Millisecond)
 }
