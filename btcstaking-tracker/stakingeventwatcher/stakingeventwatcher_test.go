@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
 	"math/rand"
+	"sync"
 	"testing"
 	"time"
 )
@@ -64,12 +65,16 @@ func TestHandlingDelegations(t *testing.T) {
 			HasProof:              false,
 		})
 	}
+
+	var mu sync.Mutex
 	callCounter := 0
-	maxCalls := 10
+	maxCalls := 1
 
 	mockBabylonNodeAdapter.EXPECT().
 		DelegationsByStatus(gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_, _, _ interface{}) ([]Delegation, error) {
+			mu.Lock()
+			defer mu.Unlock()
 			if callCounter < maxCalls {
 				callCounter++
 
