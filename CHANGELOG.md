@@ -37,6 +37,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Improvements
+
+* [#150](https://github.com/babylonlabs-io/vigilante/pull/150) additional asserts for sew unit test
+
 ## v0.19.0
 
 ### Bug Fixes
