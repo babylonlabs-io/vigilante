@@ -72,8 +72,10 @@ func TestHandlingDelegations(t *testing.T) {
 		DoAndReturn(func(_, _, _ interface{}) ([]Delegation, error) {
 			if callCounter < maxCalls {
 				callCounter++
+
 				return delegations, nil
 			}
+
 			return nil, nil
 		}).AnyTimes()
 
