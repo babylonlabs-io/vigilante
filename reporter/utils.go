@@ -37,7 +37,7 @@ func (r *Reporter) getHeaderMsgsToSubmit(signer string, ibs []*types.IndexedBloc
 		err = retrywrap.Do(func() error {
 			res, err = r.babylonClient.ContainsBTCBlock(&blockHash)
 
-			return err
+			return fmt.Errorf("error in contains block: %w", err)
 		},
 			retry.Delay(r.retrySleepTime),
 			retry.MaxDelay(r.maxRetrySleepTime),
@@ -79,7 +79,7 @@ func (r *Reporter) submitHeaderMsgs(msg *btclctypes.MsgInsertHeaders) error {
 	err := retrywrap.Do(func() error {
 		res, err := r.babylonClient.InsertHeaders(context.Background(), msg)
 		if err != nil {
-			return err
+			return fmt.Errorf("could not submit headers: %w", err)
 		}
 		r.logger.Infof("Successfully submitted %d headers to Babylon with response code %v", len(msg.Headers), res.Code)
 
@@ -87,6 +87,7 @@ func (r *Reporter) submitHeaderMsgs(msg *btclctypes.MsgInsertHeaders) error {
 	},
 		retry.Delay(r.retrySleepTime),
 		retry.MaxDelay(r.maxRetrySleepTime),
+		bootstrapAttemptsAtt,
 	)
 	if err != nil {
 		r.metrics.FailedHeadersCounter.Add(float64(len(msg.Headers)))
