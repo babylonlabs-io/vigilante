@@ -192,14 +192,18 @@ func (rl *Relayer) MaybeResubmitSecondCheckpointTx(ckpt *ckpttypes.RawCheckpoint
 		return nil
 	}
 
-	rl.logger.Debugf("Resending the second tx of the checkpoint %v, old fee of the second tx: %v Satoshis, txid: %s",
+	rl.logger.Debugf("Maybe resending the second tx of the checkpoint %v, old fee of the second tx: %v Satoshis, txid: %s",
 		ckptEpoch, rl.lastSubmittedCheckpoint.Tx2.Fee, rl.lastSubmittedCheckpoint.Tx2.TxID.String())
 
-	resubmittedTx2, err := rl.resendSecondTxOfCheckpointToBTC(rl.lastSubmittedCheckpoint.Tx2, bumpedFee)
+	resubmittedTx2, err := rl.maybeResendSecondTxOfCheckpointToBTC(rl.lastSubmittedCheckpoint.Tx2, bumpedFee)
 	if err != nil {
 		rl.metrics.FailedResentCheckpointsCounter.Inc()
 
 		return fmt.Errorf("failed to re-send the second tx of the checkpoint %v: %w", rl.lastSubmittedCheckpoint.Epoch, err)
+	}
+
+	if resubmittedTx2 == nil {
+		return nil
 	}
 
 	// record the metrics of the resent tx2
@@ -255,17 +259,16 @@ func (rl *Relayer) calculateBumpedFee(ckptInfo *types.CheckpointInfo) btcutil.Am
 	return ckptInfo.Tx2.Fee.MulF64(rl.config.ResubmitFeeMultiplier)
 }
 
-// resendSecondTxOfCheckpointToBTC resends the second tx of the checkpoint with bumpedFee
-func (rl *Relayer) resendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bumpedFee btcutil.Amount) (*types.BtcTxInfo, error) {
-	_, status, err := rl.TxDetails(rl.lastSubmittedCheckpoint.Tx2.TxID,
-		rl.lastSubmittedCheckpoint.Tx2.Tx.TxOut[changePosition].PkScript)
+// maybeResendSecondTxOfCheckpointToBTC resends the second tx of the checkpoint with bumpedFee
+func (rl *Relayer) maybeResendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bumpedFee btcutil.Amount) (*types.BtcTxInfo, error) {
+	_, status, err := rl.TxDetails(tx2.TxID, tx2.Tx.TxOut[changePosition].PkScript)
 	if err != nil {
 		return nil, err
 	}
 
 	// No need to resend, transaction already confirmed
 	if status == btcclient.TxInChain {
-		rl.logger.Debugf("Transaction %v is already confirmed", rl.lastSubmittedCheckpoint.Tx2.TxID)
+		rl.logger.Debugf("Transaction %v is already confirmed", tx2.TxID)
 
 		return nil, nil
 	}
