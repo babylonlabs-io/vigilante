@@ -37,7 +37,7 @@ func (r *Reporter) getHeaderMsgsToSubmit(signer string, ibs []*types.IndexedBloc
 		err = retrywrap.Do(func() error {
 			res, err = r.babylonClient.ContainsBTCBlock(&blockHash)
 
-			return fmt.Errorf("error in contains block: %w", err)
+			return err
 		},
 			retry.Delay(r.retrySleepTime),
 			retry.MaxDelay(r.maxRetrySleepTime),
