@@ -220,6 +220,7 @@ func (rl *Relayer) MaybeResubmitSecondCheckpointTx(ckpt *ckpttypes.RawCheckpoint
 
 	// update the second tx of the last submitted checkpoint as it is replaced
 	rl.lastSubmittedCheckpoint.Tx2 = resubmittedTx2
+	rl.lastSubmittedCheckpoint.TS = time.Now()
 
 	storedCkpt := store.NewStoredCheckpoint(
 		rl.lastSubmittedCheckpoint.Tx1.Tx,
