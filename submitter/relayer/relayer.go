@@ -617,6 +617,154 @@ func (rl *Relayer) buildTxWithData(data []byte, firstTx *wire.MsgTx) (*types.Btc
 	}, nil
 }
 
+// buildDataTx constructs a new Bitcoin transaction with custom data inserted as an OP_RETURN output.
+// This function creates a fresh transaction without depending on any previous transaction.
+//
+// Parameters:
+//   - data: The custom data to be inserted into the transaction as an OP_RETURN output.
+func (rl *Relayer) buildDataTx(data []byte) (*types.BtcTxInfo, error) {
+	tx := wire.NewMsgTx(wire.TxVersion)
+
+	// Build txOut for data
+	builder := txscript.NewScriptBuilder()
+	dataScript, err := builder.AddOp(txscript.OP_RETURN).AddData(data).Script()
+	if err != nil {
+		return nil, fmt.Errorf("failed to build data script: %w", err)
+	}
+	tx.AddTxOut(wire.NewTxOut(0, dataScript))
+
+	// Fund the transaction
+	changePosition := 1
+	feeRate := btcutil.Amount(rl.getFeeRate()).ToBTC()
+	rawTxResult, err := rl.BTCWallet.FundRawTransaction(tx, btcjson.FundRawTransactionOpts{
+		FeeRate:        &feeRate,
+		ChangePosition: &changePosition,
+	}, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fund raw tx in buildDataTx: %w", err)
+	}
+
+	// Ensure there's a change output with at least dust amount
+	hasChange := len(rawTxResult.Transaction.TxOut) > changePosition
+	if !hasChange {
+		changeAddr, err := rl.BTCWallet.GetRawChangeAddress(rl.walletName)
+		if err != nil {
+			return nil, fmt.Errorf("err getting raw change address %w", err)
+		}
+
+		changePkScript, err := txscript.PayToAddrScript(changeAddr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create script for change address: %s err %w", changeAddr, err)
+		}
+
+		changeOutput := wire.NewTxOut(int64(dustThreshold), changePkScript)
+		rawTxResult.Transaction.AddTxOut(changeOutput)
+	}
+
+	rl.logger.Debugf("Building a BTC tx using %s with data %x", tx.TxHash(), data)
+
+	return rl.finalizeTransaction(rawTxResult.Transaction)
+}
+
+// buildChainedDataTx constructs a Bitcoin transaction that spends from a previous transaction.
+// It uses the change output from the previous transaction as its input.
+//
+// Parameters:
+//   - data: The custom data to be inserted into the transaction as an OP_RETURN output.
+//   - prevTx: The previous transaction to use as input.
+func (rl *Relayer) buildChainedDataTx(data []byte, prevTx *wire.MsgTx) (*types.BtcTxInfo, error) {
+	tx := wire.NewMsgTx(wire.TxVersion)
+
+	// Add input from previous transaction
+	txID := prevTx.TxHash()
+	outPoint := wire.NewOutPoint(&txID, changePosition)
+	txIn := wire.NewTxIn(outPoint, nil, nil)
+	// Enable replace-by-fee, see https://river.com/learn/terms/r/replace-by-fee-rbf
+	txIn.Sequence = math.MaxUint32 - 2
+	tx.AddTxIn(txIn)
+
+	// Build txOut for data
+	builder := txscript.NewScriptBuilder()
+	dataScript, err := builder.AddOp(txscript.OP_RETURN).AddData(data).Script()
+	if err != nil {
+		return nil, fmt.Errorf("failed to build data script: %w", err)
+	}
+	tx.AddTxOut(wire.NewTxOut(0, dataScript))
+
+	// Fund the transaction
+	changePosition := 1
+	feeRate := btcutil.Amount(rl.getFeeRate()).ToBTC()
+	rawTxResult, err := rl.BTCWallet.FundRawTransaction(tx, btcjson.FundRawTransactionOpts{
+		FeeRate:        &feeRate,
+		ChangePosition: &changePosition,
+	}, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fund raw tx in buildChainedDataTx: %w", err)
+	}
+
+	rl.logger.Debugf("Building a BTC tx using %s with data %x", tx.TxHash(), data)
+
+	return rl.finalizeTransaction(rawTxResult.Transaction)
+}
+
+// finalizeTransaction handles the common logic for validating and finalizing a transaction,
+// including fee calculation, change verification, and signing.
+func (rl *Relayer) finalizeTransaction(tx *wire.MsgTx) (*types.BtcTxInfo, error) {
+	hasChange := len(tx.TxOut) > changePosition
+	var changeAmount btcutil.Amount
+
+	if hasChange {
+		changeAmount = btcutil.Amount(tx.TxOut[changePosition].Value)
+		_, addresses, _, err := txscript.ExtractPkScriptAddrs(
+			tx.TxOut[changePosition].PkScript,
+			rl.GetNetParams(),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to ExtractPkScriptAddrs: %w", err)
+		}
+		if len(addresses) == 0 {
+			return nil, errors.New("no change address found")
+		}
+		rl.logger.Debugf("Got a change address %v", addresses[0].String())
+	}
+
+	txSize, err := calculateTxVirtualSize(tx)
+	if err != nil {
+		return nil, err
+	}
+
+	txFee := rl.calcMinRelayFee(txSize)
+	if hasChange && changeAmount < txFee {
+		return nil, fmt.Errorf("the value of the utxo is not sufficient for relaying the tx. Require: %v. Have: %v", txFee, changeAmount)
+	}
+
+	// Sign tx
+	signedTx, err := rl.signTx(tx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to sign tx: %w", err)
+	}
+
+	// Serialization
+	var signedTxBytes bytes.Buffer
+	if err := signedTx.Serialize(&signedTxBytes); err != nil {
+		return nil, err
+	}
+
+	change := changeAmount - txFee
+	if hasChange && change < dustThreshold {
+		return nil, fmt.Errorf("change amount is %v less than dust threshold %v", change, dustThreshold)
+	}
+
+	rl.logger.Debugf("Successfully composed a BTC tx. Tx fee: %v, output value: %v, tx size: %v, hex: %v",
+		txFee, changeAmount, txSize, hex.EncodeToString(signedTxBytes.Bytes()))
+
+	return &types.BtcTxInfo{
+		Tx:   signedTx,
+		Size: txSize,
+		Fee:  txFee,
+	}, nil
+}
+
 // getFeeRate returns the estimated fee rate, ensuring it within [tx-fee-max, tx-fee-min]
 func (rl *Relayer) getFeeRate() chainfee.SatPerKVByte {
 	targetBlockNum := rl.GetBTCConfig().TargetBlockNum
