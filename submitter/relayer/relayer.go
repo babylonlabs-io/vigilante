@@ -618,7 +618,7 @@ func (rl *Relayer) finalizeTransaction(tx *wire.MsgTx) (*types.BtcTxInfo, error)
 	// Serialization
 	var signedTxBytes bytes.Buffer
 	if err := signedTx.Serialize(&signedTxBytes); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to serialize signedTx: %w", err)
 	}
 
 	change := changeAmount - txFee
