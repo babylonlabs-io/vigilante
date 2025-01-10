@@ -286,19 +286,19 @@ func (mr *MockBTCWalletMockRecorder) GetNetParams() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetParams", reflect.TypeOf((*MockBTCWallet)(nil).GetNetParams))
 }
 
-// GetRawChangeAddress mocks base method.
-func (m *MockBTCWallet) GetRawChangeAddress(account string) (btcutil.Address, error) {
+// GetNewAddress mocks base method.
+func (m *MockBTCWallet) GetNewAddress(account string) (btcutil.Address, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRawChangeAddress", account)
+	ret := m.ctrl.Call(m, "GetNewAddress", account)
 	ret0, _ := ret[0].(btcutil.Address)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetRawChangeAddress indicates an expected call of GetRawChangeAddress.
-func (mr *MockBTCWalletMockRecorder) GetRawChangeAddress(account interface{}) *gomock.Call {
+// GetNewAddress indicates an expected call of GetNewAddress.
+func (mr *MockBTCWalletMockRecorder) GetNewAddress(account interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRawChangeAddress", reflect.TypeOf((*MockBTCWallet)(nil).GetRawChangeAddress), account)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNewAddress", reflect.TypeOf((*MockBTCWallet)(nil).GetNewAddress), account)
 }
 
 // GetRawTransaction mocks base method.
