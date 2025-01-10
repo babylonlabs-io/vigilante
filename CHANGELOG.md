@@ -37,9 +37,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
-### Improvements
+### Bug Fixes
 
-* [#166](https://github.com/babylonlabs-io/vigilante/pull/166) chore: refactor checkpoint tx submission
+* [#166](https://github.com/babylonlabs-io/vigilante/pull/166) fix: refactor checkpoint tx submission,
+fix change addr creation
 
 ## v0.19.2
 
