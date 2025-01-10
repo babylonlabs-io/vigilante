@@ -98,8 +98,8 @@ func (c *Client) ListReceivedByAddress() ([]btcjson.ListReceivedByAddressResult,
 	return c.Client.ListReceivedByAddress()
 }
 
-func (c *Client) GetRawChangeAddress(account string) (btcutil.Address, error) {
-	return c.Client.GetRawChangeAddress(account)
+func (c *Client) GetNewAddress(account string) (btcutil.Address, error) {
+	return c.Client.GetNewAddress(account)
 }
 
 func (c *Client) WalletPassphrase(passphrase string, timeoutSecs int64) error {

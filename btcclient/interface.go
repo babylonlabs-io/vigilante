@@ -35,7 +35,7 @@ type BTCWallet interface {
 	ListUnspent() ([]btcjson.ListUnspentResult, error)
 	ListReceivedByAddress() ([]btcjson.ListReceivedByAddressResult, error)
 	SendRawTransaction(tx *wire.MsgTx, allowHighFees bool) (*chainhash.Hash, error)
-	GetRawChangeAddress(account string) (btcutil.Address, error)
+	GetNewAddress(account string) (btcutil.Address, error)
 	WalletPassphrase(passphrase string, timeoutSecs int64) error
 	GetHighUTXOAndSum() (*btcjson.ListUnspentResult, float64, error)
 	FundRawTransaction(tx *wire.MsgTx, opts btcjson.FundRawTransactionOpts, isWitness *bool) (*btcjson.FundRawTransactionResult, error)
