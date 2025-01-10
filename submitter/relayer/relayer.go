@@ -518,7 +518,8 @@ func (rl *Relayer) buildDataTx(data []byte) (*types.BtcTxInfo, error) {
 	// Ensure there's a change output with at least dust amount
 	hasChange := len(rawTxResult.Transaction.TxOut) > changePosition
 	if !hasChange {
-		changeAddr, err := rl.BTCWallet.GetRawChangeAddress(rl.walletName)
+		rl.logger.Debugf("no change, adding change address manually, tx ref: %s", tx.TxHash())
+		changeAddr, err := rl.BTCWallet.GetRawChangeAddress("bech32")
 		if err != nil {
 			return nil, fmt.Errorf("err getting raw change address %w", err)
 		}
