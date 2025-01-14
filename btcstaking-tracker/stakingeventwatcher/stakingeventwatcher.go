@@ -29,7 +29,7 @@ import (
 var (
 	fixedDelyTypeWithJitter  = retry.DelayType(retry.CombineDelay(retry.FixedDelay, retry.RandomDelay))
 	retryForever             = retry.Attempts(0)
-	maxConcurrentActivations = int64(1000)
+	maxConcurrentActivations = int64(1500)
 )
 
 func (sew *StakingEventWatcher) quitContext() (context.Context, func()) {
@@ -636,11 +636,13 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 			continue
 		}
 
+		sew.logger.Debugf("before lock %s", del.StakingTx.TxHash().String())
 		if err := sew.activationLimiter.Acquire(context.Background(), 1); err != nil {
 			sew.logger.Warnf("error acquiring a activation semaphore %s", err)
 
 			continue
 		}
+		sew.logger.Debugf("after lock %s", del.StakingTx.TxHash().String())
 
 		if _, err = sew.inProgressTracker.AddDelegation(
 			del.StakingTx,
@@ -657,6 +659,7 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 		go func() {
 			defer sew.activationLimiter.Release(1)
 			sew.activateBtcDelegation(txHash, proof, details.Block.BlockHash(), params.ConfirmationTimeBlocks)
+			sew.logger.Debugf("after activation %s", del.StakingTx.TxHash().String())
 		}()
 	}
 }
@@ -668,6 +671,7 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 	inclusionBlockHash chainhash.Hash,
 	requiredDepth uint32,
 ) {
+	sew.logger.Debugf("trying to activate btc delegation for staking tx: %s", stakingTxHash.String())
 	sew.metrics.NumberOfActivationInProgress.Inc()
 	defer sew.metrics.NumberOfActivationInProgress.Dec()
 
@@ -678,7 +682,7 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 	defer sew.inProgressTracker.RemoveDelegation(stakingTxHash)
 
 	if err := sew.waitForRequiredDepth(ctx, stakingTxHash, &inclusionBlockHash, requiredDepth); err != nil {
-		sew.logger.Warnf("exceeded waiting for required depth, will try later: err %v", err)
+		sew.logger.Warnf("exceeded waiting for required depth for tx: %s, will try later: err %v", stakingTxHash.String(), err)
 
 		return
 	}
@@ -754,7 +758,7 @@ func (sew *StakingEventWatcher) waitForRequiredDepth(
 		return nil
 	},
 		retry.Context(ctx),
-		retry.Attempts(10),
+		retry.Attempts(20),
 		fixedDelyTypeWithJitter,
 		retry.MaxDelay(sew.cfg.RetrySubmitUnbondingTxInterval),
 		retry.MaxJitter(sew.cfg.RetryJitter),
