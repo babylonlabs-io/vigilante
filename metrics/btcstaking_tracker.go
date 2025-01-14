@@ -80,7 +80,7 @@ func newUnbondingWatcherMetrics(registry *prometheus.Registry) *UnbondingWatcher
 			Namespace: "vigilante",
 			Name:      "unbonding_watcher_method_latency_seconds",
 			Help:      "Latency in seconds",
-			Buckets:   []float64{.001, .002, .005, .01, .025, .05, .1},
+			Buckets:   []float64{0.3, 1, 2, 5, 10, 30, 60, 120, 180, 300},
 		}, []string{"method"}),
 		NumberOfActivationInProgress: registerer.NewGauge(prometheus.GaugeOpts{
 			Namespace: "vigilante",
