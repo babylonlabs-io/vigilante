@@ -88,42 +88,51 @@ func (td *TrackedDelegation) Clone() *TrackedDelegation {
 	}
 }
 
-// DelegationsIter returns an iterator that yields copies of delegations in chunks
+// DelegationsIter returns an iterator that yields copies of delegations in chunks.
+// If chunkSize <= 0, it defaults to 100.
 func (td *TrackedDelegations) DelegationsIter(chunkSize int) iter.Seq[*TrackedDelegation] {
 	if chunkSize <= 0 {
-		chunkSize = 100 // Default chunk size
+		chunkSize = 100
 	}
 
 	return func(yield func(*TrackedDelegation) bool) {
-		offset := 0
+		// Pre-allocate the processed map with expected capacity
+		td.mu.RLock()
+		processedCap := len(td.mapping)
+		td.mu.RUnlock()
+		processed := make(map[chainhash.Hash]struct{}, processedCap)
+
+		// Create a buffer for batch processing
+		buffer := make([]*TrackedDelegation, 0, chunkSize)
+
 		for {
+			buffer = buffer[:0] // Reset buffer without reallocating
+
 			td.mu.RLock()
-			chunk := make([]*TrackedDelegation, 0, chunkSize)
-			i := 0
-			for _, v := range td.mapping {
-				if i >= offset && len(chunk) < chunkSize {
-					chunk = append(chunk, v.Clone())
-				}
-				i++
-				if len(chunk) >= chunkSize {
-					break
+			// Collect a batch of unprocessed items directly
+			for k, v := range td.mapping {
+				if _, ok := processed[k]; !ok {
+					buffer = append(buffer, v.Clone())
+					processed[k] = struct{}{}
+					if len(buffer) >= chunkSize {
+						break
+					}
 				}
 			}
-			remainingItems := len(td.mapping) - offset
+			mapSize := len(td.mapping)
 			td.mu.RUnlock()
 
-			// Process the chunk
-			for _, delegation := range chunk {
+			// Process the batch
+			for _, delegation := range buffer {
 				if !yield(delegation) {
 					return
 				}
 			}
 
-			// Check if we've processed all items
-			if remainingItems <= chunkSize {
+			// Check if we've processed everything
+			if len(processed) >= mapSize {
 				break
 			}
-			offset += chunkSize
 		}
 	}
 }

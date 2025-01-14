@@ -29,7 +29,7 @@ import (
 var (
 	fixedDelyTypeWithJitter  = retry.DelayType(retry.CombineDelay(retry.FixedDelay, retry.RandomDelay))
 	retryForever             = retry.Attempts(0)
-	maxConcurrentActivations = int64(1000)
+	maxConcurrentActivations = int64(1500)
 )
 
 func (sew *StakingEventWatcher) quitContext() (context.Context, func()) {
@@ -610,7 +610,9 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 	}
 
 	for del := range sew.pendingTracker.DelegationsIter(1000) {
-		if inProgDel := sew.inProgressTracker.GetDelegation(del.StakingTx.TxHash()); inProgDel != nil && inProgDel.ActivationInProgress {
+		if inProgDel := sew.inProgressTracker.GetDelegation(del.StakingTx.TxHash()); inProgDel != nil {
+			sew.logger.Debugf("skipping tx %s, already in progress", inProgDel.StakingTx.TxHash().String())
+
 			continue
 		}
 
@@ -649,7 +651,7 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 			del.DelegationStartHeight,
 			false,
 		); err != nil {
-			sew.logger.Warnf("add del: %s", err)
+			sew.logger.Debugf("add del: %s", err)
 
 			continue
 		}
@@ -678,7 +680,7 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 	defer sew.inProgressTracker.RemoveDelegation(stakingTxHash)
 
 	if err := sew.waitForRequiredDepth(ctx, stakingTxHash, &inclusionBlockHash, requiredDepth); err != nil {
-		sew.logger.Warnf("exceeded waiting for required depth, will try later: err %v", err)
+		sew.logger.Warnf("exceeded waiting for required depth for tx: %s, will try later: err %v", stakingTxHash.String(), err)
 
 		return
 	}
@@ -704,7 +706,6 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 		}
 
 		sew.metrics.ReportedActivateDelegationsCounter.Inc()
-
 		sew.pendingTracker.RemoveDelegation(stakingTxHash)
 		sew.metrics.NumberOfVerifiedDelegations.Dec()
 
@@ -754,7 +755,7 @@ func (sew *StakingEventWatcher) waitForRequiredDepth(
 		return nil
 	},
 		retry.Context(ctx),
-		retry.Attempts(10),
+		retry.Attempts(20),
 		fixedDelyTypeWithJitter,
 		retry.MaxDelay(sew.cfg.RetrySubmitUnbondingTxInterval),
 		retry.MaxJitter(sew.cfg.RetryJitter),
