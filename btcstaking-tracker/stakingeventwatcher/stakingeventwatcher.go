@@ -609,13 +609,7 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 		return
 	}
 
-	iterCount := 0
 	for del := range sew.pendingTracker.DelegationsIter(1000) {
-		sew.logger.Debugf("iter count: %d", iterCount)
-		iterCount++
-		sew.logger.Debugf("pending count %d", sew.pendingTracker.Count())
-		sew.logger.Debugf("inprogress count %d", sew.inProgressTracker.Count())
-
 		if inProgDel := sew.inProgressTracker.GetDelegation(del.StakingTx.TxHash()); inProgDel != nil {
 			sew.logger.Debugf("skipping tx %s, already in progress", inProgDel.StakingTx.TxHash().String())
 
@@ -659,7 +653,7 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 			del.DelegationStartHeight,
 			false,
 		); err != nil {
-			sew.logger.Warnf("add del: %s", err)
+			sew.logger.Debugf("add del: %s", err)
 
 			continue
 		}
@@ -667,7 +661,6 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 		go func() {
 			defer sew.activationLimiter.Release(1)
 			sew.activateBtcDelegation(txHash, proof, details.Block.BlockHash(), params.ConfirmationTimeBlocks)
-			sew.logger.Debugf("after activation %s", del.StakingTx.TxHash().String())
 		}()
 	}
 }
@@ -679,7 +672,6 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 	inclusionBlockHash chainhash.Hash,
 	requiredDepth uint32,
 ) {
-	sew.logger.Debugf("trying to activate btc delegation for staking tx: %s", stakingTxHash.String())
 	sew.metrics.NumberOfActivationInProgress.Inc()
 	defer sew.metrics.NumberOfActivationInProgress.Dec()
 
@@ -716,7 +708,6 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 		}
 
 		sew.metrics.ReportedActivateDelegationsCounter.Inc()
-
 		sew.pendingTracker.RemoveDelegation(stakingTxHash)
 		sew.metrics.NumberOfVerifiedDelegations.Dec()
 
