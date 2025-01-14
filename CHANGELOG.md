@@ -37,6 +37,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Improvements
+
+* [#178](https://github.com/babylonlabs-io/vigilante/pull/178) chore: better bucket range
+
 ## v0.19.4
 
 ### Bug Fixes
