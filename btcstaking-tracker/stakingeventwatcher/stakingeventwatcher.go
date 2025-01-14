@@ -609,8 +609,16 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 		return
 	}
 
+	iterCount := 0
 	for del := range sew.pendingTracker.DelegationsIter(1000) {
-		if inProgDel := sew.inProgressTracker.GetDelegation(del.StakingTx.TxHash()); inProgDel != nil && inProgDel.ActivationInProgress {
+		sew.logger.Debugf("iter count: %d", iterCount)
+		iterCount++
+		sew.logger.Debugf("pending count %d", sew.pendingTracker.Count())
+		sew.logger.Debugf("inprogress count %d", sew.inProgressTracker.Count())
+
+		if inProgDel := sew.inProgressTracker.GetDelegation(del.StakingTx.TxHash()); inProgDel != nil {
+			sew.logger.Debugf("skipping tx %s, already in progress", inProgDel.StakingTx.TxHash().String())
+
 			continue
 		}
 

@@ -88,42 +88,35 @@ func (td *TrackedDelegation) Clone() *TrackedDelegation {
 	}
 }
 
-// DelegationsIter returns an iterator that yields copies of delegations in chunks
+// DelegationsIter returns an iterator that yields copies of delegations in chunks.
+// If chunkSize <= 0, it defaults to 100.
 func (td *TrackedDelegations) DelegationsIter(chunkSize int) iter.Seq[*TrackedDelegation] {
 	if chunkSize <= 0 {
-		chunkSize = 100 // Default chunk size
+		chunkSize = 100
 	}
 
 	return func(yield func(*TrackedDelegation) bool) {
-		offset := 0
-		for {
-			td.mu.RLock()
-			chunk := make([]*TrackedDelegation, 0, chunkSize)
-			i := 0
-			for _, v := range td.mapping {
-				if i >= offset && len(chunk) < chunkSize {
-					chunk = append(chunk, v.Clone())
-				}
-				i++
-				if len(chunk) >= chunkSize {
-					break
-				}
+		// Take a snapshot of the delegations under lock to prevent concurrent modifications
+		td.mu.RLock()
+		delegations := make([]*TrackedDelegation, 0, len(td.mapping))
+		for _, v := range td.mapping {
+			delegations = append(delegations, v.Clone())
+		}
+		td.mu.RUnlock()
+
+		// Process delegations in chunks without holding the lock
+		for i := 0; i < len(delegations); i += chunkSize {
+			end := i + chunkSize
+			if end > len(delegations) {
+				end = len(delegations)
 			}
-			remainingItems := len(td.mapping) - offset
-			td.mu.RUnlock()
 
 			// Process the chunk
-			for _, delegation := range chunk {
+			for _, delegation := range delegations[i:end] {
 				if !yield(delegation) {
 					return
 				}
 			}
-
-			// Check if we've processed all items
-			if remainingItems <= chunkSize {
-				break
-			}
-			offset += chunkSize
 		}
 	}
 }
