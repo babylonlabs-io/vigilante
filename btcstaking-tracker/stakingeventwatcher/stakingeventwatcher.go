@@ -638,13 +638,11 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 			continue
 		}
 
-		sew.logger.Debugf("before lock %s", del.StakingTx.TxHash().String())
 		if err := sew.activationLimiter.Acquire(context.Background(), 1); err != nil {
 			sew.logger.Warnf("error acquiring a activation semaphore %s", err)
 
 			continue
 		}
-		sew.logger.Debugf("after lock %s", del.StakingTx.TxHash().String())
 
 		if _, err = sew.inProgressTracker.AddDelegation(
 			del.StakingTx,
