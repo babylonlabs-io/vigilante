@@ -172,6 +172,19 @@ func (td *TrackedDelegations) AddDelegation(
 	return delegation, nil
 }
 
+func (td *TrackedDelegations) AddEmptyDelegation(txHash chainhash.Hash) error {
+	td.mu.Lock()
+	defer td.mu.Unlock()
+
+	if _, ok := td.mapping[txHash]; ok {
+		return fmt.Errorf("already tracked staking tx hash: %s", txHash)
+	}
+
+	td.mapping[txHash] = nil
+
+	return nil
+}
+
 func (td *TrackedDelegations) RemoveDelegation(stakingTxHash chainhash.Hash) {
 	td.mu.Lock()
 	defer td.mu.Unlock()

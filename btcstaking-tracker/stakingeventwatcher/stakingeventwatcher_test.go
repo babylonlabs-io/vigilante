@@ -33,18 +33,20 @@ func TestHandlingDelegations(t *testing.T) {
 	bsMetrics := metrics.NewBTCStakingTrackerMetrics()
 
 	sew := StakingEventWatcher{
-		logger:                  zap.NewNop().Sugar(),
-		quit:                    make(chan struct{}),
-		cfg:                     &cfg,
-		babylonNodeAdapter:      mockBabylonNodeAdapter,
-		btcClient:               mockBTCClient,
-		unbondingTracker:        NewTrackedDelegations(),
-		pendingTracker:          NewTrackedDelegations(),
-		inProgressTracker:       NewTrackedDelegations(),
-		unbondingDelegationChan: make(chan *newDelegation),
-		unbondingRemovalChan:    make(chan *delegationInactive),
-		activationLimiter:       semaphore.NewWeighted(10),
-		metrics:                 bsMetrics.UnbondingWatcherMetrics,
+		logger:                         zap.NewNop().Sugar(),
+		quit:                           make(chan struct{}),
+		cfg:                            &cfg,
+		babylonNodeAdapter:             mockBabylonNodeAdapter,
+		btcClient:                      mockBTCClient,
+		unbondingTracker:               NewTrackedDelegations(),
+		pendingTracker:                 NewTrackedDelegations(),
+		inProgressTracker:              NewTrackedDelegations(),
+		verifiedInsufficientConfTacker: NewTrackedDelegations(),
+		verifiedNotInChainTracker:      NewTrackedDelegations(),
+		unbondingDelegationChan:        make(chan *newDelegation),
+		unbondingRemovalChan:           make(chan *delegationInactive),
+		activationLimiter:              semaphore.NewWeighted(10),
+		metrics:                        bsMetrics.UnbondingWatcherMetrics,
 	}
 
 	defer close(sew.quit)

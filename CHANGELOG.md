@@ -40,6 +40,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Improvements
 
 * [#178](https://github.com/babylonlabs-io/vigilante/pull/178) chore: better bucket range
+* [#179](https://github.com/babylonlabs-io/vigilante/pull/179) chore: metrics for bs tracker
 
 ## v0.19.4
 
