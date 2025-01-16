@@ -23,17 +23,20 @@ func NewBTCStakingTrackerMetrics() *BTCStakingTrackerMetrics {
 }
 
 type UnbondingWatcherMetrics struct {
-	Registry                                *prometheus.Registry
-	ReportedUnbondingTransactionsCounter    prometheus.Counter
-	FailedReportedUnbondingTransactions     prometheus.Counter
-	NumberOfTrackedActiveDelegations        prometheus.Gauge
-	DetectedUnbondingTransactionsCounter    prometheus.Counter
-	DetectedNonUnbondingTransactionsCounter prometheus.Counter
-	FailedReportedActivateDelegations       prometheus.Counter
-	ReportedActivateDelegationsCounter      prometheus.Counter
-	NumberOfActivationInProgress            prometheus.Gauge
-	NumberOfVerifiedDelegations             prometheus.Gauge
-	MethodExecutionLatency                  *prometheus.HistogramVec
+	Registry                                    *prometheus.Registry
+	ReportedUnbondingTransactionsCounter        prometheus.Counter
+	FailedReportedUnbondingTransactions         prometheus.Counter
+	NumberOfTrackedActiveDelegations            prometheus.Gauge
+	DetectedUnbondingTransactionsCounter        prometheus.Counter
+	DetectedNonUnbondingTransactionsCounter     prometheus.Counter
+	FailedReportedActivateDelegations           prometheus.Counter
+	ReportedActivateDelegationsCounter          prometheus.Counter
+	NumberOfActivationInProgress                prometheus.Gauge
+	NumberOfVerifiedDelegations                 prometheus.Gauge
+	NumberOfVerifiedNotInChainDelegations       prometheus.Gauge
+	NumberOfVerifiedInsufficientConfDelegations prometheus.Gauge
+
+	MethodExecutionLatency *prometheus.HistogramVec
 }
 
 func newUnbondingWatcherMetrics(registry *prometheus.Registry) *UnbondingWatcherMetrics {
@@ -80,7 +83,7 @@ func newUnbondingWatcherMetrics(registry *prometheus.Registry) *UnbondingWatcher
 			Namespace: "vigilante",
 			Name:      "unbonding_watcher_method_latency_seconds",
 			Help:      "Latency in seconds",
-			Buckets:   []float64{.001, .002, .005, .01, .025, .05, .1},
+			Buckets:   []float64{0.3, 1, 2, 5, 10, 30, 60, 120, 180, 300},
 		}, []string{"method"}),
 		NumberOfActivationInProgress: registerer.NewGauge(prometheus.GaugeOpts{
 			Namespace: "vigilante",
@@ -91,6 +94,16 @@ func newUnbondingWatcherMetrics(registry *prometheus.Registry) *UnbondingWatcher
 			Namespace: "vigilante",
 			Name:      "unbonding_watcher_number_of_verified_delegations",
 			Help:      "The number of verified delegations",
+		}),
+		NumberOfVerifiedNotInChainDelegations: registerer.NewGauge(prometheus.GaugeOpts{
+			Namespace: "vigilante",
+			Name:      "unbonding_watcher_number_of_verified_not_in_chain_delegations",
+			Help:      "The number of verified not in chain delegations",
+		}),
+		NumberOfVerifiedInsufficientConfDelegations: registerer.NewGauge(prometheus.GaugeOpts{
+			Namespace: "vigilante",
+			Name:      "unbonding_watcher_number_of_verified_insufficient_conf_delegations",
+			Help:      "The number of verified delegations with insufficient confirmations",
 		}),
 	}
 

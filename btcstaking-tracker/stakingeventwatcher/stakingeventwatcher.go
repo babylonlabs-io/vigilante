@@ -82,6 +82,11 @@ type StakingEventWatcher struct {
 	// keeps track of delegations that are verified, and we are trying to activate
 	inProgressTracker *TrackedDelegations
 
+	// used for metrics purposes, keeps track of verified delegations that are not in consumer chain
+	verifiedNotInChainTracker *TrackedDelegations
+	// used for metrics purposes, keeps track of verified delegations in chain but without sufficient confirmations
+	verifiedInsufficientConfTacker *TrackedDelegations
+
 	unbondingDelegationChan chan *newDelegation
 	unbondingRemovalChan    chan *delegationInactive
 	currentBestBlockHeight  atomic.Uint32
@@ -97,19 +102,21 @@ func NewStakingEventWatcher(
 	metrics *metrics.UnbondingWatcherMetrics,
 ) *StakingEventWatcher {
 	return &StakingEventWatcher{
-		quit:                    make(chan struct{}),
-		cfg:                     cfg,
-		logger:                  parentLogger.With(zap.String("module", "staking_event_watcher")).Sugar(),
-		btcNotifier:             btcNotifier,
-		btcClient:               btcClient,
-		babylonNodeAdapter:      babylonNodeAdapter,
-		metrics:                 metrics,
-		unbondingTracker:        NewTrackedDelegations(),
-		pendingTracker:          NewTrackedDelegations(),
-		inProgressTracker:       NewTrackedDelegations(),
-		unbondingDelegationChan: make(chan *newDelegation),
-		unbondingRemovalChan:    make(chan *delegationInactive),
-		activationLimiter:       semaphore.NewWeighted(maxConcurrentActivations), // todo(lazar): this should be in config
+		quit:                           make(chan struct{}),
+		cfg:                            cfg,
+		logger:                         parentLogger.With(zap.String("module", "staking_event_watcher")).Sugar(),
+		btcNotifier:                    btcNotifier,
+		btcClient:                      btcClient,
+		babylonNodeAdapter:             babylonNodeAdapter,
+		metrics:                        metrics,
+		unbondingTracker:               NewTrackedDelegations(),
+		pendingTracker:                 NewTrackedDelegations(),
+		inProgressTracker:              NewTrackedDelegations(),
+		verifiedInsufficientConfTacker: NewTrackedDelegations(),
+		verifiedNotInChainTracker:      NewTrackedDelegations(),
+		unbondingDelegationChan:        make(chan *newDelegation),
+		unbondingRemovalChan:           make(chan *delegationInactive),
+		activationLimiter:              semaphore.NewWeighted(maxConcurrentActivations), // todo(lazar): this should be in config
 	}
 }
 
@@ -625,7 +632,16 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 		}
 
 		if status != btcclient.TxInChain {
+			if err := sew.verifiedNotInChainTracker.AddEmptyDelegation(txHash); err == nil {
+				sew.metrics.NumberOfVerifiedNotInChainDelegations.Inc()
+			}
+
 			continue
+		}
+
+		if d := sew.verifiedNotInChainTracker.GetDelegation(txHash); d != nil {
+			sew.verifiedNotInChainTracker.RemoveDelegation(txHash)
+			sew.metrics.NumberOfVerifiedNotInChainDelegations.Dec()
 		}
 
 		btcTxs := types.GetWrappedTxs(details.Block)
@@ -682,7 +698,16 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 	if err := sew.waitForRequiredDepth(ctx, stakingTxHash, &inclusionBlockHash, requiredDepth); err != nil {
 		sew.logger.Warnf("exceeded waiting for required depth for tx: %s, will try later: err %v", stakingTxHash.String(), err)
 
+		if err := sew.verifiedInsufficientConfTacker.AddEmptyDelegation(stakingTxHash); err == nil {
+			sew.metrics.NumberOfVerifiedInsufficientConfDelegations.Inc()
+		}
+
 		return
+	}
+
+	if d := sew.verifiedInsufficientConfTacker.GetDelegation(stakingTxHash); d != nil {
+		sew.verifiedNotInChainTracker.RemoveDelegation(stakingTxHash)
+		sew.metrics.NumberOfVerifiedInsufficientConfDelegations.Dec()
 	}
 
 	defer sew.latency("activateDelegationRPC")()
