@@ -264,8 +264,8 @@ func (sew *StakingEventWatcher) fetchDelegations() {
 					delegationStartHeight: delegation.DelegationStartHeight,
 					unbondingOutput:       delegation.UnbondingOutput,
 				}
-
-				if sew.pendingTracker.GetDelegation(delegation.StakingTx.TxHash()) == nil && !delegation.HasProof {
+				_, exists := sew.pendingTracker.GetDelegation(delegation.StakingTx.TxHash())
+				if !exists && !delegation.HasProof {
 					_, _ = sew.pendingTracker.AddDelegation(
 						del.stakingTx,
 						del.stakingOutputIdx,
@@ -617,7 +617,7 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 	}
 
 	for del := range sew.pendingTracker.DelegationsIter(1000) {
-		if inProgDel := sew.inProgressTracker.GetDelegation(del.StakingTx.TxHash()); inProgDel != nil {
+		if inProgDel, _ := sew.inProgressTracker.GetDelegation(del.StakingTx.TxHash()); inProgDel != nil {
 			sew.logger.Debugf("skipping tx %s, already in progress", inProgDel.StakingTx.TxHash().String())
 
 			continue
@@ -639,7 +639,7 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 			continue
 		}
 
-		if d := sew.verifiedNotInChainTracker.GetDelegation(txHash); d != nil {
+		if _, exists := sew.verifiedNotInChainTracker.GetDelegation(txHash); exists {
 			sew.verifiedNotInChainTracker.RemoveDelegation(txHash)
 			sew.metrics.NumberOfVerifiedNotInChainDelegations.Dec()
 		}
@@ -705,7 +705,7 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 		return
 	}
 
-	if d := sew.verifiedInsufficientConfTacker.GetDelegation(stakingTxHash); d != nil {
+	if _, exists := sew.verifiedInsufficientConfTacker.GetDelegation(stakingTxHash); exists {
 		sew.verifiedNotInChainTracker.RemoveDelegation(stakingTxHash)
 		sew.metrics.NumberOfVerifiedInsufficientConfDelegations.Dec()
 	}

@@ -209,6 +209,10 @@ func TestActivatingDelegation(t *testing.T) {
 		return promtestutil.ToFloat64(stakingTrackerMetrics.FailedReportedActivateDelegations) == 0
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
+	require.Eventually(t, func() bool {
+		return promtestutil.ToFloat64(stakingTrackerMetrics.NumberOfVerifiedNotInChainDelegations) == 0
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
 	// created delegation lacks inclusion proof, once created it will be in
 	// pending status, once convenant signatures are added it will be in verified status,
 	// and once the stakingEventWatcher submits MsgAddBTCDelegationInclusionProof it will
