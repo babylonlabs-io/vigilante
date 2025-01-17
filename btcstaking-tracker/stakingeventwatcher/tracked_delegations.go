@@ -30,16 +30,16 @@ func NewTrackedDelegations() *TrackedDelegations {
 }
 
 // GetDelegation returns the tracked delegation for the given staking tx hash or nil if not found.
-func (td *TrackedDelegations) GetDelegation(stakingTxHash chainhash.Hash) *TrackedDelegation {
+func (td *TrackedDelegations) GetDelegation(stakingTxHash chainhash.Hash) (*TrackedDelegation, bool) {
 	td.mu.RLock()
 	defer td.mu.RUnlock()
 
 	del, ok := td.mapping[stakingTxHash]
 	if !ok {
-		return nil
+		return nil, false
 	}
 
-	return del
+	return del, true
 }
 
 // GetDelegations returns all tracked delegations as a slice.
