@@ -116,6 +116,7 @@ func NewStakingEventWatcher(
 		inProgressTracker:               NewTrackedDelegations(),
 		verifiedInsufficientConfTracker: NewTrackedDelegations(),
 		verifiedNotInChainTracker:       NewTrackedDelegations(),
+		verifiedSufficientConfTracker:   NewTrackedDelegations(),
 		unbondingDelegationChan:         make(chan *newDelegation),
 		unbondingRemovalChan:            make(chan *delegationInactive),
 		activationLimiter:               semaphore.NewWeighted(maxConcurrentActivations), // todo(lazar): this should be in config
