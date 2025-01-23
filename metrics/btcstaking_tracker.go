@@ -35,6 +35,7 @@ type UnbondingWatcherMetrics struct {
 	NumberOfVerifiedDelegations                 prometheus.Gauge
 	NumberOfVerifiedNotInChainDelegations       prometheus.Gauge
 	NumberOfVerifiedInsufficientConfDelegations prometheus.Gauge
+	NumberOfVerifiedSufficientConfDelegations   prometheus.Gauge
 
 	MethodExecutionLatency *prometheus.HistogramVec
 }
@@ -104,6 +105,11 @@ func newUnbondingWatcherMetrics(registry *prometheus.Registry) *UnbondingWatcher
 			Namespace: "vigilante",
 			Name:      "unbonding_watcher_number_of_verified_insufficient_conf_delegations",
 			Help:      "The number of verified delegations with insufficient confirmations",
+		}),
+		NumberOfVerifiedSufficientConfDelegations: registerer.NewGauge(prometheus.GaugeOpts{
+			Namespace: "vigilante",
+			Name:      "unbonding_watcher_number_of_verified_sufficient_conf_delegations",
+			Help:      "The number of verified delegations with sufficient confirmations",
 		}),
 	}
 
