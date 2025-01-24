@@ -226,7 +226,6 @@ func (td *TrackedDelegations) UpdateActivation(tx chainhash.Hash, inProgress boo
 	defer td.mu.Unlock()
 
 	delegation, ok := td.mapping[tx]
-
 	if !ok {
 		return fmt.Errorf("delegation with tx hash %s not found", tx.String())
 	}

@@ -40,7 +40,6 @@ func TestHandlingDelegations(t *testing.T) {
 		btcClient:                       mockBTCClient,
 		unbondingTracker:                NewTrackedDelegations(),
 		pendingTracker:                  NewTrackedDelegations(),
-		inProgressTracker:               NewTrackedDelegations(),
 		verifiedInsufficientConfTracker: NewTrackedDelegations(),
 		verifiedNotInChainTracker:       NewTrackedDelegations(),
 		verifiedSufficientConfTracker:   NewTrackedDelegations(),
