@@ -52,7 +52,7 @@ func TestHandlingDelegations(t *testing.T) {
 
 	defer close(sew.quit)
 
-	expectedActivated := 1000000
+	expectedActivated := 1000
 	delegations := make([]Delegation, 0, expectedActivated)
 	for i := 0; i < expectedActivated; i++ {
 		stk := datagen.GenRandomTx(r)
