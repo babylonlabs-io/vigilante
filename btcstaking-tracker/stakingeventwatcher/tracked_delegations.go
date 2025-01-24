@@ -2,6 +2,7 @@ package stakingeventwatcher
 
 import (
 	"fmt"
+	"go.uber.org/atomic"
 	"iter"
 	"sync"
 
@@ -21,6 +22,7 @@ type TrackedDelegations struct {
 	mu sync.RWMutex
 	// key: staking tx hash
 	mapping map[chainhash.Hash]*TrackedDelegation
+	count   atomic.Int32
 }
 
 func NewTrackedDelegations() *TrackedDelegations {
@@ -168,6 +170,7 @@ func (td *TrackedDelegations) AddDelegation(
 	}
 
 	td.mapping[stakingTxHash] = delegation
+	td.count.Inc()
 
 	return delegation, nil
 }
@@ -181,6 +184,7 @@ func (td *TrackedDelegations) AddEmptyDelegation(txHash chainhash.Hash) error {
 	}
 
 	td.mapping[txHash] = nil
+	td.count.Inc()
 
 	return nil
 }
@@ -189,7 +193,10 @@ func (td *TrackedDelegations) RemoveDelegation(stakingTxHash chainhash.Hash) {
 	td.mu.Lock()
 	defer td.mu.Unlock()
 
-	delete(td.mapping, stakingTxHash)
+	if _, exists := td.mapping[stakingTxHash]; exists {
+		delete(td.mapping, stakingTxHash)
+		td.count.Dec()
+	}
 }
 
 func (td *TrackedDelegations) HasDelegationChanged(
@@ -231,8 +238,5 @@ func (td *TrackedDelegations) UpdateActivation(tx chainhash.Hash, inProgress boo
 }
 
 func (td *TrackedDelegations) Count() int {
-	td.mu.RLock()
-	defer td.mu.RUnlock()
-
-	return len(td.mapping)
+	return int(td.count.Load())
 }
