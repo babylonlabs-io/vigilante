@@ -2,12 +2,11 @@ package stakingeventwatcher
 
 import (
 	"fmt"
-	"go.uber.org/atomic"
-	"iter"
-	"sync"
-
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
+	"github.com/sasha-s/go-deadlock"
+	"go.uber.org/atomic"
+	"iter"
 )
 
 type TrackedDelegation struct {
@@ -19,7 +18,7 @@ type TrackedDelegation struct {
 }
 
 type TrackedDelegations struct {
-	mu sync.RWMutex
+	mu deadlock.RWMutex
 	// key: staking tx hash
 	mapping map[chainhash.Hash]*TrackedDelegation
 	count   atomic.Int32

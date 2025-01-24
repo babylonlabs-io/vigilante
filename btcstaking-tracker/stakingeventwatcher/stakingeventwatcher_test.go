@@ -46,13 +46,13 @@ func TestHandlingDelegations(t *testing.T) {
 		verifiedSufficientConfTracker:   NewTrackedDelegations(),
 		unbondingDelegationChan:         make(chan *newDelegation),
 		unbondingRemovalChan:            make(chan *delegationInactive),
-		activationLimiter:               semaphore.NewWeighted(10),
+		activationLimiter:               semaphore.NewWeighted(30),
 		metrics:                         bsMetrics.UnbondingWatcherMetrics,
 	}
 
 	defer close(sew.quit)
 
-	expectedActivated := 1000
+	expectedActivated := 1000000
 	delegations := make([]Delegation, 0, expectedActivated)
 	for i := 0; i < expectedActivated; i++ {
 		stk := datagen.GenRandomTx(r)
