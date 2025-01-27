@@ -52,7 +52,7 @@ func TestMonitorBootstrap(t *testing.T) {
 	subAddr, _ := sdk.AccAddressFromBech32(submitterAddrStr)
 
 	// create submitter
-	vigilantSubmitter, _ := submitter.New(
+	vigilantSubmitter, err := submitter.New(
 		&tm.Config.Submitter,
 		logger,
 		tm.BTCClient,
@@ -65,6 +65,8 @@ func TestMonitorBootstrap(t *testing.T) {
 		testutil.MakeTestBackend(t),
 		tm.Config.BTC.WalletName,
 	)
+
+	require.NoError(t, err)
 
 	vigilantSubmitter.Start()
 	defer vigilantSubmitter.Stop()
