@@ -10,7 +10,7 @@ import (
 	types "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
 	types0 "github.com/babylonlabs-io/babylon/x/btcstaking/types"
 	types1 "github.com/babylonlabs-io/babylon/x/finality/types"
-	types2 "github.com/cometbft/cometbft/rpc/core/types"
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	query "github.com/cosmos/cosmos-sdk/types/query"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -113,14 +113,14 @@ func (mr *MockBabylonQueryClientMockRecorder) ListEvidences(startHeight, paginat
 }
 
 // Subscribe mocks base method.
-func (m *MockBabylonQueryClient) Subscribe(subscriber, query string, outCapacity ...int) (<-chan types2.ResultEvent, error) {
+func (m *MockBabylonQueryClient) Subscribe(subscriber, query string, outCapacity ...int) (<-chan coretypes.ResultEvent, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{subscriber, query}
 	for _, a := range outCapacity {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Subscribe", varargs...)
-	ret0, _ := ret[0].(<-chan types2.ResultEvent)
+	ret0, _ := ret[0].(<-chan coretypes.ResultEvent)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
