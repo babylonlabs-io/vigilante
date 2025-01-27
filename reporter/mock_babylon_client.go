@@ -8,11 +8,11 @@ import (
 	context "context"
 	reflect "reflect"
 
+	babylonclient "github.com/babylonlabs-io/babylon/client/babylonclient"
 	config "github.com/babylonlabs-io/babylon/client/config"
 	types "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
 	types0 "github.com/babylonlabs-io/babylon/x/btclightclient/types"
 	chainhash "github.com/btcsuite/btcd/chaincfg/chainhash"
-	provider "github.com/cosmos/relayer/v2/relayer/provider"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -114,10 +114,10 @@ func (mr *MockBabylonClientMockRecorder) GetConfig() *gomock.Call {
 }
 
 // InsertBTCSpvProof mocks base method.
-func (m *MockBabylonClient) InsertBTCSpvProof(ctx context.Context, msg *types.MsgInsertBTCSpvProof) (*provider.RelayerTxResponse, error) {
+func (m *MockBabylonClient) InsertBTCSpvProof(ctx context.Context, msg *types.MsgInsertBTCSpvProof) (*babylonclient.RelayerTxResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InsertBTCSpvProof", ctx, msg)
-	ret0, _ := ret[0].(*provider.RelayerTxResponse)
+	ret0, _ := ret[0].(*babylonclient.RelayerTxResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -129,10 +129,10 @@ func (mr *MockBabylonClientMockRecorder) InsertBTCSpvProof(ctx, msg interface{})
 }
 
 // InsertHeaders mocks base method.
-func (m *MockBabylonClient) InsertHeaders(ctx context.Context, msgs *types0.MsgInsertHeaders) (*provider.RelayerTxResponse, error) {
+func (m *MockBabylonClient) InsertHeaders(ctx context.Context, msgs *types0.MsgInsertHeaders) (*babylonclient.RelayerTxResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InsertHeaders", ctx, msgs)
-	ret0, _ := ret[0].(*provider.RelayerTxResponse)
+	ret0, _ := ret[0].(*babylonclient.RelayerTxResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

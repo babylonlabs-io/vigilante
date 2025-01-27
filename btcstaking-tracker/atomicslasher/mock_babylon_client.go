@@ -9,10 +9,10 @@ import (
 	reflect "reflect"
 
 	errors "cosmossdk.io/errors"
+	babylonclient "github.com/babylonlabs-io/babylon/client/babylonclient"
 	types "github.com/babylonlabs-io/babylon/x/btcstaking/types"
 	types0 "github.com/cosmos/cosmos-sdk/types"
 	query "github.com/cosmos/cosmos-sdk/types/query"
-	provider "github.com/cosmos/relayer/v2/relayer/provider"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -114,10 +114,10 @@ func (mr *MockBabylonClientMockRecorder) MustGetAddr() *gomock.Call {
 }
 
 // ReliablySendMsg mocks base method.
-func (m *MockBabylonClient) ReliablySendMsg(ctx context.Context, msg types0.Msg, expectedErrors, unrecoverableErrors []*errors.Error) (*provider.RelayerTxResponse, error) {
+func (m *MockBabylonClient) ReliablySendMsg(ctx context.Context, msg types0.Msg, expectedErrors, unrecoverableErrors []*errors.Error) (*babylonclient.RelayerTxResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReliablySendMsg", ctx, msg, expectedErrors, unrecoverableErrors)
-	ret0, _ := ret[0].(*provider.RelayerTxResponse)
+	ret0, _ := ret[0].(*babylonclient.RelayerTxResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

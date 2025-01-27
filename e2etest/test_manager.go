@@ -6,9 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/babylonlabs-io/babylon/client/babylonclient"
 	"github.com/babylonlabs-io/vigilante/e2etest/container"
 	"github.com/btcsuite/btcd/txscript"
-	pv "github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"os"
 	"path/filepath"
@@ -204,7 +204,7 @@ func (tm *TestManager) RetrieveTransactionFromMempool(t *testing.T, hashes []*ch
 	return txs
 }
 
-func (tm *TestManager) InsertBTCHeadersToBabylon(headers []*wire.BlockHeader) (*pv.RelayerTxResponse, error) {
+func (tm *TestManager) InsertBTCHeadersToBabylon(headers []*wire.BlockHeader) (*babylonclient.RelayerTxResponse, error) {
 	var headersBytes []bbn.BTCHeaderBytes
 
 	for _, h := range headers {

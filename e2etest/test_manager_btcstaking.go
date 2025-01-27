@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/babylonlabs-io/babylon/client/babylonclient"
 	"math/rand"
 	"testing"
 	"time"
@@ -31,7 +32,6 @@ import (
 	sdkquery "github.com/cosmos/cosmos-sdk/types/query"
 	sdkquerytypes "github.com/cosmos/cosmos-sdk/types/query"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/stretchr/testify/require"
 )
 
@@ -852,7 +852,7 @@ func (tm *TestManager) finalizeUntilEpoch(t *testing.T, epoch uint64) {
 	t.Logf("epoch %d is finalised", epoch)
 }
 
-func (tm *TestManager) insertBtcBlockHeaders(headers []bbn.BTCHeaderBytes) (*provider.RelayerTxResponse, error) {
+func (tm *TestManager) insertBtcBlockHeaders(headers []bbn.BTCHeaderBytes) (*babylonclient.RelayerTxResponse, error) {
 	msg := &btclctypes.MsgInsertHeaders{
 		Signer:  tm.MustGetBabylonSigner(),
 		Headers: headers,
@@ -866,7 +866,7 @@ func (tm *TestManager) insertBtcBlockHeaders(headers []bbn.BTCHeaderBytes) (*pro
 	return res, nil
 }
 
-func (tm *TestManager) insertSpvProofs(submitter string, proofs []*btcctypes.BTCSpvProof) (*provider.RelayerTxResponse, error) {
+func (tm *TestManager) insertSpvProofs(submitter string, proofs []*btcctypes.BTCSpvProof) (*babylonclient.RelayerTxResponse, error) {
 	msg := &btcctypes.MsgInsertBTCSpvProof{
 		Submitter: submitter,
 		Proofs:    proofs,

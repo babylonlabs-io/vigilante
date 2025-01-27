@@ -46,7 +46,8 @@ func NewWallet(cfg *config.Config, parentLogger *zap.Logger) (*Client, error) {
 
 	connCfg := &rpcclient.ConnConfig{
 		// this will work with node loaded with multiple wallets
-		Host:         cfg.BTC.Endpoint + "/wallet/" + cfg.BTC.WalletName,
+		Host: cfg.BTC.Endpoint,
+
 		HTTPPostMode: true,
 		User:         cfg.BTC.Username,
 		Pass:         cfg.BTC.Password,
