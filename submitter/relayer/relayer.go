@@ -319,6 +319,7 @@ func (rl *Relayer) calcMinRelayFee(txVirtualSize int64) btcutil.Amount {
 
 	rl.logger.Debugf("current minimum relay fee rate is %v", minRelayFeeRate)
 
+	// #nosec G115 - Ignored G115 because the application ensures txVirtualSize is always non-negative.
 	minRelayFee := minRelayFeeRate.FeeForVSize(lntypes.VByte(txVirtualSize))
 
 	// Set the minimum fee to the maximum possible value if the calculated
