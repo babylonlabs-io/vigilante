@@ -79,9 +79,6 @@ type StakingEventWatcher struct {
 	unbondingTracker *TrackedDelegations
 	// keeps track of verified delegations to be activated, periodically iterate over them and try to activate them
 	pendingTracker *TrackedDelegations
-	// keeps track of delegations that are verified, and we are trying to activate
-	inProgressTracker *TrackedDelegations
-
 	// used for metrics purposes, keeps track of verified delegations that are not in consumer chain
 	verifiedNotInChainTracker *TrackedDelegations
 	// used for metrics purposes, keeps track of verified delegations in chain but without sufficient confirmations
@@ -113,7 +110,6 @@ func NewStakingEventWatcher(
 		metrics:                         metrics,
 		unbondingTracker:                NewTrackedDelegations(),
 		pendingTracker:                  NewTrackedDelegations(),
-		inProgressTracker:               NewTrackedDelegations(),
 		verifiedInsufficientConfTracker: NewTrackedDelegations(),
 		verifiedNotInChainTracker:       NewTrackedDelegations(),
 		verifiedSufficientConfTracker:   NewTrackedDelegations(),
@@ -620,11 +616,11 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 	}
 
 	for del := range sew.pendingTracker.DelegationsIter(1000) {
-		if inProgDel, _ := sew.inProgressTracker.GetDelegation(del.StakingTx.TxHash()); inProgDel != nil {
+		if del.ActivationInProgress {
 			continue
 		}
-
 		txHash := del.StakingTx.TxHash()
+
 		details, status, err := sew.btcClient.TxDetails(&txHash, del.StakingTx.TxOut[del.StakingOutputIdx].PkScript)
 		if err != nil {
 			sew.logger.Debugf("error getting tx %v", txHash)
@@ -661,8 +657,9 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 			continue
 		}
 
-		if err = sew.inProgressTracker.AddEmptyDelegation(del.StakingTx.TxHash()); err != nil {
-			sew.logger.Debugf("add del: %s", err)
+		if err := sew.pendingTracker.UpdateActivation(txHash, true); err != nil {
+			sew.logger.Debugf("error updating activation in pending tracker tx: %v", txHash)
+			sew.activationLimiter.Release(1) // in probable edge case, insure we release the sem
 
 			continue
 		}
@@ -688,7 +685,11 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 	defer cancel()
 
 	defer sew.latency("activateBtcDelegation")()
-	defer sew.inProgressTracker.RemoveDelegation(stakingTxHash)
+	defer func() {
+		if err := sew.pendingTracker.UpdateActivation(stakingTxHash, false); err != nil {
+			sew.logger.Debugf("err updating activation in pending tracker tx: %v", stakingTxHash)
+		}
+	}()
 
 	if err := sew.waitForRequiredDepth(ctx, stakingTxHash, &inclusionBlockHash, requiredDepth); err != nil {
 		sew.logger.Warnf("exceeded waiting for required depth for tx: %s, will try later: err %v", stakingTxHash.String(), err)

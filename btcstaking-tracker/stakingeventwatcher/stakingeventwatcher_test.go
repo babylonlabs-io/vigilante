@@ -40,13 +40,12 @@ func TestHandlingDelegations(t *testing.T) {
 		btcClient:                       mockBTCClient,
 		unbondingTracker:                NewTrackedDelegations(),
 		pendingTracker:                  NewTrackedDelegations(),
-		inProgressTracker:               NewTrackedDelegations(),
 		verifiedInsufficientConfTracker: NewTrackedDelegations(),
 		verifiedNotInChainTracker:       NewTrackedDelegations(),
 		verifiedSufficientConfTracker:   NewTrackedDelegations(),
 		unbondingDelegationChan:         make(chan *newDelegation),
 		unbondingRemovalChan:            make(chan *delegationInactive),
-		activationLimiter:               semaphore.NewWeighted(10),
+		activationLimiter:               semaphore.NewWeighted(30),
 		metrics:                         bsMetrics.UnbondingWatcherMetrics,
 	}
 
