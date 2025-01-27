@@ -2,11 +2,11 @@ package stakingeventwatcher
 
 import (
 	"fmt"
-	"iter"
-	"sync"
-
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
+	"github.com/sasha-s/go-deadlock"
+	"go.uber.org/atomic"
+	"iter"
 )
 
 type TrackedDelegation struct {
@@ -18,9 +18,10 @@ type TrackedDelegation struct {
 }
 
 type TrackedDelegations struct {
-	mu sync.RWMutex
+	mu deadlock.RWMutex
 	// key: staking tx hash
 	mapping map[chainhash.Hash]*TrackedDelegation
+	count   atomic.Int32
 }
 
 func NewTrackedDelegations() *TrackedDelegations {
@@ -168,6 +169,7 @@ func (td *TrackedDelegations) AddDelegation(
 	}
 
 	td.mapping[stakingTxHash] = delegation
+	td.count.Inc()
 
 	return delegation, nil
 }
@@ -181,6 +183,7 @@ func (td *TrackedDelegations) AddEmptyDelegation(txHash chainhash.Hash) error {
 	}
 
 	td.mapping[txHash] = nil
+	td.count.Inc()
 
 	return nil
 }
@@ -189,7 +192,10 @@ func (td *TrackedDelegations) RemoveDelegation(stakingTxHash chainhash.Hash) {
 	td.mu.Lock()
 	defer td.mu.Unlock()
 
-	delete(td.mapping, stakingTxHash)
+	if _, exists := td.mapping[stakingTxHash]; exists {
+		delete(td.mapping, stakingTxHash)
+		td.count.Dec()
+	}
 }
 
 func (td *TrackedDelegations) HasDelegationChanged(
@@ -220,7 +226,6 @@ func (td *TrackedDelegations) UpdateActivation(tx chainhash.Hash, inProgress boo
 	defer td.mu.Unlock()
 
 	delegation, ok := td.mapping[tx]
-
 	if !ok {
 		return fmt.Errorf("delegation with tx hash %s not found", tx.String())
 	}
@@ -231,8 +236,5 @@ func (td *TrackedDelegations) UpdateActivation(tx chainhash.Hash, inProgress boo
 }
 
 func (td *TrackedDelegations) Count() int {
-	td.mu.RLock()
-	defer td.mu.RUnlock()
-
-	return len(td.mapping)
+	return int(td.count.Load())
 }
