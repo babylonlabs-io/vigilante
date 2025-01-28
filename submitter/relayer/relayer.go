@@ -8,6 +8,7 @@ import (
 	"github.com/babylonlabs-io/vigilante/submitter/store"
 	"github.com/btcsuite/btcd/btcjson"
 	"github.com/lightningnetwork/lnd/kvdb"
+	"github.com/lightningnetwork/lnd/lntypes"
 	"math"
 	"strconv"
 	"time"
@@ -318,7 +319,8 @@ func (rl *Relayer) calcMinRelayFee(txVirtualSize int64) btcutil.Amount {
 
 	rl.logger.Debugf("current minimum relay fee rate is %v", minRelayFeeRate)
 
-	minRelayFee := minRelayFeeRate.FeeForVSize(txVirtualSize)
+	// #nosec G115 - Ignored G115 because the application ensures txVirtualSize is always non-negative.
+	minRelayFee := minRelayFeeRate.FeeForVSize(lntypes.VByte(txVirtualSize))
 
 	// Set the minimum fee to the maximum possible value if the calculated
 	// fee is not in the valid range for monetary amounts.
