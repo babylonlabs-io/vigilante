@@ -37,6 +37,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Improvements
+
+* [#194](https://github.com/babylonlabs-io/vigilante/pull/194) fix: reduce locks
+
 ## v0.19.7
 
 ### Improvements
