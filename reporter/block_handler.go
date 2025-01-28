@@ -93,10 +93,11 @@ func (r *Reporter) processNewBlock(ib *types.IndexedBlock) error {
 	}
 
 	signer := r.babylonClient.MustGetAddr()
-
 	// Process headers
 	if _, err := r.ProcessHeaders(signer, headersToProcess); err != nil {
 		r.logger.Warnf("Failed to submit headers: %v", err)
+
+		return fmt.Errorf("failed to submit headers: %w", err)
 	}
 
 	// Process checkpoints
