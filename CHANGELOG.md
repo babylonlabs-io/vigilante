@@ -41,6 +41,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 * [#194](https://github.com/babylonlabs-io/vigilante/pull/194) fix: reduce locks
 * [#195](https://github.com/babylonlabs-io/vigilante/pull/195) chore: bump bbn to rc4
+* [#196](https://github.com/babylonlabs-io/vigilante/pull/196) fix: reporter ensure bootstrap happens on error
 
 ## v0.19.7
 
