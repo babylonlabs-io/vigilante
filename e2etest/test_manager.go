@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -107,7 +108,7 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 	}, nil)
 	require.NoError(t, err)
 
-	err = testRpcClient.WalletPassphrase(passphrase, 600)
+	err = testRpcClient.WalletPassphrase(passphrase, 10000)
 	require.NoError(t, err)
 
 	walletPrivKey, err := importPrivateKey(btcHandler)
@@ -236,8 +237,11 @@ func (tm *TestManager) CatchUpBTCLightClient(t *testing.T) {
 		headers = append(headers, header)
 	}
 
-	_, err = tm.InsertBTCHeadersToBabylon(headers)
-	require.NoError(t, err)
+	for headersChunk := range slices.Chunk(headers, 1500) {
+		_, err := tm.InsertBTCHeadersToBabylon(headersChunk)
+		require.NoError(t, err)
+
+	}
 }
 
 func importPrivateKey(btcHandler *BitcoindTestHandler) (*btcec.PrivateKey, error) {

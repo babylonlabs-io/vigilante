@@ -341,7 +341,7 @@ func TestActivatingAndUnbondingDelegation(t *testing.T) {
 
 func TestUnbondingLoaded(t *testing.T) {
 	t.Parallel()
-	numMatureOutputs := uint32(500)
+	numMatureOutputs := uint32(2500)
 	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
 	defer tm.Stop(t)
 	tm.CatchUpBTCLightClient(t)
@@ -382,8 +382,8 @@ func TestUnbondingLoaded(t *testing.T) {
 	bsParams, err := tm.BabylonClient.BTCStakingParams()
 	require.NoError(t, err)
 
-	var stakers []*Staker
-	numStakers := 350
+	numStakers := 2000
+	stakers := make([]*Staker, 0, numStakers)
 	// loop for creating staking txs
 	for i := 0; i < numStakers; i++ {
 		stakers = append(stakers, &Staker{})
@@ -406,7 +406,6 @@ func TestUnbondingLoaded(t *testing.T) {
 				res, err = tm.BTCClient.GetRawTransactionVerbose(staker.stakingMsgTxHash)
 				return err == nil
 			}, eventuallyWaitTimeOut, eventuallyPollTime)
-
 			blockHash, err := chainhash.NewHashFromStr(res.BlockHash)
 			require.NoError(t, err)
 			block, err := tm.TestRpcClient.GetBlock(blockHash)
@@ -443,7 +442,7 @@ func TestUnbondingLoaded(t *testing.T) {
 			staker.stakeReportedAt = time.Now()
 			staker.SendCovSig(t, tm)
 		}()
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(200 * time.Millisecond)
 	}
 
 	wg.Wait()
@@ -465,7 +464,7 @@ func TestUnbondingLoaded(t *testing.T) {
 		}
 
 		return len(activeMap) == len(stakers)
-	}, 15*time.Minute, 200*time.Millisecond)
+	}, 25*time.Minute, 200*time.Millisecond)
 
 	t.Logf("avg time to detect unbonding: %v", avgTimeToDetectUnbonding(stakers))
 }
