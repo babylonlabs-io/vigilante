@@ -417,8 +417,37 @@ func (tm *TestManager) addCovenantSig(
 	unbondingSlashingInfo *datagen.TestUnbondingSlashingInfo,
 	unbondingSlashingPathSpendInfo *btcstaking.SpendInfo,
 	stakingOutIdx uint32,
-) {
+) *bbn.BIP340Signature {
 	// TODO: Make this handle multiple covenant signatures
+
+	msgAddCovenantSig := tm.createMsgAddCovenantSigs(t,
+		signerAddr,
+		stakingMsgTx,
+		stakingMsgTxHash,
+		fpSK,
+		slashingSpendPath,
+		stakingSlashingInfo,
+		unbondingSlashingInfo,
+		unbondingSlashingPathSpendInfo,
+		stakingOutIdx)
+	_, err := tm.BabylonClient.ReliablySendMsg(context.Background(), msgAddCovenantSig, nil, nil)
+	require.NoError(t, err)
+	t.Logf("submitted covenant signature")
+	return msgAddCovenantSig.UnbondingTxSig
+}
+
+func (tm *TestManager) createMsgAddCovenantSigs(
+	t *testing.T,
+	signerAddr string,
+	stakingMsgTx *wire.MsgTx,
+	stakingMsgTxHash *chainhash.Hash,
+	fpSK *btcec.PrivateKey,
+	slashingSpendPath *btcstaking.SpendInfo,
+	stakingSlashingInfo *datagen.TestStakingSlashingInfo,
+	unbondingSlashingInfo *datagen.TestUnbondingSlashingInfo,
+	unbondingSlashingPathSpendInfo *btcstaking.SpendInfo,
+	stakingOutIdx uint32) *bstypes.MsgAddCovenantSigs {
+
 	fpEncKey, err := asig.NewEncryptionKeyFromBTCPK(fpSK.PubKey())
 	require.NoError(t, err)
 	covenantSig, err := stakingSlashingInfo.SlashingTx.EncSign(
@@ -461,9 +490,8 @@ func (tm *TestManager) addCovenantSig(
 		UnbondingTxSig:          covenantUnbondingSig,
 		SlashingUnbondingTxSigs: [][]byte{covenantSlashingSig.MustMarshal()},
 	}
-	_, err = tm.BabylonClient.ReliablySendMsg(context.Background(), msgAddCovenantSig, nil, nil)
-	require.NoError(t, err)
-	t.Logf("submitted covenant signature")
+	return msgAddCovenantSig
+
 }
 
 func (tm *TestManager) Undelegate(

@@ -33,6 +33,7 @@ type Staker struct {
 	pop                            *bstypes.ProofOfPossessionBTC
 	stakingOutIdx                  uint32
 	slashingSpendPath              *btcstaking.SpendInfo
+	msgCovSigs                     *bstypes.MsgAddCovenantSigs
 }
 
 func (s *Staker) CreateStakingTx(
@@ -78,6 +79,7 @@ func (s *Staker) CreateStakingTx(
 	s.pop = pop
 	s.stakingOutIdx = stakingOutIdx
 	s.slashingSpendPath = slashingSpendPath
+	s.stakingValue = stakingValue
 }
 
 func (s *Staker) CreateUnbondingData(
@@ -125,12 +127,8 @@ func (s *Staker) PrepareUnbondingTx(
 	)
 	require.NoError(t, err)
 
-	resp, err := tm.BabylonClient.BTCDelegation(s.stakingSlashingInfo.StakingTx.TxHash().String())
-	require.NoError(t, err)
-
-	covenantSigs := resp.BtcDelegation.UndelegationResponse.CovenantUnbondingSigList
 	witness, err := unbondingPathSpendInfo.CreateUnbondingPathWitness(
-		[]*schnorr.Signature{covenantSigs[0].Sig.MustToBTCSig()},
+		[]*schnorr.Signature{s.msgCovSigs.UnbondingTxSig.MustToBTCSig()},
 		unbondingTxSchnorrSig,
 	)
 	s.unbondingSlashingInfo.UnbondingTx.TxIn[0].Witness = witness
@@ -163,7 +161,8 @@ func getTxInfoByHash(t *testing.T, hash *chainhash.Hash, block *wire.MsgBlock) *
 			txIndex = i
 		}
 	}
-	spvProof, err := btcctypes.SpvProofFromHeaderAndTransactions(&mHeaderBytes, txBytes, uint(txIndex))
+	_ = txIndex
+	spvProof, err := btcctypes.SpvProofFromHeaderAndTransactions(&mHeaderBytes, txBytes, uint(1))
 	require.NoError(t, err)
 	return btcctypes.NewTransactionInfoFromSpvProof(spvProof)
 }
@@ -203,7 +202,7 @@ func (s *Staker) SendDelegation(t *testing.T,
 // AddCov generate and insert new covenant signature, to activate the BTC delegation
 func (s *Staker) AddCov(t *testing.T,
 	tm *TestManager, signerAddr string, fpSK *btcec.PrivateKey) {
-	tm.addCovenantSig(
+	s.msgCovSigs = tm.createMsgAddCovenantSigs(
 		t,
 		signerAddr,
 		s.stakingMsgTx,
@@ -215,4 +214,12 @@ func (s *Staker) AddCov(t *testing.T,
 		s.unbondingSlashingPathSpendInfo,
 		s.stakingOutIdx,
 	)
+}
+
+func (s *Staker) SendCovSig(t *testing.T,
+	tm *TestManager) {
+	require.NotNil(t, s.msgCovSigs)
+	_, err := tm.BabylonClient.ReliablySendMsg(context.Background(), s.msgCovSigs, nil, nil)
+	require.NoError(t, err)
+	t.Logf("submitted MsgAddCovenantSigs")
 }

@@ -360,7 +360,6 @@ func TestUnbondingLoaded(t *testing.T) {
 	commonCfg := config.DefaultCommonConfig()
 	bstCfg := config.DefaultBTCStakingTrackerConfig()
 	bstCfg.CheckDelegationsInterval = 1 * time.Second
-	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
 
 	bsTracker := bst.NewBTCStakingTracker(
 		tm.BTCClient,
@@ -369,22 +368,20 @@ func TestUnbondingLoaded(t *testing.T) {
 		&bstCfg,
 		&commonCfg,
 		zap.NewNop(),
-		stakingTrackerMetrics,
+		metrics.NewBTCStakingTrackerMetrics(),
 	)
 	bsTracker.Start()
 	defer bsTracker.Stop()
 
-	btccParamsResp, err := tm.BabylonClient.BTCCheckpointParams()
-	require.NoError(t, err)
-	btccParams := btccParamsResp.Params
-
 	// set up a finality provider
 	_, fpSK := tm.CreateFinalityProvider(t)
-	_ = fpSK
 	signerAddr := tm.BabylonClient.MustGetAddr()
 	addr := sdk.MustAccAddressFromBech32(signerAddr)
-	var stakers []Staker
-	for i := 0; i < 10; i++ {
+
+	var stakers []*Staker
+
+	// loop for creating staking txs
+	for i := 0; i < 3; i++ {
 		staker := Staker{}
 		topUnspentResult, _, err := tm.BTCClient.GetHighUTXOAndSum()
 		require.NoError(t, err)
@@ -402,24 +399,28 @@ func TestUnbondingLoaded(t *testing.T) {
 
 		staker.stakingTxInfo = getTxInfoByHash(t, staker.stakingMsgTxHash, mBlock)
 
-		for i := 0; i < int(btccParams.BtcConfirmationDepth); i++ {
-			tm.mineBlock(t)
-		}
+		stakers = append(stakers, &staker)
+	}
 
+	// unbond
+	for _, staker := range stakers {
 		staker.CreateUnbondingData(t, tm, fpSK)
-		tm.CatchUpBTCLightClient(t)
-
-		staker.SendDelegation(t, tm, signerAddr, fpSK.PubKey())
+		staker.AddCov(t, tm, signerAddr, fpSK)
 		staker.PrepareUnbondingTx(t, tm)
 
 		staker.SendTxAndWait(t, tm, staker.unbondingSlashingInfo.UnbondingTx)
-		mBlock = tm.mineBlock(t)
+		mBlock := tm.mineBlock(t)
 		require.Equal(t, 2, len(mBlock.Transactions))
-
-		stakers = append(stakers, staker)
 	}
 
+	tm.BitcoindHandler.GenerateBlocks(100)
 	tm.CatchUpBTCLightClient(t)
+
+	// send delegations
+	for _, staker := range stakers {
+		staker.SendDelegation(t, tm, signerAddr, fpSK.PubKey())
+		staker.SendCovSig(t, tm)
+	}
 
 	require.Eventually(t, func() bool {
 		resp, err := tm.BabylonClient.BTCDelegation(stakers[0].stakingMsgTxHash.String())
