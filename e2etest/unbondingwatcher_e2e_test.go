@@ -426,11 +426,12 @@ func TestUnbondingLoaded(t *testing.T) {
 			staker.PrepareUnbondingTx(t, tm)
 			staker.SendTxAndWait(t, tm, staker.unbondingSlashingInfo.UnbondingTx)
 		}()
+		tm.mineBlock(t)
 	}
 
 	wg.Wait()
 
-	tm.BitcoindHandler.GenerateBlocks(100)
+	tm.BitcoindHandler.GenerateBlocks(1000)
 	tm.CatchUpBTCLightClient(t)
 
 	// send delegations
@@ -464,7 +465,7 @@ func TestUnbondingLoaded(t *testing.T) {
 		}
 
 		return len(activeMap) == len(stakers)
-	}, 25*time.Minute, 200*time.Millisecond)
+	}, 35*time.Minute, 200*time.Millisecond)
 
 	t.Logf("avg time to detect unbonding: %v", avgTimeToDetectUnbonding(stakers))
 }
