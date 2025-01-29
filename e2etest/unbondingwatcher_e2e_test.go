@@ -1,11 +1,10 @@
-//go:build e2e
-// +build e2e
-
 package e2etest
 
 import (
 	"fmt"
 	btcstakingtypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
+	"github.com/babylonlabs-io/vigilante/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"go.uber.org/zap"
 	"sync"
@@ -26,7 +25,7 @@ import (
 func TestUnbondingWatcher(t *testing.T) {
 	t.Parallel()
 	// segwit is activated at height 300. It's needed by staking/slashing tx
-	numMatureOutputs := uint32(300)
+	numMatureOutputs := uint32(600)
 
 	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
 	defer tm.Stop(t)
@@ -336,5 +335,97 @@ func TestActivatingAndUnbondingDelegation(t *testing.T) {
 		require.NoError(t, err)
 
 		return resp.BtcDelegation.StatusDesc == btcstakingtypes.BTCDelegationStatus_UNBONDED.String()
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+}
+
+func TestUnbondingLoaded(t *testing.T) {
+	t.Parallel()
+	numMatureOutputs := uint32(300)
+	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
+	defer tm.Stop(t)
+	tm.CatchUpBTCLightClient(t)
+
+	emptyHintCache := btcclient.EmptyHintCache{}
+
+	backend, err := btcclient.NewNodeBackend(
+		btcclient.ToBitcoindConfig(tm.Config.BTC),
+		&chaincfg.RegressionNetParams,
+		&emptyHintCache,
+	)
+	require.NoError(t, err)
+
+	err = backend.Start()
+	require.NoError(t, err)
+
+	commonCfg := config.DefaultCommonConfig()
+	bstCfg := config.DefaultBTCStakingTrackerConfig()
+	bstCfg.CheckDelegationsInterval = 1 * time.Second
+	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
+
+	bsTracker := bst.NewBTCStakingTracker(
+		tm.BTCClient,
+		backend,
+		tm.BabylonClient,
+		&bstCfg,
+		&commonCfg,
+		zap.NewNop(),
+		stakingTrackerMetrics,
+	)
+	bsTracker.Start()
+	defer bsTracker.Stop()
+
+	btccParamsResp, err := tm.BabylonClient.BTCCheckpointParams()
+	require.NoError(t, err)
+	btccParams := btccParamsResp.Params
+
+	// set up a finality provider
+	_, fpSK := tm.CreateFinalityProvider(t)
+	_ = fpSK
+	signerAddr := tm.BabylonClient.MustGetAddr()
+	addr := sdk.MustAccAddressFromBech32(signerAddr)
+	var stakers []Staker
+	for i := 0; i < 10; i++ {
+		staker := Staker{}
+		topUnspentResult, _, err := tm.BTCClient.GetHighUTXOAndSum()
+		require.NoError(t, err)
+		topUTXO, err := types.NewUTXO(topUnspentResult, regtestParams)
+		require.NoError(t, err)
+		staker.CreateStakingTx(t, tm, fpSK, topUTXO, addr)
+		staker.SendTxAndWait(t, tm, staker.stakingSlashingInfo.StakingTx)
+		mBlock := tm.mineBlock(t)
+		require.Equal(t, 2, len(mBlock.Transactions))
+
+		require.Eventually(t, func() bool {
+			_, err := tm.BTCClient.GetRawTransaction(staker.stakingMsgTxHash)
+			return err == nil
+		}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+		staker.stakingTxInfo = getTxInfoByHash(t, staker.stakingMsgTxHash, mBlock)
+
+		for i := 0; i < int(btccParams.BtcConfirmationDepth); i++ {
+			tm.mineBlock(t)
+		}
+
+		staker.CreateUnbondingData(t, tm, fpSK)
+		tm.CatchUpBTCLightClient(t)
+
+		staker.SendDelegation(t, tm, signerAddr, fpSK.PubKey())
+		staker.PrepareUnbondingTx(t, tm)
+
+		staker.SendTxAndWait(t, tm, staker.unbondingSlashingInfo.UnbondingTx)
+		mBlock = tm.mineBlock(t)
+		require.Equal(t, 2, len(mBlock.Transactions))
+
+		stakers = append(stakers, staker)
+	}
+
+	tm.CatchUpBTCLightClient(t)
+
+	require.Eventually(t, func() bool {
+		resp, err := tm.BabylonClient.BTCDelegation(stakers[0].stakingMsgTxHash.String())
+		require.NoError(t, err)
+
+		return !resp.BtcDelegation.Active
+
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 }
