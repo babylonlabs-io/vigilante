@@ -46,8 +46,7 @@ func NewWallet(cfg *config.Config, parentLogger *zap.Logger) (*Client, error) {
 
 	connCfg := &rpcclient.ConnConfig{
 		// this will work with node loaded with multiple wallets
-		Host: cfg.BTC.Endpoint,
-
+		Host:         rpcHostURL(cfg.BTC.Endpoint, cfg.BTC.WalletName),
 		HTTPPostMode: true,
 		User:         cfg.BTC.Username,
 		Pass:         cfg.BTC.Password,
@@ -177,4 +176,11 @@ func (c *Client) TxDetails(txHash *chainhash.Hash, pkScript []byte) (*notifier.T
 	}
 
 	return c.getTxDetails(req, txNotFoundErrMsgBitcoind)
+}
+
+func rpcHostURL(host, walletName string) string {
+	if len(walletName) > 0 {
+		return host + "/wallet/" + walletName
+	}
+	return host
 }
