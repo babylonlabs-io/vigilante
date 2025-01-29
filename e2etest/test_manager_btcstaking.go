@@ -163,6 +163,7 @@ func (tm *TestManager) CreateBTCDelegation(
 		stakingMsgTxHash,
 		stakingOutIdx,
 		stakingTimeBlocks,
+		uint16(bsParams.Params.UnbondingTimeBlocks),
 	)
 
 	tm.CatchUpBTCLightClient(t)
@@ -268,6 +269,7 @@ func (tm *TestManager) CreateBTCDelegationWithoutIncl(
 		stakingMsgTxHash,
 		stakingOutIdx,
 		stakingTimeBlocks,
+		uint16(bsParams.Params.UnbondingTimeBlocks),
 	)
 
 	var stakingTxBuf bytes.Buffer
@@ -372,6 +374,7 @@ func (tm *TestManager) createUnbondingData(
 	stakingMsgTxHash *chainhash.Hash,
 	stakingOutIdx uint32,
 	stakingTimeBlocks uint32,
+	unbondingTime uint16,
 ) (*datagen.TestUnbondingSlashingInfo, *btcstaking.SpendInfo, []byte, *bbn.BIP340Signature) {
 	fee := int64(1000)
 	unbondingValue := stakingSlashingInfo.StakingInfo.StakingOutput.Value - fee
@@ -388,7 +391,7 @@ func (tm *TestManager) createUnbondingData(
 		unbondingValue,
 		bsParams.Params.SlashingPkScript,
 		bsParams.Params.SlashingRate,
-		uint16(tm.getBTCUnbondingTime(t)),
+		unbondingTime,
 	)
 	unbondingTxBytes, err := bbn.SerializeBTCTx(unbondingSlashingInfo.UnbondingTx)
 	require.NoError(t, err)

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	btcstakingtypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/types"
+	"github.com/btcsuite/btcd/btcjson"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"go.uber.org/zap"
@@ -340,7 +341,7 @@ func TestActivatingAndUnbondingDelegation(t *testing.T) {
 
 func TestUnbondingLoaded(t *testing.T) {
 	t.Parallel()
-	numMatureOutputs := uint32(300)
+	numMatureOutputs := uint32(500)
 	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
 	defer tm.Stop(t)
 	tm.CatchUpBTCLightClient(t)
@@ -378,55 +379,93 @@ func TestUnbondingLoaded(t *testing.T) {
 	signerAddr := tm.BabylonClient.MustGetAddr()
 	addr := sdk.MustAccAddressFromBech32(signerAddr)
 
+	bsParams, err := tm.BabylonClient.BTCStakingParams()
+	require.NoError(t, err)
+
 	var stakers []*Staker
-
+	numStakers := 350
 	// loop for creating staking txs
-	for i := 0; i < 3; i++ {
-		staker := Staker{}
-		topUnspentResult, _, err := tm.BTCClient.GetHighUTXOAndSum()
-		require.NoError(t, err)
-		topUTXO, err := types.NewUTXO(topUnspentResult, regtestParams)
-		require.NoError(t, err)
-		staker.CreateStakingTx(t, tm, fpSK, topUTXO, addr)
-		staker.SendTxAndWait(t, tm, staker.stakingSlashingInfo.StakingTx)
-		mBlock := tm.mineBlock(t)
-		require.Equal(t, 2, len(mBlock.Transactions))
-
-		require.Eventually(t, func() bool {
-			_, err := tm.BTCClient.GetRawTransaction(staker.stakingMsgTxHash)
-			return err == nil
-		}, eventuallyWaitTimeOut, eventuallyPollTime)
-
-		staker.stakingTxInfo = getTxInfoByHash(t, staker.stakingMsgTxHash, mBlock)
-
-		stakers = append(stakers, &staker)
+	for i := 0; i < numStakers; i++ {
+		stakers = append(stakers, &Staker{})
 	}
 
-	// unbond
+	var wg sync.WaitGroup
+	for i, staker := range stakers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			topUnspentResult, err := tm.BTCClient.ListUnspent()
+			require.NoError(t, err)
+			topUTXO, err := types.NewUTXO(&topUnspentResult[i], regtestParams) // todo: rotate index
+			require.NoError(t, err)
+			staker.CreateStakingTx(t, tm, fpSK, topUTXO, addr, bsParams)
+			staker.SendTxAndWait(t, tm, staker.stakingSlashingInfo.StakingTx)
+
+			var res *btcjson.TxRawResult
+			require.Eventually(t, func() bool {
+				res, err = tm.BTCClient.GetRawTransactionVerbose(staker.stakingMsgTxHash)
+				return err == nil
+			}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+			blockHash, err := chainhash.NewHashFromStr(res.BlockHash)
+			require.NoError(t, err)
+			block, err := tm.TestRpcClient.GetBlock(blockHash)
+			require.NoError(t, err)
+			staker.stakingTxInfo = getTxInfoByHash(t, staker.stakingMsgTxHash, block)
+		}()
+		tm.mineBlock(t)
+	}
+
+	wg.Wait()
+
 	for _, staker := range stakers {
-		staker.CreateUnbondingData(t, tm, fpSK)
-		staker.AddCov(t, tm, signerAddr, fpSK)
-		staker.PrepareUnbondingTx(t, tm)
-
-		staker.SendTxAndWait(t, tm, staker.unbondingSlashingInfo.UnbondingTx)
-		mBlock := tm.mineBlock(t)
-		require.Equal(t, 2, len(mBlock.Transactions))
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			staker.CreateUnbondingData(t, tm, fpSK, bsParams)
+			staker.AddCov(t, tm, signerAddr, fpSK)
+			staker.PrepareUnbondingTx(t, tm)
+			staker.SendTxAndWait(t, tm, staker.unbondingSlashingInfo.UnbondingTx)
+		}()
 	}
+
+	wg.Wait()
 
 	tm.BitcoindHandler.GenerateBlocks(100)
 	tm.CatchUpBTCLightClient(t)
 
 	// send delegations
 	for _, staker := range stakers {
-		staker.SendDelegation(t, tm, signerAddr, fpSK.PubKey())
-		staker.SendCovSig(t, tm)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			staker.SendDelegation(t, tm, signerAddr, fpSK.PubKey(), bsParams)
+			staker.stakeReportedAt = time.Now()
+			staker.SendCovSig(t, tm)
+		}()
+		time.Sleep(100 * time.Millisecond)
 	}
 
+	wg.Wait()
+
+	activeMap := make(map[string]struct{})
 	require.Eventually(t, func() bool {
-		resp, err := tm.BabylonClient.BTCDelegation(stakers[0].stakingMsgTxHash.String())
-		require.NoError(t, err)
+		for _, staker := range stakers {
+			hash := staker.stakingMsgTxHash.String()
+			if _, ok := activeMap[hash]; ok {
+				continue
+			}
+			resp, err := tm.BabylonClient.BTCDelegation(staker.stakingMsgTxHash.String())
+			require.NoError(t, err)
 
-		return !resp.BtcDelegation.Active
+			if !resp.BtcDelegation.Active {
+				staker.unbondingDetectedAt = time.Now()
+				activeMap[hash] = struct{}{}
+			}
+		}
 
-	}, eventuallyWaitTimeOut, eventuallyPollTime)
+		return len(activeMap) == len(stakers)
+	}, 15*time.Minute, 200*time.Millisecond)
+
+	t.Logf("avg time to detect unbonding: %v", avgTimeToDetectUnbonding(stakers))
 }

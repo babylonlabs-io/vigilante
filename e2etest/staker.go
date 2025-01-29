@@ -16,6 +16,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 	"testing"
+	"time"
 )
 
 type Staker struct {
@@ -34,6 +35,8 @@ type Staker struct {
 	stakingOutIdx                  uint32
 	slashingSpendPath              *btcstaking.SpendInfo
 	msgCovSigs                     *bstypes.MsgAddCovenantSigs
+	stakeReportedAt                time.Time
+	unbondingDetectedAt            time.Time
 }
 
 func (s *Staker) CreateStakingTx(
@@ -41,10 +44,8 @@ func (s *Staker) CreateStakingTx(
 	tm *TestManager,
 	fpSK *btcec.PrivateKey,
 	topUTXO *types.UTXO,
-	addr sdk.AccAddress) {
-	bsParams, err := tm.BabylonClient.BTCStakingParams()
-	require.NoError(t, err)
-
+	addr sdk.AccAddress,
+	bsParams *bstypes.QueryParamsResponse) {
 	stakingValue := int64(topUTXO.Amount) / 3
 	stakingTimeBlocks := bsParams.Params.MaxStakingTimeBlocks
 
@@ -85,9 +86,8 @@ func (s *Staker) CreateStakingTx(
 func (s *Staker) CreateUnbondingData(
 	t *testing.T,
 	tm *TestManager,
-	fpSK *btcec.PrivateKey) {
-	bsParams, err := tm.BabylonClient.BTCStakingParams()
-	require.NoError(t, err)
+	fpSK *btcec.PrivateKey,
+	bsParams *bstypes.QueryParamsResponse) {
 	covenantBtcPks, err := bbnPksToBtcPks(bsParams.Params.CovenantPks)
 	require.NoError(t, err)
 
@@ -100,6 +100,7 @@ func (s *Staker) CreateUnbondingData(
 		s.stakingMsgTxHash,
 		s.stakingOutIdx,
 		s.stakingTimeBlocks,
+		uint16(bsParams.Params.UnbondingTimeBlocks),
 	)
 
 	s.unbondingSlashingInfo = unbondingSlashingInfo
@@ -161,8 +162,7 @@ func getTxInfoByHash(t *testing.T, hash *chainhash.Hash, block *wire.MsgBlock) *
 			txIndex = i
 		}
 	}
-	_ = txIndex
-	spvProof, err := btcctypes.SpvProofFromHeaderAndTransactions(&mHeaderBytes, txBytes, uint(1))
+	spvProof, err := btcctypes.SpvProofFromHeaderAndTransactions(&mHeaderBytes, txBytes, uint(txIndex))
 	require.NoError(t, err)
 	return btcctypes.NewTransactionInfoFromSpvProof(spvProof)
 }
@@ -170,7 +170,9 @@ func getTxInfoByHash(t *testing.T, hash *chainhash.Hash, block *wire.MsgBlock) *
 func (s *Staker) SendDelegation(t *testing.T,
 	tm *TestManager,
 	signerAddr string,
-	fpPK *btcec.PublicKey) {
+	fpPK *btcec.PublicKey,
+	bsParams *bstypes.QueryParamsResponse,
+) {
 	require.NotNil(t, s.stakingSlashingInfo)
 
 	msgBTCDel := &bstypes.MsgCreateBTCDelegation{
@@ -188,7 +190,7 @@ func (s *Staker) SendDelegation(t *testing.T,
 		SlashingTx:           s.stakingSlashingInfo.SlashingTx,
 		DelegatorSlashingSig: s.delegatorSig,
 		// Unbonding related data
-		UnbondingTime:                 tm.getBTCUnbondingTime(t),
+		UnbondingTime:                 bsParams.Params.UnbondingTimeBlocks,
 		UnbondingTx:                   s.unbondingTxBytes,
 		UnbondingValue:                s.unbondingSlashingInfo.UnbondingInfo.UnbondingOutput.Value,
 		UnbondingSlashingTx:           s.unbondingSlashingInfo.SlashingTx,
@@ -222,4 +224,25 @@ func (s *Staker) SendCovSig(t *testing.T,
 	_, err := tm.BabylonClient.ReliablySendMsg(context.Background(), s.msgCovSigs, nil, nil)
 	require.NoError(t, err)
 	t.Logf("submitted MsgAddCovenantSigs")
+}
+
+func avgTimeToDetectUnbonding(stakers []*Staker) time.Duration {
+	if len(stakers) == 0 {
+		return 0
+	}
+
+	var totalDiff time.Duration
+	count := 0
+
+	for _, s := range stakers {
+		diff := s.unbondingDetectedAt.Sub(s.stakeReportedAt)
+		totalDiff += diff
+		count++
+	}
+
+	if count == 0 {
+		return 0
+	}
+
+	return totalDiff / time.Duration(count)
 }
