@@ -42,5 +42,6 @@ func rpcHostURL(host, walletName string) string {
 	if len(walletName) > 0 {
 		return host + "/wallet/" + walletName
 	}
+
 	return host
 }
