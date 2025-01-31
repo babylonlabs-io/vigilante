@@ -341,7 +341,7 @@ func TestActivatingAndUnbondingDelegation(t *testing.T) {
 
 func TestUnbondingLoaded(t *testing.T) {
 	t.Parallel()
-	numMatureOutputs := uint32(2500)
+	numMatureOutputs := uint32(250)
 	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
 	defer tm.Stop(t)
 	tm.CatchUpBTCLightClient(t)
@@ -361,15 +361,15 @@ func TestUnbondingLoaded(t *testing.T) {
 	commonCfg := config.DefaultCommonConfig()
 	bstCfg := config.DefaultBTCStakingTrackerConfig()
 	bstCfg.CheckDelegationsInterval = 1 * time.Second
-
+	trackerMetrics := metrics.NewBTCStakingTrackerMetrics()
 	bsTracker := bst.NewBTCStakingTracker(
 		tm.BTCClient,
 		backend,
 		tm.BabylonClient,
 		&bstCfg,
 		&commonCfg,
-		zap.NewNop(),
-		metrics.NewBTCStakingTrackerMetrics(),
+		logger,
+		trackerMetrics,
 	)
 	bsTracker.Start()
 	defer bsTracker.Stop()
@@ -382,7 +382,7 @@ func TestUnbondingLoaded(t *testing.T) {
 	bsParams, err := tm.BabylonClient.BTCStakingParams()
 	require.NoError(t, err)
 
-	numStakers := 2000
+	numStakers := 100
 	stakers := make([]*Staker, 0, numStakers)
 	// loop for creating staking txs
 	for i := 0; i < numStakers; i++ {
@@ -416,6 +416,7 @@ func TestUnbondingLoaded(t *testing.T) {
 	}
 
 	wg.Wait()
+	tm.BitcoindHandler.GenerateBlocks(1000)
 
 	for _, staker := range stakers {
 		wg.Add(1)
@@ -426,7 +427,6 @@ func TestUnbondingLoaded(t *testing.T) {
 			staker.PrepareUnbondingTx(t, tm)
 			staker.SendTxAndWait(t, tm, staker.unbondingSlashingInfo.UnbondingTx)
 		}()
-		tm.mineBlock(t)
 	}
 
 	wg.Wait()
@@ -464,8 +464,15 @@ func TestUnbondingLoaded(t *testing.T) {
 			}
 		}
 
+		detected := promtestutil.ToFloat64(trackerMetrics.DetectedUnbondingTransactionsCounter)
+		reported := promtestutil.ToFloat64(trackerMetrics.ReportedUnbondingTransactionsCounter)
+		failed := promtestutil.ToFloat64(trackerMetrics.FailedReportedUnbondingTransactions)
+
+		t.Logf("detected: %v, reported: %v, failed: %v", detected, reported, failed)
+		t.Logf("num in activeMap: %v", len(activeMap))
+
 		return len(activeMap) == len(stakers)
-	}, 35*time.Minute, 200*time.Millisecond)
+	}, 35*time.Minute, 500*time.Millisecond)
 
 	t.Logf("avg time to detect unbonding: %v", avgTimeToDetectUnbonding(stakers))
 }

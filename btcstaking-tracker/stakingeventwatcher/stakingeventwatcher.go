@@ -32,6 +32,10 @@ var (
 	maxConcurrentActivations = int64(1500)
 )
 
+const (
+	depthThreshold = 200
+)
+
 func (sew *StakingEventWatcher) quitContext() (context.Context, func()) {
 	ctx, cancel := context.WithCancel(context.Background())
 	sew.wg.Add(1)
@@ -76,7 +80,8 @@ type StakingEventWatcher struct {
 	// to avoid spamming babylon with requests
 	babylonNodeAdapter BabylonNodeAdapter
 	// keeps track of unbonding delegations, used as a cache to avoid registering ntfn twice
-	unbondingTracker *TrackedDelegations
+	unbondingTracker       *TrackedDelegations
+	matureUnbondingTracker *TrackedDelegations
 	// keeps track of verified delegations to be activated, periodically iterate over them and try to activate them
 	pendingTracker *TrackedDelegations
 	// used for metrics purposes, keeps track of verified delegations that are not in consumer chain
@@ -88,8 +93,10 @@ type StakingEventWatcher struct {
 
 	unbondingDelegationChan chan *newDelegation
 	unbondingRemovalChan    chan *delegationInactive
-	currentBestBlockHeight  atomic.Uint32
-	activationLimiter       *semaphore.Weighted
+	matureUnbondingChan     chan *newDelegation
+
+	currentBestBlockHeight atomic.Uint32
+	activationLimiter      *semaphore.Weighted
 }
 
 func NewStakingEventWatcher(
@@ -113,8 +120,10 @@ func NewStakingEventWatcher(
 		verifiedInsufficientConfTracker: NewTrackedDelegations(),
 		verifiedNotInChainTracker:       NewTrackedDelegations(),
 		verifiedSufficientConfTracker:   NewTrackedDelegations(),
+		matureUnbondingTracker:          NewTrackedDelegations(),
 		unbondingDelegationChan:         make(chan *newDelegation),
 		unbondingRemovalChan:            make(chan *delegationInactive),
+		matureUnbondingChan:             make(chan *newDelegation, 1000),
 		activationLimiter:               semaphore.NewWeighted(maxConcurrentActivations), // todo(lazar): this should be in config
 	}
 }
@@ -146,11 +155,12 @@ func (sew *StakingEventWatcher) Start() error {
 
 		sew.logger.Infof("Initial btc best block height is: %d", sew.currentBestBlockHeight.Load())
 
-		sew.wg.Add(4)
+		sew.wg.Add(5)
 		go sew.handleNewBlocks(blockEventNotifier)
 		go sew.handleUnbondedDelegations()
 		go sew.fetchDelegations()
 		go sew.handlerVerifiedDelegations()
+		go sew.handleMatureDelegations()
 
 		sew.logger.Info("staking event watcher started")
 	})
@@ -241,6 +251,16 @@ func (sew *StakingEventWatcher) fetchDelegations() {
 					stakingOutputIdx:      delegation.StakingOutputIdx,
 					delegationStartHeight: delegation.DelegationStartHeight,
 					unbondingOutput:       delegation.UnbondingOutput,
+				}
+
+				// we don't want verified delegations here.
+				if del.delegationStartHeight != 0 && sew.currentBestBlockHeight.Load()-del.delegationStartHeight > depthThreshold {
+					_, exists := sew.matureUnbondingTracker.GetDelegation(del.stakingTxHash)
+					if !exists {
+						utils.PushOrQuit(sew.matureUnbondingChan, del, sew.quit)
+					}
+
+					return
 				}
 
 				// if we already have this delegation, we still want to check if it has changed,
@@ -404,6 +424,7 @@ func (sew *StakingEventWatcher) reportUnbondingToBabylon(
 		}
 
 		sew.metrics.ReportedUnbondingTransactionsCounter.Inc()
+		sew.matureUnbondingTracker.RemoveDelegation(stakingTxHash)
 
 		return nil
 	},
@@ -795,6 +816,163 @@ func (sew *StakingEventWatcher) waitForRequiredDepth(
 				"Attempt: %d. Err: %v", stakingTxHash, depth, requiredDepth, n, err)
 		}),
 	)
+}
+
+func (sew *StakingEventWatcher) handleMatureDelegations() {
+	ctx, cancel := sew.quitContext()
+	defer cancel()
+	defer sew.wg.Done()
+
+	var batch []newDelegation
+	var mu sync.Mutex
+	batchSize := 100
+	batchTimer := 3 * sew.cfg.CheckDelegationsInterval
+	timer := time.NewTimer(batchTimer)
+	defer timer.Stop()
+
+	for {
+		select {
+		case matureDel := <-sew.matureUnbondingChan:
+			// we want to check if staking tx has been spent, if yes collect the batch and report to babylon
+			spent, err := sew.outputSpent(&matureDel.stakingTxHash, matureDel.stakingOutputIdx)
+			if err != nil {
+				sew.logger.Errorf("error checking if output is spent: %v", err)
+
+				continue
+			}
+
+			// register with unbondingTracker, the staking tx is not yet spent
+			if !spent {
+				_, exists := sew.unbondingTracker.GetDelegation(matureDel.stakingTxHash)
+				if !exists {
+					utils.PushOrQuit(sew.matureUnbondingChan, matureDel, sew.quit)
+				}
+
+				continue
+			}
+
+			if err := sew.matureUnbondingTracker.AddEmptyDelegation(matureDel.stakingTxHash); err != nil {
+				continue
+			}
+
+			mu.Lock()
+			batch = append(batch, *matureDel)
+
+			if !timer.Stop() {
+				<-timer.C
+			}
+			timer.Reset(batchTimer)
+
+			// If batch is full, process it
+			if len(batch) >= batchSize {
+				batchToProcess := append([]newDelegation{}, batch[:batchSize]...)
+				batch = batch[batchSize:]
+				mu.Unlock()
+
+				// Process batch asynchronously
+				go sew.processDelegationBatch(ctx, batchToProcess)
+			} else {
+				mu.Unlock()
+			}
+		case <-timer.C:
+			mu.Lock()
+			if len(batch) > 0 {
+				batchToProcess := append([]newDelegation{}, batch...)
+				batch = nil
+				mu.Unlock()
+
+				go sew.processDelegationBatch(ctx, batchToProcess)
+			} else {
+				mu.Unlock()
+			}
+			// Reset timer for the next batch
+			timer.Reset(batchTimer)
+		case <-sew.quit:
+			sew.logger.Debug("handle delegations loop quit")
+
+			return
+		}
+	}
+}
+
+func (sew *StakingEventWatcher) processDelegationBatch(ctx context.Context, batch []newDelegation) {
+	if len(batch) == 0 {
+		return
+	}
+	// Find the minimum delegation start height
+	startHeight := batch[0].delegationStartHeight
+	for _, d := range batch[1:] {
+		if d.delegationStartHeight < startHeight {
+			startHeight = d.delegationStartHeight
+		}
+	}
+
+	type outpoint struct {
+		hash  string
+		index uint32
+	}
+
+	delegationsMap := make(map[outpoint]*newDelegation, len(batch))
+	for _, d := range batch {
+		key := outpoint{
+			hash:  d.stakingTxHash.String(),
+			index: d.stakingOutputIdx,
+		}
+		delegationsMap[key] = &d
+	}
+
+	endHeight := sew.currentBestBlockHeight.Load() // todo: do we really have to scan until btc tip?
+
+	for height := startHeight; height <= endHeight; height++ {
+		_, block, err := sew.btcClient.GetBlockByHeight(height)
+		if err != nil {
+			continue
+		}
+
+		for _, spendingTx := range block.Transactions {
+			for _, in := range spendingTx.TxIn {
+				prevOut := in.PreviousOutPoint
+				key := outpoint{
+					hash:  prevOut.Hash.String(),
+					index: prevOut.Index,
+				}
+
+				if d, exists := delegationsMap[key]; exists {
+					sew.metrics.DetectedUnbondingTransactionsCounter.Inc()
+
+					// Process the delegation
+					proof := sew.waitForStakeSpendInclusionProof(ctx, spendingTx)
+					if proof == nil {
+						sew.logger.Errorf(
+							"unbonding tx %s for staking tx %s proof not built",
+							spendingTx.TxHash(),
+							d.stakingTxHash,
+						)
+
+						return
+					}
+
+					go sew.reportUnbondingToBabylon(ctx, d.stakingTxHash, spendingTx, proof)
+					delete(delegationsMap, key)
+				}
+			}
+		}
+	}
+}
+
+// outputSpent checks if the taproot output of a given tx is still spendable on Bitcoin
+func (sew *StakingEventWatcher) outputSpent(hash *chainhash.Hash, outIdx uint32) (bool, error) {
+	txOut, err := sew.btcClient.GetTxOut(hash, outIdx, true)
+	if err != nil {
+		return false, fmt.Errorf("failed to get the output of tx %s: %w", hash.String(), err)
+	}
+
+	if txOut == nil {
+		return true, nil
+	}
+
+	// unspent
+	return false, nil
 }
 
 func (sew *StakingEventWatcher) latency(method string) func() {
