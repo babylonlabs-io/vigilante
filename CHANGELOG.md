@@ -37,6 +37,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Improvements
+
+* [#209](https://github.com/babylonlabs-io/vigilante/pull/209) feat: improve unbonding scan
+
 ## v0.19.9
 
 ### Bug Fixes
