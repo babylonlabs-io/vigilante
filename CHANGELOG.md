@@ -37,6 +37,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+## v0.19.9
+
+### Bug Fixes
+
+* [#202](https://github.com/babylonlabs-io/vigilante/pull/202) fix: bump down btcd
+
+## v0.19.8
+
 ### Improvements
 
 * [#194](https://github.com/babylonlabs-io/vigilante/pull/194) fix: reduce locks

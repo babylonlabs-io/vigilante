@@ -16,7 +16,7 @@ func NewFeeEstimator(cfg *config.BTCConfig) (chainfee.Estimator, error) {
 	// todo(lazar955): check if we should start specifying this, considering we are no longer using btcd based on comment above ^^
 	connCfg := &rpcclient.ConnConfig{
 		// this will work with node loaded with multiple wallets
-		Host:         cfg.Endpoint,
+		Host:         rpcHostURL(cfg.Endpoint, cfg.WalletName),
 		HTTPPostMode: true,
 		User:         cfg.Username,
 		Pass:         cfg.Password,
@@ -36,4 +36,12 @@ func NewFeeEstimator(cfg *config.BTCConfig) (chainfee.Estimator, error) {
 	}
 
 	return estimator, nil
+}
+
+func rpcHostURL(host, walletName string) string {
+	if len(walletName) > 0 {
+		return host + "/wallet/" + walletName
+	}
+
+	return host
 }
