@@ -59,6 +59,7 @@ type BTCSlasher struct {
 	stopOnce  sync.Once
 	wg        sync.WaitGroup
 	quit      chan struct{}
+	mu        sync.Mutex
 }
 
 func New(

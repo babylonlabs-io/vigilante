@@ -47,7 +47,6 @@ func (bs *BTCSlasher) slashBTCDelegation(
 	err := retry.Do(func() error {
 		innerCtx, innerCancel := context.WithCancel(ctx)
 		defer innerCancel()
-		doneChan := make(chan struct{})
 		errChan := make(chan error, 2)
 		txHashChan := make(chan *chainhash.Hash, 1)
 
@@ -56,7 +55,6 @@ func (bs *BTCSlasher) slashBTCDelegation(
 			if err == nil {
 				select {
 				case txHashChan <- tx:
-					close(doneChan)
 				default:
 				}
 			} else {
@@ -180,11 +178,13 @@ func (bs *BTCSlasher) sendSlashingTx(
 
 	// assemble witness for unbonding slashing tx
 	var slashingMsgTxWithWitness *wire.MsgTx
+	bs.mu.Lock()
 	if isUnbondingSlashingTx {
 		slashingMsgTxWithWitness, err = BuildUnbondingSlashingTxWithWitness(del, bsParams, bs.netParams, extractedfpBTCSK)
 	} else {
 		slashingMsgTxWithWitness, err = BuildSlashingTxWithWitness(del, bsParams, bs.netParams, extractedfpBTCSK)
 	}
+	bs.mu.Unlock()
 	if err != nil {
 		// Warning: this can only be a programming error in Babylon side
 		return nil, fmt.Errorf(
