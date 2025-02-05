@@ -1,18 +1,17 @@
 package btcslasher
 
 import (
+	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
-	"math"
-	"strings"
-
 	"github.com/avast/retry-go/v4"
 	"github.com/babylonlabs-io/babylon/btcstaking"
 	bbn "github.com/babylonlabs-io/babylon/types"
 	bstypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
 	ftypes "github.com/babylonlabs-io/babylon/x/finality/types"
+	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/utils"
-
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
@@ -22,6 +21,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/query"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/hashicorp/go-multierror"
+	"math"
+	"strings"
 )
 
 const (
@@ -40,31 +41,58 @@ func (bs *BTCSlasher) slashBTCDelegation(
 	del *bstypes.BTCDelegationResponse,
 ) {
 	var txHash *chainhash.Hash
-
 	ctx, cancel := bs.quitContext()
 	defer cancel()
 
-	err := retry.Do(
-		func() error {
-			var accumulatedErrs error
+	err := retry.Do(func() error {
+		innerCtx, innerCancel := context.WithCancel(context.Background())
+		defer innerCancel()
+		doneChan := make(chan struct{})
+		errChan := make(chan error, 2)
+		txHashChan := make(chan *chainhash.Hash, 1)
 
-			txHash1, err1 := bs.sendSlashingTx(fpBTCPK, extractedfpBTCSK, del, false)
-			txHash2, err2 := bs.sendSlashingTx(fpBTCPK, extractedfpBTCSK, del, true)
-			switch {
-			case err1 != nil && err2 != nil:
-				// both attempts fail
-				accumulatedErrs = multierror.Append(accumulatedErrs, err1, err2)
-				txHash = nil
-			case err1 == nil:
-				// slashing tx is submitted successfully
-				txHash = txHash1
-			case err2 == nil:
-				// unbonding slashing tx is submitted successfully
-				txHash = txHash2
+		attemptSlashingTx := func(isUnbonding bool) {
+			tx, err := bs.sendSlashingTx(innerCtx, fpBTCPK, extractedfpBTCSK, del, isUnbonding)
+			if err == nil {
+				select {
+				case txHashChan <- tx:
+					close(doneChan)
+				default:
+				}
+			} else {
+				errChan <- err
 			}
+		}
 
-			return accumulatedErrs
-		},
+		go attemptSlashingTx(false)
+		go attemptSlashingTx(true)
+
+		var accumulatedErr error
+		select {
+		case txHash = <-txHashChan:
+			// One of the transactions succeeded, cancel remaining attempts
+			innerCancel()
+		case <-ctx.Done():
+			// If context is canceled externally, stop everything
+			accumulatedErr = ctx.Err()
+		case err1 := <-errChan:
+			// First failure, wait for another
+			select {
+			case err2 := <-errChan:
+				accumulatedErr = multierror.Append(err1, err2)
+			case txHash = <-txHashChan:
+				// Second transaction succeeded, ignore the first error
+				innerCancel()
+			}
+		}
+
+		// We ignore context canceled errors
+		if errors.Is(accumulatedErr, context.Canceled) {
+			accumulatedErr = nil
+		}
+
+		return accumulatedErr
+	},
 		retry.Context(ctx),
 		retry.Delay(bs.retrySleepTime),
 		retry.MaxDelay(bs.maxRetrySleepTime),
@@ -80,6 +108,7 @@ func (bs *BTCSlasher) slashBTCDelegation(
 }
 
 func (bs *BTCSlasher) sendSlashingTx(
+	ctx context.Context,
 	fpBTCPK *bbn.BIP340PubKey,
 	extractedfpBTCSK *btcec.PrivateKey,
 	del *bstypes.BTCDelegationResponse,
@@ -188,7 +217,20 @@ func (bs *BTCSlasher) sendSlashingTx(
 		fpBTCPK.MarshalHex(),
 	)
 
-	// TODO: wait for k-deep to ensure slashing tx is included
+	checkPointParams, err := bs.BBNQuerier.BTCCheckpointParams()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get BTC staking parameter at version %d", del.ParamsVersion)
+	}
+
+	ckptParams := checkPointParams.Params
+	pkScript := slashingMsgTxWithWitness.TxOut[del.StakingOutputIdx].PkScript
+	if err := bs.waitForTxKDeep(ctx, txHash, pkScript, ckptParams.BtcConfirmationDepth); err != nil {
+		//if strings.Contains(err.Error(), "context canceled") {
+		//	return txHash, nil
+		//}
+
+		return nil, err
+	}
 
 	return txHash, nil
 }
@@ -452,6 +494,36 @@ func (bs *BTCSlasher) getAllActiveAndUnbondedBTCDelegations(
 	}
 
 	return activeDels, unbondedDels, nil
+}
+
+func (bs *BTCSlasher) waitForTxKDeep(ctx context.Context, txHash *chainhash.Hash, pkScript []byte, k uint32) error {
+	return retry.Do(func() error {
+		details, status, err := bs.BTCClient.TxDetails(txHash, pkScript)
+		if err != nil {
+			return fmt.Errorf("failed to get tx details: %w", err)
+		}
+
+		if status != btcclient.TxInChain {
+			return fmt.Errorf("tx not in chain: %v", status)
+		}
+
+		tip, err := bs.BTCClient.GetBestBlock()
+		if err != nil {
+			return fmt.Errorf("failed to get best block: %w", err)
+		}
+
+		if tip-details.BlockHeight >= k {
+			return nil
+		}
+
+		return fmt.Errorf("tx: %s, not deep enough: %d/%d", txHash.String(), tip-details.BlockHeight, k)
+	},
+		retry.Context(ctx),
+		retry.Attempts(5),
+		retry.Delay(bs.retrySleepTime),
+		retry.MaxDelay(bs.maxRetrySleepTime),
+		retry.LastErrorOnly(true),
+	)
 }
 
 func filterEvidence(resultEvent *coretypes.ResultEvent) *ftypes.Evidence {
