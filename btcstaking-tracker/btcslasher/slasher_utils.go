@@ -45,7 +45,7 @@ func (bs *BTCSlasher) slashBTCDelegation(
 	defer cancel()
 
 	err := retry.Do(func() error {
-		innerCtx, innerCancel := context.WithCancel(context.Background())
+		innerCtx, innerCancel := context.WithCancel(ctx)
 		defer innerCancel()
 		doneChan := make(chan struct{})
 		errChan := make(chan error, 2)
@@ -225,10 +225,6 @@ func (bs *BTCSlasher) sendSlashingTx(
 	ckptParams := checkPointParams.Params
 	pkScript := slashingMsgTxWithWitness.TxOut[del.StakingOutputIdx].PkScript
 	if err := bs.waitForTxKDeep(ctx, txHash, pkScript, ckptParams.BtcConfirmationDepth); err != nil {
-		//if strings.Contains(err.Error(), "context canceled") {
-		//	return txHash, nil
-		//}
-
 		return nil, err
 	}
 
