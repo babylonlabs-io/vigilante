@@ -20,6 +20,7 @@ import (
 const (
 	bitcoindContainerName = "bitcoind"
 	babylondContainerName = "babylond"
+	electrsContainerName  = "electrs"
 )
 
 var (
@@ -148,7 +149,7 @@ func (m *Manager) RunBitcoindResource(
 				"e2e": "bitcoind",
 			},
 			Mounts: []string{
-				fmt.Sprintf("%s/:/data/.bitcoin", bitcoindCfgPath),
+				fmt.Sprintf("%s/:/bitcoin/.bitcoin", bitcoindCfgPath),
 			},
 			ExposedPorts: []string{
 				"18443/tcp",
@@ -162,6 +163,7 @@ func (m *Manager) RunBitcoindResource(
 				"-rpcbind=0.0.0.0",
 				"-zmqpubsequence=tcp://0.0.0.0:28333",
 				"-fallbackfee=0.0002",
+				"-datadir=/bitcoin/.bitcoin",
 			},
 		},
 		func(config *docker.HostConfig) {
@@ -229,6 +231,57 @@ func (m *Manager) RunBabylondResource(
 	}
 
 	m.resources[babylondContainerName] = resource
+
+	return resource, nil
+}
+
+func (m *Manager) RunElectrsResource(
+	t *testing.T,
+	dataPath string,
+	bitcoindDataPath string,
+	btcRpcAddr string,
+) (*dockertest.Resource, error) {
+	resource, err := m.pool.RunWithOptions(
+		&dockertest.RunOptions{
+			Name:       fmt.Sprintf("electrs-%s", t.Name()),
+			Repository: m.cfg.ElectrsRepository,
+			Tag:        m.cfg.ElectrsVersion,
+			User:       "root:root",
+			Labels: map[string]string{
+				"e2e": "electrs",
+			},
+			Mounts: []string{
+				fmt.Sprintf("%s:/data", dataPath),
+				fmt.Sprintf("%s:/bitcoin/.bitcoin", bitcoindDataPath),
+			},
+			ExposedPorts: []string{
+				"3000/tcp",
+			},
+			Cmd: []string{
+				"--cookie", "user:pass",
+				"--network", "regtest",
+				"--electrum-rpc-addr", fmt.Sprintf("0.0.0.0:8080"),
+				"--http-addr", fmt.Sprintf("0.0.0.0:3000"),
+				"--db-dir", "/electrs/.electrs/db/",
+				"--daemon-rpc-addr", btcRpcAddr,
+				"--daemon-dir", "/bitcoin/.bitcoin",
+				"-v",
+				"--address-search",
+				"--cors", "*",
+				"--timestamp",
+			},
+		},
+		func(config *docker.HostConfig) {
+			config.PortBindings = map[docker.Port][]docker.PortBinding{
+				"3000/tcp": {{HostIP: "", HostPort: strconv.Itoa(testutil.AllocateUniquePort(t))}},
+			}
+		},
+		noRestart,
+	)
+	if err != nil {
+		return nil, err
+	}
+	m.resources[electrsContainerName] = resource
 
 	return resource, nil
 }

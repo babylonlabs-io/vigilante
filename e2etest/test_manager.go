@@ -88,9 +88,13 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 	require.NoError(t, err)
 
 	btcHandler := NewBitcoindHandler(t, manager)
-	bitcoind := btcHandler.Start(t)
+	bitcoind, bitcoindPath := btcHandler.Start(t)
 	passphrase := "pass"
 	_ = btcHandler.CreateWallet("default", passphrase)
+
+	internalBtcRpc := fmt.Sprintf("%s:18443", bitcoind.Container.NetworkSettings.IPAddress)
+	_, err = manager.RunElectrsResource(t, t.TempDir(), bitcoindPath, internalBtcRpc)
+	require.NoError(t, err)
 
 	cfg := defaultVigilanteConfig()
 

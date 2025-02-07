@@ -13,6 +13,8 @@ type ImageConfig struct {
 	BitcoindVersion    string
 	BabylonRepository  string
 	BabylonVersion     string
+	ElectrsRepository  string
+	ElectrsVersion     string
 }
 
 //nolint:deadcode
@@ -20,6 +22,8 @@ const (
 	dockerBitcoindRepository = "lncm/bitcoind"
 	dockerBitcoindVersionTag = "v27.0"
 	dockerBabylondRepository = "babylonlabs/babylond"
+	dockerElectrsRepository  = "mempool/electrs"
+	dockerElectrsVersionTag  = "v3.1.0"
 )
 
 // NewImageConfig returns ImageConfig needed for running e2e test.
@@ -32,5 +36,7 @@ func NewImageConfig(t *testing.T) ImageConfig {
 		BitcoindVersion:    dockerBitcoindVersionTag,
 		BabylonRepository:  dockerBabylondRepository,
 		BabylonVersion:     babylonVersion,
+		ElectrsRepository:  dockerElectrsRepository,
+		ElectrsVersion:     dockerElectrsVersionTag,
 	}
 }
