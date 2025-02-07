@@ -39,6 +39,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## v0.19.9
 
+### Improvements
+
+* [#210](https://github.com/babylonlabs-io/vigilante/pull/210) feat: adds indexer in e2e
+
 ### Bug Fixes
 
 * [#202](https://github.com/babylonlabs-io/vigilante/pull/202) fix: bump down btcd
