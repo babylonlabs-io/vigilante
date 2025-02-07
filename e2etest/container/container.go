@@ -275,6 +275,7 @@ func (m *Manager) RunElectrsResource(
 			config.PortBindings = map[docker.Port][]docker.PortBinding{
 				"3000/tcp": {{HostIP: "", HostPort: strconv.Itoa(testutil.AllocateUniquePort(t))}},
 			}
+			config.PublishAllPorts = false
 		},
 		noRestart,
 	)
