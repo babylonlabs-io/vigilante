@@ -48,6 +48,7 @@ func TestAtomicSlasher(t *testing.T) {
 	commonCfg := config.DefaultCommonConfig()
 	bstCfg := config.DefaultBTCStakingTrackerConfig()
 	bstCfg.CheckDelegationsInterval = 1 * time.Second
+	bstCfg.IndexerAddr = tm.Config.BTCStakingTracker.IndexerAddr
 
 	bsTracker := bst.NewBTCStakingTracker(
 		tm.BTCClient,
@@ -168,6 +169,7 @@ func TestAtomicSlasher_Unbonding(t *testing.T) {
 	commonCfg := config.DefaultCommonConfig()
 	bstCfg := config.DefaultBTCStakingTrackerConfig()
 	bstCfg.CheckDelegationsInterval = 1 * time.Second
+	bstCfg.IndexerAddr = tm.Config.BTCStakingTracker.IndexerAddr
 
 	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
 
