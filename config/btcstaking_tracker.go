@@ -22,7 +22,8 @@ type BTCStakingTrackerConfig struct {
 	// the BTC network
 	BTCNetParams string `mapstructure:"btcnetparams"` // should be mainnet|testnet|simnet|signet|regtest
 	// number of concurrent requests that when slashing
-	MaxSlashingConcurrency uint8 `mapstructure:"max-slashing-concurrency"`
+	MaxSlashingConcurrency uint8  `mapstructure:"max-slashing-concurrency"`
+	IndexerAddr            string `mapstructure:"indexer-addr"`
 }
 
 func DefaultBTCStakingTrackerConfig() BTCStakingTrackerConfig {
@@ -37,6 +38,7 @@ func DefaultBTCStakingTrackerConfig() BTCStakingTrackerConfig {
 		RetryJitter:            30 * time.Second,
 		BTCNetParams:           types.BtcSimnet.String(),
 		MaxSlashingConcurrency: MaxSlashingConcurrency,
+		IndexerAddr:            "http://localhost:3000",
 	}
 }
 
@@ -66,6 +68,10 @@ func (cfg *BTCStakingTrackerConfig) Validate() error {
 
 	if cfg.MaxSlashingConcurrency == 0 {
 		return errors.New("max-slashing-concurrency cannot be 0")
+	}
+
+	if cfg.IndexerAddr == "" {
+		return errors.New("indexer-addr cannot be empty")
 	}
 
 	return nil

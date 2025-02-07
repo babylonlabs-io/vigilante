@@ -56,6 +56,7 @@ func defaultVigilanteConfig() *config.Config {
 type TestManager struct {
 	TestRpcClient   *rpcclient.Client
 	BitcoindHandler *BitcoindTestHandler
+	Electrs         *ElectrsTestHandler
 	BabylonClient   *bbnclient.Client
 	BTCClient       *btcclient.Client
 	Config          *config.Config
@@ -94,9 +95,10 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 
 	internalBtcRpc := fmt.Sprintf("%s:18443", bitcoind.Container.NetworkSettings.IPAddress)
 	electrsHandler := NewElectrsHandler(t, manager)
-	_ = electrsHandler.Start(t, bitcoindPath, internalBtcRpc)
+	electrs := electrsHandler.Start(t, bitcoindPath, internalBtcRpc)
 
 	cfg := defaultVigilanteConfig()
+	cfg.BTCStakingTracker.IndexerAddr = fmt.Sprintf("http://localhost:%s", electrs.GetPort("3000/tcp"))
 
 	cfg.BTC.Endpoint = fmt.Sprintf("127.0.0.1:%s", bitcoind.GetPort("18443/tcp"))
 
@@ -165,6 +167,7 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 		TestRpcClient:   testRpcClient,
 		BabylonClient:   babylonClient,
 		BitcoindHandler: btcHandler,
+		Electrs:         electrsHandler,
 		BTCClient:       btcClient,
 		Config:          cfg,
 		WalletPrivKey:   walletPrivKey,

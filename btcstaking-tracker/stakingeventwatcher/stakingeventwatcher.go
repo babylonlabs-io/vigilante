@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/indexer"
 	"golang.org/x/sync/semaphore"
 	"sync"
 	"sync/atomic"
@@ -71,6 +72,7 @@ type StakingEventWatcher struct {
 
 	btcClient   btcclient.BTCClient
 	btcNotifier notifier.ChainNotifier
+	indexer     indexer.Client
 	metrics     *metrics.UnbondingWatcherMetrics
 	// TODO: Ultimately all requests to babylon should go through some kind of semaphore
 	// to avoid spamming babylon with requests
@@ -95,6 +97,7 @@ type StakingEventWatcher struct {
 func NewStakingEventWatcher(
 	btcNotifier notifier.ChainNotifier,
 	btcClient btcclient.BTCClient,
+	indexer indexer.Client,
 	babylonNodeAdapter BabylonNodeAdapter,
 	cfg *config.BTCStakingTrackerConfig,
 	parentLogger *zap.Logger,
@@ -106,6 +109,7 @@ func NewStakingEventWatcher(
 		logger:                          parentLogger.With(zap.String("module", "staking_event_watcher")).Sugar(),
 		btcNotifier:                     btcNotifier,
 		btcClient:                       btcClient,
+		indexer:                         indexer,
 		babylonNodeAdapter:              babylonNodeAdapter,
 		metrics:                         metrics,
 		unbondingTracker:                NewTrackedDelegations(),
@@ -184,6 +188,10 @@ func (sew *StakingEventWatcher) handleNewBlocks(blockNotifier *notifier.BlockEpo
 			}
 			sew.currentBestBlockHeight.Store(uint32(block.Height))
 			sew.logger.Debugf("Received new best btc block: %d", block.Height)
+
+			if err := sew.checkSpend(); err != nil {
+				sew.logger.Errorf("error checking spend: %v", err)
+			}
 		case <-sew.quit:
 			return
 		}
@@ -418,18 +426,9 @@ func (sew *StakingEventWatcher) reportUnbondingToBabylon(
 	)
 }
 
-func (sew *StakingEventWatcher) watchForSpend(spendEvent *notifier.SpendEvent, td *TrackedDelegation) {
-	defer sew.wg.Done()
+func (sew *StakingEventWatcher) handleSpend(spendingTx *wire.MsgTx, td *TrackedDelegation) {
 	quitCtx, cancel := sew.quitContext()
 	defer cancel()
-
-	var spendingTx *wire.MsgTx
-	select {
-	case spendDetail := <-spendEvent.Spend:
-		spendingTx = spendDetail.SpendingTx
-	case <-sew.quit:
-		return
-	}
 
 	_, err := tryParseStakerSignatureFromSpentTx(spendingTx, td)
 	delegationID := td.StakingTx.TxHash()
@@ -469,6 +468,54 @@ func (sew *StakingEventWatcher) watchForSpend(spendEvent *notifier.SpendEvent, t
 		&delegationInactive{stakingTxHash: delegationID},
 		sew.quit,
 	)
+}
+
+func (sew *StakingEventWatcher) checkSpend() error {
+	var wg sync.WaitGroup
+	for del := range sew.unbondingTracker.DelegationsIter(1000) {
+		if del.InProgress {
+			continue
+		}
+
+		response, err := sew.indexer.GetOutspend(del.StakingTx.TxHash().String(), del.StakingOutputIdx)
+		if err != nil {
+			sew.logger.Errorf("error getting outspend for staking tx %s: %v", del.StakingTx.TxHash(), err)
+
+			continue
+		}
+
+		if !response.Spent {
+			continue
+		}
+
+		if err := sew.unbondingTracker.UpdateActivation(del.StakingTx.TxHash(), true); err != nil {
+			return err
+		}
+
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			txHash, err := chainhash.NewHashFromStr(response.TxID)
+			if err != nil {
+				sew.logger.Errorf("error parsing tx hash %s: %v", response.TxID, err)
+
+				return
+			}
+			spendingTx, err := sew.btcClient.GetRawTransaction(txHash)
+			if err != nil {
+				sew.logger.Errorf("error getting spending tx %s: %v", response.TxID, err)
+
+				return
+			}
+
+			sew.handleSpend(spendingTx.MsgTx(), del)
+		}()
+	}
+
+	wg.Wait()
+
+	return nil
 }
 
 func (sew *StakingEventWatcher) buildSpendingTxProof(spendingTx *wire.MsgTx) (*btcstakingtypes.InclusionProof, error) {
@@ -537,7 +584,7 @@ func (sew *StakingEventWatcher) handleUnbondedDelegations() {
 		case activeDel := <-sew.unbondingDelegationChan:
 			sew.logger.Debugf("Received new delegation to watch for staking transaction with hash %s", activeDel.stakingTxHash)
 
-			del, err := sew.unbondingTracker.AddDelegation(
+			_, err := sew.unbondingTracker.AddDelegation(
 				activeDel.stakingTx,
 				activeDel.stakingOutputIdx,
 				activeDel.unbondingOutput,
@@ -552,26 +599,6 @@ func (sew *StakingEventWatcher) handleUnbondedDelegations() {
 			}
 
 			sew.metrics.NumberOfTrackedActiveDelegations.Inc()
-
-			stakingOutpoint := wire.OutPoint{
-				Hash:  activeDel.stakingTxHash,
-				Index: activeDel.stakingOutputIdx,
-			}
-
-			spendEv, err := sew.btcNotifier.RegisterSpendNtfn(
-				&stakingOutpoint,
-				activeDel.stakingTx.TxOut[activeDel.stakingOutputIdx].PkScript,
-				activeDel.delegationStartHeight,
-			)
-
-			if err != nil {
-				sew.logger.Errorf("error registering spend ntfn for staking tx %s: %v", activeDel.stakingTxHash, err)
-
-				continue
-			}
-
-			sew.wg.Add(1)
-			go sew.watchForSpend(spendEv, del)
 		case in := <-sew.unbondingRemovalChan:
 			sew.logger.Debugf("Delegation for staking transaction with hash %s stopped being active", in.stakingTxHash)
 			// remove delegation from unbondingTracker
@@ -616,7 +643,7 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 	}
 
 	for del := range sew.pendingTracker.DelegationsIter(1000) {
-		if del.ActivationInProgress {
+		if del.InProgress {
 			continue
 		}
 		txHash := del.StakingTx.TxHash()
