@@ -426,10 +426,7 @@ func (sew *StakingEventWatcher) reportUnbondingToBabylon(
 	)
 }
 
-func (sew *StakingEventWatcher) handleSpend(spendingTx *wire.MsgTx, td *TrackedDelegation) {
-	quitCtx, cancel := sew.quitContext()
-	defer cancel()
-
+func (sew *StakingEventWatcher) handleSpend(ctx context.Context, spendingTx *wire.MsgTx, td *TrackedDelegation) {
 	_, err := tryParseStakerSignatureFromSpentTx(spendingTx, td)
 	delegationID := td.StakingTx.TxHash()
 	spendingTxHash := spendingTx.TxHash()
@@ -441,25 +438,25 @@ func (sew *StakingEventWatcher) handleSpend(spendingTx *wire.MsgTx, td *TrackedD
 		// As we only care about unbonding transactions, we do not need to take additional actions.
 		// We start polling babylon for delegation to stop being active, and then delete it from unbondingTracker.
 		sew.logger.Debugf("Spending tx %s for staking tx %s is not unbonding tx. Info: %v", spendingTxHash, delegationID, err)
-		proof := sew.waitForStakeSpendInclusionProof(quitCtx, spendingTx)
+		proof := sew.waitForStakeSpendInclusionProof(ctx, spendingTx)
 		if proof == nil {
 			sew.logger.Errorf("unbonding tx %s for staking tx %s proof not built", spendingTxHash, delegationID)
 
 			return
 		}
-		sew.reportUnbondingToBabylon(quitCtx, delegationID, spendingTx, proof)
+		sew.reportUnbondingToBabylon(ctx, delegationID, spendingTx, proof)
 	} else {
 		sew.metrics.DetectedUnbondingTransactionsCounter.Inc()
 		// We found valid unbonding tx. We need to try to report it to babylon.
 		// We stop reporting if delegation is no longer active or we succeed.
-		proof := sew.waitForStakeSpendInclusionProof(quitCtx, spendingTx)
+		proof := sew.waitForStakeSpendInclusionProof(ctx, spendingTx)
 		if proof == nil {
 			sew.logger.Errorf("unbonding tx %s for staking tx %s proof not built", spendingTxHash, delegationID)
 
 			return
 		}
 		sew.logger.Debugf("found unbonding tx %s for staking tx %s", spendingTxHash, delegationID)
-		sew.reportUnbondingToBabylon(quitCtx, delegationID, spendingTx, proof)
+		sew.reportUnbondingToBabylon(ctx, delegationID, spendingTx, proof)
 		sew.logger.Debugf("unbonding tx %s for staking tx %s reported to babylon", spendingTxHash, delegationID)
 	}
 
@@ -472,12 +469,15 @@ func (sew *StakingEventWatcher) handleSpend(spendingTx *wire.MsgTx, td *TrackedD
 
 func (sew *StakingEventWatcher) checkSpend() error {
 	var wg sync.WaitGroup
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	for del := range sew.unbondingTracker.DelegationsIter(1000) {
 		if del.InProgress {
 			continue
 		}
 
-		response, err := sew.indexer.GetOutspend(del.StakingTx.TxHash().String(), del.StakingOutputIdx)
+		response, err := sew.indexer.GetOutspend(ctx, del.StakingTx.TxHash().String(), del.StakingOutputIdx)
 		if err != nil {
 			sew.logger.Errorf("error getting outspend for staking tx %s: %v", del.StakingTx.TxHash(), err)
 
@@ -494,8 +494,12 @@ func (sew *StakingEventWatcher) checkSpend() error {
 
 		wg.Add(1)
 
+		// nolint:contextcheck
 		go func() {
 			defer wg.Done()
+			innerCtx, innerCancel := sew.quitContext()
+			defer innerCancel()
+
 			txHash, err := chainhash.NewHashFromStr(response.TxID)
 			if err != nil {
 				sew.logger.Errorf("error parsing tx hash %s: %v", response.TxID, err)
@@ -509,7 +513,7 @@ func (sew *StakingEventWatcher) checkSpend() error {
 				return
 			}
 
-			sew.handleSpend(spendingTx.MsgTx(), del)
+			sew.handleSpend(innerCtx, spendingTx.MsgTx(), del)
 		}()
 	}
 

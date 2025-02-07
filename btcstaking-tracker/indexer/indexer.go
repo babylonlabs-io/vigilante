@@ -1,6 +1,7 @@
 package indexer
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/avast/retry-go/v4"
@@ -24,7 +25,7 @@ type OutspendResponse struct {
 var _ Client = (*HTTPIndexerClient)(nil)
 
 type Client interface {
-	GetOutspend(txID string, vout uint32) (*OutspendResponse, error)
+	GetOutspend(ctx context.Context, txID string, vout uint32) (*OutspendResponse, error)
 }
 
 // HTTPIndexerClient implements Client with HTTP requests.
@@ -43,13 +44,18 @@ func NewHTTPIndexerClient(baseURL string, timeout time.Duration, logger zap.Logg
 }
 
 // GetOutspend fetches outspend data with retries.
-func (c *HTTPIndexerClient) GetOutspend(txID string, vout uint32) (*OutspendResponse, error) {
+func (c *HTTPIndexerClient) GetOutspend(ctx context.Context, txID string, vout uint32) (*OutspendResponse, error) {
 	var response OutspendResponse
 	url := fmt.Sprintf("%s/tx/%s/outspend/%d", c.baseURL, txID, vout)
 
 	err := retry.Do(
 		func() error {
-			resp, err := c.httpClient.Get(url)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+			if err != nil {
+				return err
+			}
+
+			resp, err := c.httpClient.Do(req)
 			if err != nil {
 				return err
 			}
@@ -61,8 +67,8 @@ func (c *HTTPIndexerClient) GetOutspend(txID string, vout uint32) (*OutspendResp
 
 			return json.NewDecoder(resp.Body).Decode(&response)
 		},
-		retry.Attempts(3),
-		retry.Delay(2*time.Second),
+		retry.Context(ctx),
+		retry.Delay(1*time.Second),
 		retry.LastErrorOnly(true),
 		retry.OnRetry(func(n uint, err error) {
 			c.logger.Debugf("retrying to getOutspend: Attempt: %d. Err: %v", n, err)
