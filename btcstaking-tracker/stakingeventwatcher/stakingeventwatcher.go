@@ -468,9 +468,10 @@ func (sew *StakingEventWatcher) handleSpend(ctx context.Context, spendingTx *wir
 }
 
 func (sew *StakingEventWatcher) checkSpend() error {
-	var wg sync.WaitGroup
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+
+	defer sew.latency("checkSpend")()
 
 	for del := range sew.unbondingTracker.DelegationsIter(1000) {
 		if del.InProgress {
@@ -492,11 +493,9 @@ func (sew *StakingEventWatcher) checkSpend() error {
 			return err
 		}
 
-		wg.Add(1)
-
 		// nolint:contextcheck
 		go func() {
-			defer wg.Done()
+			//defer wg.Done()
 			innerCtx, innerCancel := sew.quitContext()
 			defer innerCancel()
 
@@ -516,8 +515,6 @@ func (sew *StakingEventWatcher) checkSpend() error {
 			sew.handleSpend(innerCtx, spendingTx.MsgTx(), del)
 		}()
 	}
-
-	wg.Wait()
 
 	return nil
 }

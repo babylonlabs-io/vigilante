@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -36,6 +37,20 @@ func (h *ElectrsTestHandler) Start(t *testing.T, bitcoindPath, btcRpcAddr string
 	}, startTimeout, 500*time.Millisecond, "electrs did not start")
 
 	return resource
+}
+
+func (h *ElectrsTestHandler) GetTipHeight(url string) (int, error) {
+	body, err := fetch(fmt.Sprintf("%s/blocks/tip/height", url))
+	if err != nil {
+		return 0, err
+	}
+
+	height, err := strconv.Atoi(body)
+	if err != nil {
+		return 0, err
+	}
+
+	return height, nil
 }
 
 func fetch(url string) (string, error) {
