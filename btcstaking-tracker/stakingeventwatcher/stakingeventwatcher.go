@@ -825,7 +825,7 @@ func (sew *StakingEventWatcher) handleMatureDelegations() {
 
 	var batch []newDelegation
 	var mu sync.Mutex
-	batchSize := 100
+	batchSize := 350
 	batchTimer := 3 * sew.cfg.CheckDelegationsInterval
 	timer := time.NewTimer(batchTimer)
 	defer timer.Stop()

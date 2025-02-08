@@ -385,7 +385,7 @@ func TestUnbondingLoaded(t *testing.T) {
 	bsParams, err := tm.BabylonClient.BTCStakingParams()
 	require.NoError(t, err)
 
-	numStakers := 100
+	numStakers := 150
 	stakers := make([]*Staker, 0, numStakers)
 	// loop for creating staking txs
 	for i := 0; i < numStakers; i++ {
@@ -438,18 +438,16 @@ func TestUnbondingLoaded(t *testing.T) {
 	tm.CatchUpBTCLightClient(t)
 
 	// send delegations
-	for _, staker := range stakers {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			staker.SendDelegation(t, tm, signerAddr, fpSK.PubKey(), bsParams)
-			staker.stakeReportedAt = time.Now()
-			staker.SendCovSig(t, tm)
-		}()
-		time.Sleep(200 * time.Millisecond)
-	}
-
-	wg.Wait()
+	go func() {
+		for _, staker := range stakers {
+			go func() {
+				staker.SendDelegation(t, tm, signerAddr, fpSK.PubKey(), bsParams)
+				staker.stakeReportedAt = time.Now()
+				staker.SendCovSig(t, tm)
+			}()
+			time.Sleep(200 * time.Millisecond)
+		}
+	}()
 
 	activeMap := make(map[string]struct{})
 	require.Eventually(t, func() bool {
@@ -459,7 +457,9 @@ func TestUnbondingLoaded(t *testing.T) {
 				continue
 			}
 			resp, err := tm.BabylonClient.BTCDelegation(staker.stakingMsgTxHash.String())
-			require.NoError(t, err)
+			if err != nil {
+				continue
+			}
 
 			if !resp.BtcDelegation.Active {
 				staker.unbondingDetectedAt = time.Now()
