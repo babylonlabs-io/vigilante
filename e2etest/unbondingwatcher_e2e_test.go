@@ -348,7 +348,7 @@ func TestActivatingAndUnbondingDelegation(t *testing.T) {
 
 func TestUnbondingLoaded(t *testing.T) {
 	t.Parallel()
-	numMatureOutputs := uint32(250)
+	numMatureOutputs := uint32(2500)
 	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
 	defer tm.Stop(t)
 	tm.CatchUpBTCLightClient(t)
@@ -391,7 +391,7 @@ func TestUnbondingLoaded(t *testing.T) {
 	bsParams, err := tm.BabylonClient.BTCStakingParams()
 	require.NoError(t, err)
 
-	numStakers := 100
+	numStakers := 1500
 	stakers := make([]*Staker, 0, numStakers)
 	// loop for creating staking txs
 	for i := 0; i < numStakers; i++ {
@@ -493,7 +493,7 @@ func TestUnbondingLoaded(t *testing.T) {
 				continue
 			}
 
-			if !resp.BtcDelegation.Active {
+			if resp.BtcDelegation.StatusDesc == btcstakingtypes.BTCDelegationStatus_UNBONDED.String() {
 				staker.unbondingDetectedAt = time.Now()
 				activeMap[hash] = struct{}{}
 			}
