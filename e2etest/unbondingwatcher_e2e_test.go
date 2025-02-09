@@ -348,7 +348,7 @@ func TestActivatingAndUnbondingDelegation(t *testing.T) {
 
 func TestUnbondingLoaded(t *testing.T) {
 	t.Parallel()
-	numMatureOutputs := uint32(250)
+	numMatureOutputs := uint32(1500)
 	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
 	defer tm.Stop(t)
 	tm.CatchUpBTCLightClient(t)
@@ -391,7 +391,7 @@ func TestUnbondingLoaded(t *testing.T) {
 	bsParams, err := tm.BabylonClient.BTCStakingParams()
 	require.NoError(t, err)
 
-	numStakers := 150
+	numStakers := 3000
 	stakers := make([]*Staker, 0, numStakers)
 	// loop for creating staking txs
 	for i := 0; i < numStakers; i++ {
@@ -405,7 +405,9 @@ func TestUnbondingLoaded(t *testing.T) {
 			defer wg.Done()
 			topUnspentResult, err := tm.BTCClient.ListUnspent()
 			require.NoError(t, err)
-			topUTXO, err := types.NewUTXO(&topUnspentResult[i], regtestParams) // todo: rotate index
+
+			unspentIdx := i % len(topUnspentResult)
+			topUTXO, err := types.NewUTXO(&topUnspentResult[unspentIdx], regtestParams)
 			require.NoError(t, err)
 			staker.CreateStakingTx(t, tm, fpSK, topUTXO, addr, bsParams)
 			staker.SendTxAndWait(t, tm, staker.stakingSlashingInfo.StakingTx)
