@@ -495,7 +495,6 @@ func (sew *StakingEventWatcher) checkSpend() error {
 
 		// nolint:contextcheck
 		go func() {
-			//defer wg.Done()
 			innerCtx, innerCancel := sew.quitContext()
 			defer innerCancel()
 
