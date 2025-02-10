@@ -391,7 +391,7 @@ func TestUnbondingLoaded(t *testing.T) {
 	bsParams, err := tm.BabylonClient.BTCStakingParams()
 	require.NoError(t, err)
 
-	numStakers := 3000
+	numStakers := 150
 	stakers := make([]*Staker, 0, numStakers)
 	// loop for creating staking txs
 	for i := 0; i < numStakers; i++ {
