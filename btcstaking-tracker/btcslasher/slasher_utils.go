@@ -515,7 +515,7 @@ func (bs *BTCSlasher) waitForTxKDeep(ctx context.Context, txHash *chainhash.Hash
 		return fmt.Errorf("tx: %s, not deep enough: %d/%d", txHash.String(), tip-details.BlockHeight, k)
 	},
 		retry.Context(ctx),
-		retry.Attempts(5),
+		retry.Attempts(0), // inf retries, but cancelled with ctx
 		retry.Delay(bs.retrySleepTime),
 		retry.MaxDelay(bs.maxRetrySleepTime),
 		retry.LastErrorOnly(true),
