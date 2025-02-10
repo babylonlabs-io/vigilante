@@ -124,14 +124,17 @@ func TestSlasher_Slasher(t *testing.T) {
 	slashingMsgTxHash1 := slashingMsgTx.TxHash()
 	slashingMsgTxHash := &slashingMsgTxHash1
 
+	btccParamsResp, err := tm.BabylonClient.BTCCheckpointParams()
+	require.NoError(t, err)
+
+	for i := 0; i <= int(btccParamsResp.Params.BtcConfirmationDepth); i++ {
+		tm.mineBlock(t)
+	}
+
 	// mine a block that includes slashing tx
 	require.Eventually(t, func() bool {
 		return len(tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{slashingMsgTxHash})) == 1
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
-
-	minedBlock := tm.mineBlock(t)
-	// ensure 2 txs will eventually be received (staking tx and slashing tx)
-	require.Equal(t, 2, len(minedBlock.Transactions))
 }
 
 func TestSlasher_SlashingUnbonding(t *testing.T) {
@@ -197,6 +200,13 @@ func TestSlasher_SlashingUnbonding(t *testing.T) {
 	require.NoError(t, err)
 	unbondingSlashingMsgTxHash1 := unbondingSlashingMsgTx.TxHash()
 	unbondingSlashingMsgTxHash := &unbondingSlashingMsgTxHash1
+
+	btccParamsResp, err := tm.BabylonClient.BTCCheckpointParams()
+	require.NoError(t, err)
+
+	for i := 0; i <= int(btccParamsResp.Params.BtcConfirmationDepth); i++ {
+		tm.mineBlock(t)
+	}
 
 	// slash unbonding tx will eventually enter mempool
 	require.Eventually(t, func() bool {

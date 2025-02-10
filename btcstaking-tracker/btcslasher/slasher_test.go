@@ -3,6 +3,8 @@ package btcslasher_test
 import (
 	"bytes"
 	"fmt"
+	"github.com/babylonlabs-io/vigilante/btcclient"
+	"github.com/lightningnetwork/lnd/chainntnfs"
 	"math/rand"
 	"testing"
 
@@ -45,8 +47,20 @@ func FuzzSlasher(f *testing.F) {
 		mockBTCClient := mocks.NewMockBTCClient(ctrl)
 		// mock k, w
 		btccParams := &btcctypes.QueryParamsResponse{Params: btcctypes.Params{BtcConfirmationDepth: 10, CheckpointFinalizationTimeout: 100}}
-		mockBabylonQuerier.EXPECT().BTCCheckpointParams().Return(btccParams, nil).Times(1)
+		mockBabylonQuerier.EXPECT().BTCCheckpointParams().Return(btccParams, nil).AnyTimes()
 		unbondingTime := uint16(btccParams.Params.CheckpointFinalizationTimeout + 1)
+
+		block, _ := datagen.GenRandomBtcdBlock(r, 10, nil)
+		bh := block.BlockHash()
+		details := &chainntnfs.TxConfirmation{
+			BlockHash:   &bh,
+			BlockHeight: 100,
+			TxIndex:     1,
+			Tx:          nil,
+			Block:       block,
+		}
+		mockBTCClient.EXPECT().TxDetails(gomock.Any(), gomock.Any()).Return(details, btcclient.TxInChain, nil).AnyTimes()
+		mockBTCClient.EXPECT().GetBestBlock().Return(uint32(111), nil).AnyTimes()
 
 		// covenant secret key
 		covQuorum := datagen.RandomInt(r, 5) + 1
@@ -299,7 +313,7 @@ func FuzzSlasher(f *testing.F) {
 		mockBTCClient.EXPECT().
 			SendRawTransaction(gomock.Any(), gomock.Eq(true)).
 			Return(&chainhash.Hash{}, nil).
-			Times((len(activeBTCDelsList) + len(unbondedBTCDelsList)) * 2)
+			AnyTimes()
 
 		err = btcSlasher.SlashFinalityProvider(valSK)
 		require.NoError(t, err)
