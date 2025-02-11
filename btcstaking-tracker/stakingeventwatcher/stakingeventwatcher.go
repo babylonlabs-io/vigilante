@@ -469,15 +469,15 @@ func (sew *StakingEventWatcher) handleSpend(ctx context.Context, spendingTx *wir
 
 func (sew *StakingEventWatcher) checkSpend() error {
 	var wg sync.WaitGroup
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
 
 	for del := range sew.unbondingTracker.DelegationsIter(1000) {
 		if del.InProgress {
 			continue
 		}
-
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		response, err := sew.indexer.GetOutspend(ctx, del.StakingTx.TxHash().String(), del.StakingOutputIdx)
+		cancel()
+
 		if err != nil {
 			sew.logger.Errorf("error getting outspend for staking tx %s: %v", del.StakingTx.TxHash(), err)
 
