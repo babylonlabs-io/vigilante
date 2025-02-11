@@ -40,6 +40,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Bug Fixes
 
 * [#209](https://github.com/babylonlabs-io/vigilante/pull/209) fix: wait until slashing tx k-deep
+* [#223](https://github.com/babylonlabs-io/vigilante/pull/223) fix: consider minimal fee for bump
 
 ## v0.19.9
 
