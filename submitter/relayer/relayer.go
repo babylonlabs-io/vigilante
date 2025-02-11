@@ -258,7 +258,23 @@ func (rl *Relayer) shouldResendCheckpoint(ckptInfo *types.CheckpointInfo, bumped
 // based on the current BTC load, considering both tx sizes
 // the result is multiplied by ResubmitFeeMultiplier set in config
 func (rl *Relayer) calculateBumpedFee(ckptInfo *types.CheckpointInfo) btcutil.Amount {
-	return ckptInfo.Tx2.Fee.MulF64(rl.config.ResubmitFeeMultiplier)
+	currentFeeRate := rl.getFeeRate()
+
+	// Convert to Satoshis per byte (SatPerKVByte is per 1000 bytes)
+	feeRatePerByte := btcutil.Amount(currentFeeRate / 1000)
+
+	// Compute the required fee based on transaction size
+	requiredFee := feeRatePerByte * btcutil.Amount(ckptInfo.Tx2.Size)
+
+	// Calculate the recommended fee using ResubmitFeeMultiplier
+	bumpedFee := ckptInfo.Tx2.Fee.MulF64(rl.config.ResubmitFeeMultiplier)
+
+	// Ensure the bumped fee meets at least the minimum required fee
+	if bumpedFee < requiredFee {
+		bumpedFee = requiredFee
+	}
+
+	return bumpedFee
 }
 
 // maybeResendSecondTxOfCheckpointToBTC resends the second tx of the checkpoint with bumpedFee
