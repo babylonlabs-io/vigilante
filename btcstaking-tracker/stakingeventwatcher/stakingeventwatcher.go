@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/indexer"
 	"golang.org/x/sync/semaphore"
 	"sync"
 	"sync/atomic"
@@ -72,7 +71,7 @@ type StakingEventWatcher struct {
 
 	btcClient   btcclient.BTCClient
 	btcNotifier notifier.ChainNotifier
-	indexer     indexer.Client
+	indexer     SpendChecker
 	metrics     *metrics.UnbondingWatcherMetrics
 	// TODO: Ultimately all requests to babylon should go through some kind of semaphore
 	// to avoid spamming babylon with requests
@@ -97,7 +96,7 @@ type StakingEventWatcher struct {
 func NewStakingEventWatcher(
 	btcNotifier notifier.ChainNotifier,
 	btcClient btcclient.BTCClient,
-	indexer indexer.Client,
+	indexer SpendChecker,
 	babylonNodeAdapter BabylonNodeAdapter,
 	cfg *config.BTCStakingTrackerConfig,
 	parentLogger *zap.Logger,
@@ -468,17 +467,16 @@ func (sew *StakingEventWatcher) handleSpend(ctx context.Context, spendingTx *wir
 }
 
 func (sew *StakingEventWatcher) checkSpend() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	defer sew.latency("checkSpend")()
+	var wg sync.WaitGroup
 
 	for del := range sew.unbondingTracker.DelegationsIter(1000) {
 		if del.InProgress {
 			continue
 		}
-
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		response, err := sew.indexer.GetOutspend(ctx, del.StakingTx.TxHash().String(), del.StakingOutputIdx)
+		cancel()
+
 		if err != nil {
 			sew.logger.Errorf("error getting outspend for staking tx %s: %v", del.StakingTx.TxHash(), err)
 
@@ -493,8 +491,16 @@ func (sew *StakingEventWatcher) checkSpend() error {
 			return err
 		}
 
+		wg.Add(1)
+
 		// nolint:contextcheck
 		go func() {
+			defer wg.Done()
+			defer func() {
+				if err := sew.unbondingTracker.UpdateActivation(del.StakingTx.TxHash(), false); err != nil {
+					sew.logger.Warnf("error updating activation status for staking tx %s: %v", del.StakingTx.TxHash(), err)
+				}
+			}()
 			innerCtx, innerCancel := sew.quitContext()
 			defer innerCancel()
 
@@ -514,6 +520,8 @@ func (sew *StakingEventWatcher) checkSpend() error {
 			sew.handleSpend(innerCtx, spendingTx.MsgTx(), del)
 		}()
 	}
+
+	wg.Wait()
 
 	return nil
 }

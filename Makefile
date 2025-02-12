@@ -67,7 +67,7 @@ mocks:
 	$(MOCKGEN_CMD) -source=btcstaking-tracker/btcslasher/expected_babylon_client.go -package btcslasher -destination btcstaking-tracker/btcslasher/mock_babylon_client.go
 	$(MOCKGEN_CMD) -source=btcstaking-tracker/atomicslasher/expected_babylon_client.go -package atomicslasher -destination btcstaking-tracker/atomicslasher/mock_babylon_client.go
 	$(MOCKGEN_CMD) -source=btcstaking-tracker/stakingeventwatcher/expected_babylon_client.go -package stakingeventwatcher -destination btcstaking-tracker/stakingeventwatcher/mock_babylon_client.go
-	$(MOCKGEN_CMD) -source=btcstaking-tracker/indexer/indexer.go -package indexer -destination btcstaking-tracker/indexer/mock_indexer.go
+	$(MOCKGEN_CMD) -source=btcstaking-tracker/stakingeventwatcher/indexer.go -package stakingeventwatcher -destination btcstaking-tracker/stakingeventwatcher/mock_indexer.go
 
 .PHONY: build test test-e2e build-docker rm-docker mocks
 
