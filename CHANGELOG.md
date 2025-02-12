@@ -37,6 +37,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Improvements
+
+* [#229](https://github.com/babylonlabs-io/vigilante/pull/229) chore: bigger batch size for fetching delegations
+
 ### Bug Fixes
 
 * [#209](https://github.com/babylonlabs-io/vigilante/pull/209) fix: wait until slashing tx k-deep
