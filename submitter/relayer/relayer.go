@@ -534,7 +534,9 @@ func (rl *Relayer) buildDataTx(data []byte) (*types.BtcTxInfo, error) {
 		changeOutput := wire.NewTxOut(int64(dustThreshold), changePkScript)
 		rawTxResult.Transaction.AddTxOut(changeOutput)
 
-		// reselect the inputs as the change output has been added
+		// reselect the inputs as the change output has been added, we have to do this because:
+		// change output increases the tx size and decrease the fee, therefore it may decrease fee-rate,
+		// reducing miner's incentive to include this tx in the block
 		rawTxResult, err = rl.BTCWallet.FundRawTransaction(rawTxResult.Transaction, btcjson.FundRawTransactionOpts{
 			FeeRate:        &feeRate,
 			ChangePosition: &changePosition,
