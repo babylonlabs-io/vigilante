@@ -40,6 +40,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Bug Fixes
 
 * [#209](https://github.com/babylonlabs-io/vigilante/pull/209) fix: wait until slashing tx k-deep
+* [#226](https://github.com/babylonlabs-io/vigilante/pull/226) fix: reselect inputs after adding manual output
 
 ## v0.19.9
 
