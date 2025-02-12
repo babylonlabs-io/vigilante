@@ -22,12 +22,6 @@ type OutspendResponse struct {
 	} `json:"status"`
 }
 
-var _ Client = (*HTTPIndexerClient)(nil)
-
-type Client interface {
-	GetOutspend(ctx context.Context, txID string, vout uint32) (*OutspendResponse, error)
-}
-
 // HTTPIndexerClient implements Client with HTTP requests.
 type HTTPIndexerClient struct {
 	baseURL    string
