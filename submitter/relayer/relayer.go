@@ -542,8 +542,6 @@ func (rl *Relayer) buildDataTx(data []byte) (*types.BtcTxInfo, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to fund raw tx after nochange: %w", err)
 		}
-
-		hasChange = len(rawTxResult.Transaction.TxOut) > changePosition
 	}
 
 	rl.logger.Debugf("Building a BTC tx using %s with data %x", tx.TxHash(), data)
