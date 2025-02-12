@@ -533,6 +533,17 @@ func (rl *Relayer) buildDataTx(data []byte) (*types.BtcTxInfo, error) {
 
 		changeOutput := wire.NewTxOut(int64(dustThreshold), changePkScript)
 		rawTxResult.Transaction.AddTxOut(changeOutput)
+
+		// reselect the inputs as the change output has been added
+		rawTxResult, err = rl.BTCWallet.FundRawTransaction(rawTxResult.Transaction, btcjson.FundRawTransactionOpts{
+			FeeRate:        &feeRate,
+			ChangePosition: &changePosition,
+		}, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fund raw tx after nochange: %w", err)
+		}
+
+		hasChange = len(rawTxResult.Transaction.TxOut) > changePosition
 	}
 
 	rl.logger.Debugf("Building a BTC tx using %s with data %x", tx.TxHash(), data)
