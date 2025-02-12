@@ -2,7 +2,9 @@ package btcstakingtracker
 
 import (
 	"fmt"
+	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/indexer"
 	"sync"
+	"time"
 
 	bbnclient "github.com/babylonlabs-io/babylon/client/client"
 	"github.com/babylonlabs-io/vigilante/btcclient"
@@ -67,11 +69,14 @@ func NewBTCStakingTracker(
 ) *BTCStakingTracker {
 	logger := parentLogger.With(zap.String("module", "btcstaking-tracker"))
 
+	indexerClient := indexer.NewHTTPIndexerClient(cfg.IndexerAddr, 10*time.Second, *logger)
+
 	// watcher routine
 	babylonAdapter := uw.NewBabylonClientAdapter(bbnClient, cfg)
 	watcher := uw.NewStakingEventWatcher(
 		btcNotifier,
 		btcClient,
+		indexerClient,
 		babylonAdapter,
 		cfg,
 		logger,

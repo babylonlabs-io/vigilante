@@ -14,7 +14,7 @@ type TrackedDelegation struct {
 	StakingOutputIdx      uint32
 	UnbondingOutput       *wire.TxOut
 	DelegationStartHeight uint32
-	ActivationInProgress  bool
+	InProgress            bool
 }
 
 type TrackedDelegations struct {
@@ -85,7 +85,7 @@ func (td *TrackedDelegation) Clone() *TrackedDelegation {
 		StakingOutputIdx:      td.StakingOutputIdx,
 		UnbondingOutput:       unbondingOutput,
 		DelegationStartHeight: td.DelegationStartHeight,
-		ActivationInProgress:  td.ActivationInProgress,
+		InProgress:            td.InProgress,
 	}
 }
 
@@ -230,7 +230,7 @@ func (td *TrackedDelegations) UpdateActivation(tx chainhash.Hash, inProgress boo
 		return fmt.Errorf("delegation with tx hash %s not found", tx.String())
 	}
 
-	delegation.ActivationInProgress = inProgress
+	delegation.InProgress = inProgress
 
 	return nil
 }

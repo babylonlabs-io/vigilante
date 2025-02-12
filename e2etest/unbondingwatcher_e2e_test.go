@@ -48,6 +48,7 @@ func TestUnbondingWatcher(t *testing.T) {
 	commonCfg := config.DefaultCommonConfig()
 	bstCfg := config.DefaultBTCStakingTrackerConfig()
 	bstCfg.CheckDelegationsInterval = 1 * time.Second
+	bstCfg.IndexerAddr = tm.Config.BTCStakingTracker.IndexerAddr
 	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
 
 	bsTracker := bst.NewBTCStakingTracker(
@@ -112,12 +113,13 @@ func TestUnbondingWatcher(t *testing.T) {
 		resp, err := tm.BabylonClient.BTCDelegation(stakingSlashingInfo.StakingTx.TxHash().String())
 		require.NoError(t, err)
 
+		tm.mineBlock(t)
+
 		// TODO: Add field for staker signature in BTCDelegation query to check it directly,
 		// for now it is enough to check that delegation is not active, as if unbonding was reported
 		// delegation will be deactivated
 		return !resp.BtcDelegation.Active
-
-	}, eventuallyWaitTimeOut, eventuallyPollTime)
+	}, 2*time.Minute, 3*time.Second)
 }
 
 // TestActivatingDelegation verifies that a delegation created without an inclusion proof will
@@ -146,6 +148,7 @@ func TestActivatingDelegation(t *testing.T) {
 	commonCfg := config.DefaultCommonConfig()
 	bstCfg := config.DefaultBTCStakingTrackerConfig()
 	bstCfg.CheckDelegationsInterval = 1 * time.Second
+	bstCfg.IndexerAddr = tm.Config.BTCStakingTracker.IndexerAddr
 	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
 
 	bsTracker := bst.NewBTCStakingTracker(
@@ -252,6 +255,7 @@ func TestActivatingAndUnbondingDelegation(t *testing.T) {
 	commonCfg := config.DefaultCommonConfig()
 	bstCfg := config.DefaultBTCStakingTrackerConfig()
 	bstCfg.CheckDelegationsInterval = 1 * time.Second
+	bstCfg.IndexerAddr = tm.Config.BTCStakingTracker.IndexerAddr
 	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
 
 	bsTracker := bst.NewBTCStakingTracker(
@@ -335,6 +339,8 @@ func TestActivatingAndUnbondingDelegation(t *testing.T) {
 		resp, err := tm.BabylonClient.BTCDelegation(stakingSlashingInfo.StakingTx.TxHash().String())
 		require.NoError(t, err)
 
+		tm.mineBlock(t)
+
 		return resp.BtcDelegation.StatusDesc == btcstakingtypes.BTCDelegationStatus_UNBONDED.String()
-	}, eventuallyWaitTimeOut, eventuallyPollTime)
+	}, eventuallyWaitTimeOut, 3*eventuallyPollTime)
 }
