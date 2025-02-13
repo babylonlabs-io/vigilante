@@ -28,7 +28,7 @@ type BTCStakingTrackerConfig struct {
 func DefaultBTCStakingTrackerConfig() BTCStakingTrackerConfig {
 	return BTCStakingTrackerConfig{
 		CheckDelegationsInterval: 1 * time.Minute,
-		NewDelegationsBatchSize:  100,
+		NewDelegationsBatchSize:  500,
 		// This can be quite large to avoid wasting resources on checking if delegation is active
 		CheckDelegationActiveInterval: 5 * time.Minute,
 		// This should be small, as we want to report unbonding tx as soon as possible even if we initially failed

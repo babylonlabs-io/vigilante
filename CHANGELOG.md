@@ -37,10 +37,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Improvements
+
+* [#229](https://github.com/babylonlabs-io/vigilante/pull/229) chore: bigger batch size for fetching delegations
+
 ### Bug Fixes
 
 * [#209](https://github.com/babylonlabs-io/vigilante/pull/209) fix: wait until slashing tx k-deep
 * [#223](https://github.com/babylonlabs-io/vigilante/pull/223) fix: consider minimal fee for bump
+* [#226](https://github.com/babylonlabs-io/vigilante/pull/226) fix: reselect inputs after adding manual output
 
 ## v0.19.9
 
