@@ -41,7 +41,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Improvements
 
-* [#210](https://github.com/babylonlabs-io/vigilante/pull/210) feat: adds indexer in e2e
+* [#211](https://github.com/babylonlabs-io/vigilante/pull/211) feat: adds indexer to btc staking tracker
 
 ### Bug Fixes
 
