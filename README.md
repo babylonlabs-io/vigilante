@@ -191,6 +191,8 @@ go run $VIGILANTE_PATH/cmd/main.go monitor \
 #### Running the BTC staking tracker
 
 We first need to ensure that a BTC full node and the Babylon node that we want to monitor are started running.
+Additionally, we need to have an instance of [electrs indexer](https://github.com/mempool/electrs) running. 
+Follow the instructions in the `electrs` repository to set up the indexer. We recommend using their [docker image](https://hub.docker.com/r/mempool/electrs).
 
 Then we start the BTC staking tracker:
 
