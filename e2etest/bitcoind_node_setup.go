@@ -41,7 +41,7 @@ func NewBitcoindHandler(t *testing.T, manager *container.Manager) *BitcoindTestH
 	}
 }
 
-func (h *BitcoindTestHandler) Start(t *testing.T) *dockertest.Resource {
+func (h *BitcoindTestHandler) Start(t *testing.T) (*dockertest.Resource, string) {
 	tempPath, err := os.MkdirTemp("", "vigilante-test-*")
 	require.NoError(h.t, err)
 
@@ -64,7 +64,7 @@ func (h *BitcoindTestHandler) Start(t *testing.T) *dockertest.Resource {
 		return err == nil
 	}, startTimeout, 500*time.Millisecond, "bitcoind did not start")
 
-	return bitcoinResource
+	return bitcoinResource, tempPath
 }
 
 // GetBlockCount retrieves the current number of blocks in the blockchain from the Bitcoind.

@@ -85,8 +85,10 @@ monitor:
     dbtimeout: 60s
 btcstaking-tracker:
   check-delegations-interval: 1m
-  delegations-batch-size: 100
+  delegations-batch-size: 500
   check-if-delegation-active-interval: 5m
   retry-submit-unbonding-interval: 1m
   max-jitter-interval: 30s
   btcnetparams: simnet
+  indexer-addr: localhost:3000
+

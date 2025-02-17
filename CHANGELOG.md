@@ -49,6 +49,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## v0.19.9
 
+### Improvements
+
+* [#211](https://github.com/babylonlabs-io/vigilante/pull/211) feat: adds indexer to btc staking tracker
+
 ### Bug Fixes
 
 * [#202](https://github.com/babylonlabs-io/vigilante/pull/202) fix: bump down btcd
