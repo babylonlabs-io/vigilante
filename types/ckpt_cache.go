@@ -1,7 +1,6 @@
 package types
 
 import (
-	"context"
 	"crypto/sha256"
 	"fmt"
 	"sort"
@@ -30,12 +29,11 @@ func NewCheckpointCache(tag btctxformatter.BabylonTag, version btctxformatter.Fo
 	for i := uint8(0); i < btctxformatter.NumberOfParts; i++ {
 		segMap[i] = map[string]*CkptSegment{}
 	}
-	ckptList := []*Ckpt{}
 
 	return &CheckpointCache{
 		Tag:         tag,
 		Version:     version,
-		Checkpoints: ckptList,
+		Checkpoints: []*Ckpt{},
 		Segments:    segMap,
 	}
 }
@@ -46,7 +44,7 @@ func (c *CheckpointCache) AddSegment(ckptSeg *CkptSegment) error {
 	}
 	hash := sha256.Sum256(ckptSeg.Data)
 	c.mu.Lock()
-	ckptSeg.Timestamp = time.Now() // Store insertion time
+	ckptSeg.Timestamp = time.Now() // Store insertion time, for TTL
 	c.Segments[ckptSeg.Index][string(hash[:])] = ckptSeg
 	c.mu.Unlock()
 
@@ -124,12 +122,12 @@ func (c *CheckpointCache) HasCheckpoints() bool {
 	return c.NumCheckpoints() > 0
 }
 
-func (c *CheckpointCache) StartCleanupRoutine(ctx context.Context, cleanupInterval time.Duration, segmentTTL time.Duration) {
+func (c *CheckpointCache) StartCleanupRoutine(stopChan chan struct{}, cleanupInterval time.Duration, segmentTTL time.Duration) {
 	ticker := time.NewTicker(cleanupInterval)
 	defer ticker.Stop()
 	for {
 		select {
-		case <-ctx.Done():
+		case <-stopChan:
 			return
 		case <-ticker.C:
 			now := time.Now()

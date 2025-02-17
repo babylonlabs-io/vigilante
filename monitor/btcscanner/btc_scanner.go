@@ -3,6 +3,7 @@ package btcscanner
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	notifier "github.com/lightningnetwork/lnd/chainntnfs"
 
@@ -111,6 +112,7 @@ func (bs *BtcScanner) Start(startHeight uint32) {
 	// start handling new blocks
 	bs.wg.Add(1)
 	go bs.bootstrapAndBlockEventHandler()
+	go bs.ckptCache.StartCleanupRoutine(bs.quit, time.Hour, 24*time.Hour)
 
 	for bs.started.Load() {
 		select {

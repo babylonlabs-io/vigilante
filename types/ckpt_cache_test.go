@@ -1,7 +1,6 @@
 package types_test
 
 import (
-	"context"
 	"math/rand"
 	"testing"
 	"time"
@@ -100,7 +99,7 @@ func FuzzCheckpointCache(f *testing.F) {
 		require.Equal(t, numMatchedPairs, ckptCache.NumCheckpoints())
 		require.Equal(t, (numPairs-numMatchedPairs)*2, ckptCache.NumSegments())
 
-		go ckptCache.StartCleanupRoutine(context.Background(), time.Second, time.Second)
+		go ckptCache.StartCleanupRoutine(nil, time.Second, time.Second)
 
 		require.Eventually(t, func() bool {
 			return ckptCache.NumSegments() == 0
