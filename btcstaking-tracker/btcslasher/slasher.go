@@ -16,7 +16,6 @@ import (
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/chaincfg"
-	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	"go.uber.org/zap"
 )
 
@@ -41,11 +40,6 @@ type BTCSlasher struct {
 	retrySleepTime         time.Duration
 	maxRetrySleepTime      time.Duration
 	maxRetryTimes          uint
-	// channel for finality signature messages, which might include
-	// equivocation evidences
-	finalitySigChan <-chan coretypes.ResultEvent
-	// channel for consumer fp equivocation evidences
-	equivocationEvidenceChan <-chan coretypes.ResultEvent
 	// channel for SKs of slashed finality providers
 	slashedFPSKChan chan *btcec.PrivateKey
 	// channel for receiving the slash result of each BTC delegation
@@ -134,24 +128,6 @@ func (bs *BTCSlasher) Start() error {
 
 			return
 		}
-
-		// start the subscriber to slashing events
-		// NOTE: at this point monitor has already started the Babylon querier routine
-		queryName := fmt.Sprintf("tm.event = 'Tx' AND message.action='%s'", messageActionName)
-		// subscribe to babylon fp slashing events
-		bs.finalitySigChan, startErr = bs.BBNQuerier.Subscribe(txSubscriberName, queryName)
-		if startErr != nil {
-			return
-		}
-		// subscribe to consumer fp slashing events
-		queryName = fmt.Sprintf("tm.event = 'Tx' AND message.action='%s'", consumerMessageActionName)
-		bs.equivocationEvidenceChan, startErr = bs.BBNQuerier.Subscribe(txSubscriberName, queryName)
-		if startErr != nil {
-			return
-		}
-
-		// BTC slasher has started
-		bs.logger.Debugf("slasher routine has started subscribing %s", queryName)
 
 		// start slasher
 		bs.wg.Add(2)
@@ -276,12 +252,6 @@ func (bs *BTCSlasher) Stop() error {
 	var stopErr error
 	bs.stopOnce.Do(func() {
 		bs.logger.Info("stopping slasher")
-
-		// close subscriber
-		if err := bs.BBNQuerier.UnsubscribeAll(txSubscriberName); err != nil {
-			bs.logger.Errorf("failed to unsubscribe from %s: %v", txSubscriberName, err)
-		}
-
 		// notify all subroutines
 		close(bs.quit)
 		bs.wg.Wait()
