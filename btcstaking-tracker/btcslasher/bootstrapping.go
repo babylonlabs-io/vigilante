@@ -54,6 +54,7 @@ func (bs *BTCSlasher) ProcessEvidences(evidences []*ftypes.EvidenceResponse) (ui
 		btcPK, err := types.NewBIP340PubKeyFromHex(fpBTCPKHex)
 		if err != nil {
 			accumulatedErrs = multierror.Append(accumulatedErrs, fmt.Errorf("err parsing fp btc %w", err))
+
 			continue
 		}
 
