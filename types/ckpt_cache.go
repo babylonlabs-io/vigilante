@@ -1,14 +1,18 @@
 package types
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"sort"
+	"sync"
+	"time"
 
 	"github.com/babylonlabs-io/babylon/btctxformatter"
 )
 
 type CheckpointCache struct {
+	mu      sync.Mutex
 	Tag     btctxformatter.BabylonTag
 	Version btctxformatter.FormatVersion
 
@@ -41,7 +45,10 @@ func (c *CheckpointCache) AddSegment(ckptSeg *CkptSegment) error {
 		return fmt.Errorf("the index of the ckpt segment in block %v is out of scope: got %d, at most %d", ckptSeg.AssocBlock.BlockHash(), ckptSeg.Index, btctxformatter.NumberOfParts-1)
 	}
 	hash := sha256.Sum256(ckptSeg.Data)
+	c.mu.Lock()
+	ckptSeg.Timestamp = time.Now() // Store insertion time
 	c.Segments[ckptSeg.Index][string(hash[:])] = ckptSeg
+	c.mu.Unlock()
 
 	return nil
 }
@@ -61,6 +68,9 @@ func (c *CheckpointCache) sortCheckpoints() {
 // TODO: generalise to NumExpectedProofs > 2
 // TODO: optimise the complexity by hashmap
 func (c *CheckpointCache) Match() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	for hash1, ckptSeg1 := range c.Segments[uint8(0)] {
 		for hash2, ckptSeg2 := range c.Segments[uint8(1)] {
 			connected, err := btctxformatter.ConnectParts(c.Version, ckptSeg1.Data, ckptSeg2.Data)
@@ -112,4 +122,26 @@ func (c *CheckpointCache) NumCheckpoints() int {
 
 func (c *CheckpointCache) HasCheckpoints() bool {
 	return c.NumCheckpoints() > 0
+}
+
+func (c *CheckpointCache) StartCleanupRoutine(ctx context.Context, cleanupInterval time.Duration, segmentTTL time.Duration) {
+	ticker := time.NewTicker(cleanupInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			now := time.Now()
+			c.mu.Lock()
+			for _, segMap := range c.Segments {
+				for hash, seg := range segMap {
+					if now.Sub(seg.Timestamp) > segmentTTL {
+						delete(segMap, hash)
+					}
+				}
+			}
+			c.mu.Unlock()
+		}
+	}
 }

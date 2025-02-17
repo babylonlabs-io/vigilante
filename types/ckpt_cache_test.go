@@ -1,8 +1,10 @@
 package types_test
 
 import (
+	"context"
 	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/babylonlabs-io/babylon/btctxformatter"
 	"github.com/babylonlabs-io/babylon/testutil/datagen"
@@ -97,5 +99,11 @@ func FuzzCheckpointCache(f *testing.F) {
 
 		require.Equal(t, numMatchedPairs, ckptCache.NumCheckpoints())
 		require.Equal(t, (numPairs-numMatchedPairs)*2, ckptCache.NumSegments())
+
+		go ckptCache.StartCleanupRoutine(context.Background(), time.Second, time.Second)
+
+		require.Eventually(t, func() bool {
+			return ckptCache.NumSegments() == 0
+		}, 5*time.Second, time.Second, "checkpoint cache should be empty after cleanup")
 	})
 }
