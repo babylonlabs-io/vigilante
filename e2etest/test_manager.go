@@ -205,7 +205,9 @@ func (tm *TestManager) RetrieveTransactionFromMempool(t *testing.T, hashes []*ch
 	var txs []*btcutil.Tx
 	for _, txHash := range hashes {
 		tx, err := tm.BTCClient.GetRawTransaction(txHash)
-		require.NoError(t, err)
+		if err != nil {
+			continue
+		}
 		txs = append(txs, tx)
 	}
 

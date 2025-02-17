@@ -60,6 +60,7 @@ type BTCSlasher struct {
 	wg        sync.WaitGroup
 	quit      chan struct{}
 	mu        sync.Mutex
+	height    uint64
 }
 
 func New(
@@ -154,7 +155,8 @@ func (bs *BTCSlasher) Start() error {
 
 		// start slasher
 		bs.wg.Add(2)
-		go bs.equivocationTracker()
+		//go bs.equivocationTracker()
+		go bs.PollEvidences()
 		go bs.slashingEnforcer()
 
 		bs.logger.Info("the BTC slasher has started")
@@ -338,4 +340,26 @@ func (bs *BTCSlasher) Stop() error {
 	})
 
 	return stopErr
+}
+
+func (bs *BTCSlasher) PollEvidences() {
+	defer bs.wg.Done()
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			if err := bs.Bootstrap(bs.height); err != nil {
+				bs.logger.Errorf("err slashing %v", err)
+
+				continue
+			}
+
+		case <-bs.quit:
+			bs.logger.Debug("verified delegations loop quit")
+
+			return
+		}
+	}
 }
