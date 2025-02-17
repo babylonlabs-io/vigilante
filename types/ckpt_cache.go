@@ -106,6 +106,9 @@ func (c *CheckpointCache) PopEarliestCheckpoint() *Ckpt {
 }
 
 func (c *CheckpointCache) NumSegments() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	size := 0
 	for _, segMap := range c.Segments {
 		size += len(segMap)
@@ -115,6 +118,9 @@ func (c *CheckpointCache) NumSegments() int {
 }
 
 func (c *CheckpointCache) NumCheckpoints() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	return len(c.Checkpoints)
 }
 
