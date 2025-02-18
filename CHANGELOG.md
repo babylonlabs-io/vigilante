@@ -41,6 +41,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 * [#229](https://github.com/babylonlabs-io/vigilante/pull/229) chore: bigger batch size for fetching delegations
 * [#233](https://github.com/babylonlabs-io/vigilante/pull/233) chore: cleanup ckpt cache
+* [#224](https://github.com/babylonlabs-io/vigilante/pull/224) chore: poll for evidence
 
 ### Bug Fixes
 
