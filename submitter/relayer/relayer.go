@@ -313,13 +313,18 @@ func (rl *Relayer) maybeResendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bu
 		}
 		tx2.Tx = fundedTx.Transaction
 		bumpedFee = fundedTx.Fee
+		txSize, err := calculateTxVirtualSize(tx2.Tx)
+		if err != nil {
+			return nil, err
+		}
+		tx2.Size = txSize
 	} else {
 		// We can proceed with existing input, just update the change output
 		tx2.Tx.TxOut[changePosition].Value = int64(balance - bumpedFee)
 	}
 
 	// Verify the transaction meets RBF requirements before sending
-	if err := rl.verifyRBFRequirements(originalFee, bumpedFee); err != nil {
+	if err := rl.verifyRBFRequirements(originalFee, bumpedFee, tx2.Size); err != nil {
 		return nil, fmt.Errorf("RBF requirements not met: %w", err)
 	}
 
@@ -341,16 +346,22 @@ func (rl *Relayer) maybeResendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bu
 	return tx2, nil
 }
 
-func (rl *Relayer) verifyRBFRequirements(originalFee, newFee btcutil.Amount) error {
+func (rl *Relayer) verifyRBFRequirements(originalFee, newFee btcutil.Amount, txVirtualSize int64) error {
 	// 1. Check absolute fee is higher than original
 	if newFee <= originalFee {
 		return fmt.Errorf("replacement fee (%v) must be higher than original fee (%v)", newFee, originalFee)
 	}
 
-	// 2. Check if fee increment is at least 10% more than original
-	minIncrement := originalFee / 10
-	if newFee < (originalFee + minIncrement) {
-		return fmt.Errorf("replacement fee must be at least 10%% higher than original fee")
+	incrementalFeerate, err := rl.getIncrementalRelayFeerate()
+	if err != nil {
+		return err
+	}
+	minRequiredIncrement := incrementalFeerate * btcutil.Amount(txVirtualSize)
+
+	// 2. Check that we satisfy incremental fee rate
+	if newFee-originalFee < minRequiredIncrement {
+		return fmt.Errorf("additional fee (%d) must be at least %d based on transaction size and incremental relay feerate",
+			newFee-originalFee, minRequiredIncrement)
 	}
 
 	return nil
@@ -784,4 +795,13 @@ func maybeResendFromStore(
 	}
 
 	return true, nil
+}
+
+func (rl *Relayer) getIncrementalRelayFeerate() (btcutil.Amount, error) {
+	networkInfo, err := rl.BTCWallet.GetNetworkInfo()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get network info for incremental relay feerate: %w", err)
+	}
+
+	return btcutil.Amount(networkInfo.IncrementalFee), nil
 }
