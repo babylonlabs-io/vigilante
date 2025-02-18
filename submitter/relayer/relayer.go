@@ -629,16 +629,6 @@ func (rl *Relayer) finalizeTransaction(tx *wire.MsgTx) (*types.BtcTxInfo, error)
 		rl.logger.Debugf("Got a change address %v", addresses[0].String())
 	}
 
-	txSize, err := calculateTxVirtualSize(tx)
-	if err != nil {
-		return nil, err
-	}
-
-	txFee := rl.calcMinRelayFee(txSize)
-	if hasChange && changeAmount < txFee {
-		return nil, fmt.Errorf("the value of the utxo is not sufficient for relaying the tx. Require: %v. Have: %v", txFee, changeAmount)
-	}
-
 	// Sign tx
 	signedTx, err := rl.signTx(tx)
 	if err != nil {
@@ -651,10 +641,12 @@ func (rl *Relayer) finalizeTransaction(tx *wire.MsgTx) (*types.BtcTxInfo, error)
 		return nil, fmt.Errorf("failed to serialize signedTx: %w", err)
 	}
 
-	change := changeAmount - txFee
-	if hasChange && change < dustThreshold {
-		return nil, fmt.Errorf("change amount is %v less than dust threshold %v", change, dustThreshold)
+	txSize, err := calculateTxVirtualSize(tx)
+	if err != nil {
+		return nil, err
 	}
+
+	txFee := rl.calcMinRelayFee(txSize)
 
 	rl.logger.Debugf("Successfully composed a BTC tx. Tx fee: %v, output value: %v, tx size: %v, hex: %v",
 		txFee, changeAmount, txSize, hex.EncodeToString(signedTxBytes.Bytes()))
