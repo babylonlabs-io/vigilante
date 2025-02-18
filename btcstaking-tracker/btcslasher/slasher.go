@@ -19,13 +19,6 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	txSubscriberName          = "tx-subscriber"
-	messageActionName         = "/babylon.finality.v1.MsgAddFinalitySig"
-	consumerMessageActionName = "/babylon.finality.v1.MsgEquivocationEvidence"
-	evidenceEventName         = "babylon.finality.v1.EventSlashedFinalityProvider.evidence"
-)
-
 type BTCSlasher struct {
 	logger *zap.SugaredLogger
 
@@ -49,12 +42,13 @@ type BTCSlasher struct {
 
 	metrics *metrics.SlasherMetrics
 
-	startOnce sync.Once
-	stopOnce  sync.Once
-	wg        sync.WaitGroup
-	quit      chan struct{}
-	mu        sync.Mutex
-	height    uint64
+	startOnce             sync.Once
+	stopOnce              sync.Once
+	wg                    sync.WaitGroup
+	quit                  chan struct{}
+	mu                    sync.Mutex
+	height                uint64
+	evidenceFetchInterval time.Duration
 }
 
 func New(
@@ -68,6 +62,7 @@ func New(
 	maxSlashingConcurrency uint8,
 	slashedFPSKChan chan *btcec.PrivateKey,
 	metrics *metrics.SlasherMetrics,
+	evidenceFetchInterval time.Duration,
 ) (*BTCSlasher, error) {
 	logger := parentLogger.With(zap.String("module", "slasher")).Sugar()
 
@@ -84,6 +79,7 @@ func New(
 		slashResultChan:        make(chan *SlashResult, 1000),
 		quit:                   make(chan struct{}),
 		metrics:                metrics,
+		evidenceFetchInterval:  evidenceFetchInterval,
 	}, nil
 }
 
@@ -264,20 +260,27 @@ func (bs *BTCSlasher) Stop() error {
 
 func (bs *BTCSlasher) fetchEvidences() {
 	defer bs.wg.Done()
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(bs.evidenceFetchInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
-			if err := bs.Bootstrap(bs.height); err != nil {
-				bs.logger.Errorf("err slashing %v", err)
+			lastSlashedHeight, err := bs.processEvidencesFromHeight(bs.height)
+			if err != nil {
+				bs.logger.Errorf("error processing evidence from height: %d, err: %v", bs.height, err)
 
 				continue
 			}
 
+			// Only update height if we actually processed evidence
+			if lastSlashedHeight > 0 {
+				bs.mu.Lock()
+				bs.height = lastSlashedHeight + 1
+				bs.mu.Unlock()
+			}
 		case <-bs.quit:
-			bs.logger.Debug("verified delegations loop quit")
+			bs.logger.Debug("fetch evidence loop quit")
 
 			return
 		}

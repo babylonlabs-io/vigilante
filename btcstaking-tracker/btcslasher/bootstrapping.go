@@ -21,71 +21,71 @@ func (bs *BTCSlasher) Bootstrap(startHeight uint64) error {
 		return err
 	}
 
-	var lastSlashedHeight uint64
-	err := bs.handleAllEvidences(startHeight, func(evidences []*ftypes.EvidenceResponse) error {
-		var err error
-		lastSlashedHeight, err = bs.ProcessEvidences(evidences)
-
-		return err
-	})
-
+	lastSlashedHeight, err := bs.processEvidencesFromHeight(startHeight)
 	if err != nil {
 		return fmt.Errorf("failed to bootstrap BTC slasher: %w", err)
 	}
 
 	// Only update height if we actually processed evidence
 	if lastSlashedHeight > 0 {
+		bs.mu.Lock()
 		bs.height = lastSlashedHeight + 1
+		bs.mu.Unlock()
 	}
 
 	return nil
 }
-
-// ProcessEvidences iterates over the provided evidences, extracts the finality provider's SK,
-// and attempts to slash all its BTC delegations whose slashing transactions are still spendable.
-func (bs *BTCSlasher) ProcessEvidences(evidences []*ftypes.EvidenceResponse) (uint64, error) {
-	var accumulatedErrs error
+func (bs *BTCSlasher) processEvidencesFromHeight(startHeight uint64) (uint64, error) {
 	var lastSlashedHeight uint64
+	var accumulatedErrs error
 
-	for _, evidence := range evidences {
-		fpBTCPKHex := evidence.FpBtcPkHex
-		bs.logger.Infof("found evidence for finality provider %s at height %d", fpBTCPKHex, evidence.BlockHeight)
+	err := bs.handleAllEvidences(startHeight, func(evidences []*ftypes.EvidenceResponse) error {
+		for _, evidence := range evidences {
+			fpBTCPKHex := evidence.FpBtcPkHex
+			bs.logger.Infof("found evidence for finality provider %s at height %d", fpBTCPKHex, evidence.BlockHeight)
 
-		btcPK, err := types.NewBIP340PubKeyFromHex(fpBTCPKHex)
-		if err != nil {
-			accumulatedErrs = multierror.Append(accumulatedErrs, fmt.Errorf("err parsing fp btc %w", err))
+			btcPK, err := types.NewBIP340PubKeyFromHex(fpBTCPKHex)
+			if err != nil {
+				accumulatedErrs = multierror.Append(accumulatedErrs, fmt.Errorf("err parsing fp btc %w", err))
 
-			continue
+				continue
+			}
+
+			e := ftypes.Evidence{
+				FpBtcPk:              btcPK,
+				BlockHeight:          evidence.BlockHeight,
+				PubRand:              evidence.PubRand,
+				CanonicalAppHash:     evidence.CanonicalAppHash,
+				ForkAppHash:          evidence.ForkAppHash,
+				CanonicalFinalitySig: evidence.CanonicalFinalitySig,
+				ForkFinalitySig:      evidence.ForkFinalitySig,
+			}
+
+			// Extract the SK of the slashed finality provider
+			fpBTCSK, err := e.ExtractBTCSK()
+			if err != nil {
+				bs.logger.Errorf("failed to extract BTC SK of the slashed finality provider %s: %v", fpBTCPKHex, err)
+				accumulatedErrs = multierror.Append(accumulatedErrs, err)
+
+				continue
+			}
+
+			// Attempt to slash the finality provider
+			if err := bs.SlashFinalityProvider(fpBTCSK); err != nil {
+				bs.logger.Errorf("failed to slash finality provider %s: %v", fpBTCPKHex, err)
+				accumulatedErrs = multierror.Append(accumulatedErrs, err)
+
+				continue
+			}
+
+			lastSlashedHeight = evidence.BlockHeight
 		}
 
-		e := ftypes.Evidence{
-			FpBtcPk:              btcPK,
-			BlockHeight:          evidence.BlockHeight,
-			PubRand:              evidence.PubRand,
-			CanonicalAppHash:     evidence.CanonicalAppHash,
-			ForkAppHash:          evidence.ForkAppHash,
-			CanonicalFinalitySig: evidence.CanonicalFinalitySig,
-			ForkFinalitySig:      evidence.ForkFinalitySig,
-		}
+		return accumulatedErrs
+	})
 
-		// Extract the SK of the slashed finality provider
-		fpBTCSK, err := e.ExtractBTCSK()
-		if err != nil {
-			bs.logger.Errorf("failed to extract BTC SK of the slashed finality provider %s: %v", fpBTCPKHex, err)
-			accumulatedErrs = multierror.Append(accumulatedErrs, err)
-
-			continue
-		}
-
-		// Attempt to slash the finality provider
-		if err := bs.SlashFinalityProvider(fpBTCSK); err != nil {
-			bs.logger.Errorf("failed to slash finality provider %s: %v", fpBTCPKHex, err)
-			accumulatedErrs = multierror.Append(accumulatedErrs, err)
-
-			continue
-		}
-
-		lastSlashedHeight = evidence.BlockHeight
+	if err != nil {
+		return 0, fmt.Errorf("failed to process evidences from height %d: %w", startHeight, err)
 	}
 
 	return lastSlashedHeight, accumulatedErrs

@@ -6,6 +6,7 @@ import (
 	"github.com/lightningnetwork/lnd/chainntnfs"
 	"math/rand"
 	"testing"
+	"time"
 
 	sdkmath "cosmossdk.io/math"
 	"github.com/btcsuite/btcd/btcec/v2"
@@ -87,6 +88,7 @@ func FuzzSlasher_Bootstrapping(f *testing.F) {
 			config.MaxSlashingConcurrency,
 			slashedFPSKChan,
 			metrics.NewBTCStakingTrackerMetrics().SlasherMetrics,
+			5*time.Second,
 		)
 		require.NoError(t, err)
 
