@@ -135,6 +135,8 @@ func (r *Reporter) Start() {
 	r.wg.Add(1)
 	go r.blockEventHandler(blockNotifier)
 
+	go r.CheckpointCache.StartCleanupRoutine(r.quit, time.Hour, 24*time.Hour)
+
 	// start record time-related metrics
 	r.metrics.RecordMetrics()
 

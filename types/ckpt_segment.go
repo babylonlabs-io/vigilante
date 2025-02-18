@@ -4,6 +4,7 @@ import (
 	"github.com/babylonlabs-io/babylon/btctxformatter"
 	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
 	"github.com/btcsuite/btcd/btcutil"
+	"time"
 )
 
 // CkptSegment is a segment of the Babylon checkpoint, including
@@ -15,6 +16,7 @@ type CkptSegment struct {
 	*btctxformatter.BabylonData
 	TxIdx      int
 	AssocBlock *IndexedBlock
+	Timestamp  time.Time
 }
 
 func NewCkptSegment(tag btctxformatter.BabylonTag, version btctxformatter.FormatVersion, block *IndexedBlock, tx *btcutil.Tx) *CkptSegment {
