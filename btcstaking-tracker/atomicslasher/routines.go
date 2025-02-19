@@ -86,7 +86,11 @@ func (as *AtomicSlasher) slashingTxTracker() {
 				if trackedBTCDel != nil {
 					// this tx is slashing tx
 					slashingTxInfo := NewSlashingTxInfo(slashingPath, trackedBTCDel.StakingTxHash, tx)
-					as.slashingTxChan <- slashingTxInfo
+					select {
+					case as.slashingTxChan <- slashingTxInfo:
+					case <-as.quit: // prevent send on closed slashingTxChan
+						return
+					}
 				}
 			}
 		case <-as.quit:
