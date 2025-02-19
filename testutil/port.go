@@ -10,6 +10,7 @@ import (
 )
 
 // Directory for storing lock files
+const lockDir = "/tmp/testutil_ports"
 
 // AllocateUniquePort tries to find an available TCP port on localhost
 // by testing multiple random ports within a specified range.
@@ -23,8 +24,6 @@ func AllocateUniquePort(t *testing.T) int {
 		basePort  = 20000
 		portRange = 30000
 	)
-
-	lockDir := t.TempDir()
 
 	// Ensure lock directory exists
 	if err := os.MkdirAll(lockDir, 0755); err != nil {
