@@ -112,7 +112,9 @@ func (tm *TestManager) CreateBTCDelegation(
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
-		return len(tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{stakingMsgTxHash})) == 1
+		txns, err := tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{stakingMsgTxHash})
+		require.NoError(t, err)
+		return len(txns) == 1
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
 	mBlock := tm.mineBlock(t)
@@ -546,7 +548,9 @@ func (tm *TestManager) Undelegate(
 
 	// mine a block with this tx, and insert it to Bitcoin
 	require.Eventually(t, func() bool {
-		return len(tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{unbondingTxHash})) == 1
+		txns, err := tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{unbondingTxHash})
+		require.NoError(t, err)
+		return len(txns) == 1
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
 	mBlock := tm.mineBlock(t)

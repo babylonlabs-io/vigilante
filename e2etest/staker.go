@@ -145,7 +145,9 @@ func (s *Staker) SendTxAndWait(
 
 	hash := tx.TxHash()
 	require.Eventually(t, func() bool {
-		return len(tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{&hash})) == 1
+		txns, err := tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{&hash})
+		require.NoError(t, err)
+		return len(txns) == 1
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 }
 

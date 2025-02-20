@@ -90,7 +90,9 @@ func TestSubmitterSubmission(t *testing.T) {
 	require.NotNil(t, mempoolTxs)
 
 	require.Eventually(t, func() bool {
-		return len(tm.RetrieveTransactionFromMempool(t, mempoolTxs)) == 2
+		txns, err := tm.RetrieveTransactionFromMempool(t, mempoolTxs)
+		require.NoError(t, err)
+		return len(txns) == 2
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
 	// mine a block with those transactions

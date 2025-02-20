@@ -105,7 +105,9 @@ func TestUnbondingWatcher(t *testing.T) {
 	unbondingTxHash := unbondingSlashingInfo.UnbondingTx.TxHash()
 	t.Logf("submitted unbonding tx with hash %s", unbondingTxHash.String())
 	require.Eventually(t, func() bool {
-		return len(tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{&unbondingTxHash})) == 1
+		txns, err := tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{&unbondingTxHash})
+		require.NoError(t, err)
+		return len(txns) == 1
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
 	minedBlock := tm.mineBlock(t)
@@ -178,7 +180,9 @@ func TestActivatingDelegation(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
-		return len(tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{&stakingMsgTxHash})) == 1
+		txns, err := tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{&stakingMsgTxHash})
+		require.NoError(t, err)
+		return len(txns) == 1
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
 	mBlock := tm.mineBlock(t)
@@ -285,7 +289,9 @@ func TestActivatingAndUnbondingDelegation(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
-		return len(tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{&stakingMsgTxHash})) == 1
+		txns, err := tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{&stakingMsgTxHash})
+		require.NoError(t, err)
+		return len(txns) == 1
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
 	// Staker unbonds by directly sending tx to btc network. Watcher should detect it and report to babylon.
@@ -321,7 +327,10 @@ func TestActivatingAndUnbondingDelegation(t *testing.T) {
 	unbondingTxHash := unbondingSlashingInfo.UnbondingTx.TxHash()
 	t.Logf("submitted unbonding tx with hash %s", unbondingTxHash.String())
 	require.Eventually(t, func() bool {
-		return len(tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{&unbondingTxHash})) == 1
+		txns, err := tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{&unbondingTxHash})
+		require.NoError(t, err)
+
+		return len(txns) == 1
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
 	mBlock := tm.mineBlock(t)
