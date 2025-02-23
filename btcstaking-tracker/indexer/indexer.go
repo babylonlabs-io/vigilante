@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"github.com/avast/retry-go/v4"
 	"go.uber.org/zap"
+	"io"
 	"net/http"
 	"time"
 )
+
+const maxResponseSize = 512 * 1024 // 0.5MB in bytes
 
 type OutspendResponse struct {
 	Spent  bool   `json:"spent"`
@@ -59,7 +62,16 @@ func (c *HTTPIndexerClient) GetOutspend(ctx context.Context, txID string, vout u
 				return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 			}
 
-			return json.NewDecoder(resp.Body).Decode(&response)
+			limitedReader := io.LimitReader(resp.Body, maxResponseSize)
+
+			if err := json.NewDecoder(limitedReader).Decode(&response); err != nil {
+				if err == io.EOF {
+					return fmt.Errorf("response exceeded maximum size of %d bytes", maxResponseSize)
+				}
+				return err
+			}
+
+			return nil
 		},
 		retry.Context(ctx),
 		retry.Delay(1*time.Second),
