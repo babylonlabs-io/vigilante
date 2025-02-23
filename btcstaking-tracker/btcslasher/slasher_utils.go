@@ -9,7 +9,6 @@ import (
 	"github.com/babylonlabs-io/babylon/btcstaking"
 	bbn "github.com/babylonlabs-io/babylon/types"
 	bstypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
-	ftypes "github.com/babylonlabs-io/babylon/x/finality/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/utils"
 	"github.com/btcsuite/btcd/btcec/v2"
@@ -17,9 +16,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
-	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/hashicorp/go-multierror"
 	"math"
 	"strings"
@@ -520,21 +517,4 @@ func (bs *BTCSlasher) waitForTxKDeep(ctx context.Context, txHash *chainhash.Hash
 		retry.MaxDelay(bs.maxRetrySleepTime),
 		retry.LastErrorOnly(true),
 	)
-}
-
-func filterEvidence(resultEvent *coretypes.ResultEvent) *ftypes.Evidence {
-	for eventName, eventData := range resultEvent.Events {
-		if strings.Contains(eventName, evidenceEventName) {
-			if len(eventData) > 0 {
-				var evidence ftypes.Evidence
-				if err := jsonpb.UnmarshalString(eventData[0], &evidence); err != nil {
-					continue
-				}
-
-				return &evidence
-			}
-		}
-	}
-
-	return nil
 }

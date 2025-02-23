@@ -16,15 +16,7 @@ import (
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/chaincfg"
-	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	"go.uber.org/zap"
-)
-
-const (
-	txSubscriberName          = "tx-subscriber"
-	messageActionName         = "/babylon.finality.v1.MsgAddFinalitySig"
-	consumerMessageActionName = "/babylon.finality.v1.MsgEquivocationEvidence"
-	evidenceEventName         = "babylon.finality.v1.EventSlashedFinalityProvider.evidence"
 )
 
 type BTCSlasher struct {
@@ -41,11 +33,6 @@ type BTCSlasher struct {
 	retrySleepTime         time.Duration
 	maxRetrySleepTime      time.Duration
 	maxRetryTimes          uint
-	// channel for finality signature messages, which might include
-	// equivocation evidences
-	finalitySigChan <-chan coretypes.ResultEvent
-	// channel for consumer fp equivocation evidences
-	equivocationEvidenceChan <-chan coretypes.ResultEvent
 	// channel for SKs of slashed finality providers
 	slashedFPSKChan chan *btcec.PrivateKey
 	// channel for receiving the slash result of each BTC delegation
@@ -55,11 +42,13 @@ type BTCSlasher struct {
 
 	metrics *metrics.SlasherMetrics
 
-	startOnce sync.Once
-	stopOnce  sync.Once
-	wg        sync.WaitGroup
-	quit      chan struct{}
-	mu        sync.Mutex
+	startOnce             sync.Once
+	stopOnce              sync.Once
+	wg                    sync.WaitGroup
+	quit                  chan struct{}
+	mu                    sync.Mutex
+	height                uint64
+	evidenceFetchInterval time.Duration
 }
 
 func New(
@@ -73,6 +62,7 @@ func New(
 	maxSlashingConcurrency uint8,
 	slashedFPSKChan chan *btcec.PrivateKey,
 	metrics *metrics.SlasherMetrics,
+	evidenceFetchInterval time.Duration,
 ) (*BTCSlasher, error) {
 	logger := parentLogger.With(zap.String("module", "slasher")).Sugar()
 
@@ -89,6 +79,7 @@ func New(
 		slashResultChan:        make(chan *SlashResult, 1000),
 		quit:                   make(chan struct{}),
 		metrics:                metrics,
+		evidenceFetchInterval:  evidenceFetchInterval,
 	}, nil
 }
 
@@ -134,27 +125,9 @@ func (bs *BTCSlasher) Start() error {
 			return
 		}
 
-		// start the subscriber to slashing events
-		// NOTE: at this point monitor has already started the Babylon querier routine
-		queryName := fmt.Sprintf("tm.event = 'Tx' AND message.action='%s'", messageActionName)
-		// subscribe to babylon fp slashing events
-		bs.finalitySigChan, startErr = bs.BBNQuerier.Subscribe(txSubscriberName, queryName)
-		if startErr != nil {
-			return
-		}
-		// subscribe to consumer fp slashing events
-		queryName = fmt.Sprintf("tm.event = 'Tx' AND message.action='%s'", consumerMessageActionName)
-		bs.equivocationEvidenceChan, startErr = bs.BBNQuerier.Subscribe(txSubscriberName, queryName)
-		if startErr != nil {
-			return
-		}
-
-		// BTC slasher has started
-		bs.logger.Debugf("slasher routine has started subscribing %s", queryName)
-
 		// start slasher
 		bs.wg.Add(2)
-		go bs.equivocationTracker()
+		go bs.fetchEvidences()
 		go bs.slashingEnforcer()
 
 		bs.logger.Info("the BTC slasher has started")
@@ -211,55 +184,6 @@ func (bs *BTCSlasher) slashingEnforcer() {
 				// record the metrics of the slashed delegation
 				bs.metrics.RecordSlashedDelegation(slashRes.Del)
 			}
-		}
-	}
-}
-
-func (bs *BTCSlasher) handleEvidence(evt *coretypes.ResultEvent, isConsumer bool) {
-	evidence := filterEvidence(evt)
-
-	if evidence == nil {
-		return
-	}
-
-	fpBTCPKHex := evidence.FpBtcPk.MarshalHex()
-	fpType := "babylon"
-	if isConsumer {
-		fpType = "consumer"
-	}
-	bs.logger.Infof("new equivocating %s finality provider %s to be slashed", fpType, fpBTCPKHex)
-	bs.logger.Debugf("found equivocation evidence of %s finality provider %s: %v", fpType, fpBTCPKHex, evidence)
-
-	// extract the SK of the slashed finality provider
-	fpBTCSK, err := evidence.ExtractBTCSK()
-	if err != nil {
-		bs.logger.Errorf("failed to extract BTC SK of the slashed %s finality provider %s: %v", fpType, fpBTCPKHex, err)
-
-		return
-	}
-
-	bs.slashedFPSKChan <- fpBTCSK
-}
-
-// equivocationTracker is a routine to track the equivocation events on Babylon,
-// extract equivocating finality providers' SKs, and sen to slashing enforcer
-// routine
-func (bs *BTCSlasher) equivocationTracker() {
-	defer bs.wg.Done()
-
-	bs.logger.Info("equivocation tracker has started")
-
-	// start handling incoming slashing events
-	for {
-		select {
-		case <-bs.quit:
-			bs.logger.Debug("handle delegations loop quit")
-
-			return
-		case resultEvent := <-bs.finalitySigChan:
-			bs.handleEvidence(&resultEvent, false)
-		case resultEvent := <-bs.equivocationEvidenceChan:
-			bs.handleEvidence(&resultEvent, true)
 		}
 	}
 }
@@ -324,12 +248,6 @@ func (bs *BTCSlasher) Stop() error {
 	var stopErr error
 	bs.stopOnce.Do(func() {
 		bs.logger.Info("stopping slasher")
-
-		// close subscriber
-		if err := bs.BBNQuerier.UnsubscribeAll(txSubscriberName); err != nil {
-			bs.logger.Errorf("failed to unsubscribe from %s: %v", txSubscriberName, err)
-		}
-
 		// notify all subroutines
 		close(bs.quit)
 		bs.wg.Wait()
@@ -338,4 +256,33 @@ func (bs *BTCSlasher) Stop() error {
 	})
 
 	return stopErr
+}
+
+func (bs *BTCSlasher) fetchEvidences() {
+	defer bs.wg.Done()
+	ticker := time.NewTicker(bs.evidenceFetchInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			lastSlashedHeight, err := bs.processEvidencesFromHeight(bs.height)
+			if err != nil {
+				bs.logger.Errorf("error processing evidence from height: %d, err: %v", bs.height, err)
+
+				continue
+			}
+
+			// Only update height if we actually processed evidence
+			if lastSlashedHeight > 0 {
+				bs.mu.Lock()
+				bs.height = lastSlashedHeight + 1
+				bs.mu.Unlock()
+			}
+		case <-bs.quit:
+			bs.logger.Debug("fetch evidence loop quit")
+
+			return
+		}
+	}
 }

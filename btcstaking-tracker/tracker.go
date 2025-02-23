@@ -104,6 +104,7 @@ func NewBTCStakingTracker(
 		cfg.MaxSlashingConcurrency,
 		slashedFPSKChan,
 		metrics.SlasherMetrics,
+		cfg.FetchEvidenceInterval,
 	)
 	if err != nil {
 		parentLogger.Fatal("failed to create BTC slasher", zap.Error(err))

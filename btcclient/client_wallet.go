@@ -178,6 +178,10 @@ func (c *Client) TxDetails(txHash *chainhash.Hash, pkScript []byte) (*notifier.T
 	return c.getTxDetails(req, txNotFoundErrMsgBitcoind)
 }
 
+func (c *Client) GetNetworkInfo() (*btcjson.GetNetworkInfoResult, error) {
+	return c.Client.GetNetworkInfo()
+}
+
 func rpcHostURL(host, walletName string) string {
 	if len(walletName) > 0 {
 		return host + "/wallet/" + walletName

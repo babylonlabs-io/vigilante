@@ -286,6 +286,21 @@ func (mr *MockBTCWalletMockRecorder) GetNetParams() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetParams", reflect.TypeOf((*MockBTCWallet)(nil).GetNetParams))
 }
 
+// GetNetworkInfo mocks base method.
+func (m *MockBTCWallet) GetNetworkInfo() (*btcjson.GetNetworkInfoResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNetworkInfo")
+	ret0, _ := ret[0].(*btcjson.GetNetworkInfoResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetNetworkInfo indicates an expected call of GetNetworkInfo.
+func (mr *MockBTCWalletMockRecorder) GetNetworkInfo() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkInfo", reflect.TypeOf((*MockBTCWallet)(nil).GetNetworkInfo))
+}
+
 // GetNewAddress mocks base method.
 func (m *MockBTCWallet) GetNewAddress(account string) (btcutil.Address, error) {
 	m.ctrl.T.Helper()
