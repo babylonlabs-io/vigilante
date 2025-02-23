@@ -78,7 +78,9 @@ func (bs *BTCSlasher) processEvidencesFromHeight(startHeight uint64) (uint64, er
 				continue
 			}
 
-			lastSlashedHeight = evidence.BlockHeight
+			if lastSlashedHeight < evidence.BlockHeight {
+				lastSlashedHeight = evidence.BlockHeight
+			}
 		}
 
 		return accumulatedErrs

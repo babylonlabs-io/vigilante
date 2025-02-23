@@ -290,22 +290,45 @@ func (rl *Relayer) maybeResendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bu
 
 		return nil, nil
 	}
-
-	// set output value of the second tx to be the balance minus the bumped fee
-	// if the bumped fee is higher than the balance, then set the bumped fee to
-	// be equal to the balance to ensure the output value is not negative
+	originalFee := tx2.Fee
 	balance := btcutil.Amount(tx2.Tx.TxOut[changePosition].Value)
 
-	// todo: revise this as this means we will end up with output with value 0 that will be rejected by bitcoind as dust output.
-	if bumpedFee > balance {
-		rl.logger.Debugf("the bumped fee %v Satoshis for the second tx is more than UTXO amount %v Satoshis",
-			bumpedFee, balance)
-		bumpedFee = balance
+	if balance-bumpedFee < dustThreshold {
+		// Convert transaction size to kilobytes
+		txSizeKB := float64(tx2.Size) / 1000.0
+		// Calculate feeRate in BTC/kB
+		feeRate := bumpedFee.ToBTC() / txSizeKB
+		// We need to round the fee rate to 6 decimal places, as bitcoind throws invalid amount otherwise
+		roundedFeeRate := math.Round(feeRate*1e6) / 1e6
+		changePosition := 1
+		// Need to create new inputs to cover the fee
+		fundedTx, err := rl.BTCWallet.FundRawTransaction(tx2.Tx, btcjson.FundRawTransactionOpts{
+			FeeRate:                &roundedFeeRate,
+			ChangePosition:         &changePosition,
+			SubtractFeeFromOutputs: []int{changePosition},
+		}, nil)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to fund transaction: %w", err)
+		}
+		tx2.Tx = fundedTx.Transaction
+		bumpedFee = fundedTx.Fee
+		txSize, err := calculateTxVirtualSize(tx2.Tx)
+		if err != nil {
+			return nil, err
+		}
+		tx2.Size = txSize
+	} else {
+		// We can proceed with existing input, just update the change output
+		tx2.Tx.TxOut[changePosition].Value = int64(balance - bumpedFee)
 	}
 
-	tx2.Tx.TxOut[changePosition].Value = int64(balance - bumpedFee)
+	// Verify the transaction meets RBF requirements before sending
+	if err := rl.verifyRBFRequirements(originalFee, bumpedFee, tx2.Size); err != nil {
+		return nil, fmt.Errorf("RBF requirements not met: %w", err)
+	}
 
-	// resign the tx as the output is changed
+	// Resign the tx as outputs changed
 	tx, err := rl.signTx(tx2.Tx)
 	if err != nil {
 		return nil, err
@@ -316,11 +339,32 @@ func (rl *Relayer) maybeResendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bu
 		return nil, err
 	}
 
-	// update tx info
+	// Update tx info
 	tx2.Fee = bumpedFee
 	tx2.TxID = txID
 
 	return tx2, nil
+}
+
+func (rl *Relayer) verifyRBFRequirements(originalFee, newFee btcutil.Amount, txVirtualSize int64) error {
+	// 1. Check absolute fee is higher than original
+	if newFee <= originalFee {
+		return fmt.Errorf("replacement fee (%v) must be higher than original fee (%v)", newFee, originalFee)
+	}
+
+	incrementalFeerate, err := rl.getIncrementalRelayFeerate()
+	if err != nil {
+		return err
+	}
+	minRequiredIncrement := incrementalFeerate * btcutil.Amount(txVirtualSize)
+
+	// 2. Check that we satisfy incremental fee rate
+	if newFee-originalFee < minRequiredIncrement {
+		return fmt.Errorf("additional fee (%d) must be at least %d based on transaction size and incremental relay feerate",
+			newFee-originalFee, minRequiredIncrement)
+	}
+
+	return nil
 }
 
 // calcMinRelayFee returns the minimum transaction fee required for a
@@ -751,4 +795,13 @@ func maybeResendFromStore(
 	}
 
 	return true, nil
+}
+
+func (rl *Relayer) getIncrementalRelayFeerate() (btcutil.Amount, error) {
+	networkInfo, err := rl.BTCWallet.GetNetworkInfo()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get network info for incremental relay feerate: %w", err)
+	}
+
+	return btcutil.Amount(networkInfo.IncrementalFee), nil
 }

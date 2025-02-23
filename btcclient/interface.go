@@ -42,4 +42,5 @@ type BTCWallet interface {
 	SignRawTransactionWithWallet(tx *wire.MsgTx) (*wire.MsgTx, bool, error)
 	GetRawTransaction(txHash *chainhash.Hash) (*btcutil.Tx, error)
 	TxDetails(txHash *chainhash.Hash, pkScript []byte) (*notifier.TxConfirmation, TxStatus, error)
+	GetNetworkInfo() (*btcjson.GetNetworkInfoResult, error)
 }

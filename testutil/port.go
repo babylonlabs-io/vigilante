@@ -4,17 +4,15 @@ import (
 	"fmt"
 	mrand "math/rand/v2"
 	"net"
-	"sync"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
-// Track allocated ports, protected by a mutex
-var (
-	allocatedPorts = make(map[int]struct{})
-	portMutex      sync.Mutex
-)
+// Directory for storing lock files
+const lockDir = "/tmp/testutil_ports"
 
-// AllocateUniquePort tries to find an available TCP port on the localhost
+// AllocateUniquePort tries to find an available TCP port on localhost
 // by testing multiple random ports within a specified range.
 func AllocateUniquePort(t *testing.T) int {
 	randPort := func(base, spread int) int {
@@ -27,28 +25,30 @@ func AllocateUniquePort(t *testing.T) int {
 		portRange = 30000
 	)
 
+	// Ensure lock directory exists
+	if err := os.MkdirAll(lockDir, 0755); err != nil {
+		t.Fatalf("failed to create lock directory: %v", err)
+	}
+
 	// Try up to 10 times to find an available port
 	for i := 0; i < 10; i++ {
 		port := randPort(basePort, portRange)
+		lockFile := filepath.Join(lockDir, fmt.Sprintf("%d.lock", port))
 
-		// Lock the mutex to check and modify the shared map
-		portMutex.Lock()
-		if _, exists := allocatedPorts[port]; exists {
-			// Port already allocated, try another one
-			portMutex.Unlock()
-
-			continue
+		// Try to create a lock file
+		lock, err := os.OpenFile(lockFile, os.O_CREATE|os.O_EXCL, 0644)
+		if err != nil {
+			continue // Port is likely in use
 		}
+
+		// Ensure the file is removed if we fail to bind the port
+		defer lock.Close()
+		defer os.Remove(lockFile)
 
 		listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 		if err != nil {
-			portMutex.Unlock()
-
-			continue
+			continue // Port is already in use
 		}
-
-		allocatedPorts[port] = struct{}{}
-		portMutex.Unlock()
 
 		if err := listener.Close(); err != nil {
 			continue
@@ -57,7 +57,6 @@ func AllocateUniquePort(t *testing.T) int {
 		return port
 	}
 
-	// If no available port was found, fail the test
 	t.Fatalf("failed to find an available port in range %d-%d", basePort, basePort+portRange)
 
 	return 0
