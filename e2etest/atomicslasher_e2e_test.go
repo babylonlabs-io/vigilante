@@ -95,7 +95,9 @@ func TestAtomicSlasher(t *testing.T) {
 
 	// mine a block that includes slashing tx, which will trigger atomic slasher
 	require.Eventually(t, func() bool {
-		return len(tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{slashingTxHash})) == 1
+		txns, err := tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{slashingTxHash})
+		require.NoError(t, err)
+		return len(txns) == 1
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
 	minedBlock := tm.mineBlock(t)
@@ -131,7 +133,9 @@ func TestAtomicSlasher(t *testing.T) {
 
 	// mine a block that includes slashing tx, which will trigger atomic slasher
 	require.Eventually(t, func() bool {
-		return len(tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{slashingTxHash2})) == 1
+		txns, err := tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{slashingTxHash2})
+		require.NoError(t, err)
+		return len(txns) == 1
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
 	minedBlock = tm.mineBlock(t)
@@ -251,7 +255,9 @@ func TestAtomicSlasher_Unbonding(t *testing.T) {
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 	// mine a block that includes unbonding slashing tx, which will trigger atomic slasher
 	require.Eventually(t, func() bool {
-		return len(tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{unbondingSlashingTxHash})) == 1
+		txns, err := tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{unbondingSlashingTxHash})
+		require.NoError(t, err)
+		return len(txns) == 1
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
 	minedBlock := tm.mineBlock(t)
@@ -284,7 +290,9 @@ func TestAtomicSlasher_Unbonding(t *testing.T) {
 
 	// mine a block that includes slashing tx, which will trigger atomic slasher
 	require.Eventually(t, func() bool {
-		return len(tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{slashingTxHash2})) == 1
+		txns, err := tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{slashingTxHash2})
+		require.NoError(t, err)
+		return len(txns) == 1
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
 	minedBlock = tm.mineBlock(t)

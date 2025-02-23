@@ -133,7 +133,12 @@ func TestSlasher_Slasher(t *testing.T) {
 
 	// mine a block that includes slashing tx
 	require.Eventually(t, func() bool {
-		return len(tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{slashingMsgTxHash})) == 1
+		txns, err := tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{slashingMsgTxHash})
+		if err != nil {
+			t.Logf("error: %v", err)
+			return false
+		}
+		return len(txns) == 1
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 }
 
@@ -216,7 +221,12 @@ func TestSlasher_SlashingUnbonding(t *testing.T) {
 
 	// mine a block that includes slashing tx
 	require.Eventually(t, func() bool {
-		return len(tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{unbondingSlashingMsgTxHash})) == 1
+		txns, err := tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{unbondingSlashingMsgTxHash})
+		if err != nil {
+			t.Logf("error: %v", err)
+			return false
+		}
+		return len(txns) == 1
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
 	tm.mineBlock(t)
@@ -291,7 +301,12 @@ func TestSlasher_Bootstrapping(t *testing.T) {
 
 	// mine a block that includes slashing tx
 	require.Eventually(t, func() bool {
-		return len(tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{slashingMsgTxHash})) == 1
+		txns, err := tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{slashingMsgTxHash})
+		if err != nil {
+			t.Logf("error: %v", err)
+			return false
+		}
+		return len(txns) == 1
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
 	minedBlock := tm.mineBlock(t)

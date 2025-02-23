@@ -201,15 +201,17 @@ func (tm *TestManager) MustGetBabylonSigner() string {
 }
 
 // RetrieveTransactionFromMempool fetches transactions from the mempool for the given hashes
-func (tm *TestManager) RetrieveTransactionFromMempool(t *testing.T, hashes []*chainhash.Hash) []*btcutil.Tx {
+func (tm *TestManager) RetrieveTransactionFromMempool(t *testing.T, hashes []*chainhash.Hash) ([]*btcutil.Tx, error) {
 	var txs []*btcutil.Tx
 	for _, txHash := range hashes {
 		tx, err := tm.BTCClient.GetRawTransaction(txHash)
-		require.NoError(t, err)
+		if err != nil {
+			return nil, err
+		}
 		txs = append(txs, tx)
 	}
 
-	return txs
+	return txs, nil
 }
 
 func (tm *TestManager) InsertBTCHeadersToBabylon(headers []*wire.BlockHeader) (*babylonclient.RelayerTxResponse, error) {
