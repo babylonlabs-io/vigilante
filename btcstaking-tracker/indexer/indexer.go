@@ -68,6 +68,7 @@ func (c *HTTPIndexerClient) GetOutspend(ctx context.Context, txID string, vout u
 				if err == io.EOF {
 					return fmt.Errorf("response exceeded maximum size of %d bytes", maxResponseSize)
 				}
+
 				return err
 			}
 
