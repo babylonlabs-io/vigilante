@@ -242,8 +242,8 @@ Parameters:
 * `--home`: *optional* flag that specifies the directory where your
    node files will be stored, for example `--home ./nodeDir`
    The default home directory for your Babylon node is:
-   *Linux/Mac: `~/.babylond/`
-   *Windows: `%USERPROFILE%\.babylond\`
+  * Linux/Mac: `~/.babylond/`
+  * Windows: `%USERPROFILE%\.babylond\`
 
 ### 4.2 Generate Babylon account keyring
 
