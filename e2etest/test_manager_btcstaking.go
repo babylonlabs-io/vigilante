@@ -64,11 +64,12 @@ func (tm *TestManager) CreateFinalityProvider(t *testing.T) (*bstypes.FinalityPr
 	/*
 		create finality provider
 	*/
-	commission := sdkmath.LegacyZeroDec()
+	zero := sdkmath.LegacyZeroDec()
+	commission := bstypes.NewCommissionRates(zero, zero, zero)
 	msgNewVal := &bstypes.MsgCreateFinalityProvider{
 		Addr:        signerAddr,
 		Description: &stakingtypes.Description{Moniker: datagen.GenRandomHexStr(r, 10)},
-		Commission:  &commission,
+		Commission:  commission,
 		BtcPk:       btcFp.BtcPk,
 		Pop:         btcFp.Pop,
 	}
@@ -140,7 +141,7 @@ func (tm *TestManager) CreateBTCDelegation(
 	require.NoError(t, err)
 
 	// create PoP
-	pop, err := bstypes.NewPoPBTC(addr, tm.WalletPrivKey)
+	pop, err := datagen.NewPoPBTC(addr, tm.WalletPrivKey)
 	require.NoError(t, err)
 	slashingSpendPath, err := stakingSlashingInfo.StakingInfo.SlashingPathSpendInfo()
 	require.NoError(t, err)
@@ -246,7 +247,7 @@ func (tm *TestManager) CreateBTCDelegationWithoutIncl(
 	require.NoError(t, err)
 
 	// create PoP
-	pop, err := bstypes.NewPoPBTC(addr, tm.WalletPrivKey)
+	pop, err := datagen.NewPoPBTC(addr, tm.WalletPrivKey)
 	require.NoError(t, err)
 	slashingSpendPath, err := stakingSlashingInfo.StakingInfo.SlashingPathSpendInfo()
 	require.NoError(t, err)
@@ -514,6 +515,7 @@ func (tm *TestManager) Undelegate(
 	// the only input to unbonding tx is the staking tx
 	stakingOutIdx, err := outIdx(unbondingSlashingInfo.UnbondingTx, unbondingSlashingInfo.UnbondingInfo.UnbondingOutput)
 	require.NoError(t, err)
+
 	unbondingTxSchnorrSig, err := btcstaking.SignTxWithOneScriptSpendInputStrict(
 		unbondingSlashingInfo.UnbondingTx,
 		stakingSlashingInfo.StakingTx,
@@ -558,11 +560,15 @@ func (tm *TestManager) Undelegate(
 
 	catchUpLightClientFunc()
 
+	fundingTxns, err := tm.getFundingTxs(unbondingSlashingInfo.UnbondingTx)
+	require.NoError(t, err)
+
 	unbondingTxInfo := getTxInfo(t, mBlock)
 	msgUndel := &bstypes.MsgBTCUndelegate{
-		Signer:          signerAddr,
-		StakingTxHash:   stakingSlashingInfo.StakingTx.TxHash().String(),
-		StakeSpendingTx: unbondingTxBuf.Bytes(),
+		Signer:              signerAddr,
+		StakingTxHash:       stakingSlashingInfo.StakingTx.TxHash().String(),
+		StakeSpendingTx:     unbondingTxBuf.Bytes(),
+		FundingTransactions: fundingTxns,
 		StakeSpendingTxInclusionProof: &bstypes.InclusionProof{
 			Key:   unbondingTxInfo.Key,
 			Proof: unbondingTxInfo.Proof,
@@ -930,4 +936,23 @@ func (tm *TestManager) insertWBTCHeaders(t *testing.T, r *rand.Rand) {
 	}, uint32(ckptParamRes.Params.CheckpointFinalizationTimeout))
 	_, err = tm.insertBtcBlockHeaders(kHeaders.ChainToBytes())
 	require.NoError(t, err)
+}
+
+func (tm *TestManager) getFundingTxs(tx *wire.MsgTx) ([][]byte, error) {
+	var fundingTxs [][]byte
+	for _, txIn := range tx.TxIn {
+		rawTx, err := tm.BTCClient.GetRawTransaction(&txIn.PreviousOutPoint.Hash)
+		if err != nil {
+			return nil, fmt.Errorf("error getting tx %s: %v", txIn.PreviousOutPoint.Hash, err)
+		}
+
+		var buf bytes.Buffer
+		if err = rawTx.MsgTx().Serialize(&buf); err != nil {
+			return nil, err
+		}
+
+		fundingTxs = append(fundingTxs, buf.Bytes())
+	}
+
+	return fundingTxs, nil
 }

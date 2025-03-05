@@ -21,7 +21,7 @@ type ImageConfig struct {
 const (
 	dockerBitcoindRepository = "lncm/bitcoind"
 	dockerBitcoindVersionTag = "v27.0"
-	dockerBabylondRepository = "babylonlabs/babylond"
+	dockerBabylondRepository = "babylonlabs-io/babylond"
 	dockerElectrsRepository  = "mempool/electrs"
 	dockerElectrsVersionTag  = "v3.1.0"
 )
@@ -30,6 +30,8 @@ const (
 func NewImageConfig(t *testing.T) ImageConfig {
 	babylonVersion, err := testutil.GetBabylonVersion()
 	require.NoError(t, err)
+
+	babylonVersion = "latest" // todo: remove this
 
 	return ImageConfig{
 		BitcoindRepository: dockerBitcoindRepository,

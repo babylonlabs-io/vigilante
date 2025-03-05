@@ -404,7 +404,12 @@ func (sew *StakingEventWatcher) reportUnbondingToBabylon(
 			return nil
 		}
 
-		if err = sew.babylonNodeAdapter.ReportUnbonding(ctx, stakingTxHash, stakeSpendingTx, proof); err != nil {
+		fundingTxs, err := sew.getFundingTxs(stakeSpendingTx)
+		if err != nil {
+			return fmt.Errorf("error getting funding txs: %w", err)
+		}
+
+		if err = sew.babylonNodeAdapter.ReportUnbonding(ctx, stakingTxHash, stakeSpendingTx, proof, fundingTxs); err != nil {
 			sew.metrics.FailedReportedUnbondingTransactions.Inc()
 
 			return fmt.Errorf("error reporting unbonding tx %s to babylon: %w", stakingTxHash, err)
@@ -840,4 +845,23 @@ func (sew *StakingEventWatcher) latency(method string) func() {
 		sew.logger.Debugf("execution time for method: %s, duration: %s", method, duration.String())
 		sew.metrics.MethodExecutionLatency.WithLabelValues(method).Observe(duration.Seconds())
 	}
+}
+
+func (sew *StakingEventWatcher) getFundingTxs(tx *wire.MsgTx) ([][]byte, error) {
+	var fundingTxs [][]byte
+	for _, txIn := range tx.TxIn {
+		rawTransaction, err := sew.btcClient.GetRawTransaction(&txIn.PreviousOutPoint.Hash)
+		if err != nil {
+			return nil, fmt.Errorf("error getting rawTransaction %s: %v", txIn.PreviousOutPoint.Hash, err)
+		}
+
+		var buf bytes.Buffer
+		if err = rawTransaction.MsgTx().Serialize(&buf); err != nil {
+			return nil, err
+		}
+
+		fundingTxs = append(fundingTxs, buf.Bytes())
+	}
+
+	return fundingTxs, nil
 }
