@@ -36,7 +36,7 @@ Ensure your system meets the following minimum requirements:
 * A connection to a Babylon node. To run your own node, refer to the
 [Babylon Node Setup Guide](https://github.com/babylonlabs-io/networks/blob/main/bbn-test-5/babylon-node/README.md).
 * A connection to a Bitcoin node. To run your own node, refer to the
-[Bitcoin Node Setup Guide](https://docs.babylonlabs.io/docs/user-guides/bitcoin-staking-phase1/backend-deployment/infra/bitcoind).
+[Bitcoin Node Setup Guide](./bitcoind-setup.md).
 
 ## 2. Install Vigilante
 
