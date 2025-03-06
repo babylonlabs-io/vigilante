@@ -773,13 +773,35 @@ func maybeResendFromStore(
 		txID := tx.TxHash()
 		_, err = getRawTransaction(&txID) // todo(lazar): check for specific not found err
 		if err != nil {
-			_, err := sendTransaction(tx)
-			if err != nil {
-				return err
+			var rpcErr *btcjson.RPCError
+			if errors.As(err, &rpcErr) {
+				if rpcErr.Code == btcjson.ErrRPCNoTxInfo {
+					// Transaction is missing, so we should resend it
+					_, sendErr := sendTransaction(tx)
+					if sendErr != nil {
+						// If tx is already in the chain, we should proceed normally
+						var sendRPCError *btcjson.RPCError
+						if errors.As(sendErr, &sendRPCError) {
+							switch sendRPCError.Code {
+							case btcjson.ErrRPCTxAlreadyInChain:
+								return nil // Treat as success
+							case btcjson.ErrRPCRawTxString, btcjson.ErrRPCDecodeHexString:
+								return fmt.Errorf("fatal error: invalid transaction format: %w", sendErr)
+							case btcjson.ErrRPCTxError:
+								return fmt.Errorf("transaction error: %w", sendErr)
+							case btcjson.ErrRPCTxRejected:
+								return fmt.Errorf("transaction rejected: %w", sendErr)
+							}
+						}
+
+						return sendErr
+					}
+
+					return nil
+				}
 			}
 
-			// we know about this tx, but we needed to resend it from already constructed tx from db
-			return nil
+			return err
 		}
 
 		// tx exists in mempool and is known to us
