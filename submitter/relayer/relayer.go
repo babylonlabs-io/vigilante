@@ -782,6 +782,7 @@ func maybeResendFromStore(
 						// If tx is already in the chain, we should proceed normally
 						var sendRPCError *btcjson.RPCError
 						if errors.As(sendErr, &sendRPCError) {
+							//nolint:exhaustive
 							switch sendRPCError.Code {
 							case btcjson.ErrRPCTxAlreadyInChain:
 								return nil // Treat as success
