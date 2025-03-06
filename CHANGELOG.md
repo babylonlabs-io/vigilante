@@ -37,6 +37,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Bug Fixes
+
+* [#250](https://github.com/babylonlabs-io/vigilante/pull/250) fix: handle rpc errors in maybeResendFromStore
+
 ## v0.20.0
 
 ### Improvements
