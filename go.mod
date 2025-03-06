@@ -9,7 +9,7 @@ require (
 	cosmossdk.io/log v1.5.0
 	cosmossdk.io/math v1.5.0
 	github.com/avast/retry-go/v4 v4.6.0
-	github.com/babylonlabs-io/babylon v0.0.0-20250305125148-bc4520462504
+	github.com/babylonlabs-io/babylon v0.0.0-20250306102808-df4bcf3c6b0b
 	github.com/boljen/go-bitmap v0.0.0-20151001105940-23cd2fb0ce7d
 	github.com/btcsuite/btcd v0.24.3-0.20240921052913-67b8efd3ba53
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4
@@ -340,12 +340,9 @@ require (
 
 replace (
 	github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0
-	//github.com/babylonlabs-io/babylon => /Users/lazar/work/babylon
-	//github.com/babylonlabs-io/babylon => github.com/babylonlabs-io/babylon v0.0.0-20250305073152-a26bba41034c
 	// LND brings unreleased `67b8efd3ba53` version of btcd which contains bug in
 	// rpc client described here: https://github.com/btcsuite/btcd/commit/42d6eba84bf9dc23b1182a35570bcd8f7f25616f
 	// TODO: remove this once LND releases a new version with fixed btcd
 	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.24.2
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
-
 )
