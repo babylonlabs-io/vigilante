@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	bbn "github.com/babylonlabs-io/babylon/types"
 	"golang.org/x/sync/semaphore"
 	"sync"
 	"sync/atomic"
@@ -852,15 +853,15 @@ func (sew *StakingEventWatcher) getFundingTxs(tx *wire.MsgTx) ([][]byte, error) 
 	for _, txIn := range tx.TxIn {
 		rawTransaction, err := sew.btcClient.GetRawTransaction(&txIn.PreviousOutPoint.Hash)
 		if err != nil {
-			return nil, fmt.Errorf("error getting rawTransaction %s: %v", txIn.PreviousOutPoint.Hash, err)
+			return nil, fmt.Errorf("error getting rawTransaction %s: %w", txIn.PreviousOutPoint.Hash, err)
 		}
 
-		var buf bytes.Buffer
-		if err = rawTransaction.MsgTx().Serialize(&buf); err != nil {
-			return nil, err
+		serializedTx, err := bbn.SerializeBTCTx(rawTransaction.MsgTx())
+		if err != nil {
+			return nil, fmt.Errorf("error serializing rawTransaction %s: %w", txIn.PreviousOutPoint.Hash, err)
 		}
 
-		fundingTxs = append(fundingTxs, buf.Bytes())
+		fundingTxs = append(fundingTxs, serializedTx)
 	}
 
 	return fundingTxs, nil

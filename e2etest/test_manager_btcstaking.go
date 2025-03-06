@@ -525,10 +525,6 @@ func (tm *TestManager) Undelegate(
 	)
 	require.NoError(t, err)
 
-	var unbondingTxBuf bytes.Buffer
-	err = unbondingSlashingInfo.UnbondingTx.Serialize(&unbondingTxBuf)
-	require.NoError(t, err)
-
 	resp, err := tm.BabylonClient.BTCDelegation(stakingSlashingInfo.StakingTx.TxHash().String())
 	require.NoError(t, err)
 	covenantSigs := resp.BtcDelegation.UndelegationResponse.CovenantUnbondingSigList
@@ -538,6 +534,9 @@ func (tm *TestManager) Undelegate(
 	)
 	require.NoError(t, err)
 	unbondingSlashingInfo.UnbondingTx.TxIn[0].Witness = witness
+
+	serializedUnbondingTx, err := bbn.SerializeBTCTx(unbondingSlashingInfo.UnbondingTx)
+	require.NoError(t, err)
 
 	// send unbonding tx to Bitcoin node's mempool
 	unbondingTxHash, err := tm.BTCClient.SendRawTransaction(unbondingSlashingInfo.UnbondingTx, true)
@@ -560,14 +559,14 @@ func (tm *TestManager) Undelegate(
 
 	catchUpLightClientFunc()
 
-	fundingTxns, err := tm.getFundingTxs(unbondingSlashingInfo.UnbondingTx)
+	fundingTxns := tm.getFundingTxs(t, unbondingSlashingInfo.UnbondingTx)
 	require.NoError(t, err)
 
 	unbondingTxInfo := getTxInfo(t, mBlock)
 	msgUndel := &bstypes.MsgBTCUndelegate{
 		Signer:              signerAddr,
 		StakingTxHash:       stakingSlashingInfo.StakingTx.TxHash().String(),
-		StakeSpendingTx:     unbondingTxBuf.Bytes(),
+		StakeSpendingTx:     serializedUnbondingTx,
 		FundingTransactions: fundingTxns,
 		StakeSpendingTxInclusionProof: &bstypes.InclusionProof{
 			Key:   unbondingTxInfo.Key,
@@ -938,21 +937,17 @@ func (tm *TestManager) insertWBTCHeaders(t *testing.T, r *rand.Rand) {
 	require.NoError(t, err)
 }
 
-func (tm *TestManager) getFundingTxs(tx *wire.MsgTx) ([][]byte, error) {
+func (tm *TestManager) getFundingTxs(t *testing.T, tx *wire.MsgTx) [][]byte {
 	var fundingTxs [][]byte
 	for _, txIn := range tx.TxIn {
 		rawTx, err := tm.BTCClient.GetRawTransaction(&txIn.PreviousOutPoint.Hash)
-		if err != nil {
-			return nil, fmt.Errorf("error getting tx %s: %v", txIn.PreviousOutPoint.Hash, err)
-		}
+		require.NoError(t, err)
 
-		var buf bytes.Buffer
-		if err = rawTx.MsgTx().Serialize(&buf); err != nil {
-			return nil, err
-		}
+		serializedTx, err := bbn.SerializeBTCTx(rawTx.MsgTx())
+		require.NoError(t, err)
 
-		fundingTxs = append(fundingTxs, buf.Bytes())
+		fundingTxs = append(fundingTxs, serializedTx)
 	}
 
-	return fundingTxs, nil
+	return fundingTxs
 }
