@@ -31,8 +31,6 @@ func NewImageConfig(t *testing.T) ImageConfig {
 	babylonVersion, err := testutil.GetBabylonVersion()
 	require.NoError(t, err)
 
-	babylonVersion = "df4bcf3c6b0b53de3704a2c062c8e758e3266692" // todo: remove this, latest release/v1/x commit
-
 	return ImageConfig{
 		BitcoindRepository: dockerBitcoindRepository,
 		BitcoindVersion:    dockerBitcoindVersionTag,

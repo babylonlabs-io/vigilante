@@ -279,8 +279,8 @@ github.com/aws/aws-sdk-go v1.44.122/go.mod h1:y4AeaBuwd2Lk+GepC1E9v0qOiTws0MIWAX
 github.com/aws/aws-sdk-go v1.49.6 h1:yNldzF5kzLBRvKlKz1S0bkvc2+04R1kt13KfBWQBfFA=
 github.com/aws/aws-sdk-go v1.49.6/go.mod h1:LF8svs817+Nz+DmiMQKTO3ubZ/6IaTpq3TjupRn3Eqk=
 github.com/aws/aws-sdk-go-v2 v0.18.0/go.mod h1:JWVYvqSMppoMJC0x5wdwiImzgXTI9FuZwxzkQq9wy+g=
-github.com/babylonlabs-io/babylon v0.0.0-20250306102808-df4bcf3c6b0b h1:T/9+OYH0t/UNCck7ceQUYRfFaunoR07NswVu0qWZXgw=
-github.com/babylonlabs-io/babylon v0.0.0-20250306102808-df4bcf3c6b0b/go.mod h1:dkH5l8+R42YDi9E3fwlKDv9tHaUWaMPb2b9wfSIEAVM=
+github.com/babylonlabs-io/babylon v1.0.0-rc.7 h1:tFgdSz0oK5gmR98UZ8EDQhYlm9Fnxho9Jh1HJtan+M8=
+github.com/babylonlabs-io/babylon v1.0.0-rc.7/go.mod h1:dkH5l8+R42YDi9E3fwlKDv9tHaUWaMPb2b9wfSIEAVM=
 github.com/benbjohnson/clock v1.1.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
