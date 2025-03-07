@@ -290,8 +290,9 @@ func (rl *Relayer) maybeResendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bu
 
 		return nil, nil
 	}
-	originalFee := tx2.Fee
+
 	balance := btcutil.Amount(tx2.Tx.TxOut[changePosition].Value)
+	originalTxID := tx2.Tx.TxID()
 
 	if balance-bumpedFee < dustThreshold {
 		// Convert transaction size to kilobytes
@@ -324,7 +325,7 @@ func (rl *Relayer) maybeResendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bu
 	}
 
 	// Verify the transaction meets RBF requirements before sending
-	if err := rl.verifyRBFRequirements(originalFee, bumpedFee, tx2.Size); err != nil {
+	if err := rl.verifyRBFRequirements(originalTxID, bumpedFee, tx2.Size); err != nil {
 		return nil, fmt.Errorf("RBF requirements not met: %w", err)
 	}
 
@@ -346,22 +347,44 @@ func (rl *Relayer) maybeResendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bu
 	return tx2, nil
 }
 
-func (rl *Relayer) verifyRBFRequirements(originalFee, newFee btcutil.Amount, txVirtualSize int64) error {
-	// 1. Check absolute fee is higher than original
-	if newFee <= originalFee {
-		return fmt.Errorf("replacement fee (%v) must be higher than original fee (%v)", newFee, originalFee)
+func (rl *Relayer) verifyRBFRequirements(txID string, newFee btcutil.Amount, txVirtualSize int64) error {
+	// Fetch mempool data for original transaction and its descendants
+	mempoolEntry, err := rl.BTCWallet.GetMempoolEntry(txID)
+	if err != nil {
+		return fmt.Errorf("original transaction %s not found in mempool: %w", txID, err)
 	}
 
+	// Rule 5: Check descendant count limit
+	if mempoolEntry.DescendantCount > 100 {
+		return fmt.Errorf("too many descendant transactions (%d > 100)", mempoolEntry.DescendantCount)
+	}
+
+	// Calculate aggregate values from original transaction + descendants
+	originalTotalFees := btcutil.Amount(mempoolEntry.DescendantFees)
+	originalTotalVsize := btcutil.Amount(mempoolEntry.DescendantSize)
+
+	// Rule 3: New fee must exceed sum of original fees
+	if newFee <= originalTotalFees {
+		return fmt.Errorf("insufficient fee: %v ≤ %v (original+descendants)", newFee, originalTotalFees)
+	}
+
+	// Rule 6: Feerate comparison (new vs original aggregate)
+	originalFeerate := float64(originalTotalFees) / float64(originalTotalVsize)
+	newFeerate := float64(newFee) / float64(txVirtualSize)
+	if newFeerate <= originalFeerate {
+		return fmt.Errorf("insufficient feerate: %v ≤ %v (sat/vB)", newFeerate, originalFeerate)
+	}
+
+	// Rule 4: Check incremental relay fee
 	incrementalFeerate, err := rl.getIncrementalRelayFeerate()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get relay feerate: %w", err)
 	}
-	minRequiredIncrement := incrementalFeerate * btcutil.Amount(txVirtualSize)
 
-	// 2. Check that we satisfy incremental fee rate
-	if newFee-originalFee < minRequiredIncrement {
-		return fmt.Errorf("additional fee (%d) must be at least %d based on transaction size and incremental relay feerate",
-			newFee-originalFee, minRequiredIncrement)
+	requiredIncrement := incrementalFeerate * btcutil.Amount(txVirtualSize)
+	if (newFee - originalTotalFees) < requiredIncrement {
+		return fmt.Errorf("fee increment too small: %v < %v",
+			newFee-originalTotalFees, requiredIncrement)
 	}
 
 	return nil
