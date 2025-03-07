@@ -7,6 +7,7 @@ import (
 	"fmt"
 	bbn "github.com/babylonlabs-io/babylon/types"
 	"golang.org/x/sync/semaphore"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -767,6 +768,15 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 
 		if err := sew.babylonNodeAdapter.ActivateDelegation(ctx, stakingTxHash, proof); err != nil {
 			sew.metrics.FailedReportedActivateDelegations.Inc()
+
+			// someone already submitted inclusion proof, lets cleanup
+			if strings.Contains(err.Error(), "already has inclusion proof") {
+				sew.pendingTracker.RemoveDelegation(stakingTxHash)
+				sew.verifiedSufficientConfTracker.RemoveDelegation(stakingTxHash)
+				sew.metrics.NumberOfVerifiedDelegations.Dec()
+
+				return nil
+			}
 
 			return fmt.Errorf("error reporting activate delegation tx %s to babylon: %w", stakingTxHash, err)
 		}
