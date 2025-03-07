@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/avast/retry-go/v4"
 	"github.com/babylonlabs-io/vigilante/submitter/store"
 	"github.com/btcsuite/btcd/btcjson"
 	"github.com/lightningnetwork/lnd/kvdb"
@@ -186,17 +187,40 @@ func (rl *Relayer) MaybeResubmitSecondCheckpointTx(ckpt *ckpttypes.RawCheckpoint
 	rl.logger.Debugf("The checkpoint for epoch %v was sent more than %v seconds ago but not included on BTC",
 		ckptEpoch, rl.config.ResendIntervalSeconds)
 
-	bumpedFee := rl.calculateBumpedFee(rl.lastSubmittedCheckpoint)
+	var resubmittedTx2 *types.BtcTxInfo
+	err := retry.Do(
+		func() error {
+			bumpedFee := rl.calculateBumpedFee(rl.lastSubmittedCheckpoint)
+			if !rl.shouldResendCheckpoint(rl.lastSubmittedCheckpoint, bumpedFee) {
+				return nil
+			}
 
-	// make sure the bumped fee is effective
-	if !rl.shouldResendCheckpoint(rl.lastSubmittedCheckpoint, bumpedFee) {
-		return nil
-	}
+			rl.logger.Debugf("Maybe resending the second tx of the checkpoint %v, old fee of the second tx: %v Satoshis, txid: %s",
+				ckptEpoch, rl.lastSubmittedCheckpoint.Tx2.Fee, rl.lastSubmittedCheckpoint.Tx2.TxID.String())
 
-	rl.logger.Debugf("Maybe resending the second tx of the checkpoint %v, old fee of the second tx: %v Satoshis, txid: %s",
-		ckptEpoch, rl.lastSubmittedCheckpoint.Tx2.Fee, rl.lastSubmittedCheckpoint.Tx2.TxID.String())
+			tx2Result, err := rl.maybeResendSecondTxOfCheckpointToBTC(rl.lastSubmittedCheckpoint.Tx2, bumpedFee)
+			if err != nil {
+				return err
+			}
 
-	resubmittedTx2, err := rl.maybeResendSecondTxOfCheckpointToBTC(rl.lastSubmittedCheckpoint.Tx2, bumpedFee)
+			// If nil result but no error, it means no need to resend (tx confirmed)
+			if tx2Result == nil {
+				return nil
+			}
+
+			// Success - store the result for use after retry loop
+			resubmittedTx2 = tx2Result
+
+			return nil
+		},
+		retry.Attempts(5),
+		retry.DelayType(retry.FixedDelay),
+		retry.Delay(200*time.Millisecond),
+		retry.OnRetry(func(n uint, err error) {
+			rl.logger.Warnf("Retry %d after error: %v", n+1, err)
+		}),
+	)
+
 	if err != nil {
 		rl.metrics.FailedResentCheckpointsCounter.Inc()
 
