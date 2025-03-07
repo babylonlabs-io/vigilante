@@ -41,6 +41,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 * [#252](https://github.com/babylonlabs-io/vigilante/pull/252) fix: rbf compliant
 
+## v0.21.0
+
 ### Improvements
 
 * [#249](https://github.com/babylonlabs-io/vigilante/pull/249) chore: adapt unbonding to new babylon version
