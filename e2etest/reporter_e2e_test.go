@@ -93,7 +93,7 @@ func TestReporter_BoostrapUnderFrequentBTCHeaders(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		ticker := time.NewTicker(10 * time.Second)
+		ticker := time.NewTicker(15 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
