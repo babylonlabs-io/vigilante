@@ -43,4 +43,5 @@ type BTCWallet interface {
 	GetRawTransaction(txHash *chainhash.Hash) (*btcutil.Tx, error)
 	TxDetails(txHash *chainhash.Hash, pkScript []byte) (*notifier.TxConfirmation, TxStatus, error)
 	GetNetworkInfo() (*btcjson.GetNetworkInfoResult, error)
+	GetMempoolEntry(txHash string) (*btcjson.GetMempoolEntryResult, error)
 }

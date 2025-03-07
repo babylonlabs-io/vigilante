@@ -272,6 +272,21 @@ func (mr *MockBTCWalletMockRecorder) GetHighUTXOAndSum() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHighUTXOAndSum", reflect.TypeOf((*MockBTCWallet)(nil).GetHighUTXOAndSum))
 }
 
+// GetMempoolEntry mocks base method.
+func (m *MockBTCWallet) GetMempoolEntry(txHash string) (*btcjson.GetMempoolEntryResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMempoolEntry", txHash)
+	ret0, _ := ret[0].(*btcjson.GetMempoolEntryResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMempoolEntry indicates an expected call of GetMempoolEntry.
+func (mr *MockBTCWalletMockRecorder) GetMempoolEntry(txHash interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMempoolEntry", reflect.TypeOf((*MockBTCWallet)(nil).GetMempoolEntry), txHash)
+}
+
 // GetNetParams mocks base method.
 func (m *MockBTCWallet) GetNetParams() *chaincfg.Params {
 	m.ctrl.T.Helper()
