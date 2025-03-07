@@ -15,9 +15,9 @@ This document guides operators through setting up a Bitcoin node for use with Vi
 
 Ensure your system meets the following minimum requirements:
 
-* **CPU:** Multi-core processor
-* **RAM:** 8 GB
-* **Storage:** 800 GB SSD
+* **CPU:** At least 4 vCPUs
+* **RAM:** At least 32 GB
+* **Storage:** 1 TB SSD
 * **Network:** Stable internet connection
 
 ## 2. Install Bitcoin Core
@@ -87,11 +87,8 @@ rpcport=38332
 Configuration parameters explained:
 
 * `server`: Enables JSON-RPC interface
-
 * `txindex`: Maintains full transaction index
-
 * `rpcauth`: Defines authentication credentials for the RPC interface
-
 * `signet`: Enables operation on the Signet network instead of Mainnet.
 
 ## 4. Start bitcoind

@@ -17,6 +17,7 @@ running a Vigilante, including:
     2. [Configure Vigilante](#32-configure-vigilante)
 4. [Set Up Babylon Keyring Directory](#4-set-up-babylon-keyring-directory)
 5. [Start the Vigilante Daemon](#5-start-the-vigilante-daemon)
+6. [Vigilante Operations](#6-vigilante-operations)
 
 ## 1. Prerequisites
 
@@ -224,7 +225,7 @@ ensure the Babylon keyring is set up. Follow
 
 This section explains the process of setting up the Babylon keyring.
 Operators must create an Babylon keyring before starting
-the `Vigilante Submitter` and `Vigilante BTC Staking Tracker` daemon.
+the `Vigilante Reporter` and `Vigilante BTC Staking Tracker` daemon.
 
 We will be using the Babylon Binary for the key generation. To install the binary,
 please refer to the [Babylon Binary Installation](https://github.com/babylonlabs-io/networks/blob/main/bbn-test-5/babylon-node/README.md#1-install-babylon-binary).
@@ -295,3 +296,21 @@ Available commands include:
 Available flags include:
 
 * `--config`: Specifies the path to configuration file
+
+## 6. Vigilante Operations
+
+### 6.1 Prometheus Metrics
+
+The service exposes Prometheus metrics through a Prometheus server.
+By default, the server is reachable under 127.0.0.1:2112.
+
+For a complete list of available metrics,
+visit: [Vigilante Metrics](https://github.com/babylonlabs-io/vigilante/tree/main/metrics).
+
+### 6.2 Key Management
+
+While the daemon is stateless, loss of private keys in `Vigilante BTC Staking Tracker`
+and `Vigilante reporter` instances is irrecoverable and will result in permanent
+loss of your funds.
+
+Operators should take frequent backups of keyring directories to prevent fund loss.
