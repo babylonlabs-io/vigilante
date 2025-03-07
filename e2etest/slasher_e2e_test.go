@@ -94,6 +94,7 @@ func TestSlasher_Slasher(t *testing.T) {
 	bstCfg := config.DefaultBTCStakingTrackerConfig()
 	bstCfg.CheckDelegationsInterval = 1 * time.Second
 	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
+	bstCfg.IndexerAddr = tm.Config.BTCStakingTracker.IndexerAddr
 
 	bsTracker := bst.NewBTCStakingTracker(
 		tm.BTCClient,
@@ -171,6 +172,7 @@ func TestSlasher_SlashingUnbonding(t *testing.T) {
 	bstCfg := config.DefaultBTCStakingTrackerConfig()
 	bstCfg.CheckDelegationsInterval = 1 * time.Second
 	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
+	bstCfg.IndexerAddr = tm.Config.BTCStakingTracker.IndexerAddr
 
 	bsTracker := bst.NewBTCStakingTracker(
 		tm.BTCClient,
@@ -278,6 +280,7 @@ func TestSlasher_Bootstrapping(t *testing.T) {
 	bstCfg := config.DefaultBTCStakingTrackerConfig()
 	bstCfg.CheckDelegationsInterval = 1 * time.Second
 	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
+	bstCfg.IndexerAddr = tm.Config.BTCStakingTracker.IndexerAddr
 
 	bsTracker := bst.NewBTCStakingTracker(
 		tm.BTCClient,
