@@ -28,6 +28,9 @@ func (tm *TestManager) BabylonBTCChainMatchesBtc(t *testing.T) bool {
 	bbnBtcLcTip, err := tm.BabylonClient.BTCHeaderChainTip()
 	require.NoError(t, err)
 
+	t.Logf("bbn tip height: %d, bbn tip hash: %s, btc tip height: %d, btc tip hash: %s",
+		bbnBtcLcTip.Header.Height, bbnBtcLcTip.Header.HashHex, tipHeight, tipHash.String())
+
 	return uint32(tipHeight) == bbnBtcLcTip.Header.Height && tipHash.String() == bbnBtcLcTip.Header.HashHex
 }
 
