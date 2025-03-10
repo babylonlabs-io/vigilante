@@ -50,7 +50,7 @@ func NewWallet(cfg *config.Config, parentLogger *zap.Logger) (*Client, error) {
 		HTTPPostMode: true,
 		User:         cfg.BTC.Username,
 		Pass:         cfg.BTC.Password,
-		DisableTLS:   true,
+		DisableTLS:   cfg.BTC.DisableTLS,
 	}
 
 	rpcClient, err := rpcclient.New(connCfg, nil)
