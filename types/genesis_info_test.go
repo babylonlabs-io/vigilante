@@ -23,6 +23,7 @@ import (
 func FuzzGetGenesisInfoFromFile(f *testing.F) {
 	datagen.AddRandomSeedsToFuzzer(f, 10)
 	f.Fuzz(func(t *testing.T, seed int64) {
+		t.Parallel()
 		r := rand.New(rand.NewSource(seed))
 		home := t.TempDir()
 		logger := log.NewNopLogger()
@@ -62,7 +63,7 @@ func FuzzGetGenesisInfoFromFile(f *testing.F) {
 		genesisInfo, err := GetGenesisInfoFromFile(genFile)
 		require.NoError(t, err)
 		require.Equal(t, uint64(epochInterval), genesisInfo.epochInterval)
-		// require.Len(t, genesisInfo.valSet.ValSet, validatorNum) todo(lazar): see why this is failing
+		require.Len(t, genesisInfo.valSet.ValSet, validatorNum)
 		require.Equal(t, uint32(baseHeight), genesisInfo.baseBTCHeight)
 	})
 }
