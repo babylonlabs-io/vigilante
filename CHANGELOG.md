@@ -41,6 +41,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 * [#255](https://github.com/babylonlabs-io/vigilante/pull/255) chore: disable tls in config
 
+### Bug Fixes
+
+* [#252](https://github.com/babylonlabs-io/vigilante/pull/252) fix: rbf compliant
+
 ## v0.21.0
 
 ### Improvements

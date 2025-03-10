@@ -193,5 +193,6 @@ func TestSubmitterSubmissionReplace(t *testing.T) {
 	blockWithOpReturnTransactions := tm.mineBlock(t)
 	// block should have 2 transactions, 1 from submitter and 1 coinbase
 	require.Equal(t, len(blockWithOpReturnTransactions.Transactions), 3)
+	t.Logf("resent counter: %v", promtestutil.ToFloat64(vigilantSubmitter.Metrics().ResentCheckpointsCounter))
 	require.True(t, promtestutil.ToFloat64(vigilantSubmitter.Metrics().ResentCheckpointsCounter) == 1)
 }

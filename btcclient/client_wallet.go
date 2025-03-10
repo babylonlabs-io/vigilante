@@ -182,6 +182,10 @@ func (c *Client) GetNetworkInfo() (*btcjson.GetNetworkInfoResult, error) {
 	return c.Client.GetNetworkInfo()
 }
 
+func (c *Client) GetMempoolEntry(txHash string) (*btcjson.GetMempoolEntryResult, error) {
+	return c.Client.GetMempoolEntry(txHash)
+}
+
 func rpcHostURL(host, walletName string) string {
 	if len(walletName) > 0 {
 		return host + "/wallet/" + walletName
