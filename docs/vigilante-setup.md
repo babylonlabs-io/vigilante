@@ -156,6 +156,7 @@ btcstaking-tracker:
   max-jitter-interval: 30s
   btcnetparams: signet
   max-slashing-concurrency: 20
+  indexer-addr: localhost:3000
 ```
 
 Configuration parameters explained:
@@ -220,6 +221,7 @@ ensure the Babylon keyring is set up. Follow
 * `retry-submit-unbonding-interval`: Interval for retrying unbonding submissions
 * `btcnetparams`: Bitcoin network parameters
 * `max-slashing-concurrency`: Maximum concurrency for slashing
+* `indexer-addr:`: Connection to [electrs indexer HTTP port](./bitcoind-setup.md#5-install-and-configure-electrum-server)
 
 ## 4. Set Up Babylon Keyring Directory
 
