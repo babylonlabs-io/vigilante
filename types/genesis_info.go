@@ -65,7 +65,6 @@ func GetGenesisInfoFromFile(filePath string) (*GenesisInfo, error) {
 	}
 	genutilGenState := genutiltypes.GetGenesisStateFromAppState(tmpBabylon.AppCodec(), appState)
 	gentxs := genutilGenState.GenTxs
-	//gks := checkpointingGenState.GetGenesisKeys()
 
 	valSet.ValSet = make([]*checkpointingtypes.ValidatorWithBlsKey, 0)
 	for _, tx := range gentxs {
