@@ -26,6 +26,7 @@ type BTCConfig struct {
 	ZmqSeqEndpoint    string                `mapstructure:"zmq-seq-endpoint"`
 	ZmqBlockEndpoint  string                `mapstructure:"zmq-block-endpoint"`
 	ZmqTxEndpoint     string                `mapstructure:"zmq-tx-endpoint"`
+	DisableTLS        bool                  `mapstructure:"disable-tls"`
 }
 
 func (cfg *BTCConfig) Validate() error {
@@ -112,5 +113,6 @@ func DefaultBTCConfig() BTCConfig {
 		ZmqSeqEndpoint:    DefaultZmqSeqEndpoint,
 		ZmqBlockEndpoint:  DefaultZmqBlockEndpoint,
 		ZmqTxEndpoint:     DefaultZmqTxEndpoint,
+		DisableTLS:        true,
 	}
 }
