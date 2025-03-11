@@ -12,6 +12,7 @@ import (
 	"github.com/lightningnetwork/lnd/lntypes"
 	"math"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/babylonlabs-io/babylon/btctxformatter"
@@ -188,9 +189,22 @@ func (rl *Relayer) MaybeResubmitSecondCheckpointTx(ckpt *ckpttypes.RawCheckpoint
 		ckptEpoch, rl.config.ResendIntervalSeconds)
 
 	var resubmittedTx2 *types.BtcTxInfo
+	var lastError error
+	var tooManyDescendants bool
+
 	err := retry.Do(
 		func() error {
-			bumpedFee := rl.calculateBumpedFee(rl.lastSubmittedCheckpoint)
+			if tooManyDescendants {
+				rl.logger.Warnf("Transaction has too many descendants (>100), skipping RBF attempt")
+
+				return nil
+			}
+
+			bumpedFee, err := rl.calculateBumpedFee(rl.lastSubmittedCheckpoint, lastError)
+			if err != nil {
+				return err
+			}
+
 			if !rl.shouldResendCheckpoint(rl.lastSubmittedCheckpoint, bumpedFee) {
 				return nil
 			}
@@ -200,6 +214,15 @@ func (rl *Relayer) MaybeResubmitSecondCheckpointTx(ckpt *ckpttypes.RawCheckpoint
 
 			tx2Result, err := rl.maybeResendSecondTxOfCheckpointToBTC(rl.lastSubmittedCheckpoint.Tx2, bumpedFee)
 			if err != nil {
+				lastError = err
+
+				// Check if the error is due to too many descendants
+				if strings.Contains(err.Error(), "too many descendant transactions") {
+					tooManyDescendants = true
+					rl.logger.Warnf("Transaction has too many descendants, won't attempt RBF again: %v", err)
+					return nil // Don't retry with RBF if there are too many descendants
+				}
+
 				return err
 			}
 
@@ -278,10 +301,30 @@ func (rl *Relayer) shouldResendCheckpoint(ckptInfo *types.CheckpointInfo, bumped
 	return bumpedFee >= requiredBumpingFee
 }
 
+func getRBFErrorType(err error) string {
+	if err == nil {
+		return ""
+	}
+
+	errString := err.Error()
+
+	switch {
+	case strings.Contains(errString, "too many descendant transactions"):
+		return "too_many_descendants"
+	case strings.Contains(errString, "insufficient fee:"):
+		return "insufficient_fee"
+	case strings.Contains(errString, "insufficient feerate:"):
+		return "insufficient_feerate"
+	case strings.Contains(errString, "fee increment too small:"):
+		return "fee_increment_too_small"
+	default:
+		return "other"
+	}
+}
+
 // calculateBumpedFee calculates the bumped fees of the second tx of the checkpoint
-// based on the current BTC load, considering both tx sizes
-// the result is multiplied by ResubmitFeeMultiplier set in config
-func (rl *Relayer) calculateBumpedFee(ckptInfo *types.CheckpointInfo) btcutil.Amount {
+// based on the current BTC load, considering both tx sizes and RBF requirements
+func (rl *Relayer) calculateBumpedFee(ckptInfo *types.CheckpointInfo, previousFailure error) (btcutil.Amount, error) {
 	currentFeeRate := rl.getFeeRate()
 
 	// Convert to Satoshis per byte (SatPerKVByte is per 1000 bytes)
@@ -293,12 +336,87 @@ func (rl *Relayer) calculateBumpedFee(ckptInfo *types.CheckpointInfo) btcutil.Am
 	// Calculate the recommended fee using ResubmitFeeMultiplier
 	bumpedFee := ckptInfo.Tx2.Fee.MulF64(rl.config.ResubmitFeeMultiplier)
 
+	// If no previous failure or no txID, just return the standard calculation
+	errorType := getRBFErrorType(previousFailure)
+	if errorType == "" || errorType == "other" || errorType == "too_many_descendants" {
+		if bumpedFee < requiredFee {
+			bumpedFee = requiredFee
+		}
+
+		return bumpedFee, nil
+	}
+
+	txID := ckptInfo.Tx2.TxID.String()
+	mempoolEntry, err := rl.BTCWallet.GetMempoolEntry(txID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get mempool entry for %s: %w", txID, err)
+	}
+
+	// Calculate adjustments based on error type and available mempool data
+	switch errorType {
+	case "insufficient_fee":
+		if mempoolEntry != nil {
+			// Get the total fees of original tx + descendants
+			originalTotalFees := btcutil.Amount(mempoolEntry.DescendantFees)
+			// Add configured margin to ensure we exceed the requirement
+			margin := 1.0 + rl.config.InsufficientFeeMargin
+			newFee := originalTotalFees.MulF64(margin)
+
+			if newFee > bumpedFee {
+				rl.logger.Debugf("Adjusting fee due to 'insufficient fee' error: %v → %v (margin: %v%%)",
+					bumpedFee, newFee, rl.config.InsufficientFeeMargin*100)
+				bumpedFee = newFee
+			}
+		}
+
+	case "insufficient_feerate":
+		// Calculate original feerate
+		originalTotalFees := btcutil.Amount(mempoolEntry.DescendantFees)
+		originalVsize := btcutil.Amount(mempoolEntry.DescendantSize)
+		originalFeerate := float64(originalTotalFees) / float64(originalVsize)
+
+		// Calculate new feerate with configured margin
+		margin := 1.0 + rl.config.InsufficientFeerateMargin
+		newFeerate := originalFeerate * margin
+		requiredFee := btcutil.Amount(newFeerate * float64(ckptInfo.Tx2.Size))
+
+		if requiredFee > bumpedFee {
+			rl.logger.Debugf("Adjusting fee due to 'insufficient feerate' error: %v → %v (margin: %v%%)",
+				bumpedFee, requiredFee, rl.config.InsufficientFeerateMargin*100)
+			bumpedFee = requiredFee
+		}
+	case "fee_increment_too_small":
+		incrementalFeerate, err := rl.getIncrementalRelayFeerate()
+		if err == nil {
+			// Calculate minimum required increment
+			requiredIncrement := incrementalFeerate * btcutil.Amount(ckptInfo.Tx2.Size)
+
+			// Get original fee from mempool if available, otherwise use stored value
+			var originalFee btcutil.Amount
+			if mempoolEntry != nil {
+				originalFee = btcutil.Amount(mempoolEntry.Fee)
+			} else {
+				originalFee = ckptInfo.Tx2.Fee
+			}
+
+			// Required fee = original + increment + configured margin
+			margin := 1.0 + rl.config.FeeIncrementMargin
+			requiredFee := originalFee + requiredIncrement.MulF64(margin)
+
+			if requiredFee > bumpedFee {
+				rl.logger.Debugf("Adjusting fee due to 'fee increment too small' error: %v → %v (margin: %v%%)",
+					bumpedFee, requiredFee, rl.config.FeeIncrementMargin*100)
+				bumpedFee = requiredFee
+			}
+		}
+	}
+
 	// Ensure the bumped fee meets at least the minimum required fee
 	if bumpedFee < requiredFee {
 		bumpedFee = requiredFee
 	}
 
-	return bumpedFee
+	return bumpedFee, nil
 }
 
 // maybeResendSecondTxOfCheckpointToBTC resends the second tx of the checkpoint with bumpedFee

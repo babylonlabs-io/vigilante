@@ -11,6 +11,9 @@ const (
 	DefaultPollingIntervalSeconds    = 60   // in seconds
 	DefaultResendIntervalSeconds     = 1800 // 30 minutes
 	DefaultResubmitFeeMultiplier     = 1
+	DefaultInsufficientFeeMargin     = 0.15
+	DefaultInsufficientFeerateMargin = 0.15
+	DefaultFeeIncrementMargin        = 0.15
 )
 
 // SubmitterConfig defines configuration for the gRPC-web server.
@@ -28,6 +31,10 @@ type SubmitterConfig struct {
 	ResendIntervalSeconds uint `mapstructure:"resend-interval-seconds"`
 	// DatabaseConfig stores last submitted txn
 	DatabaseConfig *DBConfig `mapstructure:"dbconfig"`
+
+	InsufficientFeeMargin     float64 `mapstructure:"insufficient_fee_margin"`     // e.g. 0.15 for 15%
+	InsufficientFeerateMargin float64 `mapstructure:"insufficient_feerate_margin"` // e.g. 0.15 for 15%
+	FeeIncrementMargin        float64 `mapstructure:"fee_increment_margin"`
 }
 
 func (cfg *SubmitterConfig) Validate() error {
