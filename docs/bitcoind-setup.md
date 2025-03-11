@@ -18,7 +18,7 @@ Ensure your system meets the following minimum requirements:
 
 * **CPU:** At least 4 vCPUs
 * **RAM:** At least 32 GB
-* **Storage:** 1 TB SSD
+* **Storage:** 2 TB SSD
 * **Network:** Stable internet connection
 
 ## 2. Install Bitcoin Core
@@ -147,6 +147,9 @@ You can also compare with public blockchain explorers like
 We will use [Electrs](https://github.com/Blockstream/electrs), a more efficient
 Electrum server implementation.
 
+Electrs should be operated on the same node with bitcoind, so that it can
+directly access the bitcoind filesystem and achieve optimal performance.
+
 ### 5.1 Install Dependencies
 
 Ensure you have the necessary dependencies installed:
@@ -163,6 +166,7 @@ Clone the repository and build Electrs:
 ```bash
 git clone https://github.com/Blockstream/electrs.git
 cd electrs
+git checkout e11cd561a197f8c0e4839721b4e1877b2a41053f
 cargo build --release
 ```
 
@@ -208,3 +212,5 @@ You should see logs indicating successful startup:
 ```log
 Config { log: StdErrLog { verbosity: Warn, quiet: false, show_level: true, timestamp: Millisecond, modules: [], writer: "stderr", color_choice: Never, show_module_names: false }, network_type: Signet, db_path: "/electrs/.electrs/db/signet", daemon_dir: "/bitcoin/.bitcoin/signet", blocks_dir: "/bitcoin/.bitcoin/signet/blocks", daemon_rpc_addr: 127.0.0.1:38332, cookie: Some("K78L47aCp6NrcLnG0sTD8k5oaNZuwK1m:YIr0Y7gMHPofvBDmZYmu2Cm0gR7OGz5x"), electrum_rpc_addr: 0.0.0.0:60001, http_addr: 0.0.0.0:3003, http_socket_file: None, monitoring_addr: 0.0.0.0:54224, jsonrpc_import: false, light_mode: false, address_search: true, index_unspendables: false, cors: Some("*"), precache_scripts: None, utxos_limit: 50000, electrum_txs_limit: 500, electrum_banner: "Welcome to electrs-esplora 0.4.1", electrum_rpc_logging: Some(Full) }
 ```
+
+On the first boot, the indexer may take several hours to complete the initial sync.

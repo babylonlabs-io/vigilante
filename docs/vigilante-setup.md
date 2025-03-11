@@ -79,6 +79,12 @@ export PATH=$HOME/go/bin:$PATH
 echo 'export PATH=$HOME/go/bin:$PATH' >> ~/.profile
 ```
 
+Alternatively, if you’re working with Docker, you can pull the Docker image:
+
+```shell
+docker pull babylonlabs/vigilante:<tag>
+```
+
 ## 3. Set Up Vigilante
 
 ### 3.1 Initialize directory
@@ -311,8 +317,9 @@ visit: [Vigilante Metrics](https://github.com/babylonlabs-io/vigilante/tree/main
 
 ### 6.2 Key Management
 
-While the daemon is stateless, loss of private keys in `Vigilante BTC Staking Tracker`
-and `Vigilante reporter` instances is irrecoverable and will result in permanent
-loss of your funds.
+While the vigilante daemons are stateless, loss of the Babylon private keys of
+the 1) Vigilante BTC Staking Tracker or 2) the Vigilante reporter instances is
+irrecoverable and will result in permanent loss of the associated funds.
 
-Operators should take frequent backups of keyring directories to prevent fund loss.
+To this end, operators should take frequent backups
+of the aforementioned keyring directories.
