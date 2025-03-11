@@ -14,7 +14,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/genutil"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
-	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
 type GenesisInfo struct {
@@ -66,37 +65,34 @@ func GetGenesisInfoFromFile(filePath string) (*GenesisInfo, error) {
 	}
 	genutilGenState := genutiltypes.GetGenesisStateFromAppState(tmpBabylon.AppCodec(), appState)
 	gentxs := genutilGenState.GenTxs
-	gks := checkpointingGenState.GetGenesisKeys()
 
 	valSet.ValSet = make([]*checkpointingtypes.ValidatorWithBlsKey, 0)
-	for _, gk := range gks {
-		for _, tx := range gentxs {
-			tx, err := genutiltypes.ValidateAndGetGenTx(tx, tmpBabylon.TxConfig().TxJSONDecoder(), gentxModule.GenTxValidator)
-			if err != nil {
-				return nil, fmt.Errorf("invalid genesis tx %w", err)
-			}
-			msgs := tx.GetMsgs()
-			if len(msgs) == 0 {
-				return nil, errors.New("invalid genesis transaction")
-			}
-			msgCreateValidator, ok := msgs[0].(*stakingtypes.MsgCreateValidator)
-			if !ok {
-				return nil, fmt.Errorf("unexpected message type: %T", msgs[0])
-			}
-
-			if gk.ValidatorAddress == msgCreateValidator.ValidatorAddress {
-				power := sdk.TokensToConsensusPower(msgCreateValidator.Value.Amount, sdk.DefaultPowerReduction)
-				if power < 0 {
-					return nil, fmt.Errorf("consensus power calculation returned a negative value")
-				}
-				keyWithPower := &checkpointingtypes.ValidatorWithBlsKey{
-					ValidatorAddress: msgCreateValidator.ValidatorAddress,
-					BlsPubKey:        *gk.BlsKey.Pubkey,
-					VotingPower:      uint64(power),
-				}
-				valSet.ValSet = append(valSet.ValSet, keyWithPower)
-			}
+	for _, tx := range gentxs {
+		tx, err := genutiltypes.ValidateAndGetGenTx(tx, tmpBabylon.TxConfig().TxJSONDecoder(), gentxModule.GenTxValidator)
+		if err != nil {
+			return nil, fmt.Errorf("invalid genesis tx %w", err)
 		}
+		msgs := tx.GetMsgs()
+		if len(msgs) == 0 {
+			return nil, errors.New("invalid genesis transaction")
+		}
+		wrappedCreateValidator, ok := msgs[0].(*checkpointingtypes.MsgWrappedCreateValidator)
+		if !ok {
+			return nil, fmt.Errorf("unexpected message type: %T", msgs[0])
+		}
+
+		msgCreateValidator := wrappedCreateValidator.MsgCreateValidator
+
+		power := sdk.TokensToConsensusPower(msgCreateValidator.Value.Amount, sdk.DefaultPowerReduction)
+		if power < 0 {
+			return nil, fmt.Errorf("consensus power calculation returned a negative value")
+		}
+		keyWithPower := &checkpointingtypes.ValidatorWithBlsKey{
+			ValidatorAddress: msgCreateValidator.ValidatorAddress,
+			BlsPubKey:        msgCreateValidator.Pubkey.Value,
+			VotingPower:      uint64(power),
+		}
+		valSet.ValSet = append(valSet.ValSet, keyWithPower)
 	}
 
 	btclightclientGenState := GetBtclightclientGenesisStateFromAppState(tmpBabylon.AppCodec(), appState)
