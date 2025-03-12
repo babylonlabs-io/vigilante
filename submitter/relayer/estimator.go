@@ -20,7 +20,7 @@ func NewFeeEstimator(cfg *config.BTCConfig) (chainfee.Estimator, error) {
 		HTTPPostMode: true,
 		User:         cfg.Username,
 		Pass:         cfg.Password,
-		DisableTLS:   true,
+		DisableTLS:   cfg.DisableTLS,
 	}
 
 	estimator, err := chainfee.NewBitcoindEstimator(

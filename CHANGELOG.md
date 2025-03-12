@@ -37,9 +37,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Improvements
+
+* [#255](https://github.com/babylonlabs-io/vigilante/pull/255) chore: disable tls in config
+* [#257](https://github.com/babylonlabs-io/vigilante/pull/257) chore: change default max
+
 ### Bug Fixes
 
+* [#250](https://github.com/babylonlabs-io/vigilante/pull/250) fix: handle rpc errors in maybeResendFromStore
+* [#252](https://github.com/babylonlabs-io/vigilante/pull/252) fix: rbf compliant
 * [#241](https://github.com/babylonlabs-io/vigilante/pull/241) chore: limit response read
+* [#256](https://github.com/babylonlabs-io/vigilante/pull/256) fix: genesis parsing
+
+## v0.21.0
+
+### Improvements
+
+* [#249](https://github.com/babylonlabs-io/vigilante/pull/249) chore: adapt unbonding to new babylon version
 
 ## v0.20.0
 

@@ -63,7 +63,6 @@ func (c *HTTPIndexerClient) GetOutspend(ctx context.Context, txID string, vout u
 			}
 
 			limitedReader := io.LimitReader(resp.Body, maxResponseSize)
-
 			if err := json.NewDecoder(limitedReader).Decode(&response); err != nil {
 				if err == io.EOF {
 					return fmt.Errorf("response exceeded maximum size of %d bytes", maxResponseSize)
