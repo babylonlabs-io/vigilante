@@ -316,7 +316,7 @@ func getRBFErrorType(err error) string {
 		return "insufficient_fee"
 	case strings.Contains(errString, "insufficient feerate:"):
 		return "insufficient_feerate"
-	case strings.Contains(errString, "fee increment too small:"):
+	case strings.Contains(errString, "fee increment too small"):
 		return "fee_increment_too_small"
 	default:
 		return "other"

@@ -292,7 +292,6 @@ func TestCalculateBumpedFee(t *testing.T) {
 
 		mempoolEntry := &btcjson.GetMempoolEntryResult{
 			DescendantFees: 2000,
-			Fee:            0.00002, // Not used in this case
 		}
 		mockBTCWallet.EXPECT().GetMempoolEntry(ckptInfo.Tx2.TxID.String()).Return(mempoolEntry, nil).AnyTimes()
 
@@ -322,7 +321,7 @@ func TestCalculateBumpedFee(t *testing.T) {
 		}
 		mockBTCWallet.EXPECT().GetMempoolEntry(ckptInfo.Tx2.TxID.String()).Return(mempoolEntry, nil)
 
-		insufficientFeerateError := errors.New("insufficient feerate")
+		insufficientFeerateError := errors.New("insufficient feerate: ")
 		bumpedFee, err := rl.calculateBumpedFee(ckptInfo, insufficientFeerateError)
 		require.NoError(t, err)
 
@@ -351,7 +350,7 @@ func TestCalculateBumpedFee(t *testing.T) {
 		mockBTCWallet.EXPECT().GetNetworkInfo().Return(networkInfo, nil)
 
 		// Calculate bumped fee with fee increment error
-		feeIncrementError := errors.New("fee increment too small: ")
+		feeIncrementError := errors.New("fee increment too small")
 		bumpedFee, err := rl.calculateBumpedFee(ckptInfo, feeIncrementError)
 		require.NoError(t, err)
 
