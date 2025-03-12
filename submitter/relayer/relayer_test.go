@@ -194,7 +194,6 @@ func (m *mockBTCConfig) GetBTCConfig() *config.BTCConfig {
 
 // TestCalculateBumpedFee tests the calculateBumpedFee function
 func TestCalculateBumpedFee(t *testing.T) {
-	t.Parallel()
 	ctrl := gomock.NewController(t)
 	t.Cleanup(func() {
 		ctrl.Finish()
@@ -247,7 +246,6 @@ func TestCalculateBumpedFee(t *testing.T) {
 	}
 
 	t.Run("Basic fee calculation without previous failure", func(t *testing.T) {
-		t.Parallel()
 		ckptInfo := createCheckpointInfo()
 		submitterConfig := &config.SubmitterConfig{
 			ResubmitFeeMultiplier: 1.5,
@@ -263,7 +261,6 @@ func TestCalculateBumpedFee(t *testing.T) {
 	})
 
 	t.Run("Basic fee calculation with 'other' error type", func(t *testing.T) {
-		t.Parallel()
 		ckptInfo := createCheckpointInfo()
 		submitterConfig := &config.SubmitterConfig{
 			ResubmitFeeMultiplier: 1.2,
@@ -281,7 +278,6 @@ func TestCalculateBumpedFee(t *testing.T) {
 	})
 
 	t.Run("Insufficient fee error", func(t *testing.T) {
-		t.Parallel()
 		ckptInfo := createCheckpointInfo()
 		submitterConfig := &config.SubmitterConfig{
 			ResubmitFeeMultiplier: 1.2,
@@ -296,7 +292,7 @@ func TestCalculateBumpedFee(t *testing.T) {
 		mockBTCWallet.EXPECT().GetMempoolEntry(ckptInfo.Tx2.TxID.String()).Return(mempoolEntry, nil).AnyTimes()
 
 		// Calculate bumped fee with insufficient fee error
-		insufficientFeeError := errors.New("insufficient fee: ")
+		insufficientFeeError := errors.New("insufficient fee")
 		bumpedFee, err := rl.calculateBumpedFee(ckptInfo, insufficientFeeError)
 		require.NoError(t, err)
 
@@ -305,7 +301,6 @@ func TestCalculateBumpedFee(t *testing.T) {
 	})
 
 	t.Run("Insufficient feerate error", func(t *testing.T) {
-		t.Parallel()
 		ckptInfo := createCheckpointInfo()
 		submitterConfig := &config.SubmitterConfig{
 			ResubmitFeeMultiplier:     1.2,
@@ -319,9 +314,9 @@ func TestCalculateBumpedFee(t *testing.T) {
 			DescendantSize: 300,
 			Fee:            0.00001,
 		}
-		mockBTCWallet.EXPECT().GetMempoolEntry(ckptInfo.Tx2.TxID.String()).Return(mempoolEntry, nil)
+		mockBTCWallet.EXPECT().GetMempoolEntry(ckptInfo.Tx2.TxID.String()).Return(mempoolEntry, nil).AnyTimes()
 
-		insufficientFeerateError := errors.New("insufficient feerate: ")
+		insufficientFeerateError := errors.New("feerate insufficient")
 		bumpedFee, err := rl.calculateBumpedFee(ckptInfo, insufficientFeerateError)
 		require.NoError(t, err)
 
@@ -330,7 +325,6 @@ func TestCalculateBumpedFee(t *testing.T) {
 	})
 
 	t.Run("Fee increment too small error", func(t *testing.T) {
-		t.Parallel()
 		ckptInfo := createCheckpointInfo()
 		submitterConfig := &config.SubmitterConfig{
 			ResubmitFeeMultiplier: 1.2,
@@ -342,7 +336,7 @@ func TestCalculateBumpedFee(t *testing.T) {
 		mempoolEntry := &btcjson.GetMempoolEntryResult{
 			Fee: 0.000012, // 1200 satoshis
 		}
-		mockBTCWallet.EXPECT().GetMempoolEntry(ckptInfo.Tx2.TxID.String()).Return(mempoolEntry, nil)
+		mockBTCWallet.EXPECT().GetMempoolEntry(ckptInfo.Tx2.TxID.String()).Return(mempoolEntry, nil).AnyTimes()
 
 		networkInfo := &btcjson.GetNetworkInfoResult{
 			IncrementalFee: 1.0, // 1 sat/byte

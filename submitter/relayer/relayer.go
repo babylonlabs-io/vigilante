@@ -312,9 +312,9 @@ func getRBFErrorType(err error) string {
 	switch {
 	case strings.Contains(errString, "too many descendant transactions"):
 		return "too_many_descendants"
-	case strings.Contains(errString, "insufficient fee:"):
+	case strings.Contains(errString, "insufficient fee"):
 		return "insufficient_fee"
-	case strings.Contains(errString, "insufficient feerate:"):
+	case strings.Contains(errString, "feerate insufficient"):
 		return "insufficient_feerate"
 	case strings.Contains(errString, "fee increment too small"):
 		return "fee_increment_too_small"
@@ -512,7 +512,7 @@ func (rl *Relayer) verifyRBFRequirements(txID string, newFee btcutil.Amount, txV
 	originalFeerate := float64(originalTotalFees) / float64(originalTotalVsize)
 	newFeerate := float64(newFee) / float64(txVirtualSize)
 	if newFeerate <= originalFeerate {
-		return fmt.Errorf("insufficient feerate: %v ≤ %v (sat/vB)", newFeerate, originalFeerate)
+		return fmt.Errorf("feerate insufficient: %v ≤ %v (sat/vB)", newFeerate, originalFeerate)
 	}
 
 	// Rule 4: Check incremental relay fee

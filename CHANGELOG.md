@@ -45,6 +45,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 * [#250](https://github.com/babylonlabs-io/vigilante/pull/250) fix: handle rpc errors in maybeResendFromStore
 * [#252](https://github.com/babylonlabs-io/vigilante/pull/252) fix: rbf compliant
+* [#257](https://github.com/babylonlabs-io/vigilante/pull/257) fix: rbf fee calculation
 
 ## v0.21.0
 
