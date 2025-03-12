@@ -49,6 +49,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 * [#250](https://github.com/babylonlabs-io/vigilante/pull/250) fix: handle rpc errors in maybeResendFromStore
 * [#252](https://github.com/babylonlabs-io/vigilante/pull/252) fix: rbf compliant
+* [#258](https://github.com/babylonlabs-io/vigilante/pull/258) fix: Reject non-negative value and Zero for time Interval used by time.ticker
 
 ## v0.21.0
 
