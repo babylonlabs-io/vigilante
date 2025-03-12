@@ -45,10 +45,10 @@ func (cfg *CommonConfig) Validate() error {
 	if !isOneOf(cfg.LogLevel, []string{"debug", "warn", "error", "panic", "fatal"}) {
 		return errors.New("log-level is not one of debug|warn|error|panic|fatal")
 	}
-	if cfg.RetrySleepTime < 0 {
+	if cfg.RetrySleepTime <= 0 {
 		return errors.New("retry-sleep-time can't be negative")
 	}
-	if cfg.MaxRetrySleepTime < 0 {
+	if cfg.MaxRetrySleepTime <= 0 {
 		return errors.New("max-retry-sleep-time can't be negative")
 	}
 
