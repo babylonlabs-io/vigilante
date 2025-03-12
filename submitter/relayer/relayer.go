@@ -220,6 +220,7 @@ func (rl *Relayer) MaybeResubmitSecondCheckpointTx(ckpt *ckpttypes.RawCheckpoint
 				if strings.Contains(err.Error(), "too many descendant transactions") {
 					tooManyDescendants = true
 					rl.logger.Warnf("Transaction has too many descendants, won't attempt RBF again: %v", err)
+
 					return nil // Don't retry with RBF if there are too many descendants
 				}
 
@@ -355,20 +356,17 @@ func (rl *Relayer) calculateBumpedFee(ckptInfo *types.CheckpointInfo, previousFa
 	// Calculate adjustments based on error type and available mempool data
 	switch errorType {
 	case "insufficient_fee":
-		if mempoolEntry != nil {
-			// Get the total fees of original tx + descendants
-			originalTotalFees := btcutil.Amount(mempoolEntry.DescendantFees)
-			// Add configured margin to ensure we exceed the requirement
-			margin := 1.0 + rl.config.InsufficientFeeMargin
-			newFee := originalTotalFees.MulF64(margin)
+		// Get the total fees of original tx + descendants
+		originalTotalFees := btcutil.Amount(mempoolEntry.DescendantFees)
+		// Add configured margin to ensure we exceed the requirement
+		margin := 1.0 + rl.config.InsufficientFeeMargin
+		newFee := originalTotalFees.MulF64(margin)
 
-			if newFee > bumpedFee {
-				rl.logger.Debugf("Adjusting fee due to 'insufficient fee' error: %v → %v (margin: %v%%)",
-					bumpedFee, newFee, rl.config.InsufficientFeeMargin*100)
-				bumpedFee = newFee
-			}
+		if newFee > bumpedFee {
+			rl.logger.Debugf("Adjusting fee due to 'insufficient fee' error: %v → %v (margin: %v%%)",
+				bumpedFee, newFee, rl.config.InsufficientFeeMargin*100)
+			bumpedFee = newFee
 		}
-
 	case "insufficient_feerate":
 		// Calculate original feerate
 		originalTotalFees := btcutil.Amount(mempoolEntry.DescendantFees)
@@ -378,9 +376,9 @@ func (rl *Relayer) calculateBumpedFee(ckptInfo *types.CheckpointInfo, previousFa
 		// Calculate new feerate with configured margin
 		margin := 1.0 + rl.config.InsufficientFeerateMargin
 		newFeerate := originalFeerate * margin
-		requiredFee := btcutil.Amount(newFeerate * float64(ckptInfo.Tx2.Size))
+		newFee := btcutil.Amount(newFeerate * float64(ckptInfo.Tx2.Size))
 
-		if requiredFee > bumpedFee {
+		if newFee > bumpedFee {
 			rl.logger.Debugf("Adjusting fee due to 'insufficient feerate' error: %v → %v (margin: %v%%)",
 				bumpedFee, requiredFee, rl.config.InsufficientFeerateMargin*100)
 			bumpedFee = requiredFee
@@ -393,7 +391,7 @@ func (rl *Relayer) calculateBumpedFee(ckptInfo *types.CheckpointInfo, previousFa
 
 			// Get original fee from mempool if available, otherwise use stored value
 			var originalFee btcutil.Amount
-			if mempoolEntry != nil {
+			if mempoolEntry.Fee != 0 {
 				originalFee = btcutil.Amount(mempoolEntry.Fee)
 			} else {
 				originalFee = ckptInfo.Tx2.Fee
@@ -401,9 +399,9 @@ func (rl *Relayer) calculateBumpedFee(ckptInfo *types.CheckpointInfo, previousFa
 
 			// Required fee = original + increment + configured margin
 			margin := 1.0 + rl.config.FeeIncrementMargin
-			requiredFee := originalFee + requiredIncrement.MulF64(margin)
+			newFee := originalFee + requiredIncrement.MulF64(margin)
 
-			if requiredFee > bumpedFee {
+			if newFee > bumpedFee {
 				rl.logger.Debugf("Adjusting fee due to 'fee increment too small' error: %v → %v (margin: %v%%)",
 					bumpedFee, requiredFee, rl.config.FeeIncrementMargin*100)
 				bumpedFee = requiredFee
