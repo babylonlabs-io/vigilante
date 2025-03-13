@@ -36,6 +36,15 @@ const (
 	dustThreshold  btcutil.Amount = 546
 )
 
+var (
+	ErrTooManyDescendants   = errors.New("too many descendant transactions")
+	ErrInsufficientFee      = errors.New("insufficient fee")
+	ErrInsufficientFeerate  = errors.New("feerate insufficient")
+	ErrFeeIncrementTooSmall = errors.New("fee increment too small")
+	ErrTxNotInMempool       = errors.New("transaction not found in mempool")
+	ErrRelayFeerate         = errors.New("failed to get relay feerate")
+)
+
 type GetLatestCheckpointFunc func() (*store.StoredCheckpoint, bool, error)
 type GetRawTransactionFunc func(txHash *chainhash.Hash) (*btcutil.Tx, error)
 type SendTransactionFunc func(tx *wire.MsgTx) (*chainhash.Hash, error)
@@ -302,27 +311,6 @@ func (rl *Relayer) shouldResendCheckpoint(ckptInfo *types.CheckpointInfo, bumped
 	return bumpedFee >= requiredBumpingFee
 }
 
-func getRBFErrorType(err error) string {
-	if err == nil {
-		return ""
-	}
-
-	errString := err.Error()
-
-	switch {
-	case strings.Contains(errString, "too many descendant transactions"):
-		return "too_many_descendants"
-	case strings.Contains(errString, "insufficient fee"):
-		return "insufficient_fee"
-	case strings.Contains(errString, "feerate insufficient"):
-		return "insufficient_feerate"
-	case strings.Contains(errString, "fee increment too small"):
-		return "fee_increment_too_small"
-	default:
-		return "other"
-	}
-}
-
 // calculateBumpedFee calculates the bumped fees of the second tx of the checkpoint
 // based on the current BTC load, considering both tx sizes and RBF requirements
 func (rl *Relayer) calculateBumpedFee(ckptInfo *types.CheckpointInfo, previousFailure error) (btcutil.Amount, error) {
@@ -337,9 +325,10 @@ func (rl *Relayer) calculateBumpedFee(ckptInfo *types.CheckpointInfo, previousFa
 	// Calculate the recommended fee using ResubmitFeeMultiplier
 	bumpedFee := ckptInfo.Tx2.Fee.MulF64(rl.config.ResubmitFeeMultiplier)
 
-	// If no previous failure or no txID, just return the standard calculation
-	errorType := getRBFErrorType(previousFailure)
-	if errorType == "" || errorType == "other" || errorType == "too_many_descendants" {
+	if previousFailure == nil ||
+		(!errors.Is(previousFailure, ErrInsufficientFee) &&
+			!errors.Is(previousFailure, ErrInsufficientFeerate) &&
+			!errors.Is(previousFailure, ErrFeeIncrementTooSmall)) {
 		if bumpedFee < requiredFee {
 			bumpedFee = requiredFee
 		}
@@ -354,8 +343,8 @@ func (rl *Relayer) calculateBumpedFee(ckptInfo *types.CheckpointInfo, previousFa
 	}
 
 	// Calculate adjustments based on error type and available mempool data
-	switch errorType {
-	case "insufficient_fee":
+	switch {
+	case errors.Is(previousFailure, ErrInsufficientFee):
 		// Get the total fees of original tx + descendants
 		originalTotalFees := btcutil.Amount(mempoolEntry.DescendantFees)
 		// Add configured margin to ensure we exceed the requirement
@@ -367,7 +356,7 @@ func (rl *Relayer) calculateBumpedFee(ckptInfo *types.CheckpointInfo, previousFa
 				bumpedFee, newFee, rl.config.InsufficientFeeMargin*100)
 			bumpedFee = newFee
 		}
-	case "insufficient_feerate":
+	case errors.Is(previousFailure, ErrInsufficientFeerate):
 		// Calculate original feerate
 		originalTotalFees := btcutil.Amount(mempoolEntry.DescendantFees)
 		originalVsize := btcutil.Amount(mempoolEntry.DescendantSize)
@@ -383,7 +372,7 @@ func (rl *Relayer) calculateBumpedFee(ckptInfo *types.CheckpointInfo, previousFa
 				bumpedFee, requiredFee, rl.config.InsufficientFeerateMargin*100)
 			bumpedFee = requiredFee
 		}
-	case "fee_increment_too_small":
+	case errors.Is(previousFailure, ErrFeeIncrementTooSmall):
 		incrementalFeerate, err := rl.getIncrementalRelayFeerate()
 		if err == nil {
 			// Calculate minimum required increment
@@ -486,17 +475,16 @@ func (rl *Relayer) maybeResendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bu
 
 	return tx2, nil
 }
-
 func (rl *Relayer) verifyRBFRequirements(txID string, newFee btcutil.Amount, txVirtualSize int64) error {
 	// Fetch mempool data for original transaction and its descendants
 	mempoolEntry, err := rl.BTCWallet.GetMempoolEntry(txID)
 	if err != nil {
-		return fmt.Errorf("original transaction %s not found in mempool: %w", txID, err)
+		return fmt.Errorf("%w: %s: %w", ErrTxNotInMempool, txID, err)
 	}
 
 	// Rule 5: Check descendant count limit
 	if mempoolEntry.DescendantCount > 100 {
-		return fmt.Errorf("too many descendant transactions (%d > 100)", mempoolEntry.DescendantCount)
+		return fmt.Errorf("%w (%d > 100)", ErrTooManyDescendants, mempoolEntry.DescendantCount)
 	}
 
 	// Calculate aggregate values from original transaction + descendants
@@ -505,26 +493,28 @@ func (rl *Relayer) verifyRBFRequirements(txID string, newFee btcutil.Amount, txV
 
 	// Rule 3: New fee must exceed sum of original fees
 	if newFee <= originalTotalFees {
-		return fmt.Errorf("insufficient fee: %v ≤ %v (original+descendants)", newFee, originalTotalFees)
+		return fmt.Errorf("%w: %v ≤ %v (original+descendants)",
+			ErrInsufficientFee, newFee, originalTotalFees)
 	}
 
 	// Rule 6: Feerate comparison (new vs original aggregate)
 	originalFeerate := float64(originalTotalFees) / float64(originalTotalVsize)
 	newFeerate := float64(newFee) / float64(txVirtualSize)
 	if newFeerate <= originalFeerate {
-		return fmt.Errorf("feerate insufficient: %v ≤ %v (sat/vB)", newFeerate, originalFeerate)
+		return fmt.Errorf("%w: %v ≤ %v (sat/vB)",
+			ErrInsufficientFeerate, newFeerate, originalFeerate)
 	}
 
 	// Rule 4: Check incremental relay fee
 	incrementalFeerate, err := rl.getIncrementalRelayFeerate()
 	if err != nil {
-		return fmt.Errorf("failed to get relay feerate: %w", err)
+		return fmt.Errorf("%w: %w", ErrRelayFeerate, err)
 	}
 
 	requiredIncrement := incrementalFeerate * btcutil.Amount(txVirtualSize)
 	if (newFee - originalTotalFees) < requiredIncrement {
-		return fmt.Errorf("fee increment too small: %v < %v",
-			newFee-originalTotalFees, requiredIncrement)
+		return fmt.Errorf("%w: %v < %v",
+			ErrFeeIncrementTooSmall, newFee-originalTotalFees, requiredIncrement)
 	}
 
 	return nil
