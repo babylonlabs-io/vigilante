@@ -45,22 +45,22 @@ func DefaultBTCStakingTrackerConfig() BTCStakingTrackerConfig {
 }
 
 func (cfg *BTCStakingTrackerConfig) Validate() error {
-	if cfg.CheckDelegationsInterval < 0 {
+	if cfg.CheckDelegationsInterval <= 0 {
 		return errors.New("check-delegations-interval can't be negative")
 	}
-	if cfg.CheckDelegationActiveInterval < 0 {
+	if cfg.CheckDelegationActiveInterval <= 0 {
 		return errors.New("check-if-delegation-active-interval can't be negative")
 	}
 
-	if cfg.FetchEvidenceInterval < 0 {
+	if cfg.FetchEvidenceInterval <= 0 {
 		return errors.New("fetch-evidence-interval can't be negative")
 	}
 
-	if cfg.RetrySubmitUnbondingTxInterval < 0 {
+	if cfg.RetrySubmitUnbondingTxInterval <= 0 {
 		return errors.New("retry-submit-unbonding-interval can't be negative")
 	}
 
-	if cfg.RetryJitter < 0 {
+	if cfg.RetryJitter <= 0 {
 		return errors.New("max-jitter-interval can't be negative")
 	}
 
