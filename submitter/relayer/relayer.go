@@ -12,7 +12,6 @@ import (
 	"github.com/lightningnetwork/lnd/lntypes"
 	"math"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/babylonlabs-io/babylon/btctxformatter"
@@ -199,16 +198,9 @@ func (rl *Relayer) MaybeResubmitSecondCheckpointTx(ckpt *ckpttypes.RawCheckpoint
 
 	var resubmittedTx2 *types.BtcTxInfo
 	var lastError error
-	var tooManyDescendants bool
 
 	err := retry.Do(
 		func() error {
-			if tooManyDescendants {
-				rl.logger.Warnf("Transaction has too many descendants (>100), skipping RBF attempt")
-
-				return nil
-			}
-
 			bumpedFee, err := rl.calculateBumpedFee(rl.lastSubmittedCheckpoint, lastError)
 			if err != nil {
 				return err
@@ -224,11 +216,8 @@ func (rl *Relayer) MaybeResubmitSecondCheckpointTx(ckpt *ckpttypes.RawCheckpoint
 			tx2Result, err := rl.maybeResendSecondTxOfCheckpointToBTC(rl.lastSubmittedCheckpoint.Tx2, bumpedFee)
 			if err != nil {
 				lastError = err
-
-				// Check if the error is due to too many descendants
-				if strings.Contains(err.Error(), "too many descendant transactions") {
-					tooManyDescendants = true
-					rl.logger.Warnf("Transaction has too many descendants, won't attempt RBF again: %v", err)
+				if errors.Is(err, ErrTooManyDescendants) {
+					rl.logger.Warnf("Transaction %s has too many descendants, won't attempt RBF again: %v", rl.lastSubmittedCheckpoint.Tx2.TxID, err)
 
 					return nil // Don't retry with RBF if there are too many descendants
 				}
@@ -236,12 +225,6 @@ func (rl *Relayer) MaybeResubmitSecondCheckpointTx(ckpt *ckpttypes.RawCheckpoint
 				return err
 			}
 
-			// If nil result but no error, it means no need to resend (tx confirmed)
-			if tx2Result == nil {
-				return nil
-			}
-
-			// Success - store the result for use after retry loop
 			resubmittedTx2 = tx2Result
 
 			return nil
