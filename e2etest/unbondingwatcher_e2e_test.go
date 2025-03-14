@@ -1,15 +1,16 @@
-//go:build e2e
-// +build e2e
-
 package e2etest
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
+	bbnclient "github.com/babylonlabs-io/babylon/client/client"
 	btcstakingtypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/btcjson"
+	"github.com/cosmos/cosmos-sdk/testutil/testdata"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"go.uber.org/zap"
 	"sync"
@@ -526,4 +527,164 @@ func TestUnbondingLoaded(t *testing.T) {
 	cancel()
 
 	t.Logf("avg time to detect unbonding: %v", avgTimeToDetectUnbonding(stakers))
+}
+
+// TestActivatingDelegationWithTwoTrackers - activates a delegation with two staking trackers
+// making sure that after delegation has been activated by one tracker, the other tracker
+// cleans up the delegation from its internal state
+func TestActivatingDelegationWithTwoTrackers(t *testing.T) {
+	t.Parallel()
+	// segwit is activated at height 300. It's necessary for staking/slashing tx
+	numMatureOutputs := uint32(300)
+
+	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
+	defer tm.Stop(t)
+	tm.CatchUpBTCLightClient(t)
+
+	btcNotifier, err := btcclient.NewNodeBackend(
+		btcclient.ToBitcoindConfig(tm.Config.BTC),
+		&chaincfg.RegressionNetParams,
+		&btcclient.EmptyHintCache{},
+	)
+	require.NoError(t, err)
+
+	err = btcNotifier.Start()
+	require.NoError(t, err)
+
+	commonCfg := config.DefaultCommonConfig()
+	bstCfg := config.DefaultBTCStakingTrackerConfig()
+	bstCfg.CheckDelegationsInterval = 1 * time.Second
+	bstCfg.IndexerAddr = tm.Config.BTCStakingTracker.IndexerAddr
+	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
+
+	commonCfg2 := config.DefaultCommonConfig()
+	bstCfg2 := config.DefaultBTCStakingTrackerConfig()
+	bstCfg2.CheckDelegationsInterval = 1 * time.Second
+	bstCfg2.IndexerAddr = tm.Config.BTCStakingTracker.IndexerAddr
+	stakingTrackerMetrics2 := metrics.NewBTCStakingTrackerMetrics()
+
+	prvKey, _, address := testdata.KeyTestPubAddr()
+
+	err = tm.BabylonClient.Provider().Keybase.ImportPrivKeyHex(
+		"test-2",
+		hex.EncodeToString(prvKey.Bytes()),
+		"secp256k1",
+	)
+	require.NoError(t, err)
+
+	cfg := defaultVigilanteConfig()
+	cfg.BTC.Endpoint = tm.Config.BTC.Endpoint
+	cfg.BTCStakingTracker.IndexerAddr = tm.Config.BTCStakingTracker.IndexerAddr
+	cfg.Babylon.KeyDirectory = tm.Config.Babylon.KeyDirectory
+	cfg.Babylon.GasAdjustment = tm.Config.Babylon.GasAdjustment
+	cfg.Babylon.Key = "test-2"
+	cfg.Babylon.RPCAddr = tm.Config.Babylon.RPCAddr
+	cfg.Babylon.GRPCAddr = tm.Config.Babylon.GRPCAddr
+
+	babylonClient, err := bbnclient.New(&cfg.Babylon, nil)
+	require.NoError(t, err)
+
+	msg := banktypes.NewMsgSend(
+		sdk.MustAccAddressFromBech32(tm.BabylonClient.MustGetAddr()),
+		address,
+		sdk.NewCoins(sdk.NewInt64Coin("ubbn", 100_000_000)),
+	)
+
+	_, err = tm.BabylonClient.ReliablySendMsg(context.Background(), msg, nil, nil)
+	require.NoError(t, err)
+
+	bsTracker := bst.NewBTCStakingTracker(
+		tm.BTCClient,
+		btcNotifier,
+		tm.BabylonClient,
+		&bstCfg,
+		&commonCfg,
+		zap.NewNop(),
+		stakingTrackerMetrics,
+	)
+	bsTracker.Start()
+	defer bsTracker.Stop()
+
+	btcClient := initBTCClientWithSubscriber(t, tm.Config)
+
+	bsTracker2 := bst.NewBTCStakingTracker(
+		btcClient,
+		btcNotifier,
+		babylonClient,
+		&bstCfg2,
+		&commonCfg2,
+		zap.NewNop(),
+		stakingTrackerMetrics2,
+	)
+	bsTracker2.Start()
+	defer bsTracker2.Stop()
+
+	// set up a finality provider
+	_, fpSK := tm.CreateFinalityProvider(t)
+	// set up a BTC delegation
+	stakingMsgTx, stakingSlashingInfo, _, _ := tm.CreateBTCDelegationWithoutIncl(t, fpSK)
+	stakingMsgTxHash := stakingMsgTx.TxHash()
+
+	// send staking tx to Bitcoin node's mempool
+	_, err = tm.BTCClient.SendRawTransaction(stakingMsgTx, true)
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		txns, err := tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{&stakingMsgTxHash})
+		require.NoError(t, err)
+		return len(txns) == 1
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	mBlock := tm.mineBlock(t)
+	require.Equal(t, 2, len(mBlock.Transactions))
+
+	// wait until staking tx is on Bitcoin
+	require.Eventually(t, func() bool {
+		_, err := tm.BTCClient.GetRawTransaction(&stakingMsgTxHash)
+		return err == nil
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// We want to introduce a latency to make sure that we are not trying to submit inclusion proof while the
+		// staking tx is not yet K-deep
+		time.Sleep(10 * time.Second)
+		// Insert k empty blocks to Bitcoin
+		btccParamsResp, err := tm.BabylonClient.BTCCheckpointParams()
+		if err != nil {
+			fmt.Println("Error fetching BTCCheckpointParams:", err)
+			return
+		}
+		for i := 0; i < int(btccParamsResp.Params.BtcConfirmationDepth); i++ {
+			tm.mineBlock(t)
+		}
+		tm.CatchUpBTCLightClient(t)
+	}()
+
+	wg.Wait()
+
+	// make sure we didn't submit any "invalid" incl proof
+	require.Eventually(t, func() bool {
+		return promtestutil.ToFloat64(stakingTrackerMetrics.FailedReportedActivateDelegations) == 0
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	require.Eventually(t, func() bool {
+		return promtestutil.ToFloat64(stakingTrackerMetrics.NumberOfVerifiedNotInChainDelegations) == 0
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	require.Eventually(t, func() bool {
+		resp, err := tm.BabylonClient.BTCDelegation(stakingSlashingInfo.StakingTx.TxHash().String())
+		require.NoError(t, err)
+
+		return resp.BtcDelegation.Active
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	// tracker that activated delegation should decrease the number of delegations in "VERIFIED" state
+	// after successful activation. The other tracker should do that as well.
+	require.Eventually(t, func() bool {
+		return promtestutil.ToFloat64(stakingTrackerMetrics2.NumberOfVerifiedDelegations) == 0 &&
+			promtestutil.ToFloat64(stakingTrackerMetrics.NumberOfVerifiedDelegations) == 0
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
 }
