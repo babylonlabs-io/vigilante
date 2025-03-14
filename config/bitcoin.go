@@ -26,6 +26,7 @@ type BTCConfig struct {
 	ZmqSeqEndpoint    string                `mapstructure:"zmq-seq-endpoint"`
 	ZmqBlockEndpoint  string                `mapstructure:"zmq-block-endpoint"`
 	ZmqTxEndpoint     string                `mapstructure:"zmq-tx-endpoint"`
+	DisableTLS        bool                  `mapstructure:"disable-tls"`
 }
 
 func (cfg *BTCConfig) Validate() error {
@@ -100,9 +101,9 @@ func DefaultBTCConfig() BTCConfig {
 		WalletPassword:    "walletpass",
 		WalletName:        "default",
 		WalletLockTime:    10,
-		TxFeeMax:          chainfee.SatPerKVByte(20 * 1000), // 20,000sat/kvb = 20sat/vbyte
-		TxFeeMin:          chainfee.SatPerKVByte(1 * 1000),  // 1,000sat/kvb = 1sat/vbyte
-		DefaultFee:        chainfee.SatPerKVByte(1 * 1000),  // 1,000sat/kvb = 1sat/vbyte
+		TxFeeMax:          chainfee.SatPerKVByte(200 * 1000), // 200,000sat/kvb = 200sat/vbyte
+		TxFeeMin:          chainfee.SatPerKVByte(1 * 1000),   // 1,000sat/kvb = 1sat/vbyte
+		DefaultFee:        chainfee.SatPerKVByte(1 * 1000),   // 1,000sat/kvb = 1sat/vbyte
 		EstimateMode:      DefaultBtcNodeEstimateMode,
 		TargetBlockNum:    1,
 		NetParams:         types.BtcSimnet.String(),
@@ -112,5 +113,6 @@ func DefaultBTCConfig() BTCConfig {
 		ZmqSeqEndpoint:    DefaultZmqSeqEndpoint,
 		ZmqBlockEndpoint:  DefaultZmqBlockEndpoint,
 		ZmqTxEndpoint:     DefaultZmqTxEndpoint,
+		DisableTLS:        true,
 	}
 }

@@ -50,7 +50,7 @@ func NewWallet(cfg *config.Config, parentLogger *zap.Logger) (*Client, error) {
 		HTTPPostMode: true,
 		User:         cfg.BTC.Username,
 		Pass:         cfg.BTC.Password,
-		DisableTLS:   true,
+		DisableTLS:   cfg.BTC.DisableTLS,
 	}
 
 	rpcClient, err := rpcclient.New(connCfg, nil)
@@ -180,6 +180,10 @@ func (c *Client) TxDetails(txHash *chainhash.Hash, pkScript []byte) (*notifier.T
 
 func (c *Client) GetNetworkInfo() (*btcjson.GetNetworkInfoResult, error) {
 	return c.Client.GetNetworkInfo()
+}
+
+func (c *Client) GetMempoolEntry(txHash string) (*btcjson.GetMempoolEntryResult, error) {
+	return c.Client.GetMempoolEntry(txHash)
 }
 
 func rpcHostURL(host, walletName string) string {

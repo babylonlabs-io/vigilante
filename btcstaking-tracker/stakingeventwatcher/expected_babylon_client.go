@@ -44,7 +44,7 @@ type BabylonNodeAdapter interface {
 	IsDelegationActive(stakingTxHash chainhash.Hash) (bool, error)
 	IsDelegationVerified(stakingTxHash chainhash.Hash) (bool, error)
 	ReportUnbonding(ctx context.Context, stakingTxHash chainhash.Hash, stakeSpendingTx *wire.MsgTx,
-		inclusionProof *btcstakingtypes.InclusionProof) error
+		inclusionProof *btcstakingtypes.InclusionProof, fundingTxs [][]byte) error
 	BtcClientTipHeight() (uint32, error)
 	ActivateDelegation(ctx context.Context, stakingTxHash chainhash.Hash, proof *btcctypes.BTCSpvProof) error
 	QueryHeaderDepth(headerHash *chainhash.Hash) (uint32, error)
@@ -132,7 +132,8 @@ func (bca *BabylonClientAdapter) ReportUnbonding(
 	ctx context.Context,
 	stakingTxHash chainhash.Hash,
 	stakeSpendingTx *wire.MsgTx,
-	inclusionProof *btcstakingtypes.InclusionProof) error {
+	inclusionProof *btcstakingtypes.InclusionProof,
+	fundingTxs [][]byte) error {
 	signer := bca.babylonClient.MustGetAddr()
 
 	stakeSpendingBytes, err := bbn.SerializeBTCTx(stakeSpendingTx)
@@ -145,6 +146,7 @@ func (bca *BabylonClientAdapter) ReportUnbonding(
 		StakingTxHash:                 stakingTxHash.String(),
 		StakeSpendingTx:               stakeSpendingBytes,
 		StakeSpendingTxInclusionProof: inclusionProof,
+		FundingTransactions:           fundingTxs,
 	}
 
 	resp, err := bca.babylonClient.ReliablySendMsg(ctx, &msg, []*sdkerrors.Error{}, []*sdkerrors.Error{})

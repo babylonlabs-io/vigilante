@@ -3,6 +3,7 @@ package relayer
 import (
 	"errors"
 	"github.com/babylonlabs-io/vigilante/submitter/store"
+	"github.com/btcsuite/btcd/btcjson"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
@@ -73,7 +74,7 @@ func Test_maybeResendFromStore(t *testing.T) {
 				return &store.StoredCheckpoint{Epoch: 123, Tx1: &wire.MsgTx{}, Tx2: &wire.MsgTx{}}, true, nil
 			},
 			getRawTransaction: func(_ *chainhash.Hash) (*btcutil.Tx, error) {
-				return nil, errors.New("transaction not found") // Simulate transaction not found
+				return nil, &btcjson.RPCError{Code: btcjson.ErrRPCNoTxInfo, Message: "transaction not found"}
 			},
 			sendTransaction: func(_ *wire.MsgTx) (*chainhash.Hash, error) {
 				return &chainhash.Hash{}, nil // Simulate successful send
@@ -88,13 +89,43 @@ func Test_maybeResendFromStore(t *testing.T) {
 				return &store.StoredCheckpoint{Epoch: 123, Tx1: &wire.MsgTx{}, Tx2: &wire.MsgTx{}}, true, nil
 			},
 			getRawTransaction: func(_ *chainhash.Hash) (*btcutil.Tx, error) {
-				return nil, errors.New("transaction not found")
+				return nil, &btcjson.RPCError{Code: btcjson.ErrRPCNoTxInfo, Message: "transaction not found"}
 			},
 			sendTransaction: func(_ *wire.MsgTx) (*chainhash.Hash, error) {
 				return nil, errors.New("send error")
 			},
 			expectedResult: false,
 			expectedError:  errors.New("send error"),
+		},
+		{
+			name:  "Transaction resend returns ErrRPCTxAlreadyInChain",
+			epoch: 123,
+			getLatestCheckpoint: func() (*store.StoredCheckpoint, bool, error) {
+				return &store.StoredCheckpoint{Epoch: 123, Tx1: &wire.MsgTx{}, Tx2: &wire.MsgTx{}}, true, nil
+			},
+			getRawTransaction: func(_ *chainhash.Hash) (*btcutil.Tx, error) {
+				return &btcutil.Tx{}, nil
+			},
+			sendTransaction: func(_ *wire.MsgTx) (*chainhash.Hash, error) {
+				return nil, &btcjson.RPCError{Code: btcjson.ErrRPCTxAlreadyInChain, Message: "tx already in chain"}
+			},
+			expectedResult: true,
+			expectedError:  nil,
+		},
+		{
+			name:  "Network error in getRawTransaction",
+			epoch: 123,
+			getLatestCheckpoint: func() (*store.StoredCheckpoint, bool, error) {
+				return &store.StoredCheckpoint{Epoch: 123, Tx1: &wire.MsgTx{}, Tx2: &wire.MsgTx{}}, true, nil
+			},
+			getRawTransaction: func(_ *chainhash.Hash) (*btcutil.Tx, error) {
+				return nil, errors.New("network error")
+			},
+			sendTransaction: func(_ *wire.MsgTx) (*chainhash.Hash, error) {
+				return nil, errors.New("should not be called")
+			},
+			expectedResult: false,
+			expectedError:  errors.New("network error"),
 		},
 	}
 

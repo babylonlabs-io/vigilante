@@ -91,4 +91,5 @@ btcstaking-tracker:
   max-jitter-interval: 30s
   btcnetparams: simnet
   indexer-addr: localhost:3000
+  fetch-evidence-interval: 60
 

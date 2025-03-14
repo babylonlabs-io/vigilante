@@ -143,15 +143,15 @@ func (mr *MockBabylonNodeAdapterMockRecorder) QueryHeaderDepth(headerHash interf
 }
 
 // ReportUnbonding mocks base method.
-func (m *MockBabylonNodeAdapter) ReportUnbonding(ctx context.Context, stakingTxHash chainhash.Hash, stakeSpendingTx *wire.MsgTx, inclusionProof *types0.InclusionProof) error {
+func (m *MockBabylonNodeAdapter) ReportUnbonding(ctx context.Context, stakingTxHash chainhash.Hash, stakeSpendingTx *wire.MsgTx, inclusionProof *types0.InclusionProof, fundingTxs [][]byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReportUnbonding", ctx, stakingTxHash, stakeSpendingTx, inclusionProof)
+	ret := m.ctrl.Call(m, "ReportUnbonding", ctx, stakingTxHash, stakeSpendingTx, inclusionProof, fundingTxs)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ReportUnbonding indicates an expected call of ReportUnbonding.
-func (mr *MockBabylonNodeAdapterMockRecorder) ReportUnbonding(ctx, stakingTxHash, stakeSpendingTx, inclusionProof interface{}) *gomock.Call {
+func (mr *MockBabylonNodeAdapterMockRecorder) ReportUnbonding(ctx, stakingTxHash, stakeSpendingTx, inclusionProof, fundingTxs interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportUnbonding", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).ReportUnbonding), ctx, stakingTxHash, stakeSpendingTx, inclusionProof)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportUnbonding", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).ReportUnbonding), ctx, stakingTxHash, stakeSpendingTx, inclusionProof, fundingTxs)
 }
