@@ -49,6 +49,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 * [#252](https://github.com/babylonlabs-io/vigilante/pull/252) fix: rbf compliant
 * [#241](https://github.com/babylonlabs-io/vigilante/pull/241) chore: limit response read
 * [#256](https://github.com/babylonlabs-io/vigilante/pull/256) fix: genesis parsing
+* [#236](https://github.com/babylonlabs-io/vigilante/pull/236) fix: handle has inclusion proof err
 
 ## v0.21.0
 
@@ -76,6 +77,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 * [#237](https://github.com/babylonlabs-io/vigilante/pull/237) fix: send on closed chan
 
 ## v0.19.9
+
+### Improvements
+
+* [#211](https://github.com/babylonlabs-io/vigilante/pull/211) feat: adds indexer to btc staking tracker
 
 ### Bug Fixes
 
