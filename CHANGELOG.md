@@ -49,6 +49,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 * [#252](https://github.com/babylonlabs-io/vigilante/pull/252) fix: rbf compliant
 * [#241](https://github.com/babylonlabs-io/vigilante/pull/241) chore: limit response read
 * [#256](https://github.com/babylonlabs-io/vigilante/pull/256) fix: genesis parsing
+* [#236](https://github.com/babylonlabs-io/vigilante/pull/236) fix: handle has inclusion proof err
 
 ## v0.21.0
 
@@ -73,7 +74,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 * [#223](https://github.com/babylonlabs-io/vigilante/pull/223) fix: consider minimal fee for bump
 * [#226](https://github.com/babylonlabs-io/vigilante/pull/226) fix: reselect inputs after adding manual output
 * [#229](https://github.com/babylonlabs-io/vigilante/pull/229) chore: lax unecessary btc tx checks
-* [#236](https://github.com/babylonlabs-io/vigilante/pull/236) fix: handle has inclusion proof err
 * [#237](https://github.com/babylonlabs-io/vigilante/pull/237) fix: send on closed chan
 
 ## v0.19.9
