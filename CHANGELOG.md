@@ -50,7 +50,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 * [#241](https://github.com/babylonlabs-io/vigilante/pull/241) chore: limit response read
 * [#256](https://github.com/babylonlabs-io/vigilante/pull/256) fix: genesis parsing
 * [#236](https://github.com/babylonlabs-io/vigilante/pull/236) fix: handle has inclusion proof err
-
+* [#261](https://github.com/babylonlabs-io/vigilante/pull/261) fix: tweak fund tx
 ## v0.21.0
 
 ### Improvements
