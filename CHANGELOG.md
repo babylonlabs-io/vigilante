@@ -42,6 +42,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 * [#255](https://github.com/babylonlabs-io/vigilante/pull/255) chore: disable tls in config
 * [#257](https://github.com/babylonlabs-io/vigilante/pull/257) chore: change default max
 * [#260](https://github.com/babylonlabs-io/vigilante/pull/260) chore: add fetch-evidence-interval to sample config
+* [#262](https://github.com/babylonlabs-io/vigilante/pull/262) chore: submitter e2e for tx values bellow dust
 
 ### Bug Fixes
 
@@ -51,6 +52,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 * [#256](https://github.com/babylonlabs-io/vigilante/pull/256) fix: genesis parsing
 * [#236](https://github.com/babylonlabs-io/vigilante/pull/236) fix: handle has inclusion proof err
 * [#261](https://github.com/babylonlabs-io/vigilante/pull/261) fix: tweak fund tx
+
 ## v0.21.0
 
 ### Improvements
