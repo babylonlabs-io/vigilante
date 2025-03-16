@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - 'main'
+      - 'lazar/fix-tweak-fund-build'
     tags:
       - '*'
 
