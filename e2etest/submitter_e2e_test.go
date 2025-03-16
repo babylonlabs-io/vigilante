@@ -195,6 +195,9 @@ func TestSubmitterSubmissionReplace(t *testing.T) {
 	require.True(t, promtestutil.ToFloat64(vigilantSubmitter.Metrics().ResentCheckpointsCounter) == 1)
 }
 
+// TestSubmitterSubmissionReplaceDust tests that the submitter will correctly fund transaction with output value bellow dust.
+// specifically, it tests the branch of "if balance-bumpedFee < dustThreshold" in relayer.go L321 of
+// maybeResendSecondTxOfCheckpointToBTC fcn
 func TestSubmitterSubmissionReplaceDust(t *testing.T) {
 	t.Parallel()
 	r := rand.New(rand.NewSource(time.Now().Unix()))
