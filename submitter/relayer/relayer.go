@@ -328,9 +328,8 @@ func (rl *Relayer) maybeResendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bu
 		changePosition := 1
 		// Need to create new inputs to cover the fee
 		fundedTx, err := rl.BTCWallet.FundRawTransaction(tx2.Tx, btcjson.FundRawTransactionOpts{
-			FeeRate:                &roundedFeeRate,
-			ChangePosition:         &changePosition,
-			SubtractFeeFromOutputs: []int{changePosition},
+			FeeRate:        &roundedFeeRate,
+			ChangePosition: &changePosition,
 		}, nil)
 
 		if err != nil {
