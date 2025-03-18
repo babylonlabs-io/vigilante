@@ -21,7 +21,9 @@ btc:
   username: rpcuser
   password: rpcpass
   reconnect-attempts: 3
-  zmq-endpoint: ~  # use tcp://127.0.0.1:29000 if btc-backend is bitcoind
+  zmq-seq-endpoint: tcp://localhost:29000
+  zmq-block-endpoint: tcp://localhost:29001
+  zmq-tx-endpoint: tcp://localhost:29002
 babylon:
   key: node0
   chain-id: chain-test
