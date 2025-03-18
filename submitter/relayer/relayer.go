@@ -703,7 +703,7 @@ func (rl *Relayer) buildChainedDataTx(data []byte, prevTx *wire.MsgTx) (*types.B
 
 	rl.logger.Debugf("Building a BTC tx using %s with data %x", tx.TxHash(), data)
 
-	return rl.finalizeTransaction(rawTxResult.Transaction)
+	return rl.finalizeTxFunc(rawTxResult.Transaction)
 }
 
 // finalizeTransaction handles the common logic for validating and finalizing a transaction,

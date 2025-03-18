@@ -1279,3 +1279,232 @@ func TestRelayer_MaybeResendSecondTxOfCheckpointToBTC(t *testing.T) {
 		})
 	}
 }
+
+func TestRelayer_BuildChainedDataTx(t *testing.T) {
+	t.Parallel()
+	// Create a mock estimator
+	mockEstimator := &MockEstimator{
+		relayFeePerKWFn: func() chainfee.SatPerKWeight {
+			return chainfee.SatPerKWeight(1000)
+		},
+		estimateFeePerKWFn: func(target uint32) (chainfee.SatPerKWeight, error) {
+			return chainfee.SatPerKWeight(5000), nil
+		},
+	}
+
+	// Helper function to create a previous transaction
+	createPrevTx := func() *wire.MsgTx {
+		prevTx := wire.NewMsgTx(wire.TxVersion)
+
+		// Add a dummy input
+		hash, _ := chainhash.NewHashFromStr("0000000000000000000000000000000000000000000000000000000000000001")
+		prevTx.AddTxIn(wire.NewTxIn(wire.NewOutPoint(hash, 0), nil, nil))
+
+		// Add OP_RETURN output
+		builder := txscript.NewScriptBuilder()
+		dataScript, _ := builder.AddOp(txscript.OP_RETURN).AddData([]byte("previous tx data")).Script()
+		prevTx.AddTxOut(wire.NewTxOut(0, dataScript))
+
+		// Add change output (this will be used as input for the chained tx)
+		r := rand.New(rand.NewSource(time.Now().UnixMilli()))
+		address, err := datagen.GenRandomBTCAddress(r, &chaincfg.RegressionNetParams)
+		require.NoError(t, err)
+		pkScript, _ := txscript.PayToAddrScript(address)
+		prevTx.AddTxOut(wire.NewTxOut(10000, pkScript))
+
+		return prevTx
+	}
+
+	tests := []struct {
+		name              string
+		data              []byte
+		prevTx            *wire.MsgTx
+		setupMocks        func(*mocks.MockBTCWallet)
+		expectedErrSubstr string
+		validateResult    func(*testing.T, *types.BtcTxInfo, error)
+	}{
+		{
+			name:   "successful chained transaction",
+			data:   []byte("test data for chained tx"),
+			prevTx: createPrevTx(),
+			setupMocks: func(m *mocks.MockBTCWallet) {
+				// Mock FundRawTransaction
+				m.EXPECT().
+					FundRawTransaction(gomock.Any(), gomock.Any(), gomock.Nil()).
+					DoAndReturn(func(tx *wire.MsgTx, opts btcjson.FundRawTransactionOpts, _ interface{}) (*btcjson.FundRawTransactionResult, error) {
+						// Verify the input points to the change output of the previous tx
+						assert.Equal(t, 1, len(tx.TxIn), "Transaction should have exactly one input")
+						assert.Equal(t, uint32(1), tx.TxIn[0].PreviousOutPoint.Index, "Input should reference change output (index 1)")
+
+						// Create a properly funded transaction
+						fundedTx := wire.NewMsgTx(wire.TxVersion)
+
+						// Copy the original input
+						for _, txIn := range tx.TxIn {
+							fundedTx.AddTxIn(wire.NewTxIn(&txIn.PreviousOutPoint, nil, nil))
+							// Preserve the sequence number for RBF
+							fundedTx.TxIn[len(fundedTx.TxIn)-1].Sequence = txIn.Sequence
+						}
+
+						// Copy the OP_RETURN output
+						fundedTx.AddTxOut(wire.NewTxOut(0, tx.TxOut[0].PkScript))
+
+						// Add a change output
+						r := rand.New(rand.NewSource(time.Now().UnixMilli()))
+						address, err := datagen.GenRandomBTCAddress(r, &chaincfg.RegressionNetParams)
+						require.NoError(t, err)
+						pkScript, _ := txscript.PayToAddrScript(address)
+						fundedTx.AddTxOut(wire.NewTxOut(8000, pkScript)) // 10000 - 2000 fee
+
+						return &btcjson.FundRawTransactionResult{
+							Transaction:    fundedTx,
+							Fee:            2000,
+							ChangePosition: 1,
+						}, nil
+					})
+
+				btcConfig := &MockBTCConfig{
+					targetBlockNum: 6,
+					defaultFee:     chainfee.SatPerKVByte(5000),
+					txFeeMin:       chainfee.SatPerKVByte(1000),
+					txFeeMax:       chainfee.SatPerKVByte(100000),
+				}
+				m.EXPECT().GetBTCConfig().Return(btcConfig.GetBTCConfig()).AnyTimes()
+			},
+			validateResult: func(t *testing.T, result *types.BtcTxInfo, err error) {
+				assert.NoError(t, err)
+				assert.NotNil(t, result)
+
+				// Verify transaction structure
+				assert.Equal(t, 1, len(result.Tx.TxIn), "Transaction should have one input")
+				assert.Equal(t, 2, len(result.Tx.TxOut), "Transaction should have two outputs (data and change)")
+
+				// Verify the input is correctly pointing to previous tx's change output
+				assert.Equal(t, uint32(1), result.Tx.TxIn[0].PreviousOutPoint.Index, "Input should point to previous tx's change output")
+
+				// Verify the input sequence is set for RBF
+				assert.Equal(t, uint32(0xFFFFFFFD), result.Tx.TxIn[0].Sequence, "Input sequence should be set to enable RBF")
+
+				// Verify the data output
+				assert.Equal(t, int64(0), result.Tx.TxOut[0].Value, "OP_RETURN output should have zero value")
+
+				// Verify the change output
+				assert.Equal(t, int64(8000), result.Tx.TxOut[1].Value, "Change output should have correct value")
+
+				// Verify the size and fee values from our mock implementation
+				assert.Equal(t, int64(250), result.Size, "Transaction size should match our mock")
+				assert.Equal(t, btcutil.Amount(2000), result.Fee, "Transaction fee should match our mock")
+			},
+		},
+		{
+			name:   "fund raw transaction fails",
+			data:   []byte("test data for chained tx"),
+			prevTx: createPrevTx(),
+			setupMocks: func(m *mocks.MockBTCWallet) {
+				btcConfig := &MockBTCConfig{
+					targetBlockNum: 6,
+					defaultFee:     chainfee.SatPerKVByte(5000),
+					txFeeMin:       chainfee.SatPerKVByte(1000),
+					txFeeMax:       chainfee.SatPerKVByte(100000),
+				}
+				m.EXPECT().GetBTCConfig().Return(btcConfig.GetBTCConfig()).AnyTimes()
+				m.EXPECT().
+					FundRawTransaction(gomock.Any(), gomock.Any(), gomock.Nil()).
+					Return(nil, errors.New("insufficient funds"))
+			},
+			expectedErrSubstr: "failed to fund raw tx in buildChainedDataTx",
+		},
+		{
+			name:   "finalize transaction fails",
+			data:   []byte("test data for chained tx"),
+			prevTx: createPrevTx(),
+			setupMocks: func(m *mocks.MockBTCWallet) {
+				m.EXPECT().
+					FundRawTransaction(gomock.Any(), gomock.Any(), gomock.Nil()).
+					DoAndReturn(func(tx *wire.MsgTx, opts btcjson.FundRawTransactionOpts, _ interface{}) (*btcjson.FundRawTransactionResult, error) {
+						// Create a properly funded transaction
+						fundedTx := wire.NewMsgTx(wire.TxVersion)
+
+						// Copy the original input
+						for _, txIn := range tx.TxIn {
+							fundedTx.AddTxIn(wire.NewTxIn(&txIn.PreviousOutPoint, nil, nil))
+							fundedTx.TxIn[len(fundedTx.TxIn)-1].Sequence = txIn.Sequence
+						}
+
+						// Copy the OP_RETURN output
+						fundedTx.AddTxOut(wire.NewTxOut(0, tx.TxOut[0].PkScript))
+
+						// Add a change output
+						r := rand.New(rand.NewSource(time.Now().UnixMilli()))
+						address, err := datagen.GenRandomBTCAddress(r, &chaincfg.RegressionNetParams)
+						require.NoError(t, err)
+						pkScript, _ := txscript.PayToAddrScript(address)
+						fundedTx.AddTxOut(wire.NewTxOut(8000, pkScript))
+
+						return &btcjson.FundRawTransactionResult{
+							Transaction:    fundedTx,
+							Fee:            2000,
+							ChangePosition: 1,
+						}, nil
+					})
+				btcConfig := &MockBTCConfig{
+					targetBlockNum: 6,
+					defaultFee:     chainfee.SatPerKVByte(5000),
+					txFeeMin:       chainfee.SatPerKVByte(1000),
+					txFeeMax:       chainfee.SatPerKVByte(100000),
+				}
+				m.EXPECT().GetBTCConfig().Return(btcConfig.GetBTCConfig()).AnyTimes()
+			},
+			expectedErrSubstr: "failed to sign tx",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockBTCWallet := mocks.NewMockBTCWallet(ctrl)
+			logger := zaptest.NewLogger(t).Sugar()
+
+			// Create a test relayer with the mocked components
+			relayer := &Relayer{
+				BTCWallet: mockBTCWallet,
+				Estimator: mockEstimator,
+				logger:    logger,
+				// Set up a mock finalizeTxFunc that doesn't depend on finalizeTransaction
+				finalizeTxFunc: func(tx *wire.MsgTx) (*types.BtcTxInfo, error) {
+					// For error test case, simulate finalization failure
+					if tc.expectedErrSubstr == "failed to sign tx" {
+						return nil, errors.New("failed to sign tx: wallet unlock failed")
+					}
+
+					// Otherwise, return a successful result
+					txHash := tx.TxHash()
+					return &types.BtcTxInfo{
+						TxID: &txHash,
+						Tx:   tx,
+						Size: 250,                  // Dummy size for testing
+						Fee:  btcutil.Amount(2000), // Use the fee from our test setup
+					}, nil
+				},
+			}
+
+			// Setup mocks for this test case
+			tc.setupMocks(mockBTCWallet)
+
+			// Call the function being tested
+			result, err := relayer.buildChainedDataTx(tc.data, tc.prevTx)
+
+			// Validate the results
+			if tc.expectedErrSubstr != "" {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tc.expectedErrSubstr)
+				assert.Nil(t, result)
+			} else if tc.validateResult != nil {
+				tc.validateResult(t, result, err)
+			}
+		})
+	}
+}
