@@ -3,6 +3,7 @@ package relayer
 import (
 	"errors"
 	"github.com/babylonlabs-io/babylon/testutil/datagen"
+	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/submitter/store"
 	"github.com/babylonlabs-io/vigilante/testutil/mocks"
@@ -862,6 +863,416 @@ func TestRelayer_FinalizeTransaction(t *testing.T) {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tc.expectedErrSubstr)
 				assert.Nil(t, result)
+			} else if tc.validateResult != nil {
+				tc.validateResult(t, result, err)
+			}
+		})
+	}
+}
+
+func TestRelayer_MaybeResendSecondTxOfCheckpointToBTC(t *testing.T) {
+	t.Parallel()
+	// Create a mock estimator
+	mockEstimator := &MockEstimator{
+		relayFeePerKWFn: func() chainfee.SatPerKWeight {
+			return chainfee.SatPerKWeight(1000)
+		},
+		estimateFeePerKWFn: func(target uint32) (chainfee.SatPerKWeight, error) {
+			return chainfee.SatPerKWeight(5000), nil
+		},
+	}
+
+	// Helper function to create a basic test transaction
+	createTestTx := func(changeValue int64) *types.BtcTxInfo {
+		tx := wire.NewMsgTx(wire.TxVersion)
+
+		// Add a dummy input
+		hash, _ := chainhash.NewHashFromStr("0000000000000000000000000000000000000000000000000000000000000001")
+		tx.AddTxIn(wire.NewTxIn(wire.NewOutPoint(hash, 0), nil, nil))
+
+		// Add OP_RETURN output (data output)
+		builder := txscript.NewScriptBuilder()
+		dataScript, _ := builder.AddOp(txscript.OP_RETURN).AddData([]byte("test data")).Script()
+		tx.AddTxOut(wire.NewTxOut(0, dataScript))
+
+		// Add change output
+		r := rand.New(rand.NewSource(time.Now().UnixMilli()))
+		address, err := datagen.GenRandomBTCAddress(r, &chaincfg.RegressionNetParams)
+		require.NoError(t, err)
+		pkScript, _ := txscript.PayToAddrScript(address)
+		tx.AddTxOut(wire.NewTxOut(changeValue, pkScript))
+
+		txID := tx.TxHash()
+
+		return &types.BtcTxInfo{
+			TxID: &txID,
+			Tx:   tx,
+			Size: 200,                  // Dummy size
+			Fee:  btcutil.Amount(1000), // Original fee
+		}
+	}
+
+	tests := []struct {
+		name              string
+		tx2Setup          func() *types.BtcTxInfo
+		bumpedFee         btcutil.Amount
+		mockSetup         func(*mocks.MockBTCWallet, *types.BtcTxInfo, btcutil.Amount)
+		expectedErrSubstr string
+		validateResult    func(*testing.T, *types.BtcTxInfo, error)
+	}{
+		{
+			name: "transaction already confirmed",
+			tx2Setup: func() *types.BtcTxInfo {
+				return createTestTx(10000)
+			},
+			bumpedFee: btcutil.Amount(2000),
+			mockSetup: func(m *mocks.MockBTCWallet, tx *types.BtcTxInfo, bumpedFee btcutil.Amount) {
+				// Mock TxDetails to return confirmed status
+				m.EXPECT().
+					TxDetails(gomock.Any(), gomock.Any()).
+					Return(nil, btcclient.TxInChain, nil)
+			},
+			validateResult: func(t *testing.T, result *types.BtcTxInfo, err error) {
+				assert.NoError(t, err)
+				assert.Nil(t, result) // No transaction returned when already confirmed
+			},
+		},
+		{
+			name: "failed to get transaction details",
+			tx2Setup: func() *types.BtcTxInfo {
+				return createTestTx(10000)
+			},
+			bumpedFee: btcutil.Amount(2000),
+			mockSetup: func(m *mocks.MockBTCWallet, tx *types.BtcTxInfo, bumpedFee btcutil.Amount) {
+				// Mock TxDetails to return an error
+				m.EXPECT().
+					TxDetails(gomock.Any(), gomock.Any()).
+					Return(nil, btcclient.TxNotFound, errors.New("failed to get transaction details"))
+			},
+			expectedErrSubstr: "failed to get transaction details",
+		},
+		{
+			name: "sufficient balance for fee bump",
+			tx2Setup: func() *types.BtcTxInfo {
+				return createTestTx(10000) // 10,000 satoshis is enough to cover fee
+			},
+			bumpedFee: btcutil.Amount(2000),
+			mockSetup: func(m *mocks.MockBTCWallet, tx *types.BtcTxInfo, bumpedFee btcutil.Amount) {
+				// Mock TxDetails to return pending status
+				m.EXPECT().
+					TxDetails(gomock.Any(), gomock.Any()).
+					Return(nil, btcclient.TxInMemPool, nil).AnyTimes()
+
+				// Mock wallet operations for signing
+				m.EXPECT().
+					WalletPassphrase(gomock.Any(), gomock.Any()).
+					Return(nil).AnyTimes()
+
+				m.EXPECT().
+					GetWalletPass().
+					Return("testpassword").
+					AnyTimes()
+
+				m.EXPECT().
+					GetWalletLockTime().
+					Return(int64(300)).
+					AnyTimes()
+
+				// Mock signing
+				signedTx := wire.NewMsgTx(wire.TxVersion)
+				*signedTx = *tx.Tx // Copy the original tx
+				// Adjust the change output with the new fee
+				signedTx.TxOut[changePosition].Value = int64(10000 - bumpedFee)
+
+				m.EXPECT().
+					SignRawTransactionWithWallet(gomock.Any()).
+					Return(signedTx, true, nil).AnyTimes()
+
+				m.EXPECT().
+					GetMempoolEntry(gomock.Any()).
+					Return(&btcjson.GetMempoolEntryResult{
+						DescendantCount: 50,
+						DescendantFees:  1000, // Higher than new fee, will cause RBF to fail
+						DescendantSize:  500,
+					}, nil).AnyTimes()
+
+				m.EXPECT().
+					GetNetworkInfo().
+					Return(&btcjson.GetNetworkInfoResult{
+						IncrementalFee: 2,
+					}, nil)
+
+				// Mock sending the transaction
+				hash, _ := chainhash.NewHashFromStr("000000000000000000000000000000000000000000000000000000000000abcd")
+				m.EXPECT().
+					SendRawTransaction(gomock.Any(), gomock.Eq(true)).
+					Return(hash, nil).AnyTimes()
+			},
+			validateResult: func(t *testing.T, result *types.BtcTxInfo, err error) {
+				assert.NoError(t, err)
+				assert.NotNil(t, result)
+				assert.Equal(t, btcutil.Amount(2000), result.Fee) // Fee should be updated
+				assert.Equal(t, "000000000000000000000000000000000000000000000000000000000000abcd", result.TxID.String())
+				// Verify change output value is reduced by new fee
+				assert.Equal(t, int64(6000), result.Tx.TxOut[changePosition].Value) // 10000 - 2000
+			},
+		},
+		{
+			name: "insufficient balance for fee bump - need to create new inputs",
+			tx2Setup: func() *types.BtcTxInfo {
+				return createTestTx(600) // Just above dust threshold
+			},
+			bumpedFee: btcutil.Amount(1000),
+			mockSetup: func(m *mocks.MockBTCWallet, tx *types.BtcTxInfo, bumpedFee btcutil.Amount) {
+				// Mock TxDetails to return pending status
+				m.EXPECT().
+					TxDetails(gomock.Any(), gomock.Any()).
+					Return(nil, btcclient.TxInMemPool, nil)
+
+				// Mock FundRawTransaction
+				fundedTx := wire.NewMsgTx(wire.TxVersion)
+
+				// Add a copy of the original data output (OP_RETURN)
+				fundedTx.AddTxOut(wire.NewTxOut(0, tx.Tx.TxOut[0].PkScript))
+
+				// Add a new input to cover the higher fee
+				hash2, _ := chainhash.NewHashFromStr("0000000000000000000000000000000000000000000000000000000000000002")
+				fundedTx.AddTxIn(wire.NewTxIn(wire.NewOutPoint(hash2, 0), nil, nil))
+
+				// Also copy the original input
+				hash1, _ := chainhash.NewHashFromStr("0000000000000000000000000000000000000000000000000000000000000001")
+				fundedTx.AddTxIn(wire.NewTxIn(wire.NewOutPoint(hash1, 0), nil, nil))
+
+				// Add change output with new value
+				fundedTx.TxOut = append(fundedTx.TxOut, wire.NewTxOut(5000, tx.Tx.TxOut[changePosition].PkScript))
+
+				m.EXPECT().
+					GetMempoolEntry(gomock.Any()).
+					Return(&btcjson.GetMempoolEntryResult{
+						DescendantCount: 50,
+						DescendantFees:  400,
+						DescendantSize:  500,
+					}, nil).AnyTimes()
+
+				m.EXPECT().
+					GetNetworkInfo().
+					Return(&btcjson.GetNetworkInfoResult{
+						IncrementalFee: 2,
+					}, nil).AnyTimes()
+
+				m.EXPECT().
+					FundRawTransaction(gomock.Any(), gomock.Any(), gomock.Nil()).
+					Return(&btcjson.FundRawTransactionResult{
+						Transaction:    fundedTx,
+						Fee:            1000,
+						ChangePosition: 1,
+					}, nil).AnyTimes()
+
+				m.EXPECT().
+					WalletPassphrase(gomock.Any(), gomock.Any()).
+					Return(nil).AnyTimes()
+
+				m.EXPECT().
+					GetWalletPass().
+					Return("testpassword").
+					AnyTimes().AnyTimes()
+
+				m.EXPECT().
+					GetWalletLockTime().
+					Return(int64(300)).
+					AnyTimes().AnyTimes()
+
+				m.EXPECT().
+					SignRawTransactionWithWallet(gomock.Any()).
+					Return(fundedTx, true, nil).AnyTimes()
+
+				// Mock sending the transaction
+				hash, _ := chainhash.NewHashFromStr("000000000000000000000000000000000000000000000000000000000000dcba")
+				m.EXPECT().
+					SendRawTransaction(gomock.Any(), gomock.Eq(true)).
+					Return(hash, nil).AnyTimes()
+			},
+			validateResult: func(t *testing.T, result *types.BtcTxInfo, err error) {
+				assert.NoError(t, err)
+				assert.NotNil(t, result)
+				assert.Equal(t, btcutil.Amount(1000), result.Fee) // Fee should be updated
+				assert.Equal(t, "000000000000000000000000000000000000000000000000000000000000dcba", result.TxID.String())
+				assert.Equal(t, 2, len(result.Tx.TxIn))                             // Should have an additional input
+				assert.Equal(t, int64(5000), result.Tx.TxOut[changePosition].Value) // New change value
+			},
+		},
+		{
+			name: "fund transaction fails",
+			tx2Setup: func() *types.BtcTxInfo {
+				return createTestTx(600) // Just above dust threshold
+			},
+			bumpedFee: btcutil.Amount(1000),
+			mockSetup: func(m *mocks.MockBTCWallet, tx *types.BtcTxInfo, bumpedFee btcutil.Amount) {
+				// Mock TxDetails to return pending status
+				m.EXPECT().
+					TxDetails(gomock.Any(), gomock.Any()).
+					Return(nil, btcclient.TxInMemPool, nil)
+
+				// Mock FundRawTransaction with error
+				m.EXPECT().
+					FundRawTransaction(gomock.Any(), gomock.Any(), gomock.Nil()).
+					Return(nil, errors.New("insufficient funds"))
+			},
+			expectedErrSubstr: "failed to fund transaction",
+		},
+		{
+			name: "RBF requirements not met",
+			tx2Setup: func() *types.BtcTxInfo {
+				return createTestTx(10000)
+			},
+			bumpedFee: btcutil.Amount(2000),
+			mockSetup: func(m *mocks.MockBTCWallet, tx *types.BtcTxInfo, bumpedFee btcutil.Amount) {
+				m.EXPECT().
+					GetNetworkInfo().
+					Return(&btcjson.GetNetworkInfoResult{
+						IncrementalFee: 2,
+					}, nil).AnyTimes()
+				m.EXPECT().
+					TxDetails(gomock.Any(), gomock.Any()).
+					Return(nil, btcclient.TxInMemPool, nil)
+
+				// Mock verifyRBFRequirements to fail
+				txID := tx.Tx.TxHash().String()
+
+				// Mock GetMempoolEntry
+				m.EXPECT().
+					GetMempoolEntry(gomock.Eq(txID)).
+					Return(&btcjson.GetMempoolEntryResult{
+						DescendantCount: 50,
+						DescendantFees:  1900, // Higher than new fee, will cause RBF to fail
+						DescendantSize:  500,
+					}, nil)
+			},
+			expectedErrSubstr: "RBF requirements not met",
+		},
+		{
+			name: "signing fails",
+			tx2Setup: func() *types.BtcTxInfo {
+				return createTestTx(10000)
+			},
+			bumpedFee: btcutil.Amount(2000),
+			mockSetup: func(m *mocks.MockBTCWallet, tx *types.BtcTxInfo, bumpedFee btcutil.Amount) {
+				// Mock TxDetails to return pending status
+				m.EXPECT().
+					TxDetails(gomock.Any(), gomock.Any()).
+					Return(nil, btcclient.TxInMemPool, nil)
+
+				m.EXPECT().
+					GetMempoolEntry(gomock.Any()).
+					Return(&btcjson.GetMempoolEntryResult{
+						DescendantCount: 50,
+						DescendantFees:  400,
+						DescendantSize:  500,
+					}, nil).AnyTimes()
+
+				m.EXPECT().
+					GetNetworkInfo().
+					Return(&btcjson.GetNetworkInfoResult{
+						IncrementalFee: 2,
+					}, nil).AnyTimes()
+
+				// Mock wallet passphrase
+				m.EXPECT().
+					WalletPassphrase(gomock.Any(), gomock.Any()).
+					Return(errors.New("wallet unlock failed")).
+					AnyTimes()
+
+				m.EXPECT().
+					GetWalletPass().
+					Return("testpassword").
+					AnyTimes()
+
+				m.EXPECT().
+					GetWalletLockTime().
+					Return(int64(300)).
+					AnyTimes()
+			},
+			expectedErrSubstr: "wallet unlock failed",
+		},
+		{
+			name: "send transaction fails",
+			tx2Setup: func() *types.BtcTxInfo {
+				return createTestTx(10000)
+			},
+			bumpedFee: btcutil.Amount(2000),
+			mockSetup: func(m *mocks.MockBTCWallet, tx *types.BtcTxInfo, bumpedFee btcutil.Amount) {
+				m.EXPECT().
+					TxDetails(gomock.Any(), gomock.Any()).
+					Return(nil, btcclient.TxInMemPool, nil)
+
+				m.EXPECT().
+					GetMempoolEntry(gomock.Any()).
+					Return(&btcjson.GetMempoolEntryResult{
+						DescendantCount: 50,
+						DescendantFees:  400,
+						DescendantSize:  500,
+					}, nil).AnyTimes()
+
+				m.EXPECT().
+					GetNetworkInfo().
+					Return(&btcjson.GetNetworkInfoResult{
+						IncrementalFee: 2,
+					}, nil).AnyTimes()
+
+				m.EXPECT().
+					WalletPassphrase(gomock.Any(), gomock.Any()).
+					Return(nil).AnyTimes()
+
+				m.EXPECT().
+					GetWalletPass().
+					Return("testpassword").
+					AnyTimes()
+
+				m.EXPECT().
+					GetWalletLockTime().
+					Return(int64(300)).
+					AnyTimes()
+
+				// Mock signing
+				signedTx := wire.NewMsgTx(wire.TxVersion)
+				*signedTx = *tx.Tx // Copy the original tx
+				// Adjust the change output with the new fee
+				signedTx.TxOut[changePosition].Value = int64(10000 - bumpedFee)
+
+				m.EXPECT().
+					SignRawTransactionWithWallet(gomock.Any()).
+					Return(signedTx, true, nil).AnyTimes()
+
+				// Mock sending the transaction with error
+				m.EXPECT().
+					SendRawTransaction(gomock.Any(), gomock.Eq(true)).
+					Return(nil, errors.New("transaction rejected")).AnyTimes()
+			},
+			expectedErrSubstr: "transaction rejected",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockBTCWallet := mocks.NewMockBTCWallet(ctrl)
+			logger := zaptest.NewLogger(t).Sugar()
+
+			relayer := &Relayer{
+				BTCWallet: mockBTCWallet,
+				Estimator: mockEstimator,
+				logger:    logger,
+			}
+
+			tx2 := tc.tx2Setup()
+			tc.mockSetup(mockBTCWallet, tx2, tc.bumpedFee)
+			result, err := relayer.maybeResendSecondTxOfCheckpointToBTC(tx2, tc.bumpedFee)
+			if tc.expectedErrSubstr != "" {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tc.expectedErrSubstr)
 			} else if tc.validateResult != nil {
 				tc.validateResult(t, result, err)
 			}
