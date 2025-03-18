@@ -296,6 +296,7 @@ func TestRelayer_VerifyRBFRequirements(t *testing.T) {
 // MockEstimator implements the chainfee.Estimator interface for testing
 type MockEstimator struct {
 	estimateFeePerKWFn func(uint32) (chainfee.SatPerKWeight, error)
+	relayFeePerKWFn    func() chainfee.SatPerKWeight
 }
 
 func (m *MockEstimator) Start() error {
@@ -599,6 +600,270 @@ func TestRelayer_BuildDataTx(t *testing.T) {
 				// Verify TxID and Size are set
 				require.NotNil(t, btcTxInfo.TxID, "TxID should not be nil")
 				require.Greater(t, btcTxInfo.Size, int64(0), "Size should be greater than 0")
+			}
+		})
+	}
+}
+
+// nolint:maintidx
+func TestRelayer_FinalizeTransaction(t *testing.T) {
+	t.Parallel()
+	mockEstimator := &MockEstimator{
+		relayFeePerKWFn: func() chainfee.SatPerKWeight {
+			return chainfee.SatPerKWeight(1000)
+		},
+		estimateFeePerKWFn: func(_ uint32) (chainfee.SatPerKWeight, error) {
+			return chainfee.SatPerKWeight(5000), nil
+		},
+	}
+
+	createTestTx := func(hasChange bool) *wire.MsgTx {
+		tx := wire.NewMsgTx(wire.TxVersion)
+
+		hash, _ := chainhash.NewHashFromStr("0000000000000000000000000000000000000000000000000000000000000001")
+		tx.AddTxIn(wire.NewTxIn(wire.NewOutPoint(hash, 0), nil, nil))
+
+		builder := txscript.NewScriptBuilder()
+		dataScript, _ := builder.AddOp(txscript.OP_RETURN).AddData([]byte("test data")).Script()
+		tx.AddTxOut(wire.NewTxOut(0, dataScript))
+
+		if hasChange {
+			address, _ := btcutil.DecodeAddress("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", &chaincfg.MainNetParams)
+			pkScript, _ := txscript.PayToAddrScript(address)
+			tx.AddTxOut(wire.NewTxOut(10000, pkScript))
+		}
+
+		return tx
+	}
+
+	tests := []struct {
+		name              string
+		txSetup           func() *wire.MsgTx
+		mockSetup         func(*mocks.MockBTCWallet, *wire.MsgTx)
+		expectedErrSubstr string
+		validateResult    func(*testing.T, *types.BtcTxInfo, error)
+	}{
+		{
+			name: "successful transaction with change",
+			txSetup: func() *wire.MsgTx {
+				return createTestTx(true)
+			},
+			mockSetup: func(m *mocks.MockBTCWallet, tx *wire.MsgTx) {
+				m.EXPECT().
+					GetNetParams().
+					Return(&chaincfg.RegressionNetParams)
+
+				m.EXPECT().
+					WalletPassphrase(gomock.Eq("testpassword"), gomock.Eq(int64(300))).
+					Return(nil)
+
+				signedTx := wire.NewMsgTx(wire.TxVersion)
+				*signedTx = *tx
+
+				m.EXPECT().
+					SignRawTransactionWithWallet(gomock.Any()).
+					Return(signedTx, true, nil)
+
+				m.EXPECT().
+					GetWalletPass().
+					Return("testpassword").
+					AnyTimes()
+
+				m.EXPECT().
+					GetWalletLockTime().
+					Return(int64(300)).
+					AnyTimes()
+			},
+			validateResult: func(t *testing.T, result *types.BtcTxInfo, err error) {
+				assert.NoError(t, err)
+				assert.NotNil(t, result)
+				assert.NotNil(t, result.Tx)
+
+				assert.Equal(t, 1, len(result.Tx.TxIn))
+				assert.Equal(t, 2, len(result.Tx.TxOut))
+				assert.Equal(t, int64(10000), result.Tx.TxOut[changePosition].Value)
+			},
+		},
+		{
+			name: "transaction without change",
+			txSetup: func() *wire.MsgTx {
+				return createTestTx(false)
+			},
+			mockSetup: func(m *mocks.MockBTCWallet, tx *wire.MsgTx) {
+				// Mock WalletPassphrase
+				m.EXPECT().
+					WalletPassphrase(gomock.Eq("testpassword"), gomock.Eq(int64(300))).
+					Return(nil)
+
+				signedTx := wire.NewMsgTx(wire.TxVersion)
+				*signedTx = *tx
+
+				m.EXPECT().
+					SignRawTransactionWithWallet(gomock.Any()).
+					Return(signedTx, true, nil)
+
+				m.EXPECT().
+					GetWalletPass().
+					Return("testpassword").
+					AnyTimes()
+
+				m.EXPECT().
+					GetWalletLockTime().
+					Return(int64(300)).
+					AnyTimes()
+			},
+			validateResult: func(t *testing.T, result *types.BtcTxInfo, err error) {
+				assert.NoError(t, err)
+				assert.NotNil(t, result)
+				assert.Equal(t, int64(71), result.Size)
+				assert.Equal(t, btcutil.Amount(284), result.Fee)
+				assert.NotNil(t, result.Tx)
+
+				assert.Equal(t, 1, len(result.Tx.TxIn))
+				assert.Equal(t, 1, len(result.Tx.TxOut))
+			},
+		},
+		{
+			name: "no change address found",
+			txSetup: func() *wire.MsgTx {
+				tx := createTestTx(true)
+				tx.TxOut[changePosition].PkScript = []byte{txscript.OP_RETURN}
+
+				return tx
+			},
+			mockSetup: func(m *mocks.MockBTCWallet, _ *wire.MsgTx) {
+				m.EXPECT().
+					GetNetParams().
+					Return(&chaincfg.MainNetParams)
+
+				m.EXPECT().
+					GetWalletPass().
+					Return("testpassword").
+					AnyTimes()
+
+				m.EXPECT().
+					GetWalletLockTime().
+					Return(int64(300)).
+					AnyTimes()
+			},
+			expectedErrSubstr: "no change address found",
+		},
+		{
+			name: "wallet unlock fails",
+			txSetup: func() *wire.MsgTx {
+				return createTestTx(true)
+			},
+			mockSetup: func(m *mocks.MockBTCWallet, _ *wire.MsgTx) {
+				m.EXPECT().
+					GetNetParams().
+					Return(&chaincfg.MainNetParams)
+
+				m.EXPECT().
+					WalletPassphrase(gomock.Eq("testpassword"), gomock.Eq(int64(300))).
+					Return(errors.New("wallet unlock failed"))
+
+				m.EXPECT().
+					GetWalletPass().
+					Return("testpassword").
+					AnyTimes()
+
+				m.EXPECT().
+					GetWalletLockTime().
+					Return(int64(300)).
+					AnyTimes()
+			},
+			expectedErrSubstr: "failed to sign tx",
+		},
+		{
+			name: "signing transaction fails",
+			txSetup: func() *wire.MsgTx {
+				return createTestTx(true)
+			},
+			mockSetup: func(m *mocks.MockBTCWallet, _ *wire.MsgTx) {
+				m.EXPECT().
+					GetNetParams().
+					Return(&chaincfg.MainNetParams)
+
+				m.EXPECT().
+					WalletPassphrase(gomock.Eq("testpassword"), gomock.Eq(int64(300))).
+					Return(nil)
+
+				m.EXPECT().
+					SignRawTransactionWithWallet(gomock.Any()).
+					Return(nil, false, errors.New("signing failed"))
+
+				m.EXPECT().
+					GetWalletPass().
+					Return("testpassword").
+					AnyTimes()
+
+				m.EXPECT().
+					GetWalletLockTime().
+					Return(int64(300)).
+					AnyTimes()
+			},
+			expectedErrSubstr: "failed to sign tx",
+		},
+		{
+			name: "incomplete signature",
+			txSetup: func() *wire.MsgTx {
+				return createTestTx(true)
+			},
+			mockSetup: func(m *mocks.MockBTCWallet, tx *wire.MsgTx) {
+				m.EXPECT().
+					GetNetParams().
+					Return(&chaincfg.MainNetParams)
+
+				m.EXPECT().
+					WalletPassphrase(gomock.Eq("testpassword"), gomock.Eq(int64(300))).
+					Return(nil)
+
+				signedTx := wire.NewMsgTx(wire.TxVersion)
+				*signedTx = *tx // Copy the original tx
+
+				m.EXPECT().
+					SignRawTransactionWithWallet(gomock.Any()).
+					Return(signedTx, false, nil) // allSigned is false
+
+				m.EXPECT().
+					GetWalletPass().
+					Return("testpassword").
+					AnyTimes()
+
+				m.EXPECT().
+					GetWalletLockTime().
+					Return(int64(300)).
+					AnyTimes()
+			},
+			expectedErrSubstr: "partially signed",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockBTCWallet := mocks.NewMockBTCWallet(ctrl)
+			logger := zaptest.NewLogger(t).Sugar()
+
+			relayer := &Relayer{
+				BTCWallet: mockBTCWallet,
+				Estimator: mockEstimator,
+				logger:    logger,
+			}
+
+			tx := tc.txSetup()
+			tc.mockSetup(mockBTCWallet, tx)
+
+			result, err := relayer.finalizeTransaction(tx)
+			if tc.expectedErrSubstr != "" {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tc.expectedErrSubstr)
+				assert.Nil(t, result)
+			} else if tc.validateResult != nil {
+				tc.validateResult(t, result, err)
 			}
 		})
 	}
