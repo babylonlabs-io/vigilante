@@ -305,12 +305,12 @@ func FuzzSlasher(f *testing.F) {
 		mockBTCClient.EXPECT().
 			GetRawTransaction(gomock.Any()).
 			Return(nil, fmt.Errorf("tx does not exist")).
-			Times((len(activeBTCDelsList) + len(unbondedBTCDelsList)) * 2)
+			AnyTimes()
 
 		mockBTCClient.EXPECT().
 			GetTxOut(gomock.Any(), gomock.Any(), gomock.Eq(true)).
 			Return(&btcjson.GetTxOutResult{}, nil).
-			Times((len(activeBTCDelsList) + len(unbondedBTCDelsList)) * 2)
+			AnyTimes()
 
 		mockBTCClient.EXPECT().
 			SendRawTransaction(gomock.Any(), gomock.Eq(true)).

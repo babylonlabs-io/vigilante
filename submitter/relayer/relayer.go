@@ -60,6 +60,7 @@ type Relayer struct {
 	config                  *config.SubmitterConfig
 	logger                  *zap.SugaredLogger
 	walletName              string
+	finalizeTxFunc          func(tx *wire.MsgTx) (*types.BtcTxInfo, error)
 }
 
 func New(
@@ -81,7 +82,7 @@ func New(
 
 	metrics.ResendIntervalSecondsGauge.Set(float64(config.ResendIntervalSeconds))
 
-	return &Relayer{
+	r := &Relayer{
 		Estimator:               est,
 		BTCWallet:               wallet,
 		walletName:              walletName,
@@ -94,6 +95,10 @@ func New(
 		lastSubmittedCheckpoint: &types.CheckpointInfo{},
 		logger:                  parentLogger.With(zap.String("module", "relayer")).Sugar(),
 	}
+
+	r.finalizeTxFunc = r.finalizeTransaction
+
+	return r
 }
 
 // SendCheckpointToBTC converts the checkpoint into two transactions and send them to BTC
@@ -791,7 +796,7 @@ func (rl *Relayer) buildDataTx(data []byte) (*types.BtcTxInfo, error) {
 
 	rl.logger.Debugf("Building a BTC tx using %s with data %x", tx.TxHash(), data)
 
-	return rl.finalizeTransaction(rawTxResult.Transaction)
+	return rl.finalizeTxFunc(rawTxResult.Transaction)
 }
 
 // buildChainedDataTx constructs a Bitcoin transaction that spends from a previous transaction.
@@ -832,7 +837,7 @@ func (rl *Relayer) buildChainedDataTx(data []byte, prevTx *wire.MsgTx) (*types.B
 
 	rl.logger.Debugf("Building a BTC tx using %s with data %x", tx.TxHash(), data)
 
-	return rl.finalizeTransaction(rawTxResult.Transaction)
+	return rl.finalizeTxFunc(rawTxResult.Transaction)
 }
 
 // finalizeTransaction handles the common logic for validating and finalizing a transaction,
