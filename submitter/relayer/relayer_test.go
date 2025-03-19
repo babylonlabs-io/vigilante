@@ -934,6 +934,7 @@ func TestRelayer_FinalizeTransaction(t *testing.T) {
 	}
 }
 
+// nolint:maintidx
 func TestRelayer_MaybeResendSecondTxOfCheckpointToBTC(t *testing.T) {
 	t.Parallel()
 	// Create a mock estimator
@@ -941,7 +942,7 @@ func TestRelayer_MaybeResendSecondTxOfCheckpointToBTC(t *testing.T) {
 		relayFeePerKWFn: func() chainfee.SatPerKWeight {
 			return chainfee.SatPerKWeight(1000)
 		},
-		estimateFeePerKWFn: func(target uint32) (chainfee.SatPerKWeight, error) {
+		estimateFeePerKWFn: func(_ uint32) (chainfee.SatPerKWeight, error) {
 			return chainfee.SatPerKWeight(5000), nil
 		},
 	}
@@ -990,7 +991,7 @@ func TestRelayer_MaybeResendSecondTxOfCheckpointToBTC(t *testing.T) {
 				return createTestTx(10000)
 			},
 			bumpedFee: btcutil.Amount(2000),
-			mockSetup: func(m *mocks.MockBTCWallet, tx *types.BtcTxInfo, bumpedFee btcutil.Amount) {
+			mockSetup: func(m *mocks.MockBTCWallet, _ *types.BtcTxInfo, _ btcutil.Amount) {
 				// Mock TxDetails to return confirmed status
 				m.EXPECT().
 					TxDetails(gomock.Any(), gomock.Any()).
@@ -1007,7 +1008,7 @@ func TestRelayer_MaybeResendSecondTxOfCheckpointToBTC(t *testing.T) {
 				return createTestTx(10000)
 			},
 			bumpedFee: btcutil.Amount(2000),
-			mockSetup: func(m *mocks.MockBTCWallet, tx *types.BtcTxInfo, bumpedFee btcutil.Amount) {
+			mockSetup: func(m *mocks.MockBTCWallet, _ *types.BtcTxInfo, _ btcutil.Amount) {
 				// Mock TxDetails to return an error
 				m.EXPECT().
 					TxDetails(gomock.Any(), gomock.Any()).
@@ -1087,7 +1088,7 @@ func TestRelayer_MaybeResendSecondTxOfCheckpointToBTC(t *testing.T) {
 				return createTestTx(600) // Just above dust threshold
 			},
 			bumpedFee: btcutil.Amount(1000),
-			mockSetup: func(m *mocks.MockBTCWallet, tx *types.BtcTxInfo, bumpedFee btcutil.Amount) {
+			mockSetup: func(m *mocks.MockBTCWallet, tx *types.BtcTxInfo, _ btcutil.Amount) {
 				// Mock TxDetails to return pending status
 				m.EXPECT().
 					TxDetails(gomock.Any(), gomock.Any()).
@@ -1171,7 +1172,7 @@ func TestRelayer_MaybeResendSecondTxOfCheckpointToBTC(t *testing.T) {
 				return createTestTx(600) // Just above dust threshold
 			},
 			bumpedFee: btcutil.Amount(1000),
-			mockSetup: func(m *mocks.MockBTCWallet, tx *types.BtcTxInfo, bumpedFee btcutil.Amount) {
+			mockSetup: func(m *mocks.MockBTCWallet, _ *types.BtcTxInfo, _ btcutil.Amount) {
 				// Mock TxDetails to return pending status
 				m.EXPECT().
 					TxDetails(gomock.Any(), gomock.Any()).
@@ -1190,7 +1191,7 @@ func TestRelayer_MaybeResendSecondTxOfCheckpointToBTC(t *testing.T) {
 				return createTestTx(10000)
 			},
 			bumpedFee: btcutil.Amount(2000),
-			mockSetup: func(m *mocks.MockBTCWallet, tx *types.BtcTxInfo, bumpedFee btcutil.Amount) {
+			mockSetup: func(m *mocks.MockBTCWallet, tx *types.BtcTxInfo, _ btcutil.Amount) {
 				m.EXPECT().
 					GetNetworkInfo().
 					Return(&btcjson.GetNetworkInfoResult{
@@ -1220,7 +1221,7 @@ func TestRelayer_MaybeResendSecondTxOfCheckpointToBTC(t *testing.T) {
 				return createTestTx(10000)
 			},
 			bumpedFee: btcutil.Amount(2000),
-			mockSetup: func(m *mocks.MockBTCWallet, tx *types.BtcTxInfo, bumpedFee btcutil.Amount) {
+			mockSetup: func(m *mocks.MockBTCWallet, _ *types.BtcTxInfo, _ btcutil.Amount) {
 				// Mock TxDetails to return pending status
 				m.EXPECT().
 					TxDetails(gomock.Any(), gomock.Any()).
@@ -1351,7 +1352,7 @@ func TestRelayer_BuildChainedDataTx(t *testing.T) {
 		relayFeePerKWFn: func() chainfee.SatPerKWeight {
 			return chainfee.SatPerKWeight(1000)
 		},
-		estimateFeePerKWFn: func(target uint32) (chainfee.SatPerKWeight, error) {
+		estimateFeePerKWFn: func(_ uint32) (chainfee.SatPerKWeight, error) {
 			return chainfee.SatPerKWeight(5000), nil
 		},
 	}
@@ -1395,7 +1396,7 @@ func TestRelayer_BuildChainedDataTx(t *testing.T) {
 				// Mock FundRawTransaction
 				m.EXPECT().
 					FundRawTransaction(gomock.Any(), gomock.Any(), gomock.Nil()).
-					DoAndReturn(func(tx *wire.MsgTx, opts btcjson.FundRawTransactionOpts, _ interface{}) (*btcjson.FundRawTransactionResult, error) {
+					DoAndReturn(func(tx *wire.MsgTx, _ btcjson.FundRawTransactionOpts, _ interface{}) (*btcjson.FundRawTransactionResult, error) {
 						// Verify the input points to the change output of the previous tx
 						assert.Equal(t, 1, len(tx.TxIn), "Transaction should have exactly one input")
 						assert.Equal(t, uint32(1), tx.TxIn[0].PreviousOutPoint.Index, "Input should reference change output (index 1)")
@@ -1485,7 +1486,7 @@ func TestRelayer_BuildChainedDataTx(t *testing.T) {
 			setupMocks: func(m *mocks.MockBTCWallet) {
 				m.EXPECT().
 					FundRawTransaction(gomock.Any(), gomock.Any(), gomock.Nil()).
-					DoAndReturn(func(tx *wire.MsgTx, opts btcjson.FundRawTransactionOpts, _ interface{}) (*btcjson.FundRawTransactionResult, error) {
+					DoAndReturn(func(tx *wire.MsgTx, _ btcjson.FundRawTransactionOpts, _ interface{}) (*btcjson.FundRawTransactionResult, error) {
 						// Create a properly funded transaction
 						fundedTx := wire.NewMsgTx(wire.TxVersion)
 
@@ -1543,6 +1544,7 @@ func TestRelayer_BuildChainedDataTx(t *testing.T) {
 					}
 
 					txHash := tx.TxHash()
+
 					return &types.BtcTxInfo{
 						TxID: &txHash,
 						Tx:   tx,
