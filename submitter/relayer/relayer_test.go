@@ -2,6 +2,7 @@ package relayer
 
 import (
 	"errors"
+	"fmt"
 	"github.com/babylonlabs-io/babylon/testutil/datagen"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/config"
@@ -139,6 +140,69 @@ func Test_maybeResendFromStore(t *testing.T) {
 			},
 			expectedResult: false,
 			expectedError:  errors.New("network error"),
+		},
+		{
+			name:  "Tx already in chain",
+			epoch: 123,
+			getLatestCheckpoint: func() (*store.StoredCheckpoint, bool, error) {
+				return &store.StoredCheckpoint{Epoch: 123, Tx1: &wire.MsgTx{}, Tx2: &wire.MsgTx{}}, true, nil
+			},
+			getRawTransaction: func(_ *chainhash.Hash) (*btcutil.Tx, error) {
+				return nil, btcjson.NewRPCError(btcjson.ErrRPCNoTxInfo, "transaction not found")
+			},
+			sendTransaction: func(_ *wire.MsgTx) (*chainhash.Hash, error) {
+				return nil, btcjson.NewRPCError(btcjson.ErrRPCTxAlreadyInChain, "tx already in chain")
+			},
+			expectedResult: true,
+			expectedError:  nil,
+		},
+		{
+			name:  "err raw tx string",
+			epoch: 123,
+			getLatestCheckpoint: func() (*store.StoredCheckpoint, bool, error) {
+				return &store.StoredCheckpoint{Epoch: 123, Tx1: &wire.MsgTx{}, Tx2: &wire.MsgTx{}}, true, nil
+			},
+			getRawTransaction: func(_ *chainhash.Hash) (*btcutil.Tx, error) {
+				return nil, btcjson.NewRPCError(btcjson.ErrRPCNoTxInfo, "transaction not found")
+			},
+			sendTransaction: func(_ *wire.MsgTx) (*chainhash.Hash, error) {
+				return nil, btcjson.NewRPCError(btcjson.ErrRPCRawTxString, "err raw tx string")
+			},
+			expectedResult: false,
+			expectedError: fmt.Errorf("fatal error: invalid transaction format: %w",
+				btcjson.NewRPCError(btcjson.ErrRPCRawTxString, "err raw tx string")),
+		},
+		{
+			name:  "err rpc tx",
+			epoch: 123,
+			getLatestCheckpoint: func() (*store.StoredCheckpoint, bool, error) {
+				return &store.StoredCheckpoint{Epoch: 123, Tx1: &wire.MsgTx{}, Tx2: &wire.MsgTx{}}, true, nil
+			},
+			getRawTransaction: func(_ *chainhash.Hash) (*btcutil.Tx, error) {
+				return nil, btcjson.NewRPCError(btcjson.ErrRPCNoTxInfo, "transaction not found")
+			},
+			sendTransaction: func(_ *wire.MsgTx) (*chainhash.Hash, error) {
+				return nil, btcjson.NewRPCError(btcjson.ErrRPCTxError, "err rpc tx")
+			},
+			expectedResult: false,
+			expectedError: fmt.Errorf("transaction error: %w",
+				btcjson.NewRPCError(btcjson.ErrRPCTxError, "err rpc tx")),
+		},
+		{
+			name:  "err tx rejected",
+			epoch: 123,
+			getLatestCheckpoint: func() (*store.StoredCheckpoint, bool, error) {
+				return &store.StoredCheckpoint{Epoch: 123, Tx1: &wire.MsgTx{}, Tx2: &wire.MsgTx{}}, true, nil
+			},
+			getRawTransaction: func(_ *chainhash.Hash) (*btcutil.Tx, error) {
+				return nil, btcjson.NewRPCError(btcjson.ErrRPCNoTxInfo, "transaction not found")
+			},
+			sendTransaction: func(_ *wire.MsgTx) (*chainhash.Hash, error) {
+				return nil, btcjson.NewRPCError(btcjson.ErrRPCTxRejected, "err rpc tx rejected")
+			},
+			expectedResult: false,
+			expectedError: fmt.Errorf("transaction rejected: %w",
+				btcjson.NewRPCError(btcjson.ErrRPCTxRejected, "err rpc tx rejected")),
 		},
 	}
 
@@ -1473,31 +1537,23 @@ func TestRelayer_BuildChainedDataTx(t *testing.T) {
 				BTCWallet: mockBTCWallet,
 				Estimator: mockEstimator,
 				logger:    logger,
-				// Set up a mock finalizeTxFunc that doesn't depend on finalizeTransaction
 				finalizeTxFunc: func(tx *wire.MsgTx) (*types.BtcTxInfo, error) {
-					// For error test case, simulate finalization failure
 					if tc.expectedErrSubstr == "failed to sign tx" {
 						return nil, errors.New("failed to sign tx: wallet unlock failed")
 					}
 
-					// Otherwise, return a successful result
 					txHash := tx.TxHash()
 					return &types.BtcTxInfo{
 						TxID: &txHash,
 						Tx:   tx,
-						Size: 250,                  // Dummy size for testing
-						Fee:  btcutil.Amount(2000), // Use the fee from our test setup
+						Size: 250,
+						Fee:  btcutil.Amount(2000),
 					}, nil
 				},
 			}
 
-			// Setup mocks for this test case
 			tc.setupMocks(mockBTCWallet)
-
-			// Call the function being tested
 			result, err := relayer.buildChainedDataTx(tc.data, tc.prevTx)
-
-			// Validate the results
 			if tc.expectedErrSubstr != "" {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tc.expectedErrSubstr)
