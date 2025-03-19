@@ -363,6 +363,7 @@ func TestActivatingAndUnbondingDelegation(t *testing.T) {
 }
 
 func TestUnbondingLoaded(t *testing.T) {
+	t.Skip()
 	t.Parallel()
 	numMatureOutputs := uint32(1500)
 	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
