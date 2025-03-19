@@ -43,6 +43,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 * [#257](https://github.com/babylonlabs-io/vigilante/pull/257) chore: change default max
 * [#260](https://github.com/babylonlabs-io/vigilante/pull/260) chore: add fetch-evidence-interval to sample config
 * [#262](https://github.com/babylonlabs-io/vigilante/pull/262) chore: submitter e2e for tx values bellow dust
+* [#265](https://github.com/babylonlabs-io/vigilante/pull/265) chore: unit tests for relayer
 
 ### Bug Fixes
 
