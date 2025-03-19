@@ -761,6 +761,9 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 
 		if !verified {
 			sew.logger.Debugf("skipping tx %s is not in verified status", stakingTxHash)
+			sew.pendingTracker.RemoveDelegation(stakingTxHash)
+			sew.verifiedSufficientConfTracker.RemoveDelegation(stakingTxHash)
+			sew.metrics.NumberOfVerifiedDelegations.Dec()
 
 			return nil
 		}

@@ -459,11 +459,13 @@ func (rl *Relayer) maybeResendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bu
 		// We need to round the fee rate to 6 decimal places, as bitcoind throws invalid amount otherwise
 		roundedFeeRate := math.Round(feeRate*1e6) / 1e6
 		changePosition := 1
+
+		rl.logger.Debugf("Resending the second tx of the checkpoint %v with bumped fee: %v Satoshis, fee rate: %v BTC/kB",
+			tx2.TxID, bumpedFee, roundedFeeRate)
 		// Need to create new inputs to cover the fee
 		fundedTx, err := rl.BTCWallet.FundRawTransaction(tx2.Tx, btcjson.FundRawTransactionOpts{
-			FeeRate:                &roundedFeeRate,
-			ChangePosition:         &changePosition,
-			SubtractFeeFromOutputs: []int{changePosition},
+			FeeRate:        &roundedFeeRate,
+			ChangePosition: &changePosition,
 		}, nil)
 
 		if err != nil {
