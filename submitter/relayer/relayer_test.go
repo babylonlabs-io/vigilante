@@ -851,7 +851,9 @@ func TestRelayer_FinalizeTransaction(t *testing.T) {
 		tx.AddTxOut(wire.NewTxOut(0, dataScript))
 
 		if hasChange {
-			address, _ := btcutil.DecodeAddress("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", &chaincfg.MainNetParams)
+			r := rand.New(rand.NewSource(time.Now().UnixMilli()))
+			address, err := datagen.GenRandomBTCAddress(r, &chaincfg.RegressionNetParams)
+			require.NoError(t, err)
 			pkScript, _ := txscript.PayToAddrScript(address)
 			tx.AddTxOut(wire.NewTxOut(10000, pkScript))
 		}
@@ -1150,7 +1152,6 @@ func TestRelayer_MaybeResendSecondTxOfCheckpointToBTC(t *testing.T) {
 			},
 			bumpedFee: btcutil.Amount(2000),
 			mockSetup: func(m *mocks.MockBTCWallet, _ *types.BtcTxInfo, _ btcutil.Amount) {
-				// Mock TxDetails to return confirmed status
 				m.EXPECT().
 					TxDetails(gomock.Any(), gomock.Any()).
 					Return(nil, btcclient.TxInChain, nil)
@@ -1201,7 +1202,6 @@ func TestRelayer_MaybeResendSecondTxOfCheckpointToBTC(t *testing.T) {
 					Return(int64(300)).
 					AnyTimes()
 
-				// Mock signing
 				signedTx := wire.NewMsgTx(wire.TxVersion)
 				*signedTx = *tx.Tx // Copy the original tx
 				// Adjust the change output with the new fee
@@ -1456,10 +1456,8 @@ func TestRelayer_MaybeResendSecondTxOfCheckpointToBTC(t *testing.T) {
 					Return(int64(300)).
 					AnyTimes()
 
-				// Mock signing
 				signedTx := wire.NewMsgTx(wire.TxVersion)
 				*signedTx = *tx.Tx // Copy the original tx
-				// Adjust the change output with the new fee
 				signedTx.TxOut[changePosition].Value = int64(10000 - bumpedFee)
 
 				m.EXPECT().
