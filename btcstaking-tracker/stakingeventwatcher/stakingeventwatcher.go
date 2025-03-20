@@ -664,7 +664,7 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 
 		details, status, err := sew.btcClient.TxDetails(&txHash, del.StakingTx.TxOut[del.StakingOutputIdx].PkScript)
 		if err != nil {
-			sew.logger.Debugf("error getting tx %v", txHash)
+			sew.logger.Debugf("error getting tx: %v, err: %v", txHash, err)
 
 			continue
 		}
