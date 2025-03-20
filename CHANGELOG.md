@@ -44,11 +44,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 * [#260](https://github.com/babylonlabs-io/vigilante/pull/260) chore: add fetch-evidence-interval to sample config
 * [#262](https://github.com/babylonlabs-io/vigilante/pull/262) chore: submitter e2e for tx values bellow dust
 * [#263](https://github.com/babylonlabs-io/vigilante/pull/260) chore: Update zmq endpoints in sample config
- 
+* [#265](https://github.com/babylonlabs-io/vigilante/pull/265) chore: unit tests for relayer
+
 ### Bug Fixes
 
 * [#250](https://github.com/babylonlabs-io/vigilante/pull/250) fix: handle rpc errors in maybeResendFromStore
 * [#252](https://github.com/babylonlabs-io/vigilante/pull/252) fix: rbf compliant
+* [#257](https://github.com/babylonlabs-io/vigilante/pull/257) fix: rbf fee calculation
 * [#241](https://github.com/babylonlabs-io/vigilante/pull/241) chore: limit response read
 * [#256](https://github.com/babylonlabs-io/vigilante/pull/256) fix: genesis parsing
 * [#236](https://github.com/babylonlabs-io/vigilante/pull/236) fix: handle has inclusion proof err
