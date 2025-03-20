@@ -225,7 +225,11 @@ func tryExtractFPSK(
 			return nil, err
 		}
 		// try to recover the finality provider SK
-		fpSK := covAdaptorSig.Recover(covSchnorrBTCSig).ToBTCSK()
+		extracted, err := covAdaptorSig.Extract(covSchnorrBTCSig)
+		if err != nil {
+			return nil, err
+		}
+		fpSK := extracted.ToBTCSK()
 		actualfpPK := bbn.NewBIP340PubKeyFromBTCPK(fpSK.PubKey())
 		if !fpPK.Equals(actualfpPK) {
 			// this covenant member must have colluded with finality provider and

@@ -45,6 +45,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 * [#262](https://github.com/babylonlabs-io/vigilante/pull/262) chore: submitter e2e for tx values bellow dust
 * [#263](https://github.com/babylonlabs-io/vigilante/pull/260) chore: Update zmq endpoints in sample config
 * [#265](https://github.com/babylonlabs-io/vigilante/pull/265) chore: unit tests for relayer
+* [#266](https://github.com/babylonlabs-io/vigilante/pull/266) chore: bump bbn to rc8
 
 ### Bug Fixes
 
