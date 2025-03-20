@@ -363,9 +363,8 @@ func TestActivatingAndUnbondingDelegation(t *testing.T) {
 }
 
 func TestUnbondingLoaded(t *testing.T) {
-	t.Skip()
 	t.Parallel()
-	numMatureOutputs := uint32(1500)
+	numMatureOutputs := uint32(400)
 	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
 	defer tm.Stop(t)
 	tm.CatchUpBTCLightClient(t)

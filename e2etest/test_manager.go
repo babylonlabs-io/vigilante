@@ -247,7 +247,7 @@ func (tm *TestManager) CatchUpBTCLightClient(t *testing.T) {
 		headers = append(headers, header)
 	}
 
-	for headersChunk := range slices.Chunk(headers, 1500) {
+	for headersChunk := range slices.Chunk(headers, 100) {
 		_, err := tm.InsertBTCHeadersToBabylon(headersChunk)
 		require.NoError(t, err)
 
