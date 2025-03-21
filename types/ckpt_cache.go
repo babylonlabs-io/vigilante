@@ -75,7 +75,7 @@ func (c *CheckpointCache) Match() {
 			if err != nil {
 				continue
 			}
-			// found a pair, check if it is a valid checkpoint
+			// found a pair, check if it is a validPop checkpoint
 			rawCheckpoint, err := btctxformatter.DecodeRawCheckpoint(c.Version, connected)
 			if err != nil {
 				continue
