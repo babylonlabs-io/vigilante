@@ -66,12 +66,3 @@ func FuzzGetGenesisInfoFromFile(f *testing.F) {
 		require.Equal(t, uint32(baseHeight), genesisInfo.baseBTCHeight)
 	})
 }
-
-func TestGetGenesisInfoFromFile2(t *testing.T) {
-
-	genFile := "/Users/lazar/work/vigilante/types/genesis.json"
-	genesisInfo, err := GetGenesisInfoFromFile(genFile)
-	require.NoError(t, err)
-	require.NotNil(t, genesisInfo)
-
-}

@@ -10,7 +10,8 @@ import (
 	"testing"
 )
 
-func TestProofOfPossession_IsValid(t *testing.T) {
+func TestProofOfPossession_ValidPop(t *testing.T) {
+	t.Parallel()
 	valPrivKey := ed25519.GenPrivKey()
 	blsPrivKey := bls12381.GenPrivKey()
 	pop := buildPoP(t, valPrivKey, blsPrivKey)
