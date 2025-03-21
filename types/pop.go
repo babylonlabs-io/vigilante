@@ -8,6 +8,8 @@ import (
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 )
 
+// validPop - we use this because in TGE chain we have different format of PoP in genesis,
+// we want to avoid migration, and let the monitor handles this as we only check validity of PoP in genesis
 func validPop(blsPubkey bls12381.PublicKey, valPubkey cryptotypes.PubKey, ed25519Sig, blsSig []byte) bool {
 	ok, _ := bls12381.Verify(blsSig, blsPubkey, ed25519Sig)
 	if !ok {

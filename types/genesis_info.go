@@ -63,7 +63,7 @@ func GetGenesisInfoFromFile(filePath string) (*GenesisInfo, error) {
 	err1 := checkpointingGenState.Validate()
 	err2 := validateGenesisKeys(checkpointingGenState.GenesisKeys)
 	if err1 != nil && err2 != nil {
-		return nil, fmt.Errorf("invalid checkpointing genesis %w", err)
+		return nil, fmt.Errorf("invalid checkpointing genesis %w ", errors.Join(err1, err2))
 	}
 
 	if err1 != nil && !errors.Is(err1, checkpointingtypes.ErrInvalidPoP) {
