@@ -68,6 +68,7 @@ func FuzzGetGenesisInfoFromFile(f *testing.F) {
 }
 
 func TestParseOldGenesis(t *testing.T) {
+	t.Parallel()
 	genFile := "test_genesis.json"
 	genesisInfo, err := GetGenesisInfoFromFile(genFile)
 	require.NoError(t, err)
