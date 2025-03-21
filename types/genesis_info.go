@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/cosmos/cosmos-sdk/x/staking/types"
 
 	"github.com/babylonlabs-io/babylon/app"
 	btccheckpointtypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
@@ -59,16 +60,32 @@ func GetGenesisInfoFromFile(filePath string) (*GenesisInfo, error) {
 	}
 
 	checkpointingGenState := checkpointingtypes.GetGenesisStateFromAppState(tmpBabylon.AppCodec(), appState)
-	err = checkpointingGenState.Validate()
-	if err != nil {
-		return nil, fmt.Errorf("invalid checkpointing genesis %w", err)
+	err1 := checkpointingGenState.Validate()
+	err2 := validateGenesisKeys(checkpointingGenState.GenesisKeys)
+	if err1 != nil && err2 != nil {
+		return nil, fmt.Errorf("invalid checkpointing genesis %w ", errors.Join(err1, err2))
 	}
+
+	if err1 != nil && !errors.Is(err1, checkpointingtypes.ErrInvalidPoP) {
+		return nil, fmt.Errorf("invalid checkpointing genesis %w", err1)
+	}
+
+	if err2 != nil && !errors.Is(err2, checkpointingtypes.ErrInvalidPoP) {
+		return nil, fmt.Errorf("invalid checkpointing genesis %w", err2)
+	}
+
 	genutilGenState := genutiltypes.GetGenesisStateFromAppState(tmpBabylon.AppCodec(), appState)
 	gentxs := genutilGenState.GenTxs
 
 	valSet.ValSet = make([]*checkpointingtypes.ValidatorWithBlsKey, 0)
 	for _, tx := range gentxs {
-		tx, err := genutiltypes.ValidateAndGetGenTx(tx, tmpBabylon.TxConfig().TxJSONDecoder(), gentxModule.GenTxValidator)
+		var validatorFunc func(msgs []sdk.Msg) error
+		if err1 != nil {
+			validatorFunc = messageValidatorCreateValidator
+		} else {
+			validatorFunc = gentxModule.GenTxValidator
+		}
+		tx, err := genutiltypes.ValidateAndGetGenTx(tx, tmpBabylon.TxConfig().TxJSONDecoder(), validatorFunc)
 		if err != nil {
 			return nil, fmt.Errorf("invalid genesis tx %w", err)
 		}
@@ -76,12 +93,21 @@ func GetGenesisInfoFromFile(filePath string) (*GenesisInfo, error) {
 		if len(msgs) == 0 {
 			return nil, errors.New("invalid genesis transaction")
 		}
-		wrappedCreateValidator, ok := msgs[0].(*checkpointingtypes.MsgWrappedCreateValidator)
-		if !ok {
-			return nil, fmt.Errorf("unexpected message type: %T", msgs[0])
-		}
 
-		msgCreateValidator := wrappedCreateValidator.MsgCreateValidator
+		var msgCreateValidator *types.MsgCreateValidator
+		if err1 != nil {
+			msgCreateValidator, ok = msgs[0].(*types.MsgCreateValidator)
+			if !ok {
+				return nil, fmt.Errorf("unexpected message type: %T", msgs[0])
+			}
+		} else {
+			wrappedCreateValidator, ok := msgs[0].(*checkpointingtypes.MsgWrappedCreateValidator)
+			if !ok {
+				return nil, fmt.Errorf("unexpected message type: %T", msgs[0])
+			}
+
+			msgCreateValidator = wrappedCreateValidator.MsgCreateValidator
+		}
 
 		power := sdk.TokensToConsensusPower(msgCreateValidator.Value.Amount, sdk.DefaultPowerReduction)
 		if power < 0 {
@@ -180,4 +206,16 @@ func (gi *GenesisInfo) GetCheckpointTag() string {
 
 func (gi *GenesisInfo) SetBaseBTCHeight(height uint32) {
 	gi.baseBTCHeight = height
+}
+func messageValidatorCreateValidator(msgs []sdk.Msg) error {
+	if len(msgs) != 1 {
+		return fmt.Errorf("unexpected number of GenTx messages; got: %d, expected: 1", len(msgs))
+	}
+
+	_, ok := msgs[0].(*types.MsgCreateValidator)
+	if !ok {
+		return fmt.Errorf("unexpected GenTx message type; expected: MsgCreateValidator, got: %T", msgs[0])
+	}
+
+	return nil
 }
