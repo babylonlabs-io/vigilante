@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/babylonlabs-io/babylon/client/babylonclient"
 	bbn "github.com/babylonlabs-io/babylon/types"
 	"golang.org/x/sync/semaphore"
 	"sync"
@@ -412,6 +413,10 @@ func (sew *StakingEventWatcher) reportUnbondingToBabylon(
 
 		if err = sew.babylonNodeAdapter.ReportUnbonding(ctx, stakingTxHash, stakeSpendingTx, proof, fundingTxs); err != nil {
 			sew.metrics.FailedReportedUnbondingTransactions.Inc()
+
+			if errors.Is(err, babylonclient.ErrTimeoutAfterWaitingForTxBroadcast) {
+				sew.metrics.UnbondingCensorshipGaugeVec.WithLabelValues(stakingTxHash.String()).Inc()
+			}
 
 			return fmt.Errorf("error reporting unbonding tx %s to babylon: %w", stakingTxHash, err)
 		}
