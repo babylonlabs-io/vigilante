@@ -42,6 +42,7 @@ func newMockReporter(t *testing.T, ctrl *gomock.Controller) (
 		&mockNotifier,
 		cfg.Common.RetrySleepTime,
 		cfg.Common.MaxRetrySleepTime,
+		cfg.Common.MaxRetryTimes,
 		metrics.NewReporterMetrics(),
 	)
 	require.NoError(t, err)

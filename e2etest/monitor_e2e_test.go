@@ -79,6 +79,7 @@ func TestMonitorBootstrap(t *testing.T) {
 		backend,
 		tm.Config.Common.RetrySleepTime,
 		tm.Config.Common.MaxRetrySleepTime,
+		tm.Config.Common.MaxRetryTimes,
 		metrics.NewReporterMetrics(),
 	)
 	require.NoError(t, err)

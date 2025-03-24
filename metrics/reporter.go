@@ -17,6 +17,8 @@ type ReporterMetrics struct {
 	SecondsSinceLastCheckpointGauge prometheus.Gauge
 	NewReportedHeaderGaugeVec       *prometheus.GaugeVec
 	NewReportedCheckpointGaugeVec   *prometheus.GaugeVec
+	HeadersCensorshipGauge          prometheus.Gauge
+	CheckpointCensorshipGauge       *prometheus.GaugeVec
 }
 
 func NewReporterMetrics() *ReporterMetrics {
@@ -75,6 +77,19 @@ func NewReporterMetrics() *ReporterMetrics {
 				"tx2id",
 			},
 		),
+		HeadersCensorshipGauge: registerer.NewGauge(prometheus.GaugeOpts{
+			Name: "vigilante_reporter_insert_headers_censorship",
+			Help: "The metric of censorship in inserting headers to Babylon",
+		}),
+		CheckpointCensorshipGauge: registerer.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "vigilante_reporter_checkpoint_censorship",
+			Help: "The metric of censorship in inserting checkpoints to Babylon",
+		}, []string{
+			"epoch",
+			"height",
+			"tx1id",
+			"tx2id",
+		}),
 	}
 
 	return metrics
