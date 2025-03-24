@@ -37,6 +37,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Improvements
+
+* [#278](https://github.com/babylonlabs-io/vigilante/pull/278) chore: metrics for censorship detection
+
 ## v0.22.1
 
 ### Bug Fixes
