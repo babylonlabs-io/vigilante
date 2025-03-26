@@ -54,6 +54,9 @@ submitter:
   resubmit-fee-multiplier: 1
   polling-interval-seconds: 60
   resend-interval-seconds: 1800
+  insufficient_fee_margin: 0.15
+  insufficient_feerate_margin: 0.15
+  fee_increment_margin: 0.15
   dbconfig:
     dbpath: $TESTNET_PATH/vigilante/
     dbfilename: submitter.db
