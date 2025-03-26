@@ -37,6 +37,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+* [#271](https://github.com/babylonlabs-io/vigilante/pull/271) chore: sync the sample config
+
 ## v0.22.1
 
 ### Bug Fixes
