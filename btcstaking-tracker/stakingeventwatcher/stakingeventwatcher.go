@@ -776,6 +776,10 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 		if err := sew.babylonNodeAdapter.ActivateDelegation(ctx, stakingTxHash, proof); err != nil {
 			sew.metrics.FailedReportedActivateDelegations.Inc()
 
+			if errors.Is(err, babylonclient.ErrTimeoutAfterWaitingForTxBroadcast) {
+				sew.metrics.InclusionProofCensorshipGaugeVec.WithLabelValues(stakingTxHash.String()).Inc()
+			}
+
 			return fmt.Errorf("error reporting activate delegation tx %s to babylon: %w", stakingTxHash, err)
 		}
 

@@ -109,13 +109,13 @@ func (bdi *BTCDelegationIndex) Get(stakingTxHash chainhash.Hash) *TrackedDelegat
 	return del
 }
 
-func (bdi *BTCDelegationIndex) Add(trackedDel *TrackedDelegation) {
+func (bdi *BTCDelegationIndex) Add(trackedDel *TrackedDelegation) bool {
 	bdi.Lock()
 	defer bdi.Unlock()
 
 	// ensure the BTC delegation is not known yet
 	if _, ok := bdi.delMap[trackedDel.StakingTxHash]; ok {
-		return
+		return false
 	}
 
 	// at this point, the BTC delegation is not known, add it
@@ -123,6 +123,8 @@ func (bdi *BTCDelegationIndex) Add(trackedDel *TrackedDelegation) {
 	// track slashing tx and unbonding slashing tx
 	bdi.slashingTxMap[trackedDel.SlashingTxHash] = trackedDel.StakingTxHash
 	bdi.unbondingSlashingTxMap[trackedDel.UnbondingSlashingTxHash] = trackedDel.StakingTxHash
+
+	return true
 }
 
 func (bdi *BTCDelegationIndex) Remove(stakingTxHash chainhash.Hash) {

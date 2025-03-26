@@ -1,7 +1,9 @@
 package atomicslasher
 
 import (
+	"errors"
 	"fmt"
+	"github.com/babylonlabs-io/babylon/client/babylonclient"
 	"time"
 
 	bstypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
@@ -25,8 +27,10 @@ func (as *AtomicSlasher) btcDelegationTracker() {
 				if err != nil {
 					return err
 				}
-				as.btcDelIndex.Add(trackedDel)
-				as.metrics.TrackedBTCDelegationsGauge.Inc()
+
+				if added := as.btcDelIndex.Add(trackedDel); added {
+					as.metrics.TrackedBTCDelegationsGauge.Inc()
+				}
 
 				return nil
 			})
@@ -212,6 +216,10 @@ func (as *AtomicSlasher) selectiveSlashingReporter() {
 					zap.String("staking_tx_hash", stakingTxHashStr),
 					zap.Error(err),
 				)
+
+				if errors.Is(err, babylonclient.ErrTimeoutAfterWaitingForTxBroadcast) {
+					as.metrics.SelectiveSlashingCensorshipGaugeVec.WithLabelValues(stakingTxHashStr).Inc()
+				}
 			}
 			cancel()
 
