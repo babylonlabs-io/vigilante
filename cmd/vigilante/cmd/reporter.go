@@ -76,6 +76,7 @@ func GetReporterCmd() *cobra.Command {
 				btcNotifier,
 				cfg.Common.RetrySleepTime,
 				cfg.Common.MaxRetrySleepTime,
+				cfg.Common.MaxRetryTimes,
 				reporterMetrics,
 			)
 			if err != nil {

@@ -4,6 +4,9 @@
 package e2etest
 
 import (
+	bbnclient "github.com/babylonlabs-io/babylon/client/client"
+	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
+
 	"sync"
 	"testing"
 	"time"
@@ -82,6 +85,7 @@ func TestReporter_BoostrapUnderFrequentBTCHeaders(t *testing.T) {
 		btcNotifier,
 		tm.Config.Common.RetrySleepTime,
 		tm.Config.Common.MaxRetrySleepTime,
+		tm.Config.Common.MaxRetryTimes,
 		reporterMetrics,
 	)
 	require.NoError(t, err)
@@ -146,6 +150,7 @@ func TestRelayHeadersAndHandleRollbacks(t *testing.T) {
 		btcNotifier,
 		tm.Config.Common.RetrySleepTime,
 		tm.Config.Common.MaxRetrySleepTime,
+		tm.Config.Common.MaxRetryTimes,
 		reporterMetrics,
 	)
 	require.NoError(t, err)
@@ -198,6 +203,7 @@ func TestHandleReorgAfterRestart(t *testing.T) {
 		btcNotifier,
 		tm.Config.Common.RetrySleepTime,
 		tm.Config.Common.MaxRetrySleepTime,
+		tm.Config.Common.MaxRetryTimes,
 		reporterMetrics,
 	)
 	require.NoError(t, err)
@@ -233,6 +239,7 @@ func TestHandleReorgAfterRestart(t *testing.T) {
 		btcNotifier,
 		tm.Config.Common.RetrySleepTime,
 		tm.Config.Common.MaxRetrySleepTime,
+		tm.Config.Common.MaxRetryTimes,
 		reporterMetrics,
 	)
 	require.NoError(t, err)
@@ -242,5 +249,62 @@ func TestHandleReorgAfterRestart(t *testing.T) {
 	// Headers should match even though reorg happened
 	require.Eventually(t, func() bool {
 		return tm.BabylonBTCChainMatchesBtc(t)
+	}, longEventuallyWaitTimeOut, eventuallyPollTime)
+}
+
+func TestReporter_Censorship(t *testing.T) {
+	t.Parallel()
+	numMatureOutputs := uint32(150)
+
+	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
+	defer tm.Stop(t)
+
+	reporterMetrics := metrics.NewReporterMetrics()
+
+	// create the chain notifier
+	btcParams, err := netparams.GetBTCParams(tm.Config.BTC.NetParams)
+	require.NoError(t, err)
+	btcCfg := btcclient.ToBitcoindConfig(tm.Config.BTC)
+	btcNotifier, err := btcclient.NewNodeBackend(btcCfg, btcParams, &btcclient.EmptyHintCache{})
+	require.NoError(t, err)
+
+	cfg := defaultVigilanteConfig()
+	cfg.BTC.Endpoint = tm.Config.BTC.Endpoint
+	cfg.BTCStakingTracker.IndexerAddr = tm.Config.BTCStakingTracker.IndexerAddr
+	cfg.Babylon.KeyDirectory = tm.Config.Babylon.KeyDirectory
+	cfg.Babylon.GasAdjustment = tm.Config.Babylon.GasAdjustment
+	cfg.Babylon.Key = "test-spending-key"
+	cfg.Babylon.RPCAddr = tm.Config.Babylon.RPCAddr
+	cfg.Babylon.GRPCAddr = tm.Config.Babylon.GRPCAddr
+	cfg.Babylon.BlockTimeout = 10 * time.Millisecond // very short timeout to test censorship
+
+	babylonClient, err := bbnclient.New(&cfg.Babylon, nil) // new client only for the tracker
+	require.NoError(t, err)
+
+	tm.Config.Common.MaxRetryTimes = 1
+
+	vigilantReporter, err := reporter.New(
+		&tm.Config.Reporter,
+		logger,
+		tm.BTCClient,
+		babylonClient,
+		btcNotifier,
+		tm.Config.Common.RetrySleepTime,
+		tm.Config.Common.MaxRetrySleepTime,
+		tm.Config.Common.MaxRetryTimes,
+		reporterMetrics,
+	)
+	require.NoError(t, err)
+
+	// mine some BTC headers
+	tm.BitcoindHandler.GenerateBlocks(1)
+
+	// start reporter
+	go vigilantReporter.Start()
+	defer vigilantReporter.Stop()
+
+	// tips should eventually match
+	require.Eventually(t, func() bool {
+		return promtestutil.ToFloat64(reporterMetrics.HeadersCensorshipGauge) == 1
 	}, longEventuallyWaitTimeOut, eventuallyPollTime)
 }
