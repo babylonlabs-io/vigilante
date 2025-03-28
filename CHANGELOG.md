@@ -39,6 +39,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Improvements
 
+* [#278](https://github.com/babylonlabs-io/vigilante/pull/278) chore: metrics for censorship detection
 * [#289](https://github.com/babylonlabs-io/vigilante/pull/289) chore: additional check for getFundingtx
 
 ## v0.22.1
