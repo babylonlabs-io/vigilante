@@ -861,6 +861,10 @@ func (sew *StakingEventWatcher) latency(method string) func() {
 }
 
 func (sew *StakingEventWatcher) getFundingTxs(tx *wire.MsgTx) ([][]byte, error) {
+	if len(tx.TxIn) == 0 {
+		return nil, fmt.Errorf("no inputs in tx %s", tx.TxHash())
+	}
+
 	var fundingTxs [][]byte
 	for _, txIn := range tx.TxIn {
 		rawTransaction, err := sew.btcClient.GetRawTransaction(&txIn.PreviousOutPoint.Hash)
@@ -874,6 +878,10 @@ func (sew *StakingEventWatcher) getFundingTxs(tx *wire.MsgTx) ([][]byte, error) 
 		}
 
 		fundingTxs = append(fundingTxs, serializedTx)
+	}
+
+	if len(fundingTxs) == 0 {
+		return nil, fmt.Errorf("no funding txs found for tx %s", tx.TxHash())
 	}
 
 	return fundingTxs, nil
