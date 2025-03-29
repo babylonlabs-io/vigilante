@@ -17,6 +17,7 @@ require (
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.1.0
 	github.com/btcsuite/btcwallet v0.16.10-0.20240912233857-ffb143c77cc5
 	github.com/btcsuite/btcwallet/walletdb v1.4.4
+	github.com/cockroachdb/errors v1.11.3
 	github.com/cometbft/cometbft v0.38.17
 	github.com/cosmos/cosmos-sdk v0.50.12
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0
@@ -42,6 +43,7 @@ require (
 	golang.org/x/sync v0.10.0
 	google.golang.org/grpc v1.70.0
 	google.golang.org/protobuf v1.36.4
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -100,7 +102,6 @@ require (
 	github.com/cloudwego/iasm v0.2.0 // indirect
 	github.com/cockroachdb/apd/v2 v2.0.2 // indirect
 	github.com/cockroachdb/apd/v3 v3.2.1 // indirect
-	github.com/cockroachdb/errors v1.11.3 // indirect
 	github.com/cockroachdb/fifo v0.0.0-20240606204812-0bbfbd93a7ce // indirect
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
 	github.com/cockroachdb/pebble v1.1.2 // indirect
@@ -324,7 +325,6 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.5.1 // indirect
 	modernc.org/gc/v3 v3.0.0-20240107210532-573471604cb6 // indirect
 	modernc.org/libc v1.49.3 // indirect

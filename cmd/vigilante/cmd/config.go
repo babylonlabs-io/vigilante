@@ -18,7 +18,7 @@ func CommandDumpConfig() *cobra.Command {
 		Use:     "dump-cfg",
 		Aliases: []string{"dc"},
 		Short:   "Dumps the default vigilante at the specified path",
-		Example: fmt.Sprintf(`vigilante dump-cfg --config-file-dir`),
+		Example: `vigilante dump-cfg --config-file-dir /path/to/config.yml`,
 		Args:    cobra.NoArgs,
 		RunE:    dumpConfig,
 	}

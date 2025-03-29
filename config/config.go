@@ -146,12 +146,12 @@ func New(configFile string) (Config, error) {
 }
 
 // SaveToYAML saves the configuration to a YAML file
-func (c *Config) SaveToYAML(filePath string) error {
+func (cfg *Config) SaveToYAML(filePath string) error {
 	var buf bytes.Buffer
 	enc := yaml.NewEncoder(&buf)
 	enc.SetIndent(2)
 
-	if err := enc.Encode(c); err != nil {
+	if err := enc.Encode(cfg); err != nil {
 		return fmt.Errorf("error marshaling config to YAML: %w", err)
 	}
 
