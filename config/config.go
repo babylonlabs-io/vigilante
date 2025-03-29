@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	bbncfg "github.com/babylonlabs-io/babylon/client/config"
 	"github.com/btcsuite/btcd/btcutil"
@@ -96,10 +97,13 @@ func DefaultConfigFile() string {
 
 // DefaultConfig returns server's default configuration.
 func DefaultConfig() *Config {
+	defaultBbnCfg := bbncfg.DefaultBabylonConfig()
+	defaultBbnCfg.BlockTimeout = 10 * time.Minute
+
 	return &Config{
 		Common:            DefaultCommonConfig(),
 		BTC:               DefaultBTCConfig(),
-		Babylon:           bbncfg.DefaultBabylonConfig(),
+		Babylon:           defaultBbnCfg,
 		GRPC:              DefaultGRPCConfig(),
 		GRPCWeb:           DefaultGRPCWebConfig(),
 		Metrics:           DefaultMetricsConfig(),
