@@ -159,7 +159,7 @@ func (cfg *Config) SaveToYAML(filePath string) error {
 		return fmt.Errorf("error closing YAML encoder: %w", err)
 	}
 
-	if err := os.WriteFile(filePath, buf.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(filePath, buf.Bytes(), 0600); err != nil {
 		return fmt.Errorf("error writing YAML to file: %w", err)
 	}
 
