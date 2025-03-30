@@ -11,7 +11,6 @@ import (
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"
-	"github.com/babylonlabs-io/vigilante/rpcserver"
 	"github.com/babylonlabs-io/vigilante/submitter"
 )
 
@@ -85,29 +84,14 @@ func GetSubmitterCmd() *cobra.Command {
 				panic(fmt.Errorf("failed to create vigilante submitter: %w", err))
 			}
 
-			// create RPC server
-			server, err := rpcserver.New(&cfg.GRPC, rootLogger, vigilantSubmitter, nil, nil, nil)
-			if err != nil {
-				panic(fmt.Errorf("failed to create submitter's RPC server: %w", err))
-			}
-
 			// start submitter and sync
 			vigilantSubmitter.Start()
-
-			// start RPC server
-			server.Start()
 
 			// start Prometheus metrics server
 			addr := fmt.Sprintf("%s:%d", cfg.Metrics.Host, cfg.Metrics.ServerPort)
 			metrics.Start(addr, submitterMetrics.Registry)
 
 			// SIGINT handling stuff
-			addInterruptHandler(func() {
-				// TODO: Does this need to wait for the grpc server to finish up any requests?
-				rootLogger.Info("Stopping RPC server...")
-				server.Stop()
-				rootLogger.Info("RPC server shutdown")
-			})
 			addInterruptHandler(func() {
 				rootLogger.Info("Stopping submitter...")
 				vigilantSubmitter.Stop()
