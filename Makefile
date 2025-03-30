@@ -8,8 +8,9 @@ BUILDDIR ?= $(CURDIR)/build
 BABYLON_PKG := github.com/babylonlabs-io/babylon/cmd/babylond
 
 GO_BIN := ${GOPATH}/bin
+VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
 
-ldflags := $(LDFLAGS)
+ldflags := $(LDFLAGS) -X github.com/babylonlabs-io/vigilante/version.version=$(VERSION)
 build_tags := $(BUILD_TAGS)
 build_args := $(BUILD_ARGS)
 

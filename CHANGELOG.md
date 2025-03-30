@@ -41,6 +41,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 * [#297](https://github.com/babylonlabs-io/vigilante/pull/297) chore: unbonding watcher block metrics
 * [#298](https://github.com/babylonlabs-io/vigilante/pull/298) chore: log binary version
+* [#294](https://github.com/babylonlabs-io/vigilante/pull/294) chore: version cmd
 
 ## v0.23.0
 
