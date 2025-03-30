@@ -39,16 +39,46 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Improvements
 
+* [#294](https://github.com/babylonlabs-io/vigilante/pull/294) chore: version cmd
+* [#258](https://github.com/babylonlabs-io/vigilante/pull/258) fix: Reject non-negative value and Zero for time Interval used by time.ticker
+
+## v0.23.0
+
+### Improvements
+
+* [#278](https://github.com/babylonlabs-io/vigilante/pull/278) chore: metrics for censorship detection
+* [#271](https://github.com/babylonlabs-io/vigilante/pull/271) chore: sync the sample config
+* [#289](https://github.com/babylonlabs-io/vigilante/pull/289) chore: additional check for getFundingtx
+* [#290](https://github.com/babylonlabs-io/vigilante/pull/290) chore: dump config command
+* [#291](https://github.com/babylonlabs-io/vigilante/pull/291) chore: bump bbn to rc.9
+
+## v0.22.1
+
+### Bug Fixes
+
+* [#271](https://github.com/babylonlabs-io/vigilante/pull/271) fix: support old and new genesis formats
+
+## v0.22.0
+
+### Improvements
+
 * [#255](https://github.com/babylonlabs-io/vigilante/pull/255) chore: disable tls in config
 * [#257](https://github.com/babylonlabs-io/vigilante/pull/257) chore: change default max
+* [#260](https://github.com/babylonlabs-io/vigilante/pull/260) chore: add fetch-evidence-interval to sample config
+* [#262](https://github.com/babylonlabs-io/vigilante/pull/262) chore: submitter e2e for tx values bellow dust
+* [#263](https://github.com/babylonlabs-io/vigilante/pull/260) chore: Update zmq endpoints in sample config
+* [#265](https://github.com/babylonlabs-io/vigilante/pull/265) chore: unit tests for relayer
+* [#266](https://github.com/babylonlabs-io/vigilante/pull/266) chore: bump bbn to rc8
 
 ### Bug Fixes
 
 * [#250](https://github.com/babylonlabs-io/vigilante/pull/250) fix: handle rpc errors in maybeResendFromStore
 * [#252](https://github.com/babylonlabs-io/vigilante/pull/252) fix: rbf compliant
+* [#257](https://github.com/babylonlabs-io/vigilante/pull/257) fix: rbf fee calculation
 * [#241](https://github.com/babylonlabs-io/vigilante/pull/241) chore: limit response read
 * [#256](https://github.com/babylonlabs-io/vigilante/pull/256) fix: genesis parsing
-* [#258](https://github.com/babylonlabs-io/vigilante/pull/258) fix: Reject non-negative value and Zero for time Interval used by time.ticker
+* [#236](https://github.com/babylonlabs-io/vigilante/pull/236) fix: handle has inclusion proof err
+* [#261](https://github.com/babylonlabs-io/vigilante/pull/261) fix: tweak fund tx
 
 ## v0.21.0
 
@@ -76,6 +106,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 * [#237](https://github.com/babylonlabs-io/vigilante/pull/237) fix: send on closed chan
 
 ## v0.19.9
+
+### Improvements
+
+* [#211](https://github.com/babylonlabs-io/vigilante/pull/211) feat: adds indexer to btc staking tracker
 
 ### Bug Fixes
 

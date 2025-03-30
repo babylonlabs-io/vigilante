@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/babylonlabs-io/babylon/client/babylonclient"
 	bbn "github.com/babylonlabs-io/babylon/types"
 	"golang.org/x/sync/semaphore"
 	"sync"
@@ -413,6 +414,10 @@ func (sew *StakingEventWatcher) reportUnbondingToBabylon(
 		if err = sew.babylonNodeAdapter.ReportUnbonding(ctx, stakingTxHash, stakeSpendingTx, proof, fundingTxs); err != nil {
 			sew.metrics.FailedReportedUnbondingTransactions.Inc()
 
+			if errors.Is(err, babylonclient.ErrTimeoutAfterWaitingForTxBroadcast) {
+				sew.metrics.UnbondingCensorshipGaugeVec.WithLabelValues(stakingTxHash.String()).Inc()
+			}
+
 			return fmt.Errorf("error reporting unbonding tx %s to babylon: %w", stakingTxHash, err)
 		}
 
@@ -664,7 +669,7 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 
 		details, status, err := sew.btcClient.TxDetails(&txHash, del.StakingTx.TxOut[del.StakingOutputIdx].PkScript)
 		if err != nil {
-			sew.logger.Debugf("error getting tx %v", txHash)
+			sew.logger.Debugf("error getting tx: %v, err: %v", txHash, err)
 
 			continue
 		}
@@ -761,12 +766,19 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 
 		if !verified {
 			sew.logger.Debugf("skipping tx %s is not in verified status", stakingTxHash)
+			sew.pendingTracker.RemoveDelegation(stakingTxHash)
+			sew.verifiedSufficientConfTracker.RemoveDelegation(stakingTxHash)
+			sew.metrics.NumberOfVerifiedDelegations.Dec()
 
 			return nil
 		}
 
 		if err := sew.babylonNodeAdapter.ActivateDelegation(ctx, stakingTxHash, proof); err != nil {
 			sew.metrics.FailedReportedActivateDelegations.Inc()
+
+			if errors.Is(err, babylonclient.ErrTimeoutAfterWaitingForTxBroadcast) {
+				sew.metrics.InclusionProofCensorshipGaugeVec.WithLabelValues(stakingTxHash.String()).Inc()
+			}
 
 			return fmt.Errorf("error reporting activate delegation tx %s to babylon: %w", stakingTxHash, err)
 		}
@@ -849,6 +861,10 @@ func (sew *StakingEventWatcher) latency(method string) func() {
 }
 
 func (sew *StakingEventWatcher) getFundingTxs(tx *wire.MsgTx) ([][]byte, error) {
+	if len(tx.TxIn) == 0 {
+		return nil, fmt.Errorf("no inputs in tx %s", tx.TxHash())
+	}
+
 	var fundingTxs [][]byte
 	for _, txIn := range tx.TxIn {
 		rawTransaction, err := sew.btcClient.GetRawTransaction(&txIn.PreviousOutPoint.Hash)
@@ -862,6 +878,10 @@ func (sew *StakingEventWatcher) getFundingTxs(tx *wire.MsgTx) ([][]byte, error) 
 		}
 
 		fundingTxs = append(fundingTxs, serializedTx)
+	}
+
+	if len(fundingTxs) == 0 {
+		return nil, fmt.Errorf("no funding txs found for tx %s", tx.TxHash())
 	}
 
 	return fundingTxs, nil

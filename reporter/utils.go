@@ -3,7 +3,9 @@ package reporter
 import (
 	"context"
 	"fmt"
+	"github.com/babylonlabs-io/babylon/client/babylonclient"
 	"github.com/babylonlabs-io/vigilante/retrywrap"
+	"github.com/cockroachdb/errors"
 	"strconv"
 
 	"github.com/avast/retry-go/v4"
@@ -87,10 +89,14 @@ func (r *Reporter) submitHeaderMsgs(msg *btclctypes.MsgInsertHeaders) error {
 	},
 		retry.Delay(r.retrySleepTime),
 		retry.MaxDelay(r.maxRetrySleepTime),
-		bootstrapAttemptsAtt,
+		retry.Attempts(r.maxRetryTimes),
 	)
 	if err != nil {
 		r.metrics.FailedHeadersCounter.Add(float64(len(msg.Headers)))
+
+		if errors.Is(err, babylonclient.ErrTimeoutAfterWaitingForTxBroadcast) {
+			r.metrics.HeadersCensorshipGauge.Inc()
+		}
 
 		return fmt.Errorf("failed to submit headers: %w", err)
 	}
@@ -194,6 +200,8 @@ func (r *Reporter) matchAndSubmitCheckpoints(signer string) int {
 
 		// wrap to MsgInsertBTCSpvProof
 		msgInsertBTCSpvProof = types.MustNewMsgInsertBTCSpvProof(signer, proofs)
+		tx1Block := ckpt.Segments[0].AssocBlock
+		tx2Block := ckpt.Segments[1].AssocBlock
 
 		// submit the checkpoint to Babylon
 		res, err := r.babylonClient.InsertBTCSpvProof(context.Background(), msgInsertBTCSpvProof)
@@ -201,13 +209,26 @@ func (r *Reporter) matchAndSubmitCheckpoints(signer string) int {
 			r.logger.Errorf("Failed to submit MsgInsertBTCSpvProof with error %v", err)
 			r.metrics.FailedCheckpointsCounter.Inc()
 
+			if errors.Is(err, babylonclient.ErrTimeoutAfterWaitingForTxBroadcast) {
+				r.logger.Warnf("Censorship detected in inserting checkpoints to Babylon, for epoch %d, tx1 %s, tx2 %s, height %d",
+					ckpt.Epoch,
+					tx1Block.Txs[ckpt.Segments[0].TxIdx].Hash().String(),
+					tx2Block.Txs[ckpt.Segments[1].TxIdx].Hash().String(),
+					strconv.Itoa(int(tx1Block.Height)))
+
+				r.metrics.CheckpointCensorshipGauge.WithLabelValues(
+					strconv.FormatUint(ckpt.Epoch, 10),
+					strconv.Itoa(int(tx1Block.Height)),
+					tx1Block.Txs[ckpt.Segments[0].TxIdx].Hash().String(),
+					tx2Block.Txs[ckpt.Segments[1].TxIdx].Hash().String(),
+				).Inc()
+			}
+
 			continue
 		}
 		r.logger.Infof("Successfully submitted MsgInsertBTCSpvProof with response %d", res.Code)
 		r.metrics.SuccessfulCheckpointsCounter.Inc()
 		r.metrics.SecondsSinceLastCheckpointGauge.Set(0)
-		tx1Block := ckpt.Segments[0].AssocBlock
-		tx2Block := ckpt.Segments[1].AssocBlock
 		r.metrics.NewReportedCheckpointGaugeVec.WithLabelValues(
 			strconv.FormatUint(ckpt.Epoch, 10),
 			strconv.Itoa(int(tx1Block.Height)),

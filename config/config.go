@@ -1,10 +1,13 @@
 package config
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
+	"time"
 
 	bbncfg "github.com/babylonlabs-io/babylon/client/config"
 	"github.com/btcsuite/btcd/btcutil"
@@ -96,10 +99,13 @@ func DefaultConfigFile() string {
 
 // DefaultConfig returns server's default configuration.
 func DefaultConfig() *Config {
+	defaultBbnCfg := bbncfg.DefaultBabylonConfig()
+	defaultBbnCfg.BlockTimeout = 10 * time.Minute
+
 	return &Config{
 		Common:            DefaultCommonConfig(),
 		BTC:               DefaultBTCConfig(),
-		Babylon:           bbncfg.DefaultBabylonConfig(),
+		Babylon:           defaultBbnCfg,
 		GRPC:              DefaultGRPCConfig(),
 		GRPCWeb:           DefaultGRPCWebConfig(),
 		Metrics:           DefaultMetricsConfig(),
@@ -137,4 +143,25 @@ func New(configFile string) (Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// SaveToYAML saves the configuration to a YAML file
+func (cfg *Config) SaveToYAML(filePath string) error {
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+
+	if err := enc.Encode(cfg); err != nil {
+		return fmt.Errorf("error marshaling config to YAML: %w", err)
+	}
+
+	if err := enc.Close(); err != nil {
+		return fmt.Errorf("error closing YAML encoder: %w", err)
+	}
+
+	if err := os.WriteFile(filePath, buf.Bytes(), 0600); err != nil {
+		return fmt.Errorf("error writing YAML to file: %w", err)
+	}
+
+	return nil
 }

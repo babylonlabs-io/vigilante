@@ -30,6 +30,7 @@ type Reporter struct {
 	// retry attributes
 	retrySleepTime    time.Duration
 	maxRetrySleepTime time.Duration
+	maxRetryTimes     uint
 
 	// Internal states of the reporter
 	CheckpointCache               *types.CheckpointCache
@@ -51,6 +52,7 @@ func New(
 	btcNotifier notifier.ChainNotifier,
 	retrySleepTime,
 	maxRetrySleepTime time.Duration,
+	maxRetryTimes uint,
 	metrics *metrics.ReporterMetrics,
 ) (*Reporter, error) {
 	logger := parentLogger.With(zap.String("module", "reporter")).Sugar()
@@ -87,6 +89,7 @@ func New(
 		logger:                        logger,
 		retrySleepTime:                retrySleepTime,
 		maxRetrySleepTime:             maxRetrySleepTime,
+		maxRetryTimes:                 maxRetryTimes,
 		btcClient:                     btcClient,
 		babylonClient:                 babylonClient,
 		btcNotifier:                   btcNotifier,
