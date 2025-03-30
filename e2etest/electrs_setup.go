@@ -24,9 +24,11 @@ func NewElectrsHandler(t *testing.T, manager *container.Manager) *ElectrsTestHan
 	}
 }
 
-func (h *ElectrsTestHandler) Start(t *testing.T, bitcoindPath, btcRpcAddr string) *dockertest.Resource {
+func (h *ElectrsTestHandler) Start(t *testing.T, bitcoindPath, btcRpcAddr string) (*dockertest.Resource, error) {
 	resource, err := h.m.RunElectrsResource(t, t.TempDir(), bitcoindPath, btcRpcAddr)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, err
+	}
 
 	url := fmt.Sprintf("http://localhost:%s", resource.GetPort("3000/tcp"))
 
@@ -36,7 +38,7 @@ func (h *ElectrsTestHandler) Start(t *testing.T, bitcoindPath, btcRpcAddr string
 		return err == nil
 	}, startTimeout, 500*time.Millisecond, "electrs did not start")
 
-	return resource
+	return resource, nil
 }
 
 func (h *ElectrsTestHandler) GetTipHeight(url string) (int, error) {
