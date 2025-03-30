@@ -55,6 +55,10 @@ func (h *ElectrsTestHandler) GetTipHeight(url string) (int, error) {
 	return height, nil
 }
 
+func (h *ElectrsTestHandler) Remove(name string) error {
+	return h.m.ClearResource(name)
+}
+
 func fetch(url string) (string, error) {
 	resp, err := http.Get(url)
 	if err != nil {

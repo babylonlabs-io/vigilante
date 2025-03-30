@@ -97,6 +97,8 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 		bitcoind, bitcoindPath, err = btcHandler.Start(t)
 		if err != nil {
 			t.Logf("failed to start bitcoind: %v", err)
+			errResource := btcHandler.Remove(fmt.Sprintf("bitcoind-%s", t.Name()))
+			require.NoError(t, errResource)
 		}
 		return err == nil
 	}, 5*time.Second, 500*time.Millisecond)
@@ -111,6 +113,8 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 		electrs, err = electrsHandler.Start(t, bitcoindPath, internalBtcRpc)
 		if err != nil {
 			t.Logf("failed to start electrs: %v", err)
+			errResource := electrsHandler.Remove(fmt.Sprintf("electrs-%s", t.Name()))
+			require.NoError(t, errResource)
 		}
 		return err == nil
 	}, 5*time.Second, 500*time.Millisecond)
@@ -160,6 +164,8 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 		babylond, err = manager.RunBabylondResource(t, tmpDir, baseHeaderHex, hex.EncodeToString(pkScript), epochInterval)
 		if err != nil {
 			t.Logf("failed to start babylond: %v", err)
+			errResource := manager.ClearResource(fmt.Sprintf("babylond-%s", t.Name()))
+			require.NoError(t, errResource)
 		}
 		return err == nil
 	}, 5*time.Second, 500*time.Millisecond)

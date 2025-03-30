@@ -9,6 +9,7 @@ import (
 	"github.com/btcsuite/btcd/btcec/v2"
 	"regexp"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -292,6 +293,20 @@ func (m *Manager) ClearResources() error {
 	for _, resource := range m.resources {
 		if err := m.pool.Purge(resource); err != nil {
 			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *Manager) ClearResource(name string) error {
+	for _, resource := range m.resources {
+		if strings.Contains(resource.Container.Name, name) {
+			if err := m.pool.Purge(resource); err != nil {
+				return err
+			}
+
+			break
 		}
 	}
 

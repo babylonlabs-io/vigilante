@@ -121,3 +121,7 @@ func (h *BitcoindTestHandler) ImportDescriptors(descriptor string) {
 func (h *BitcoindTestHandler) Stop() {
 	_ = h.m.ClearResources()
 }
+
+func (h *BitcoindTestHandler) Remove(name string) error {
+	return h.m.ClearResource(name)
+}
