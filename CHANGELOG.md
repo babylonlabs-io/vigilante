@@ -41,6 +41,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 * [#294](https://github.com/babylonlabs-io/vigilante/pull/294) chore: version cmd
 * [#295](https://github.com/babylonlabs-io/vigilante/pull/295) chore: remove grpc server
+* [#258](https://github.com/babylonlabs-io/vigilante/pull/258) fix: Reject non-negative value and Zero for time Interval used by time.ticker
 
 ## v0.23.0
 
