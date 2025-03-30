@@ -102,7 +102,7 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 		}
 		return err == nil
 	}, 25*time.Second, 500*time.Millisecond)
-
+	
 	passphrase := "pass"
 	_ = btcHandler.CreateWallet("default", passphrase)
 
@@ -163,8 +163,8 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 	require.Eventually(t, func() bool {
 		babylond, err = manager.RunBabylondResource(t, tmpDir, baseHeaderHex, hex.EncodeToString(pkScript), epochInterval)
 		if err != nil {
-			t.Logf("failed to start babylond: %v", err)
-			errResource := manager.ClearResource(fmt.Sprintf("babylond-%s", t.Name()))
+			t.Logf("failed to start babylond, test: %s err: %v", t.Name(), err)
+			errResource := manager.RemoveContainer(fmt.Sprintf("babylond-%s", t.Name()))
 			require.NoError(t, errResource)
 		}
 		return err == nil

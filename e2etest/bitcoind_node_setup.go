@@ -123,5 +123,5 @@ func (h *BitcoindTestHandler) Stop() {
 }
 
 func (h *BitcoindTestHandler) Remove(name string) error {
-	return h.m.ClearResource(name)
+	return h.m.RemoveContainer(name)
 }
