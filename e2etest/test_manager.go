@@ -101,7 +101,7 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 			require.NoError(t, errResource)
 		}
 		return err == nil
-	}, 5*time.Second, 500*time.Millisecond)
+	}, 25*time.Second, 500*time.Millisecond)
 
 	passphrase := "pass"
 	_ = btcHandler.CreateWallet("default", passphrase)
@@ -117,7 +117,7 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 			require.NoError(t, errResource)
 		}
 		return err == nil
-	}, 5*time.Second, 500*time.Millisecond)
+	}, 25*time.Second, 500*time.Millisecond)
 
 	cfg := defaultVigilanteConfig()
 	cfg.BTCStakingTracker.IndexerAddr = fmt.Sprintf("http://localhost:%s", electrs.GetPort("3000/tcp"))
@@ -168,7 +168,7 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 			require.NoError(t, errResource)
 		}
 		return err == nil
-	}, 5*time.Second, 500*time.Millisecond)
+	}, 25*time.Second, 500*time.Millisecond)
 
 	// create Babylon client
 	cfg.Babylon.KeyDirectory = filepath.Join(tmpDir, "node0", "babylond")
