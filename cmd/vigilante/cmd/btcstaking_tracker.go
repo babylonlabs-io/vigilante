@@ -8,7 +8,6 @@ import (
 	bst "github.com/babylonlabs-io/vigilante/btcstaking-tracker"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"
-	"github.com/babylonlabs-io/vigilante/rpcserver"
 	"github.com/spf13/cobra"
 )
 
@@ -22,9 +21,8 @@ func GetBTCStakingTracker() *cobra.Command {
 		Short: "BTC staking tracker",
 		Run: func(_ *cobra.Command, _ []string) {
 			var (
-				err    error
-				cfg    config.Config
-				server *rpcserver.Server
+				err error
+				cfg config.Config
 			)
 
 			// get the config from the given file or the default file
@@ -85,12 +83,6 @@ func GetBTCStakingTracker() *cobra.Command {
 				bsMetrics,
 			)
 
-			// create RPC server
-			server, err = rpcserver.New(&cfg.GRPC, rootLogger, nil, nil, nil, bstracker)
-			if err != nil {
-				panic(fmt.Errorf("failed to create reporter's RPC server: %w", err))
-			}
-
 			if err := btcNotifier.Start(); err != nil {
 				panic(fmt.Errorf("failed to start btc chain notifier: %w", err))
 			}
@@ -106,19 +98,11 @@ func GetBTCStakingTracker() *cobra.Command {
 				panic(fmt.Errorf("failed to start unbonding watcher: %w", err))
 			}
 
-			// start RPC server
-			server.Start()
 			// start Prometheus metrics server
 			addr := fmt.Sprintf("%s:%d", cfg.Metrics.Host, cfg.Metrics.ServerPort)
 			metrics.Start(addr, bsMetrics.Registry)
 
 			// SIGINT handling stuff
-			addInterruptHandler(func() {
-				// TODO: Does this need to wait for the grpc server to finish up any requests?
-				rootLogger.Info("Stopping RPC server...")
-				server.Stop()
-				rootLogger.Info("RPC server shutdown")
-			})
 			addInterruptHandler(func() {
 				rootLogger.Info("Stopping unbonding watcher...")
 				if err := bstracker.Stop(); err != nil {

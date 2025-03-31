@@ -23,10 +23,8 @@ const (
 )
 
 var (
-	defaultAppDataDir  = btcutil.AppDataDir("babylon-vigilante", false)
-	defaultConfigFile  = filepath.Join(defaultAppDataDir, defaultConfigFilename)
-	defaultRPCKeyFile  = filepath.Join(defaultAppDataDir, "rpc.key")
-	defaultRPCCertFile = filepath.Join(defaultAppDataDir, "rpc.cert")
+	defaultAppDataDir = btcutil.AppDataDir("babylon-vigilante", false)
+	defaultConfigFile = filepath.Join(defaultAppDataDir, defaultConfigFilename)
 )
 
 func DataDir(homePath string) string {
@@ -38,8 +36,6 @@ type Config struct {
 	Common            CommonConfig            `mapstructure:"common"`
 	BTC               BTCConfig               `mapstructure:"btc"`
 	Babylon           bbncfg.BabylonConfig    `mapstructure:"babylon"`
-	GRPC              GRPCConfig              `mapstructure:"grpc"`
-	GRPCWeb           GRPCWebConfig           `mapstructure:"grpc-web"`
 	Metrics           MetricsConfig           `mapstructure:"metrics"`
 	Submitter         SubmitterConfig         `mapstructure:"submitter"`
 	Reporter          ReporterConfig          `mapstructure:"reporter"`
@@ -58,14 +54,6 @@ func (cfg *Config) Validate() error {
 
 	if err := cfg.Babylon.Validate(); err != nil {
 		return fmt.Errorf("invalid config in babylon: %w", err)
-	}
-
-	if err := cfg.GRPC.Validate(); err != nil {
-		return fmt.Errorf("invalid config in grpc: %w", err)
-	}
-
-	if err := cfg.GRPCWeb.Validate(); err != nil {
-		return fmt.Errorf("invalid config in grpc-web: %w", err)
 	}
 
 	if err := cfg.Metrics.Validate(); err != nil {
@@ -108,8 +96,6 @@ func DefaultConfig() *Config {
 		Common:            DefaultCommonConfig(),
 		BTC:               DefaultBTCConfig(),
 		Babylon:           defaultBbnCfg,
-		GRPC:              DefaultGRPCConfig(),
-		GRPCWeb:           DefaultGRPCWebConfig(),
 		Metrics:           DefaultMetricsConfig(),
 		Submitter:         DefaultSubmitterConfig(),
 		Reporter:          DefaultReporterConfig(),
