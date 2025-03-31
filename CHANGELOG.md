@@ -37,6 +37,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Improvements
+* 
+* [#297](https://github.com/babylonlabs-io/vigilante/pull/297) chore: unbonding watcher block metrics
+
 ## v0.23.0
 
 ### Improvements
