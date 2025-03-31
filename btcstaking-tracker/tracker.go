@@ -3,6 +3,7 @@ package btcstakingtracker
 import (
 	"fmt"
 	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/indexer"
+	"github.com/babylonlabs-io/vigilante/version"
 	"sync"
 	"time"
 
@@ -155,6 +156,8 @@ func (tracker *BTCStakingTracker) Start() error {
 	var startErr error
 	tracker.startOnce.Do(func() {
 		tracker.logger.Info("starting BTC staking tracker")
+		commit, _ := version.CommitInfo()
+		tracker.logger.Info("version: %s, commit: %s", version.Version(), commit)
 
 		if err := tracker.stakingEventWatcher.Start(); err != nil {
 			startErr = err

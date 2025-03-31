@@ -9,6 +9,7 @@ import (
 	"github.com/babylonlabs-io/babylon/client/babylonclient"
 	"github.com/babylonlabs-io/vigilante/e2etest/container"
 	"github.com/btcsuite/btcd/txscript"
+	"github.com/ory/dockertest/v3"
 	"go.uber.org/zap"
 	"os"
 	"path/filepath"
@@ -90,17 +91,36 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 	require.NoError(t, err)
 
 	btcHandler := NewBitcoindHandler(t, manager)
-	bitcoind, bitcoindPath := btcHandler.Start(t)
+	var bitcoind *dockertest.Resource
+	var bitcoindPath string
+	require.Eventually(t, func() bool {
+		bitcoind, bitcoindPath, err = btcHandler.Start(t)
+		if err != nil {
+			t.Logf("failed to start bitcoind: %v", err)
+			errResource := btcHandler.Remove(fmt.Sprintf("bitcoind-%s", t.Name()))
+			require.NoError(t, errResource)
+		}
+		return err == nil
+	}, 25*time.Second, 500*time.Millisecond)
+	
 	passphrase := "pass"
 	_ = btcHandler.CreateWallet("default", passphrase)
 
 	internalBtcRpc := fmt.Sprintf("%s:18443", bitcoind.Container.NetworkSettings.IPAddress)
 	electrsHandler := NewElectrsHandler(t, manager)
-	electrs := electrsHandler.Start(t, bitcoindPath, internalBtcRpc)
+	var electrs *dockertest.Resource
+	require.Eventually(t, func() bool {
+		electrs, err = electrsHandler.Start(t, bitcoindPath, internalBtcRpc)
+		if err != nil {
+			t.Logf("failed to start electrs: %v", err)
+			errResource := electrsHandler.Remove(fmt.Sprintf("electrs-%s", t.Name()))
+			require.NoError(t, errResource)
+		}
+		return err == nil
+	}, 25*time.Second, 500*time.Millisecond)
 
 	cfg := defaultVigilanteConfig()
 	cfg.BTCStakingTracker.IndexerAddr = fmt.Sprintf("http://localhost:%s", electrs.GetPort("3000/tcp"))
-
 	cfg.BTC.Endpoint = fmt.Sprintf("127.0.0.1:%s", bitcoind.GetPort("18443/tcp"))
 
 	testRpcClient, err := rpcclient.New(&rpcclient.ConnConfig{
@@ -139,8 +159,16 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 	tmpDir, err := tempDir(t)
 	require.NoError(t, err)
 
-	babylond, err := manager.RunBabylondResource(t, tmpDir, baseHeaderHex, hex.EncodeToString(pkScript), epochInterval)
-	require.NoError(t, err)
+	var babylond *dockertest.Resource
+	require.Eventually(t, func() bool {
+		babylond, err = manager.RunBabylondResource(t, tmpDir, baseHeaderHex, hex.EncodeToString(pkScript), epochInterval)
+		if err != nil {
+			t.Logf("failed to start babylond, test: %s err: %v", t.Name(), err)
+			errResource := manager.RemoveContainer(fmt.Sprintf("babylond-%s", t.Name()))
+			require.NoError(t, errResource)
+		}
+		return err == nil
+	}, 25*time.Second, 500*time.Millisecond)
 
 	// create Babylon client
 	cfg.Babylon.KeyDirectory = filepath.Join(tmpDir, "node0", "babylond")
