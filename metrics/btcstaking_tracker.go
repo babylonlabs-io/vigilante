@@ -39,6 +39,8 @@ type UnbondingWatcherMetrics struct {
 	MethodExecutionLatency                      *prometheus.HistogramVec
 	UnbondingCensorshipGaugeVec                 *prometheus.GaugeVec
 	InclusionProofCensorshipGaugeVec            *prometheus.GaugeVec
+	BestBlockHeight                             prometheus.Gauge
+	BtcLightClientHeight                        prometheus.Gauge
 }
 
 func newUnbondingWatcherMetrics(registry *prometheus.Registry) *UnbondingWatcherMetrics {
@@ -132,6 +134,16 @@ func newUnbondingWatcherMetrics(registry *prometheus.Registry) *UnbondingWatcher
 				"staking_tx_hash",
 			},
 		),
+		BestBlockHeight: registerer.NewGauge(prometheus.GaugeOpts{
+			Namespace: "vigilante",
+			Name:      "unbonding_watcher_best_block_height",
+			Help:      "The height of the best btc block",
+		}),
+		BtcLightClientHeight: registerer.NewGauge(prometheus.GaugeOpts{
+			Namespace: "vigilante",
+			Name:      "unbonding_watcher_btc_light_client_height",
+			Help:      "The height of the babylon btc light client",
+		}),
 	}
 
 	return uwMetrics

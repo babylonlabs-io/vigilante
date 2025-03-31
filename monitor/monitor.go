@@ -3,6 +3,7 @@ package monitor
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/babylonlabs-io/vigilante/version"
 	"math"
 	"sort"
 	"sync"
@@ -121,6 +122,8 @@ func (m *Monitor) Start(baseHeight uint32) {
 
 	m.started.Store(true)
 	m.logger.Info("the Monitor is started")
+	commit, _ := version.CommitInfo()
+	m.logger.Info("version: %s, commit: %s", version.Version(), commit)
 
 	// start Babylon RPC client
 	if err := m.BBNQuerier.Start(); err != nil {
