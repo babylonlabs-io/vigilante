@@ -39,6 +39,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Improvements
 
+* [#297](https://github.com/babylonlabs-io/vigilante/pull/297) chore: unbonding watcher block metrics
+
+### Improvements
+
 * [#294](https://github.com/babylonlabs-io/vigilante/pull/294) chore: version cmd
 * [#258](https://github.com/babylonlabs-io/vigilante/pull/258) fix: Reject non-negative value and Zero for time Interval used by time.ticker
 
