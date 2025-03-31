@@ -188,6 +188,7 @@ func (sew *StakingEventWatcher) handleNewBlocks(blockNotifier *notifier.BlockEpo
 				panic(fmt.Errorf("received negative block height: %d", block.Height))
 			}
 			sew.currentBestBlockHeight.Store(uint32(block.Height))
+			sew.metrics.BestBlockHeight.Set(float64(block.Height))
 			sew.logger.Debugf("Received new best btc block: %d", block.Height)
 
 			if err := sew.checkSpend(); err != nil {
@@ -326,10 +327,12 @@ func (sew *StakingEventWatcher) syncedWithBabylon() (bool, error) {
 		return false, err
 	}
 
-	currentBtcNodeHeight := sew.currentBestBlockHeight.Load()
+	sew.metrics.BtcLightClientHeight.Set(float64(btcLightClientTipHeight))
 
+	currentBtcNodeHeight := sew.currentBestBlockHeight.Load()
 	if currentBtcNodeHeight < btcLightClientTipHeight {
-		sew.logger.Debugf("btc light client tip height is %d, connected node best block height is %d. Waiting for node to catch up", btcLightClientTipHeight, currentBtcNodeHeight)
+		sew.logger.Debugf("btc light client tip height is %d, connected node best block height is %d. Waiting for node to catch up",
+			btcLightClientTipHeight, currentBtcNodeHeight)
 
 		return false, nil
 	}
