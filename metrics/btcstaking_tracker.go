@@ -36,8 +36,9 @@ type UnbondingWatcherMetrics struct {
 	NumberOfVerifiedNotInChainDelegations       prometheus.Gauge
 	NumberOfVerifiedInsufficientConfDelegations prometheus.Gauge
 	NumberOfVerifiedSufficientConfDelegations   prometheus.Gauge
-
-	MethodExecutionLatency *prometheus.HistogramVec
+	MethodExecutionLatency                      *prometheus.HistogramVec
+	UnbondingCensorshipGaugeVec                 *prometheus.GaugeVec
+	InclusionProofCensorshipGaugeVec            *prometheus.GaugeVec
 }
 
 func newUnbondingWatcherMetrics(registry *prometheus.Registry) *UnbondingWatcherMetrics {
@@ -111,6 +112,26 @@ func newUnbondingWatcherMetrics(registry *prometheus.Registry) *UnbondingWatcher
 			Name:      "unbonding_watcher_number_of_verified_sufficient_conf_delegations",
 			Help:      "The number of verified delegations with sufficient confirmations",
 		}),
+		UnbondingCensorshipGaugeVec: registerer.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: "vigilante",
+				Name:      "unbonding_watcher_unbonding_censorship",
+				Help:      "The metric of a new unbonding censorship",
+			},
+			[]string{
+				"staking_tx_hash",
+			},
+		),
+		InclusionProofCensorshipGaugeVec: registerer.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: "vigilante",
+				Name:      "unbonding_watcher_inclusion_proof_censorship",
+				Help:      "The metric of a new inclusion proof censorship",
+			},
+			[]string{
+				"staking_tx_hash",
+			},
+		),
 	}
 
 	return uwMetrics
@@ -172,8 +193,9 @@ func (sm *SlasherMetrics) RecordSlashedDelegation(del *types.BTCDelegationRespon
 }
 
 type AtomicSlasherMetrics struct {
-	Registry                   *prometheus.Registry
-	TrackedBTCDelegationsGauge prometheus.Gauge
+	Registry                            *prometheus.Registry
+	TrackedBTCDelegationsGauge          prometheus.Gauge
+	SelectiveSlashingCensorshipGaugeVec *prometheus.GaugeVec
 }
 
 func newAtomicSlasherMetrics(registry *prometheus.Registry) *AtomicSlasherMetrics {
@@ -182,9 +204,20 @@ func newAtomicSlasherMetrics(registry *prometheus.Registry) *AtomicSlasherMetric
 	asMetrics := &AtomicSlasherMetrics{
 		Registry: registry,
 		TrackedBTCDelegationsGauge: registerer.NewGauge(prometheus.GaugeOpts{
-			Name: "atomic_slasher_tracked_delegations_gauge",
-			Help: "The number of BTC delegations the atomic slasher routine is tracking",
+			Namespace: "vigilante",
+			Name:      "atomic_slasher_tracked_delegations_gauge",
+			Help:      "The number of BTC delegations the atomic slasher routine is tracking",
 		}),
+		SelectiveSlashingCensorshipGaugeVec: registerer.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: "vigilante",
+				Name:      "atomic_slasher_selective_slashing_censorship",
+				Help:      "The metric of a new selective slashing censorship",
+			},
+			[]string{
+				"staking_tx_hash",
+			},
+		),
 	}
 
 	return asMetrics

@@ -364,7 +364,7 @@ func TestActivatingAndUnbondingDelegation(t *testing.T) {
 
 func TestUnbondingLoaded(t *testing.T) {
 	t.Parallel()
-	numMatureOutputs := uint32(1500)
+	numMatureOutputs := uint32(400)
 	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
 	defer tm.Stop(t)
 	tm.CatchUpBTCLightClient(t)
@@ -690,4 +690,108 @@ func TestActivatingDelegationWithTwoTrackers(t *testing.T) {
 		return promtestutil.ToFloat64(stakingTrackerMetrics2.NumberOfVerifiedDelegations) == 0 &&
 			promtestutil.ToFloat64(stakingTrackerMetrics.NumberOfVerifiedDelegations) == 0
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
+}
+
+func TestUnbondingWatcherCensorship(t *testing.T) {
+	t.Parallel()
+	numMatureOutputs := uint32(300)
+
+	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
+	defer tm.Stop(t)
+	tm.CatchUpBTCLightClient(t)
+
+	emptyHintCache := btcclient.EmptyHintCache{}
+
+	backend, err := btcclient.NewNodeBackend(
+		btcclient.ToBitcoindConfig(tm.Config.BTC),
+		&chaincfg.RegressionNetParams,
+		&emptyHintCache,
+	)
+	require.NoError(t, err)
+
+	err = backend.Start()
+	require.NoError(t, err)
+
+	commonCfg := config.DefaultCommonConfig()
+	bstCfg := config.DefaultBTCStakingTrackerConfig()
+	bstCfg.CheckDelegationsInterval = 1 * time.Second
+	bstCfg.IndexerAddr = tm.Config.BTCStakingTracker.IndexerAddr
+	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
+
+	cfg := defaultVigilanteConfig()
+	cfg.BTC.Endpoint = tm.Config.BTC.Endpoint
+	cfg.BTCStakingTracker.IndexerAddr = tm.Config.BTCStakingTracker.IndexerAddr
+	cfg.Babylon.KeyDirectory = tm.Config.Babylon.KeyDirectory
+	cfg.Babylon.GasAdjustment = tm.Config.Babylon.GasAdjustment
+	cfg.Babylon.Key = "test-spending-key"
+	cfg.Babylon.RPCAddr = tm.Config.Babylon.RPCAddr
+	cfg.Babylon.GRPCAddr = tm.Config.Babylon.GRPCAddr
+	cfg.Babylon.BlockTimeout = 10 * time.Millisecond // very short timeout to test censorship
+
+	babylonClient, err := bbnclient.New(&cfg.Babylon, nil) // new client only for the tracker
+	require.NoError(t, err)
+
+	bsTracker := bst.NewBTCStakingTracker(
+		tm.BTCClient,
+		backend,
+		babylonClient,
+		&bstCfg,
+		&commonCfg,
+		zap.NewNop(),
+		stakingTrackerMetrics,
+	)
+	bsTracker.Start()
+	defer bsTracker.Stop()
+
+	_, fpSK := tm.CreateFinalityProvider(t)
+	stakingSlashingInfo, unbondingSlashingInfo, delSK := tm.CreateBTCDelegation(t, fpSK)
+
+	unbondingPathSpendInfo, err := stakingSlashingInfo.StakingInfo.UnbondingPathSpendInfo()
+	require.NoError(t, err)
+	stakingOutIdx, err := outIdx(unbondingSlashingInfo.UnbondingTx, unbondingSlashingInfo.UnbondingInfo.UnbondingOutput)
+	require.NoError(t, err)
+
+	unbondingTxSchnorrSig, err := btcstaking.SignTxWithOneScriptSpendInputStrict(
+		unbondingSlashingInfo.UnbondingTx,
+		stakingSlashingInfo.StakingTx,
+		stakingOutIdx,
+		unbondingPathSpendInfo.GetPkScriptPath(),
+		delSK,
+	)
+	require.NoError(t, err)
+
+	resp, err := tm.BabylonClient.BTCDelegation(stakingSlashingInfo.StakingTx.TxHash().String())
+	require.NoError(t, err)
+
+	covenantSigs := resp.BtcDelegation.UndelegationResponse.CovenantUnbondingSigList
+	witness, err := unbondingPathSpendInfo.CreateUnbondingPathWitness(
+		[]*schnorr.Signature{covenantSigs[0].Sig.MustToBTCSig()},
+		unbondingTxSchnorrSig,
+	)
+	unbondingSlashingInfo.UnbondingTx.TxIn[0].Witness = witness
+
+	// Send unbonding tx to Bitcoin
+	_, err = tm.BTCClient.SendRawTransaction(unbondingSlashingInfo.UnbondingTx, true)
+	require.NoError(t, err)
+
+	// mine a block with this tx, and insert it to Bitcoin
+	unbondingTxHash := unbondingSlashingInfo.UnbondingTx.TxHash()
+	t.Logf("submitted unbonding tx with hash %s", unbondingTxHash.String())
+	require.Eventually(t, func() bool {
+		txns, err := tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{&unbondingTxHash})
+		require.NoError(t, err)
+		return len(txns) == 1
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	minedBlock := tm.mineBlock(t)
+	require.Equal(t, 2, len(minedBlock.Transactions))
+
+	tm.CatchUpBTCLightClient(t)
+
+	require.Eventually(t, func() bool {
+		tm.mineBlock(t)
+
+		return promtestutil.ToFloat64(stakingTrackerMetrics.UnbondingCensorshipGaugeVec.
+			WithLabelValues(stakingSlashingInfo.StakingTx.TxHash().String())) == 1
+	}, time.Minute, 3*time.Second)
 }

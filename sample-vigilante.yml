@@ -4,19 +4,16 @@ common:
   retry-sleep-time: 5s
   max-retry-sleep-time: 5m
 btc:
-  no-client-tls: false # use true for bitcoind as it does not support tls
-  ca-file: $TESTNET_PATH/bitcoin/rpc.cert
+  disable-tls: false # use true for bitcoind as it does not support tls
   endpoint: localhost:18556 # use port 18443 for bitcoind regtest
   estimate-mode: CONSERVATIVE # only needed by bitcoind
   tx-fee-max: 20000 # maximum tx fee, 20,000sat/kvb
   tx-fee-min: 1000 # minimum tx fee, 1,000sat/kvb
   default-fee: 1000 # 1,000sat/kvb
   target-block-num: 2
-  wallet-endpoint: localhost:18554
   wallet-password: walletpass
   wallet-name: default
   wallet-lock-time: 10
-  wallet-ca-file: $TESTNET_PATH/bitcoin/rpc-wallet.cert
   net-params: simnet  # use regtest for bitcoind as it does not support simnet
   username: rpcuser
   password: rpcpass
@@ -35,8 +32,8 @@ babylon:
   gas-prices: 2ubbn
   key-directory: $TESTNET_PATH/node0/babylond
   debug: true
-  timeout: 20s
-  block-timeout: ~
+  timeout: "20s"
+  block-timeout: "10m"
   output-format: json
   submitter-address: bbn1v6k7k9s8md3k29cu9runasstq5zaa0lpznk27w
   sign-mode: direct
@@ -57,6 +54,9 @@ submitter:
   resubmit-fee-multiplier: 1
   polling-interval-seconds: 60
   resend-interval-seconds: 1800
+  insufficient_fee_margin: 0.15
+  insufficient_feerate_margin: 0.15
+  fee_increment_margin: 0.15
   dbconfig:
     dbpath: $TESTNET_PATH/vigilante/
     dbfilename: submitter.db
@@ -77,7 +77,6 @@ monitor:
   max-live-btc-heights: 200
   enable-liveness-checker: true
   enable-slasher: true
-  btcnetparams: simnet
   dbconfig:
     dbpath: $TESTNET_PATH/monitor/
     dbfilename: submitter.db
@@ -92,6 +91,7 @@ btcstaking-tracker:
   retry-submit-unbonding-interval: 1m
   max-jitter-interval: 30s
   btcnetparams: simnet
+  max-slashing-concurrency: 20
   indexer-addr: localhost:3000
   fetch-evidence-interval: 60
 

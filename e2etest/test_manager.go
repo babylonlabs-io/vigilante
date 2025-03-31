@@ -146,6 +146,7 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 	cfg.Babylon.KeyDirectory = filepath.Join(tmpDir, "node0", "babylond")
 	cfg.Babylon.Key = "test-spending-key" // keyring to bbn node
 	cfg.Babylon.GasAdjustment = 3.0
+	cfg.Babylon.BlockTimeout = 30 * time.Second
 
 	// update port with the dynamically allocated one from docker
 	cfg.Babylon.RPCAddr = fmt.Sprintf("http://localhost:%s", babylond.GetPort("26657/tcp"))
@@ -246,7 +247,7 @@ func (tm *TestManager) CatchUpBTCLightClient(t *testing.T) {
 		headers = append(headers, header)
 	}
 
-	for headersChunk := range slices.Chunk(headers, 1500) {
+	for headersChunk := range slices.Chunk(headers, 100) {
 		_, err := tm.InsertBTCHeadersToBabylon(headersChunk)
 		require.NoError(t, err)
 
