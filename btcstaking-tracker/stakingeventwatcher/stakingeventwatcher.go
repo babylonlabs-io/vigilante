@@ -740,8 +740,8 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 		}
 	}()
 
-	if err := sew.waitForRequiredDepth(ctx, stakingTxHash, &inclusionBlockHash, requiredDepth); err != nil {
-		sew.logger.Warnf("exceeded waiting for required depth for tx: %s, will try later: err %v", stakingTxHash.String(), err)
+	if err := sew.waitForRequiredDepth(ctx, &inclusionBlockHash, requiredDepth); err != nil {
+		sew.logger.Warnf("exceeded waiting for required depth for tx: %s, will try later. Err: %v", stakingTxHash.String(), err)
 
 		if err := sew.verifiedInsufficientConfTracker.AddEmptyDelegation(stakingTxHash); err == nil {
 			sew.metrics.NumberOfVerifiedInsufficientConfDelegations.Set(float64(sew.verifiedInsufficientConfTracker.Count()))
@@ -812,7 +812,6 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 
 func (sew *StakingEventWatcher) waitForRequiredDepth(
 	ctx context.Context,
-	stakingTxHash chainhash.Hash,
 	inclusionBlockHash *chainhash.Hash,
 	requiredDepth uint32,
 ) error {
@@ -846,10 +845,6 @@ func (sew *StakingEventWatcher) waitForRequiredDepth(
 		retry.MaxDelay(sew.cfg.RetrySubmitUnbondingTxInterval),
 		retry.MaxJitter(sew.cfg.RetryJitter),
 		retry.LastErrorOnly(true), // let's avoid high log spam
-		retry.OnRetry(func(n uint, err error) {
-			sew.logger.Debugf("waiting for staking tx: %s to be k-deep. Current[%d], required[%d]. "+
-				"Attempt: %d. Err: %v", stakingTxHash, depth, requiredDepth, n, err)
-		}),
 	)
 }
 
