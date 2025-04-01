@@ -659,7 +659,7 @@ func (sew *StakingEventWatcher) handlerVerifiedDelegations() {
 func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 	params, err := sew.babylonNodeAdapter.Params()
 	if err != nil {
-		sew.logger.Errorf("error getting tx params %v", err)
+		sew.logger.Errorf("error getting tx params: %v", err)
 
 		return
 	}
@@ -672,7 +672,7 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 
 		details, status, err := sew.btcClient.TxDetails(&txHash, del.StakingTx.TxOut[del.StakingOutputIdx].PkScript)
 		if err != nil {
-			sew.logger.Debugf("error getting tx: %v, err: %v", txHash, err)
+			sew.logger.Errorf("error getting tx: %v, err: %v", txHash, err)
 
 			continue
 		}
@@ -695,7 +695,7 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 
 		proof, err := ib.GenSPVProof(int(details.TxIndex))
 		if err != nil {
-			sew.logger.Debugf("error making spv proof %s", err)
+			sew.logger.Warnf("error making spv proof %s", err)
 
 			continue
 		}
@@ -707,7 +707,7 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 		}
 
 		if err := sew.pendingTracker.UpdateActivation(txHash, true); err != nil {
-			sew.logger.Debugf("error updating activation in pending tracker tx: %v", txHash)
+			sew.logger.Warnf("error updating activation in pending tracker tx: %v", txHash)
 			sew.activationLimiter.Release(1) // in probable edge case, insure we release the sem
 
 			continue
@@ -736,7 +736,7 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 	defer sew.latency("activateBtcDelegation")()
 	defer func() {
 		if err := sew.pendingTracker.UpdateActivation(stakingTxHash, false); err != nil {
-			sew.logger.Debugf("err updating activation in pending tracker tx: %v", stakingTxHash)
+			sew.logger.Warnf("err updating activation in pending tracker tx: %v", stakingTxHash)
 		}
 	}()
 
@@ -790,7 +790,7 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 		sew.pendingTracker.RemoveDelegation(stakingTxHash)
 		sew.metrics.NumberOfVerifiedDelegations.Dec()
 
-		sew.logger.Debugf("staking tx activated %s", stakingTxHash.String())
+		sew.logger.Infof("staking tx activated %s", stakingTxHash.String())
 
 		if _, exists := sew.verifiedSufficientConfTracker.GetDelegation(stakingTxHash); exists {
 			sew.verifiedSufficientConfTracker.RemoveDelegation(stakingTxHash)
@@ -858,7 +858,6 @@ func (sew *StakingEventWatcher) latency(method string) func() {
 
 	return func() {
 		duration := time.Since(startTime)
-		sew.logger.Debugf("execution time for method: %s, duration: %s", method, duration.String())
 		sew.metrics.MethodExecutionLatency.WithLabelValues(method).Observe(duration.Seconds())
 	}
 }
