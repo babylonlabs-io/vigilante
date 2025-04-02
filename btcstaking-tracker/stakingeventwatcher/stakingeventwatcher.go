@@ -659,7 +659,7 @@ func (sew *StakingEventWatcher) handlerVerifiedDelegations() {
 func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 	params, err := sew.babylonNodeAdapter.Params()
 	if err != nil {
-		sew.logger.Errorf("error getting tx params: %v", err)
+		sew.logger.Errorf("error getting tx params: %s", err.Error())
 
 		return
 	}

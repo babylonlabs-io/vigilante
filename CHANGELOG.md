@@ -41,6 +41,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 * [#303](https://github.com/babylonlabs-io/vigilante/pull/303) chore: sew reduce logs
 
+## v0.23.2
+
+### Improvements
+
+* [#304](https://github.com/babylonlabs-io/vigilante/pull/304) chore: bump bbn v1.0.0
+
 ## v0.23.1
 
 ### Improvements
