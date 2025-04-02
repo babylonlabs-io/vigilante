@@ -123,17 +123,14 @@ func FuzzProcessCheckpoints(f *testing.F) {
 	})
 }
 
-// Helper function to create sample blocks for tests using the actual struct
-// Sets Header and Txs to nil as they are not relevant for FilterAlreadyProcessedBlocks
 func makeBlocks(heights ...uint32) []*types.IndexedBlock {
 	blocks := make([]*types.IndexedBlock, len(heights))
 	for i, h := range heights {
 		blocks[i] = &types.IndexedBlock{
 			Height: h,
-			Header: nil, // Not used by the function under test
-			Txs:    nil, // Not used by the function under test
 		}
 	}
+
 	return blocks
 }
 
@@ -142,9 +139,9 @@ func TestFilterAlreadyProcessedBlocks(t *testing.T) {
 
 	testCases := []struct {
 		name                   string
-		inputBlocks            []*types.IndexedBlock // Use the actual type
+		inputBlocks            []*types.IndexedBlock
 		inputHeight            uint32
-		expectedBlocks         []*types.IndexedBlock // Use the actual type
+		expectedBlocks         []*types.IndexedBlock
 		expectedKeepProcessing bool
 		expectedError          error
 	}{
@@ -229,7 +226,7 @@ func TestFilterAlreadyProcessedBlocks(t *testing.T) {
 			expectedError:          nil,
 		},
 		{
-			name:                   "Defensive check - all blocks <= height (handled by initial check)",
+			name:                   "All blocks <= height",
 			inputBlocks:            makeBlocks(8, 9, 10),
 			inputHeight:            10,
 			expectedBlocks:         nil,
@@ -239,9 +236,8 @@ func TestFilterAlreadyProcessedBlocks(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc // Capture range variable for parallel execution!
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel() // Run each test case concurrently
+			t.Parallel()
 
 			gotBlocks, gotKeepProcessing, gotErr := reporter.FilterAlreadyProcessedBlocks(tc.inputBlocks, tc.inputHeight)
 

@@ -92,6 +92,7 @@ func (r *Reporter) submitHeaderMsgs(msg *btclctypes.MsgInsertHeaders) error {
 		retry.Attempts(r.maxRetryTimes),
 	)
 	if err != nil {
+		// we increase this even on DuplicateSubmission error, as sometimes they are legitimate
 		r.metrics.FailedHeadersCounter.Add(float64(len(msg.Headers)))
 
 		if errors.Is(err, babylonclient.ErrTimeoutAfterWaitingForTxBroadcast) {
@@ -121,7 +122,6 @@ func (r *Reporter) ProcessHeaders(signer string, ibs []*types.IndexedBlock) (int
 	}
 	// skip if no header to submit
 	if len(headerMsgsToSubmit) == 0 {
-		r.logger.Info("No new headers to submit")
 		return 0, nil
 	}
 
@@ -153,15 +153,16 @@ func (r *Reporter) ProcessHeaders(signer string, ibs []*types.IndexedBlock) (int
 				return numSubmitted, fmt.Errorf("failed to find headers to submit: %w", newErr)
 			}
 
-			// If no new headers after slicing, we're done
 			if len(newHeaderMsgs) == 0 {
 				r.logger.Info("No new headers to submit after slicing")
+
 				return numSubmitted, nil
 			}
 
 			// Replace the remaining headers with the new set and reset the counter
 			headerMsgsToSubmit = newHeaderMsgs
 			i = -1 // Will be incremented to 0 at the start of the next loop
+
 			continue
 		}
 
