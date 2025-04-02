@@ -105,8 +105,8 @@ func New(
 // Start starts the goroutines necessary to manage a vigilante.
 func (r *Reporter) Start() {
 	commit, _ := version.CommitInfo()
-	r.logger.Info("version: %s, commit: %s", version.Version(), commit)
-	
+	r.logger.Infof("version: %s, commit: %s", version.Version(), commit)
+
 	r.quitMu.Lock()
 	select {
 	case <-r.quit:
