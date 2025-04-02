@@ -143,7 +143,6 @@ func TestFilterAlreadyProcessedBlocks(t *testing.T) {
 		inputHeight            uint32
 		expectedBlocks         []*types.IndexedBlock
 		expectedKeepProcessing bool
-		expectedError          error
 	}{
 		{
 			name:                   "Empty input batch",
@@ -151,7 +150,6 @@ func TestFilterAlreadyProcessedBlocks(t *testing.T) {
 			inputHeight:            10,
 			expectedBlocks:         []*types.IndexedBlock{},
 			expectedKeepProcessing: false,
-			expectedError:          nil,
 		},
 		{
 			name:                   "Nil input batch",
@@ -159,7 +157,6 @@ func TestFilterAlreadyProcessedBlocks(t *testing.T) {
 			inputHeight:            10,
 			expectedBlocks:         []*types.IndexedBlock{},
 			expectedKeepProcessing: false,
-			expectedError:          nil,
 		},
 		{
 			name:                   "Chain tip far ahead of batch",
@@ -167,7 +164,6 @@ func TestFilterAlreadyProcessedBlocks(t *testing.T) {
 			inputHeight:            20,
 			expectedBlocks:         nil,
 			expectedKeepProcessing: false,
-			expectedError:          nil,
 		},
 		{
 			name:                   "Chain tip equals last block height",
@@ -175,7 +171,6 @@ func TestFilterAlreadyProcessedBlocks(t *testing.T) {
 			inputHeight:            12,
 			expectedBlocks:         nil,
 			expectedKeepProcessing: false,
-			expectedError:          nil,
 		},
 		{
 			name:                   "Chain tip catches some blocks",
@@ -183,7 +178,6 @@ func TestFilterAlreadyProcessedBlocks(t *testing.T) {
 			inputHeight:            11,
 			expectedBlocks:         makeBlocks(12, 13, 14),
 			expectedKeepProcessing: true,
-			expectedError:          nil,
 		},
 		{
 			name:                   "Chain tip equals first block height",
@@ -191,7 +185,6 @@ func TestFilterAlreadyProcessedBlocks(t *testing.T) {
 			inputHeight:            10,
 			expectedBlocks:         makeBlocks(11, 12),
 			expectedKeepProcessing: true,
-			expectedError:          nil,
 		},
 		{
 			name:                   "Chain tip before all blocks",
@@ -199,7 +192,6 @@ func TestFilterAlreadyProcessedBlocks(t *testing.T) {
 			inputHeight:            5,
 			expectedBlocks:         makeBlocks(10, 11, 12),
 			expectedKeepProcessing: true,
-			expectedError:          nil,
 		},
 		{
 			name:                   "Chain tip catches all but last block",
@@ -207,7 +199,6 @@ func TestFilterAlreadyProcessedBlocks(t *testing.T) {
 			inputHeight:            11,
 			expectedBlocks:         makeBlocks(12),
 			expectedKeepProcessing: true,
-			expectedError:          nil,
 		},
 		{
 			name:                   "Single block batch - already processed",
@@ -215,7 +206,6 @@ func TestFilterAlreadyProcessedBlocks(t *testing.T) {
 			inputHeight:            10,
 			expectedBlocks:         nil,
 			expectedKeepProcessing: false,
-			expectedError:          nil,
 		},
 		{
 			name:                   "Single block batch - not processed",
@@ -223,7 +213,6 @@ func TestFilterAlreadyProcessedBlocks(t *testing.T) {
 			inputHeight:            9,
 			expectedBlocks:         makeBlocks(10),
 			expectedKeepProcessing: true,
-			expectedError:          nil,
 		},
 		{
 			name:                   "All blocks <= height",
@@ -231,7 +220,6 @@ func TestFilterAlreadyProcessedBlocks(t *testing.T) {
 			inputHeight:            10,
 			expectedBlocks:         nil,
 			expectedKeepProcessing: false,
-			expectedError:          nil,
 		},
 	}
 
@@ -239,9 +227,8 @@ func TestFilterAlreadyProcessedBlocks(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			gotBlocks, gotKeepProcessing, gotErr := reporter.FilterAlreadyProcessedBlocks(tc.inputBlocks, tc.inputHeight)
+			gotBlocks, gotKeepProcessing := reporter.FilterAlreadyProcessedBlocks(tc.inputBlocks, tc.inputHeight)
 
-			require.Equal(t, tc.expectedError, gotErr, "Error mismatch")
 			require.Equal(t, tc.expectedKeepProcessing, gotKeepProcessing, "KeepProcessing flag mismatch")
 			require.Equal(t, tc.expectedBlocks, gotBlocks, "Blocks slice mismatch")
 

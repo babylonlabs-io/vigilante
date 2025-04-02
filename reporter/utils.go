@@ -139,10 +139,8 @@ func (r *Reporter) ProcessHeaders(signer string, ibs []*types.IndexedBlock) (int
 				return numSubmitted, fmt.Errorf("failed to get BTC header chain tip: %w", err)
 			}
 
-			slicedBlocks, shouldRetry, sliceErr := FilterAlreadyProcessedBlocks(ibs, res.Header.Height)
-			if sliceErr != nil {
-				return numSubmitted, fmt.Errorf("failed to slice blocks: %w", sliceErr)
-			} else if !shouldRetry {
+			slicedBlocks, shouldRetry := FilterAlreadyProcessedBlocks(ibs, res.Header.Height)
+			if !shouldRetry {
 				return numSubmitted, nil
 			}
 
@@ -170,15 +168,15 @@ func (r *Reporter) ProcessHeaders(signer string, ibs []*types.IndexedBlock) (int
 	return numSubmitted, nil
 }
 
-func FilterAlreadyProcessedBlocks(ibs []*types.IndexedBlock, height uint32) ([]*types.IndexedBlock, bool, error) {
+func FilterAlreadyProcessedBlocks(ibs []*types.IndexedBlock, height uint32) ([]*types.IndexedBlock, bool) {
 	if len(ibs) == 0 {
-		return []*types.IndexedBlock{}, false, nil
+		return []*types.IndexedBlock{}, false
 	}
 
 	lastHeaderHeight := ibs[len(ibs)-1].Height
 
 	if height >= lastHeaderHeight {
-		return nil, false, nil
+		return nil, false
 	}
 
 	for i, block := range ibs {
@@ -186,11 +184,11 @@ func FilterAlreadyProcessedBlocks(ibs []*types.IndexedBlock, height uint32) ([]*
 			newSlice := make([]*types.IndexedBlock, len(ibs)-i)
 			copy(newSlice, ibs[i:])
 
-			return newSlice, true, nil
+			return newSlice, true
 		}
 	}
 
-	return nil, false, nil
+	return nil, false
 }
 
 func (r *Reporter) extractCheckpoints(ib *types.IndexedBlock) int {
