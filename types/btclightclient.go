@@ -7,12 +7,11 @@ import (
 
 func NewMsgInsertHeaders(
 	signer string,
-	headers []*IndexedBlock,
+	indexedBlocks []*IndexedBlock,
 ) *btcltypes.MsgInsertHeaders {
-	headerBytes := make([]babylontypes.BTCHeaderBytes, len(headers))
-	for i, h := range headers {
-		header := h
-		headerBytes[i] = babylontypes.NewBTCHeaderBytesFromBlockHeader(header.Header)
+	headerBytes := make([]babylontypes.BTCHeaderBytes, len(indexedBlocks))
+	for i, ib := range indexedBlocks {
+		headerBytes[i] = babylontypes.NewBTCHeaderBytesFromBlockHeader(ib.Header)
 	}
 
 	return &btcltypes.MsgInsertHeaders{

@@ -122,20 +122,76 @@ func (r *Reporter) ProcessHeaders(signer string, ibs []*types.IndexedBlock) (int
 	// skip if no header to submit
 	if len(headerMsgsToSubmit) == 0 {
 		r.logger.Info("No new headers to submit")
-
 		return 0, nil
 	}
 
 	var numSubmitted int
 	// submit each chunk of headers
-	for _, msgs := range headerMsgsToSubmit {
+	for i := 0; i < len(headerMsgsToSubmit); i++ {
+		msgs := headerMsgsToSubmit[i]
 		if err := r.submitHeaderMsgs(msgs); err != nil {
-			return 0, fmt.Errorf("failed to submit headers: %w", err)
+			if !errors.Is(err, btclctypes.ErrForkStartWithKnownHeader) {
+				return numSubmitted, fmt.Errorf("failed to submit headers: %w", err)
+			}
+
+			res, err := r.babylonClient.BTCHeaderChainTip()
+			if err != nil {
+				return numSubmitted, fmt.Errorf("failed to get BTC header chain tip: %w", err)
+			}
+
+			slicedBlocks, shouldRetry, sliceErr := FilterAlreadyProcessedBlocks(ibs, res.Header.Height)
+			if sliceErr != nil {
+				return numSubmitted, fmt.Errorf("failed to slice blocks: %w", sliceErr)
+			} else if !shouldRetry {
+				// No need to retry, but don't return an error since we've handled the situation
+				return numSubmitted, nil
+			}
+
+			// retry with the sliced blocks
+			newHeaderMsgs, newErr := r.getHeaderMsgsToSubmit(signer, slicedBlocks)
+			if newErr != nil {
+				return numSubmitted, fmt.Errorf("failed to find headers to submit: %w", newErr)
+			}
+
+			// If no new headers after slicing, we're done
+			if len(newHeaderMsgs) == 0 {
+				r.logger.Info("No new headers to submit after slicing")
+				return numSubmitted, nil
+			}
+
+			// Replace the remaining headers with the new set and reset the counter
+			headerMsgsToSubmit = newHeaderMsgs
+			i = -1 // Will be incremented to 0 at the start of the next loop
+			continue
 		}
+
 		numSubmitted += len(msgs.Headers)
 	}
 
-	return numSubmitted, err
+	return numSubmitted, nil
+}
+
+func FilterAlreadyProcessedBlocks(ibs []*types.IndexedBlock, height uint32) ([]*types.IndexedBlock, bool, error) {
+	if len(ibs) == 0 {
+		return []*types.IndexedBlock{}, false, nil
+	}
+
+	lastHeaderHeight := ibs[len(ibs)-1].Height
+
+	if height >= lastHeaderHeight {
+		return nil, false, nil
+	}
+
+	for i, block := range ibs {
+		if block.Height > height {
+			newSlice := make([]*types.IndexedBlock, len(ibs)-i)
+			copy(newSlice, ibs[i:])
+
+			return newSlice, true, nil
+		}
+	}
+
+	return nil, false, nil
 }
 
 func (r *Reporter) extractCheckpoints(ib *types.IndexedBlock) int {
@@ -206,6 +262,16 @@ func (r *Reporter) matchAndSubmitCheckpoints(signer string) int {
 		// submit the checkpoint to Babylon
 		res, err := r.babylonClient.InsertBTCSpvProof(context.Background(), msgInsertBTCSpvProof)
 		if err != nil {
+			if errors.Is(err, btcctypes.ErrDuplicatedSubmission) {
+				r.logger.Infof("Checkpoint already submitted, for epoch: %d, tx1: %s, tx2: %s, height: %s",
+					ckpt.Epoch,
+					tx1Block.Txs[ckpt.Segments[0].TxIdx].Hash().String(),
+					tx2Block.Txs[ckpt.Segments[1].TxIdx].Hash().String(),
+					strconv.Itoa(int(tx1Block.Height)))
+
+				continue
+			}
+
 			r.logger.Errorf("Failed to submit MsgInsertBTCSpvProof with error %v", err)
 			r.metrics.FailedCheckpointsCounter.Inc()
 
