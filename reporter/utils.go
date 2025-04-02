@@ -143,11 +143,9 @@ func (r *Reporter) ProcessHeaders(signer string, ibs []*types.IndexedBlock) (int
 			if sliceErr != nil {
 				return numSubmitted, fmt.Errorf("failed to slice blocks: %w", sliceErr)
 			} else if !shouldRetry {
-				// No need to retry, but don't return an error since we've handled the situation
 				return numSubmitted, nil
 			}
 
-			// retry with the sliced blocks
 			newHeaderMsgs, newErr := r.getHeaderMsgsToSubmit(signer, slicedBlocks)
 			if newErr != nil {
 				return numSubmitted, fmt.Errorf("failed to find headers to submit: %w", newErr)
