@@ -157,7 +157,7 @@ func (tracker *BTCStakingTracker) Start() error {
 	tracker.startOnce.Do(func() {
 		tracker.logger.Info("starting BTC staking tracker")
 		commit, _ := version.CommitInfo()
-		tracker.logger.Info("version: %s, commit: %s", version.Version(), commit)
+		tracker.logger.Infof("version: %s, commit: %s", version.Version(), commit)
 
 		if err := tracker.stakingEventWatcher.Start(); err != nil {
 			startErr = err

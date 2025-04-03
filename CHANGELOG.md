@@ -39,6 +39,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Improvements
 
+* [#303](https://github.com/babylonlabs-io/vigilante/pull/303) chore: sew reduce logs
 * [#308](https://github.com/babylonlabs-io/vigilante/pull/308) chore: reporter handle duplicate submissions
 
 ## v0.23.2
