@@ -4,9 +4,15 @@
 package e2etest
 
 import (
+	"context"
+	"encoding/hex"
 	bbnclient "github.com/babylonlabs-io/babylon/client/client"
+	"github.com/babylonlabs-io/vigilante/config"
+	"github.com/cosmos/cosmos-sdk/testutil/testdata"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
-
+	"go.uber.org/zap/zaptest"
 	"sync"
 	"testing"
 	"time"
@@ -61,7 +67,7 @@ func (tm *TestManager) GenerateAndSubmitBlockNBlockStartingFromDepth(t *testing.
 }
 
 func TestReporter_BoostrapUnderFrequentBTCHeaders(t *testing.T) {
-	//t.Parallel() // todo(lazar): this test when run in parallel is very flaky, investigate why
+	t.Parallel()
 	// no need to much mature outputs, we are not going to submit transactions in this test
 	numMatureOutputs := uint32(150)
 
@@ -306,5 +312,107 @@ func TestReporter_Censorship(t *testing.T) {
 	// tips should eventually match
 	require.Eventually(t, func() bool {
 		return promtestutil.ToFloat64(reporterMetrics.HeadersCensorshipGauge) == 1
+	}, longEventuallyWaitTimeOut, eventuallyPollTime)
+}
+
+func TestReporter_DuplicateSubmissions(t *testing.T) {
+	t.Parallel()
+	// no need to much mature outputs, we are not going to submit transactions in this test
+	numMatureOutputs := uint32(150)
+
+	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
+	defer tm.Stop(t)
+
+	reporterMetrics := metrics.NewReporterMetrics()
+
+	// create the chain notifier
+	btcParams, err := netparams.GetBTCParams(tm.Config.BTC.NetParams)
+	require.NoError(t, err)
+	btcCfg := btcclient.ToBitcoindConfig(tm.Config.BTC)
+	btcNotifier, err := btcclient.NewNodeBackend(btcCfg, btcParams, &btcclient.EmptyHintCache{})
+	require.NoError(t, err)
+
+	tm.Config.Common.MaxRetryTimes = 1
+	tm.Config.Reporter.BTCCacheSize = 1000
+
+	reporter1, err := reporter.New(
+		&tm.Config.Reporter,
+		zaptest.NewLogger(t).Named("reporter1"),
+		tm.BTCClient,
+		tm.BabylonClient,
+		btcNotifier,
+		tm.Config.Common.RetrySleepTime,
+		tm.Config.Common.MaxRetrySleepTime,
+		tm.Config.Common.MaxRetryTimes,
+		reporterMetrics,
+	)
+	require.NoError(t, err)
+
+	bstCfg2 := config.DefaultBTCStakingTrackerConfig()
+	bstCfg2.CheckDelegationsInterval = 1 * time.Second
+	bstCfg2.IndexerAddr = tm.Config.BTCStakingTracker.IndexerAddr
+
+	prvKey, _, address := testdata.KeyTestPubAddr()
+	err = tm.BabylonClient.Provider().Keybase.ImportPrivKeyHex(
+		"test-2",
+		hex.EncodeToString(prvKey.Bytes()),
+		"secp256k1",
+	)
+	require.NoError(t, err)
+
+	cfg := defaultVigilanteConfig()
+	cfg.BTC.Endpoint = tm.Config.BTC.Endpoint
+	cfg.BTCStakingTracker.IndexerAddr = tm.Config.BTCStakingTracker.IndexerAddr
+	cfg.Babylon.KeyDirectory = tm.Config.Babylon.KeyDirectory
+	cfg.Babylon.GasAdjustment = tm.Config.Babylon.GasAdjustment
+	cfg.Babylon.Key = "test-2"
+	cfg.Babylon.RPCAddr = tm.Config.Babylon.RPCAddr
+	cfg.Babylon.GRPCAddr = tm.Config.Babylon.GRPCAddr
+	cfg.Reporter.BTCCacheSize = 1000
+
+	babylonClient, err := bbnclient.New(&cfg.Babylon, nil)
+	require.NoError(t, err)
+
+	msg := banktypes.NewMsgSend(
+		sdk.MustAccAddressFromBech32(tm.BabylonClient.MustGetAddr()),
+		address,
+		sdk.NewCoins(sdk.NewInt64Coin("ubbn", 100_000_000)),
+	)
+
+	_, err = tm.BabylonClient.ReliablySendMsg(context.Background(), msg, nil, nil)
+	require.NoError(t, err)
+
+	cfg.Common.MaxRetryTimes = 1
+	reporter2Metrics := metrics.NewReporterMetrics()
+	reporter2, err := reporter.New(
+		&cfg.Reporter,
+		zaptest.NewLogger(t).Named("reporter2"),
+		tm.BTCClient,
+		babylonClient,
+		btcNotifier,
+		tm.Config.Common.RetrySleepTime,
+		tm.Config.Common.MaxRetrySleepTime,
+		tm.Config.Common.MaxRetryTimes,
+		reporter2Metrics,
+	)
+	require.NoError(t, err)
+
+	tm.BitcoindHandler.GenerateBlocks(500)
+
+	// start reporters
+	go reporter1.Start()
+	go reporter2.Start()
+
+	defer reporter1.Stop()
+	defer reporter2.Stop()
+
+	// tips should eventually match
+	require.Eventually(t, func() bool {
+		return tm.BabylonBTCChainMatchesBtc(t)
+	}, longEventuallyWaitTimeOut, eventuallyPollTime)
+
+	// we expect that we have failed headers
+	require.Eventually(t, func() bool {
+		return promtestutil.ToFloat64(reporterMetrics.FailedHeadersCounter) > 0 || promtestutil.ToFloat64(reporter2Metrics.FailedHeadersCounter) > 0
 	}, longEventuallyWaitTimeOut, eventuallyPollTime)
 }
