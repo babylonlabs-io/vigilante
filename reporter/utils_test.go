@@ -122,3 +122,122 @@ func FuzzProcessCheckpoints(f *testing.F) {
 		require.Equal(t, numMatchedCkptsExpected, numMatchedCkpts)
 	})
 }
+
+func makeBlocks(heights ...uint32) []*types.IndexedBlock {
+	blocks := make([]*types.IndexedBlock, len(heights))
+	for i, h := range heights {
+		blocks[i] = &types.IndexedBlock{
+			Height: h,
+		}
+	}
+
+	return blocks
+}
+
+func TestFilterAlreadyProcessedBlocks(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name                   string
+		inputBlocks            []*types.IndexedBlock
+		inputHeight            uint32
+		expectedBlocks         []*types.IndexedBlock
+		expectedKeepProcessing bool
+	}{
+		{
+			name:                   "Empty input batch",
+			inputBlocks:            []*types.IndexedBlock{},
+			inputHeight:            10,
+			expectedBlocks:         []*types.IndexedBlock{},
+			expectedKeepProcessing: false,
+		},
+		{
+			name:                   "Nil input batch",
+			inputBlocks:            nil,
+			inputHeight:            10,
+			expectedBlocks:         []*types.IndexedBlock{},
+			expectedKeepProcessing: false,
+		},
+		{
+			name:                   "Chain tip far ahead of batch",
+			inputBlocks:            makeBlocks(10, 11, 12),
+			inputHeight:            20,
+			expectedBlocks:         nil,
+			expectedKeepProcessing: false,
+		},
+		{
+			name:                   "Chain tip equals last block height",
+			inputBlocks:            makeBlocks(10, 11, 12),
+			inputHeight:            12,
+			expectedBlocks:         nil,
+			expectedKeepProcessing: false,
+		},
+		{
+			name:                   "Chain tip catches some blocks",
+			inputBlocks:            makeBlocks(10, 11, 12, 13, 14),
+			inputHeight:            11,
+			expectedBlocks:         makeBlocks(12, 13, 14),
+			expectedKeepProcessing: true,
+		},
+		{
+			name:                   "Chain tip equals first block height",
+			inputBlocks:            makeBlocks(10, 11, 12),
+			inputHeight:            10,
+			expectedBlocks:         makeBlocks(11, 12),
+			expectedKeepProcessing: true,
+		},
+		{
+			name:                   "Chain tip before all blocks",
+			inputBlocks:            makeBlocks(10, 11, 12),
+			inputHeight:            5,
+			expectedBlocks:         makeBlocks(10, 11, 12),
+			expectedKeepProcessing: true,
+		},
+		{
+			name:                   "Chain tip catches all but last block",
+			inputBlocks:            makeBlocks(10, 11, 12),
+			inputHeight:            11,
+			expectedBlocks:         makeBlocks(12),
+			expectedKeepProcessing: true,
+		},
+		{
+			name:                   "Single block batch - already processed",
+			inputBlocks:            makeBlocks(10),
+			inputHeight:            10,
+			expectedBlocks:         nil,
+			expectedKeepProcessing: false,
+		},
+		{
+			name:                   "Single block batch - not processed",
+			inputBlocks:            makeBlocks(10),
+			inputHeight:            9,
+			expectedBlocks:         makeBlocks(10),
+			expectedKeepProcessing: true,
+		},
+		{
+			name:                   "All blocks <= height",
+			inputBlocks:            makeBlocks(8, 9, 10),
+			inputHeight:            10,
+			expectedBlocks:         nil,
+			expectedKeepProcessing: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			gotBlocks, gotKeepProcessing := reporter.FilterAlreadyProcessedBlocks(tc.inputBlocks, tc.inputHeight)
+
+			require.Equal(t, tc.expectedKeepProcessing, gotKeepProcessing, "KeepProcessing flag mismatch")
+			require.Equal(t, tc.expectedBlocks, gotBlocks, "Blocks slice mismatch")
+
+			if tc.expectedBlocks == nil {
+				require.Nil(t, gotBlocks, "Expected nil blocks slice")
+			} else {
+				require.NotNil(t, gotBlocks, "Expected non-nil blocks slice")
+				require.Len(t, gotBlocks, len(tc.expectedBlocks), "Blocks slice length mismatch")
+			}
+		})
+	}
+}
