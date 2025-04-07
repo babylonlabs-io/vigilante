@@ -214,10 +214,14 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedFpBTCSK *btcec.PrivateKey) 
 
 	// try to slash both staking and unbonding txs for each BTC delegation
 	// sign and submit slashing tx for each active and unbonded delegation
+
+	bs.logger.Infof("slashing %d BTC delegations under finality provider %s", len(delegations), fpBTCPK.MarshalHex())
+
+	var wg sync.WaitGroup
 	for _, del := range delegations {
-		bs.wg.Add(1)
+		wg.Add(1)
 		go func(d *bstypes.BTCDelegationResponse) {
-			defer bs.wg.Done()
+			defer wg.Done()
 			ctx, cancel := bs.quitContext()
 			defer cancel()
 
@@ -234,6 +238,8 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedFpBTCSK *btcec.PrivateKey) 
 			})
 		}(del)
 	}
+
+	wg.Wait()
 
 	bs.metrics.SlashedFinalityProvidersCounter.Inc()
 

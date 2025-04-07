@@ -92,6 +92,16 @@ func (bs *BTCSlasher) slashBTCDelegation(
 		retry.Delay(bs.retrySleepTime),
 		retry.MaxDelay(bs.maxRetrySleepTime),
 		retry.Attempts(bs.maxRetryTimes),
+		retry.OnRetry(func(n uint, err error) {
+			bs.logger.Warnf(
+				"Attempt: %d, failed to submit slashing tx for BTC delegation %s under finality provider %s: %v",
+				n,
+				del.BtcPk.MarshalHex(),
+				fpBTCPK.MarshalHex(),
+				err,
+			)
+		},
+		),
 	)
 
 	slashRes := &SlashResult{
@@ -138,13 +148,13 @@ func (bs *BTCSlasher) sendSlashingTx(
 	if isUnbondingSlashingTx {
 		ubondingTx, errDecode := hex.DecodeString(del.UndelegationResponse.UnbondingTxHex)
 		if errDecode != nil {
-			return nil, errDecode
+			return nil, fmt.Errorf("failed to decode unbonding tx hex: %w", errDecode)
 		}
 		spendable, err = bs.isTaprootOutputSpendable(ubondingTx, 0)
 	} else {
 		stakingTx, errDecode := hex.DecodeString(del.StakingTxHex)
 		if errDecode != nil {
-			return nil, errDecode
+			return nil, fmt.Errorf("failed to decode non-unbonding tx hex: %w", errDecode)
 		}
 		spendable, err = bs.isTaprootOutputSpendable(stakingTx, del.StakingOutputIdx)
 	}
@@ -159,6 +169,9 @@ func (bs *BTCSlasher) sendSlashingTx(
 	}
 	// this staking/unbonding tx is no longer slashable on Bitcoin
 	if !spendable {
+		bs.logger.Infof("the staking/unbonding tx of BTC delegation %s under finality provider %s is not slashable",
+			del.BtcPk.MarshalHex(), fpBTCPK.MarshalHex())
+
 		return nil, fmt.Errorf(
 			"the staking/unbonding tx of BTC delegation %s under finality provider %s is not slashable",
 			del.BtcPk.MarshalHex(),
@@ -173,6 +186,9 @@ func (bs *BTCSlasher) sendSlashingTx(
 	}
 	bsParams := &bsParamsResp.Params
 
+	bs.logger.Debugf("start signing and assembling witness for slashing tx of BTC delegation %s under finality provider %s",
+		del.BtcPk.MarshalHex(),
+		fpBTCPK.MarshalHex())
 	// assemble witness for unbonding slashing tx
 	var slashingMsgTxWithWitness *wire.MsgTx
 	bs.mu.Lock()
@@ -182,6 +198,11 @@ func (bs *BTCSlasher) sendSlashingTx(
 		slashingMsgTxWithWitness, err = BuildSlashingTxWithWitness(del, bsParams, bs.netParams, extractedfpBTCSK)
 	}
 	bs.mu.Unlock()
+
+	bs.logger.Debugf("finished signing and assembling witness for slashing tx of BTC delegation %s under finality provider %s",
+		del.BtcPk.MarshalHex(),
+		fpBTCPK.MarshalHex())
+
 	if err != nil {
 		// Warning: this can only be a programming error in Babylon side
 		return nil, fmt.Errorf(
