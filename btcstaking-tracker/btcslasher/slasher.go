@@ -216,10 +216,16 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedFpBTCSK *btcec.PrivateKey) 
 	// sign and submit slashing tx for each active and unbonded delegation
 
 	bs.logger.Infof("slashing %d BTC delegations under finality provider %s", len(delegations), fpBTCPK.MarshalHex())
+	bs.logger.Debugf("these delegation's will be slashed")
+	for _, del := range delegations {
+		bs.logger.Debugf("BTC delegation %s, under fp %s ", del.StakingTxHex, fpBTCPK.MarshalHex())
+	}
 
 	var wg sync.WaitGroup
 	for _, del := range delegations {
 		wg.Add(1)
+		bs.logger.Debugf("IN LOOP: slashing BTC delegation %s, under fp %s ", del.StakingTxHex, fpBTCPK.MarshalHex())
+
 		go func(d *bstypes.BTCDelegationResponse) {
 			defer wg.Done()
 			ctx, cancel := bs.quitContext()
@@ -232,6 +238,8 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedFpBTCSK *btcec.PrivateKey) 
 				return
 			}
 			defer sem.Release(1)
+
+			bs.logger.Debugf("IN routine: slashing BTC delegation %s, under fp %s ", del.StakingTxHex, fpBTCPK.MarshalHex())
 
 			safeExtractedFpBTCSK.UseKey(func(key *secp256k1.PrivateKey) {
 				bs.slashBTCDelegation(fpBTCPK, key, d)

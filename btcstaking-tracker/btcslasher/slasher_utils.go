@@ -41,6 +41,8 @@ func (bs *BTCSlasher) slashBTCDelegation(
 	ctx, cancel := bs.quitContext()
 	defer cancel()
 
+	bs.logger.Debugf("IN slashBTCDelegation: slashing BTC delegation %s, under fp %s ", del.StakingTxHex, fpBTCPK.MarshalHex())
+
 	err := retry.Do(func() error {
 		innerCtx, innerCancel := context.WithCancel(ctx)
 		defer innerCancel()
@@ -103,6 +105,8 @@ func (bs *BTCSlasher) slashBTCDelegation(
 		},
 		),
 	)
+
+	bs.logger.Debugf("IN slashBTCDelegation after retry: slashing BTC delegation %s, under fp %s ", del.StakingTxHex, fpBTCPK.MarshalHex())
 
 	slashRes := &SlashResult{
 		Del:            del,
