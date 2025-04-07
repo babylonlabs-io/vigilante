@@ -216,13 +216,10 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedFpBTCSK *btcec.PrivateKey) 
 		bs.logger.Debugf("BTC delegation %s, under fp %s ", del.StakingTxHex, fpBTCPK.MarshalHex())
 	}
 
-	var wg sync.WaitGroup
 	for _, del := range delegations {
-		wg.Add(1)
 		bs.logger.Debugf("IN LOOP: slashing BTC delegation %s, under fp %s ", del.StakingTxHex, fpBTCPK.MarshalHex())
 
 		go func(d *bstypes.BTCDelegationResponse) {
-			defer wg.Done()
 			ctx, cancel := bs.quitContext()
 			defer cancel()
 
@@ -239,8 +236,6 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedFpBTCSK *btcec.PrivateKey) 
 			bs.slashBTCDelegation(fpBTCPK, extractedFpBTCSK, d)
 		}(del)
 	}
-
-	wg.Wait()
 
 	bs.metrics.SlashedFinalityProvidersCounter.Inc()
 
