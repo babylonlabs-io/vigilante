@@ -202,9 +202,6 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedFpBTCSK *btcec.PrivateKey) 
 		return fmt.Errorf("failed to get BTC delegations under finality provider %s: %w", fpBTCPK.MarshalHex(), err)
 	}
 
-	// Initialize a mutex protected *btcec.PrivateKey
-	//safeExtractedFpBTCSK := types.NewPrivateKeyWithMutex(extractedFpBTCSK)
-
 	// Initialize a semaphore to control the number of concurrent operations
 	sem := semaphore.NewWeighted(bs.maxSlashingConcurrency)
 	activeBTCDels = append(activeBTCDels, unbondedBTCDels...)
@@ -240,10 +237,6 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedFpBTCSK *btcec.PrivateKey) 
 			bs.logger.Debugf("IN routine: slashing BTC delegation %s, under fp %s ", del.StakingTxHex, fpBTCPK.MarshalHex())
 
 			bs.slashBTCDelegation(fpBTCPK, extractedFpBTCSK, d)
-
-			//safeExtractedFpBTCSK.UseKey(func(key *secp256k1.PrivateKey) {
-			//	bs.slashBTCDelegation(fpBTCPK, key, d)
-			//})
 		}(del)
 	}
 
