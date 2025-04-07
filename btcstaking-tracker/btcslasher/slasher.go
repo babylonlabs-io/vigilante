@@ -218,8 +218,9 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedFpBTCSK *btcec.PrivateKey) 
 
 	for _, del := range delegations {
 		bs.logger.Debugf("IN LOOP: slashing BTC delegation %s, under fp %s ", del.StakingTxHex, fpBTCPK.MarshalHex())
-
+		bs.wg.Add(1)
 		go func(d *bstypes.BTCDelegationResponse) {
+			defer bs.wg.Done()
 			ctx, cancel := bs.quitContext()
 			defer cancel()
 
