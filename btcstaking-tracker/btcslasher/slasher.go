@@ -6,8 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/babylonlabs-io/vigilante/types"
-	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"golang.org/x/sync/semaphore"
 
 	bbn "github.com/babylonlabs-io/babylon/types"
@@ -205,7 +203,7 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedFpBTCSK *btcec.PrivateKey) 
 	}
 
 	// Initialize a mutex protected *btcec.PrivateKey
-	safeExtractedFpBTCSK := types.NewPrivateKeyWithMutex(extractedFpBTCSK)
+	//safeExtractedFpBTCSK := types.NewPrivateKeyWithMutex(extractedFpBTCSK)
 
 	// Initialize a semaphore to control the number of concurrent operations
 	sem := semaphore.NewWeighted(bs.maxSlashingConcurrency)
@@ -241,9 +239,11 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedFpBTCSK *btcec.PrivateKey) 
 
 			bs.logger.Debugf("IN routine: slashing BTC delegation %s, under fp %s ", del.StakingTxHex, fpBTCPK.MarshalHex())
 
-			safeExtractedFpBTCSK.UseKey(func(key *secp256k1.PrivateKey) {
-				bs.slashBTCDelegation(fpBTCPK, key, d)
-			})
+			bs.slashBTCDelegation(fpBTCPK, extractedFpBTCSK, d)
+
+			//safeExtractedFpBTCSK.UseKey(func(key *secp256k1.PrivateKey) {
+			//	bs.slashBTCDelegation(fpBTCPK, key, d)
+			//})
 		}(del)
 	}
 
