@@ -14,17 +14,17 @@ const (
 )
 
 type BTCStakingTrackerConfig struct {
-	CheckDelegationsInterval       time.Duration `mapstructure:"check-delegations-interval"`
-	NewDelegationsBatchSize        uint64        `mapstructure:"delegations-batch-size"`
-	CheckDelegationActiveInterval  time.Duration `mapstructure:"check-if-delegation-active-interval"`
-	RetrySubmitUnbondingTxInterval time.Duration `mapstructure:"retry-submit-unbonding-interval"`
-	RetryJitter                    time.Duration `mapstructure:"max-jitter-interval"`
+	CheckDelegationsInterval       time.Duration `mapstructure:"check-delegations-interval" yaml:"check-delegations-interval"`
+	NewDelegationsBatchSize        uint64        `mapstructure:"delegations-batch-size" yaml:"delegations-batch-size"`
+	CheckDelegationActiveInterval  time.Duration `mapstructure:"check-if-delegation-active-interval" yaml:"check-if-delegation-active-interval"`
+	RetrySubmitUnbondingTxInterval time.Duration `mapstructure:"retry-submit-unbonding-interval" yaml:"retry-submit-unbonding-interval"`
+	RetryJitter                    time.Duration `mapstructure:"max-jitter-interval" yaml:"max-jitter-interval"`
 	// the BTC network
-	BTCNetParams string `mapstructure:"btcnetparams"` // should be mainnet|testnet|simnet|signet|regtest
+	BTCNetParams string `mapstructure:"btcnetparams" yaml:"btcnetparams"` // should be mainnet|testnet|simnet|signet|regtest
 	// number of concurrent requests that when slashing
-	MaxSlashingConcurrency uint8         `mapstructure:"max-slashing-concurrency"`
-	IndexerAddr            string        `mapstructure:"indexer-addr"`
-	FetchEvidenceInterval  time.Duration `mapstructure:"fetch-evidence-interval"`
+	MaxSlashingConcurrency uint8         `mapstructure:"max-slashing-concurrency" yaml:"max-slashing-concurrency"`
+	IndexerAddr            string        `mapstructure:"indexer-addr" yaml:"indexer-addr"`
+	FetchEvidenceInterval  time.Duration `mapstructure:"fetch-evidence-interval" yaml:"fetch-evidence-interval"`
 }
 
 func DefaultBTCStakingTrackerConfig() BTCStakingTrackerConfig {

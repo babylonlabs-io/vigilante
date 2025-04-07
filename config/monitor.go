@@ -16,21 +16,21 @@ const (
 // MonitorConfig defines the Monitor's basic configuration
 type MonitorConfig struct {
 	// Max number of checkpoints in the buffer
-	CheckpointBufferSize uint64 `mapstructure:"checkpoint-buffer-size"`
+	CheckpointBufferSize uint64 `mapstructure:"checkpoint-buffer-size" yaml:"checkpoint-buffer-size"`
 	// Max number of BTC blocks in the buffer
-	BtcBlockBufferSize uint64 `mapstructure:"btc-block-buffer-size"`
+	BtcBlockBufferSize uint64 `mapstructure:"btc-block-buffer-size" yaml:"btc-block-buffer-size"`
 	// Max number of BTC blocks in the cache
-	BtcCacheSize uint32 `mapstructure:"btc-cache-size"`
+	BtcCacheSize uint32 `mapstructure:"btc-cache-size" yaml:"btc-cache-size"`
 	// Intervals between each liveness check in seconds
-	LivenessCheckIntervalSeconds uint64 `mapstructure:"liveness-check-interval-seconds"`
+	LivenessCheckIntervalSeconds uint64 `mapstructure:"liveness-check-interval-seconds" yaml:"liveness-check-interval-seconds"`
 	// Max lasting BTC heights that a checkpoint is not reported before an alarm is sent
-	MaxLiveBtcHeights uint64 `mapstructure:"max-live-btc-heights"`
+	MaxLiveBtcHeights uint64 `mapstructure:"max-live-btc-heights" yaml:"max-live-btc-heights"`
 	// the confirmation depth to consider a BTC block as confirmed
-	BtcConfirmationDepth uint32 `mapstructure:"btc-confirmation-depth"`
+	BtcConfirmationDepth uint32 `mapstructure:"btc-confirmation-depth" yaml:"btc-confirmation-depth"`
 	// whether to enable liveness checker
-	EnableLivenessChecker bool `mapstructure:"enable-liveness-checker"`
+	EnableLivenessChecker bool `mapstructure:"enable-liveness-checker" yaml:"enable-liveness-checker"`
 	// DatabaseConfig stores lates epoch and height used for faster bootstrap
-	DatabaseConfig *DBConfig `mapstructure:"dbconfig"`
+	DatabaseConfig *DBConfig `mapstructure:"dbconfig" yaml:"dbconfig"`
 }
 
 func (cfg *MonitorConfig) Validate() error {

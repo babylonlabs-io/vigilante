@@ -13,9 +13,9 @@ const (
 // MetricsConfig defines the server's basic configuration
 type MetricsConfig struct {
 	// IP of the prometheus server
-	Host string `mapstructure:"host"`
+	Host string `mapstructure:"host" yaml:"host"`
 	// Port of the prometheus server
-	ServerPort int `mapstructure:"server-port"`
+	ServerPort int `mapstructure:"server-port" yaml:"server-port"`
 }
 
 func (cfg *MetricsConfig) Validate() error {

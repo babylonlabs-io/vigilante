@@ -41,7 +41,7 @@ func NewReporterMetrics() *ReporterMetrics {
 		}),
 		FailedCheckpointsCounter: registerer.NewCounter(prometheus.CounterOpts{
 			Name: "vigilante_reporter_failed_checkpoints",
-			Help: "The total number of failed BTC checkpoints to Babylon",
+			Help: "The total number of failed BTC checkpoints tvigilante_reporter_new_btc_checkpointo Babylon",
 		}),
 		SecondsSinceLastHeaderGauge: registerer.NewGauge(prometheus.GaugeOpts{
 			Name: "vigilante_reporter_since_last_header_seconds",

@@ -14,31 +14,31 @@ const (
 type DBConfig struct {
 	// DBPath is the directory path in which the database file should be
 	// stored.
-	DBPath string `mapstructure:"dbpath"`
+	DBPath string `mapstructure:"dbpath" yaml:"dbpath"`
 
 	// DBFileName is the name of the database file.
-	DBFileName string `mapstructure:"dbfilename"`
+	DBFileName string `mapstructure:"dbfilename" yaml:"dbfilename"`
 
 	// NoFreelistSync, if true, prevents the database from syncing its
 	// freelist to disk, resulting in improved performance at the expense of
 	// increased startup time.
-	NoFreelistSync bool `mapstructure:"nofreelistsync"`
+	NoFreelistSync bool `mapstructure:"nofreelistsync" yaml:"nofreelistsync"`
 
 	// AutoCompact specifies if a Bolt based database backend should be
 	// automatically compacted on startup (if the minimum age of the
 	// database file is reached). This will require additional disk space
 	// for the compacted copy of the database but will result in an overall
 	// lower database size after the compaction.
-	AutoCompact bool `mapstructure:"autocompact"`
+	AutoCompact bool `mapstructure:"autocompact" yaml:"autocompact"`
 
 	// AutoCompactMinAge specifies the minimum time that must have passed
 	// since a bolt database file was last compacted for the compaction to
 	// be considered again.
-	AutoCompactMinAge time.Duration `mapstructure:"autocompactminage"`
+	AutoCompactMinAge time.Duration `mapstructure:"autocompactminage" yaml:"autocompactminage"`
 
 	// DBTimeout specifies the timeout value to use when opening the wallet
 	// database.
-	DBTimeout time.Duration `mapstructure:"dbtimeout"`
+	DBTimeout time.Duration `mapstructure:"dbtimeout" yaml:"dbtimeout"`
 }
 
 func DefaultDBConfig() *DBConfig {

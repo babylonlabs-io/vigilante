@@ -16,16 +16,16 @@ const (
 // CommonConfig defines the server's basic configuration
 type CommonConfig struct {
 	// LogFormat is the format of the log (json|auto|console|logfmt)
-	LogFormat string `mapstructure:"log-format"`
+	LogFormat string `mapstructure:"log-format" yaml:"log-format"`
 	// LogLevel is the log level (debug|warn|error|panic|fatal)
-	LogLevel string `mapstructure:"log-level"`
+	LogLevel string `mapstructure:"log-level" yaml:"log-level"`
 	// Backoff interval for the first retry.
-	RetrySleepTime time.Duration `mapstructure:"retry-sleep-time"`
+	RetrySleepTime time.Duration `mapstructure:"retry-sleep-time" yaml:"retry-sleep-time"`
 	// Maximum backoff interval between retries. Exponential backoff leads to interval increase.
 	// This value is the cap of the interval, when exceeded the retries stop.
-	MaxRetrySleepTime time.Duration `mapstructure:"max-retry-sleep-time"`
+	MaxRetrySleepTime time.Duration `mapstructure:"max-retry-sleep-time" yaml:"max-retry-sleep-time"`
 	// The max number of retries in case of a failure
-	MaxRetryTimes uint `mapstructure:"max-retry-times"`
+	MaxRetryTimes uint `mapstructure:"max-retry-times" yaml:"max-retry-times"`
 }
 
 func isOneOf(v string, list []string) bool {

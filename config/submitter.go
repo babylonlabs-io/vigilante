@@ -19,27 +19,27 @@ const (
 // SubmitterConfig defines configuration for the gRPC-web server.
 type SubmitterConfig struct {
 	// NetParams defines the BTC network params, which should be mainnet|testnet|simnet|signet
-	NetParams string `mapstructure:"netparams"`
+	NetParams string `mapstructure:"netparams" yaml:"netparams"`
 	// BufferSize defines the number of raw checkpoints stored in the buffer
-	BufferSize uint `mapstructure:"buffer-size"`
+	BufferSize uint `mapstructure:"buffer-size" yaml:"buffer-size"`
 	// ResubmitFeeMultiplier is used to multiply the estimated bumped fee in resubmission
-	ResubmitFeeMultiplier float64 `mapstructure:"resubmit-fee-multiplier"`
+	ResubmitFeeMultiplier float64 `mapstructure:"resubmit-fee-multiplier" yaml:"resubmit-fee-multiplier"`
 	// PollingIntervalSeconds defines the intervals (in seconds) between each polling of Babylon checkpoints
-	PollingIntervalSeconds int64 `mapstructure:"polling-interval-seconds"`
+	PollingIntervalSeconds int64 `mapstructure:"polling-interval-seconds" yaml:"polling-interval-seconds"`
 	// ResendIntervalSeconds defines the time (in seconds) which the submitter awaits
 	// before resubmitting checkpoints to BTC
-	ResendIntervalSeconds uint `mapstructure:"resend-interval-seconds"`
+	ResendIntervalSeconds uint `mapstructure:"resend-interval-seconds" yaml:"resend-interval-seconds"`
 	// DatabaseConfig stores last submitted txn
-	DatabaseConfig *DBConfig `mapstructure:"dbconfig"`
+	DatabaseConfig *DBConfig `mapstructure:"dbconfig" yaml:"dbconfig"`
 	// InsufficientFeeMargin is the margin of fee adjustment when the fee is insufficient, e.g. 0.15 for 15%
 	// generally this shouldn't be a large percentage 5%-15% is reasonable
-	InsufficientFeeMargin float64 `mapstructure:"insufficient_fee_margin"`
+	InsufficientFeeMargin float64 `mapstructure:"insufficient_fee_margin" yaml:"insufficient_fee_margin"`
 	// InsufficientFeerateMargin is the margin of feerate adjustment when the feerate is insufficient, e.g. 0.15 for 15%
 	// generally this shouldn't be a large percentage 5%-15% is reasonable
-	InsufficientFeerateMargin float64 `mapstructure:"insufficient_feerate_margin"` // e.g. 0.15 for 15%
+	InsufficientFeerateMargin float64 `mapstructure:"insufficient_feerate_margin" yaml:"insufficient_feerate_margin"` // e.g. 0.15 for 15%
 	// FeeIncrementMargin is the margin of fee increment when the fee is insufficient, e.g. 0.15 for 15%
 	// generally this shouldn't be a large percentage 5%-15% is reasonable
-	FeeIncrementMargin float64 `mapstructure:"fee_increment_margin"`
+	FeeIncrementMargin float64 `mapstructure:"fee_increment_margin" yaml:"fee_increment_margin"`
 }
 
 func (cfg *SubmitterConfig) Validate() error {

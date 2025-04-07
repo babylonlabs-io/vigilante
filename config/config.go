@@ -31,14 +31,14 @@ func DataDir(homePath string) string {
 
 // Config defines the server's top level configuration
 type Config struct {
-	Common            CommonConfig            `mapstructure:"common"`
-	BTC               BTCConfig               `mapstructure:"btc"`
-	Babylon           bbncfg.BabylonConfig    `mapstructure:"babylon"`
-	Metrics           MetricsConfig           `mapstructure:"metrics"`
-	Submitter         SubmitterConfig         `mapstructure:"submitter"`
-	Reporter          ReporterConfig          `mapstructure:"reporter"`
-	Monitor           MonitorConfig           `mapstructure:"monitor"`
-	BTCStakingTracker BTCStakingTrackerConfig `mapstructure:"btcstaking-tracker"`
+	Common            CommonConfig            `mapstructure:"common" yaml:"common"`
+	BTC               BTCConfig               `mapstructure:"btc" yaml:"btc"`
+	Babylon           bbncfg.BabylonConfig    `mapstructure:"babylon" yaml:"babylon"`
+	Metrics           MetricsConfig           `mapstructure:"metrics" yaml:"metrics"`
+	Submitter         SubmitterConfig         `mapstructure:"submitter" yaml:"submitter"`
+	Reporter          ReporterConfig          `mapstructure:"reporter" yaml:"reporter"`
+	Monitor           MonitorConfig           `mapstructure:"monitor" yaml:"monitor"`
+	BTCStakingTracker BTCStakingTrackerConfig `mapstructure:"btcstaking-tracker" yaml:"btcstaking-tracker"`
 }
 
 func (cfg *Config) Validate() error {

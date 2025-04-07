@@ -10,23 +10,23 @@ import (
 
 // BTCConfig defines configuration for the Bitcoin client
 type BTCConfig struct {
-	Endpoint          string                `mapstructure:"endpoint"`
-	WalletPassword    string                `mapstructure:"wallet-password"`
-	WalletName        string                `mapstructure:"wallet-name"`
-	WalletLockTime    int64                 `mapstructure:"wallet-lock-time"` // time duration in which the wallet remains unlocked, in seconds
-	TxFeeMin          chainfee.SatPerKVByte `mapstructure:"tx-fee-min"`       // minimum tx fee, sat/kvb
-	TxFeeMax          chainfee.SatPerKVByte `mapstructure:"tx-fee-max"`       // maximum tx fee, sat/kvb
-	DefaultFee        chainfee.SatPerKVByte `mapstructure:"default-fee"`      // default BTC tx fee in case estimation fails, sat/kvb
-	EstimateMode      string                `mapstructure:"estimate-mode"`    // the BTC tx fee estimate mode, which is only used by bitcoind, must be either ECONOMICAL or CONSERVATIVE
-	TargetBlockNum    int64                 `mapstructure:"target-block-num"` // this implies how soon the tx is estimated to be included in a block, e.g., 1 means the tx is estimated to be included in the next block
-	NetParams         string                `mapstructure:"net-params"`
-	Username          string                `mapstructure:"username"`
-	Password          string                `mapstructure:"password"`
-	ReconnectAttempts int                   `mapstructure:"reconnect-attempts"`
-	ZmqSeqEndpoint    string                `mapstructure:"zmq-seq-endpoint"`
-	ZmqBlockEndpoint  string                `mapstructure:"zmq-block-endpoint"`
-	ZmqTxEndpoint     string                `mapstructure:"zmq-tx-endpoint"`
-	DisableTLS        bool                  `mapstructure:"disable-tls"`
+	Endpoint          string                `mapstructure:"endpoint" yaml:"endpoint"`
+	WalletPassword    string                `mapstructure:"wallet-password" yaml:"wallet-password"`
+	WalletName        string                `mapstructure:"wallet-name" yaml:"wallet-name"`
+	WalletLockTime    int64                 `mapstructure:"wallet-lock-time" yaml:"wallet-lock-time"` // time duration in which the wallet remains unlocked, in seconds
+	TxFeeMin          chainfee.SatPerKVByte `mapstructure:"tx-fee-min" yaml:"tx-fee-min"`             // minimum tx fee, sat/kvb
+	TxFeeMax          chainfee.SatPerKVByte `mapstructure:"tx-fee-max" yaml:"tx-fee-max"`             // maximum tx fee, sat/kvb
+	DefaultFee        chainfee.SatPerKVByte `mapstructure:"default-fee" yaml:"default-fee"`           // default BTC tx fee in case estimation fails, sat/kvb
+	EstimateMode      string                `mapstructure:"estimate-mode" yaml:"estimate-mode"`       // the BTC tx fee estimate mode, which is only used by bitcoind, must be either ECONOMICAL or CONSERVATIVE
+	TargetBlockNum    int64                 `mapstructure:"target-block-num" yaml:"target-block-num"` // this implies how soon the tx is estimated to be included in a block, e.g., 1 means the tx is estimated to be included in the next block
+	NetParams         string                `mapstructure:"net-params" yaml:"net-params"`
+	Username          string                `mapstructure:"username" yaml:"username"`
+	Password          string                `mapstructure:"password" yaml:"password"`
+	ReconnectAttempts int                   `mapstructure:"reconnect-attempts" yaml:"reconnect-attempts"`
+	ZmqSeqEndpoint    string                `mapstructure:"zmq-seq-endpoint" yaml:"zmq-seq-endpoint"`
+	ZmqBlockEndpoint  string                `mapstructure:"zmq-block-endpoint" yaml:"zmq-block-endpoint"`
+	ZmqTxEndpoint     string                `mapstructure:"zmq-tx-endpoint" yaml:"zmq-tx-endpoint"`
+	DisableTLS        bool                  `mapstructure:"disable-tls" yaml:"disable-tls"`
 }
 
 func (cfg *BTCConfig) Validate() error {
