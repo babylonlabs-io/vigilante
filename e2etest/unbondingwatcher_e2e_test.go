@@ -245,7 +245,7 @@ func TestActivatingDelegation(t *testing.T) {
 // In this test, we include both staking tx and unbonding tx in the same block.
 // The delegation goes through "VERIFIED" → "ACTIVE" → "UNBONDED" status throughout this test.
 func TestActivatingAndUnbondingDelegation(t *testing.T) {
-	//t.Parallel()
+	t.Parallel()
 	// segwit is activated at height 300. It's necessary for staking/slashing tx
 	numMatureOutputs := uint32(300)
 

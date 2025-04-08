@@ -220,7 +220,6 @@ func (r *Reporter) initBTCCache() error {
 // It returns BTC last block hash, BTC last block height, and Babylon's base height.
 func (r *Reporter) waitUntilBTCSync() error {
 	var (
-		btcLatestBlockHash   *chainhash.Hash
 		btcLatestBlockHeight uint32
 		bbnLatestBlockHash   *chainhash.Hash
 		bbnLatestBlockHeight uint32
@@ -232,7 +231,7 @@ func (r *Reporter) waitUntilBTCSync() error {
 	if err != nil {
 		return err
 	}
-	r.logger.Infof("BTC latest block hash and height: (%v, %d)", btcLatestBlockHash, btcLatestBlockHeight)
+	r.logger.Infof("BTC latest block hash and height: (%d)", btcLatestBlockHeight)
 
 	// TODO: if BTC falls behind BTCLightclient's base header, then the vigilante is incorrectly configured and should panic
 
