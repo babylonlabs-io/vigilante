@@ -328,7 +328,7 @@ of the aforementioned keyring directories.
 ### 6.3 Troubleshooting Vigilante
 
 This section outlines common errors encountered when operating the
-Vigilante component
+Vigilante daemons
 
 ### 6.3.1 Vigilante Reporter Common Error Logs
 
