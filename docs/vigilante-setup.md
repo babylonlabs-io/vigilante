@@ -346,5 +346,7 @@ Error log
 ```
 Failed to submit MsgInsertBTCSpvProof with error rpc error: code = Unknown desc = rpc error: code = Unknown desc = failed to execute message; message index: 0: Duplicated submission
 ```
+
+Explanation:
 This message indicates that the checkpoint being submitted is already known to Babylon.
 It typically occurs when the checkpoint has already been submitted by another Vigilante operator.
