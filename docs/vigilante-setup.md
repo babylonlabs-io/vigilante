@@ -325,7 +325,7 @@ irrecoverable and will result in permanent loss of the associated funds.
 To this end, operators should take frequent backups
 of the aforementioned keyring directories.
 
-### 6.3 Troubleshooting Vigilante
+### 6.3 Troubleshooting
 
 This section outlines common errors encountered when operating the
 Vigilante daemons
