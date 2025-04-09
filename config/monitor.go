@@ -56,5 +56,6 @@ func DefaultMonitorConfig() MonitorConfig {
 		BtcConfirmationDepth:         defaultBtcConfirmationDepth,
 		MaxLiveBtcHeights:            defaultMaxLiveBtcHeights,
 		EnableLivenessChecker:        true,
+		DatabaseConfig:               DefaultDBConfig(),
 	}
 }

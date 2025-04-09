@@ -92,5 +92,6 @@ func DefaultSubmitterConfig() SubmitterConfig {
 		InsufficientFeerateMargin: DefaultInsufficientFeerateMargin,
 		InsufficientFeeMargin:     DefaultInsufficientFeeMargin,
 		FeeIncrementMargin:        DefaultFeeIncrementMargin,
+		DatabaseConfig:            DefaultDBConfig(),
 	}
 }
