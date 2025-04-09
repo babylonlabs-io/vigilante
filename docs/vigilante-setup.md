@@ -304,6 +304,7 @@ Available commands include:
 Available flags include:
 
 * `--config`: Specifies the path to configuration file
+* `--genesis`: Specifies the path to genesis file. **This flag is required when running the Vigilante Monitor.**
 
 ## 6. Vigilante Operations
 
@@ -323,3 +324,27 @@ irrecoverable and will result in permanent loss of the associated funds.
 
 To this end, operators should take frequent backups
 of the aforementioned keyring directories.
+
+### 6.3 Troubleshooting Vigilante
+
+This section outlines common errors encountered when operating the
+Vigilante component
+
+### 6.3.1 Vigilante Reporter Common Error Logs
+
+Error log
+
+```
+message index: 0: first header of extension chain is known header: 00000000000000000000040125e9ced16ff583b09931f59afd99b40cc17a63ce: fork start with known header
+```
+
+Explanation:
+This message indicates that the Bitcoin header being submitted is already known to Babylon.
+It typically occurs when the same header has already been submitted by another Vigilante operator.
+
+Error log
+```
+Failed to submit MsgInsertBTCSpvProof with error rpc error: code = Unknown desc = rpc error: code = Unknown desc = failed to execute message; message index: 0: Duplicated submission
+```
+This message indicates that the checkpoint being submitted is already known to Babylon.
+It typically occurs when the checkpoint has already been submitted by another Vigilante operator.

@@ -23,7 +23,7 @@ Ensure your system meets the following minimum requirements:
 
 ## 2. Install Bitcoin Core
 
-Download and install the Bitcoin binaries for your operating system from the official
+Download and install the Bitcoin v26.0 binary for your operating system from the official
 [Bitcoin Core registry](https://bitcoincore.org/bin/bitcoin-core-26.0/).
 
 Verify installation by checking the version:
