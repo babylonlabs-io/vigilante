@@ -330,23 +330,55 @@ of the aforementioned keyring directories.
 This section outlines common errors encountered when operating the
 Vigilante daemons
 
-### 6.3.1 Vigilante Reporter Common Error Logs
+### 6.3.1 Vigilante Reporter Errors
 
-Error log
+This section covers **daemon logs** emitted by the Vigilante Reporter during normal operation
 
+Error log:
 ```
 message index: 0: first header of extension chain is known header: 00000000000000000000040125e9ced16ff583b09931f59afd99b40cc17a63ce: fork start with known header
 ```
 
 Explanation:
-This message indicates that the Bitcoin header being submitted is already known to Babylon.
-It typically occurs when the same header has already been submitted by another Vigilante operator.
+This message indicates that the Bitcoin header
+being submitted is already known to Babylon.
+It typically occurs when the same header
+has already been submitted by another Vigilante operator.
 
-Error log
+Error log:
 ```
 Failed to submit MsgInsertBTCSpvProof with error rpc error: code = Unknown desc = rpc error: code = Unknown desc = failed to execute message; message index: 0: Duplicated submission
 ```
 
 Explanation:
-This message indicates that the checkpoint being submitted is already known to Babylon.
-It typically occurs when the checkpoint has already been submitted by another Vigilante operator.
+This message indicates that the checkpoint
+being submitted is already known to Babylon.
+It typically occurs when the same checkpoint
+has already been submitted by another Vigilante operator.
+
+### 6.3.2 Vigilante BTC Staking Tracker Common Errors
+
+This section covers transaction errors returned by the Babylon
+in response to on-chain submission attempts by the BTC Staking Tracker.
+
+Error:
+```
+failed to execute message; message index: 0: the delegation already has inclusion proof
+```
+
+Explanation:
+This error indicates that an inclusion proof for the BTC delegation
+has already been submitted to Babylon.
+It typically occurs when the same inclusion proof has
+already been submitted by another Vigilante operator,
+
+Error:
+```
+failed to execute message; message index: 0: cannot unbond an unbonded BTC delegation: invalid undelegation request
+```
+
+Explanation:
+This error indicates that an undelegation request was made
+for a BTC delegation that is already unbonded.
+It typically occurs when the same undelegation request
+has already been submitted by another Vigilante operator.
