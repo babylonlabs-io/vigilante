@@ -359,7 +359,7 @@ has already been submitted by another Vigilante operator.
 ### 6.3.2 Vigilante BTC Staking Tracker Common Errors
 
 This section covers transaction errors returned by the Babylon
-in response to on-chain submission attempts by the BTC Staking Tracker.
+in response to on-chain submission attempts by the Vigilante BTC Staking Tracker.
 
 Error:
 ```
