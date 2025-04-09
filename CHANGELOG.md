@@ -37,6 +37,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Bug Fixes
+* [#315](https://github.com/babylonlabs-io/vigilante/pull/315) fix: default config saving in `dump-cfg` command
+
 ### Improvements
 
 * [#303](https://github.com/babylonlabs-io/vigilante/pull/303) chore: sew reduce logs
