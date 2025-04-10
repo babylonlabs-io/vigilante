@@ -37,14 +37,6 @@ babylon:
   output-format: json
   submitter-address: bbn1v6k7k9s8md3k29cu9runasstq5zaa0lpznk27w
   sign-mode: direct
-grpc:
-  onetime-tls-key: true
-  rpc-key: ""
-  rpc-cert: $TESTNET_PATH/vigilante/rpc.cert
-  endpoints:
-    - localhost:8080
-grpcweb:
-  placeholder: grpcwebconfig
 metrics:
   host: 0.0.0.0
   server-port: 2112

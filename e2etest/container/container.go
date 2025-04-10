@@ -298,6 +298,10 @@ func (m *Manager) ClearResources() error {
 	return nil
 }
 
+func (m *Manager) RemoveContainer(name string) error {
+	return m.pool.RemoveContainerByName(name)
+}
+
 func noRestart(config *docker.HostConfig) {
 	// in this case, we don't want the nodes to restart on failure
 	config.RestartPolicy = docker.RestartPolicy{

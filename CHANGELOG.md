@@ -37,10 +37,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Bug Fixes
+* [#315](https://github.com/babylonlabs-io/vigilante/pull/315) fix: default config saving in `dump-cfg` command
+
+### Improvements
+
+* [#303](https://github.com/babylonlabs-io/vigilante/pull/303) chore: sew reduce logs
+* [#308](https://github.com/babylonlabs-io/vigilante/pull/308) chore: reporter handle duplicate submissions
+
+## v0.23.2
+
+### Improvements
+
+* [#304](https://github.com/babylonlabs-io/vigilante/pull/304) chore: bump bbn v1.0.0
+
+## v0.23.1
+
 ### Improvements
 
 * [#294](https://github.com/babylonlabs-io/vigilante/pull/294) chore: version cmd
+* [#295](https://github.com/babylonlabs-io/vigilante/pull/295) chore: remove grpc server
 * [#258](https://github.com/babylonlabs-io/vigilante/pull/258) fix: Reject non-negative value and Zero for time Interval used by time.ticker
+* [#296](https://github.com/babylonlabs-io/vigilante/pull/296) chore: tm retry container start
+* [#297](https://github.com/babylonlabs-io/vigilante/pull/297) chore: unbonding watcher block metrics
+* [#298](https://github.com/babylonlabs-io/vigilante/pull/298) chore: log binary version
 
 ## v0.23.0
 

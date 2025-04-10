@@ -3,6 +3,7 @@ package reporter
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/babylonlabs-io/vigilante/version"
 	"sync"
 	"time"
 
@@ -103,6 +104,9 @@ func New(
 
 // Start starts the goroutines necessary to manage a vigilante.
 func (r *Reporter) Start() {
+	commit, _ := version.CommitInfo()
+	r.logger.Infof("version: %s, commit: %s", version.Version(), commit)
+
 	r.quitMu.Lock()
 	select {
 	case <-r.quit:

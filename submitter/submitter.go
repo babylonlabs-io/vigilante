@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/babylonlabs-io/vigilante/retrywrap"
+	"github.com/babylonlabs-io/vigilante/version"
 	"github.com/lightningnetwork/lnd/kvdb"
 	"sync"
 	"time"
@@ -105,6 +106,9 @@ func New(
 
 // Start starts the goroutines necessary to manage a vigilante.
 func (s *Submitter) Start() {
+	commit, _ := version.CommitInfo()
+	s.logger.Infof("version: %s, commit: %s", version.Version(), commit)
+
 	s.quitMu.Lock()
 	select {
 	case <-s.quit:

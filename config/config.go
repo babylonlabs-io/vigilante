@@ -7,6 +7,8 @@ import (
 	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"time"
 
 	bbncfg "github.com/babylonlabs-io/babylon/client/config"
@@ -21,10 +23,8 @@ const (
 )
 
 var (
-	defaultAppDataDir  = btcutil.AppDataDir("babylon-vigilante", false)
-	defaultConfigFile  = filepath.Join(defaultAppDataDir, defaultConfigFilename)
-	defaultRPCKeyFile  = filepath.Join(defaultAppDataDir, "rpc.key")
-	defaultRPCCertFile = filepath.Join(defaultAppDataDir, "rpc.cert")
+	defaultAppDataDir = btcutil.AppDataDir("babylon-vigilante", false)
+	defaultConfigFile = filepath.Join(defaultAppDataDir, defaultConfigFilename)
 )
 
 func DataDir(homePath string) string {
@@ -36,8 +36,6 @@ type Config struct {
 	Common            CommonConfig            `mapstructure:"common"`
 	BTC               BTCConfig               `mapstructure:"btc"`
 	Babylon           bbncfg.BabylonConfig    `mapstructure:"babylon"`
-	GRPC              GRPCConfig              `mapstructure:"grpc"`
-	GRPCWeb           GRPCWebConfig           `mapstructure:"grpc-web"`
 	Metrics           MetricsConfig           `mapstructure:"metrics"`
 	Submitter         SubmitterConfig         `mapstructure:"submitter"`
 	Reporter          ReporterConfig          `mapstructure:"reporter"`
@@ -56,14 +54,6 @@ func (cfg *Config) Validate() error {
 
 	if err := cfg.Babylon.Validate(); err != nil {
 		return fmt.Errorf("invalid config in babylon: %w", err)
-	}
-
-	if err := cfg.GRPC.Validate(); err != nil {
-		return fmt.Errorf("invalid config in grpc: %w", err)
-	}
-
-	if err := cfg.GRPCWeb.Validate(); err != nil {
-		return fmt.Errorf("invalid config in grpc-web: %w", err)
 	}
 
 	if err := cfg.Metrics.Validate(); err != nil {
@@ -106,8 +96,6 @@ func DefaultConfig() *Config {
 		Common:            DefaultCommonConfig(),
 		BTC:               DefaultBTCConfig(),
 		Babylon:           defaultBbnCfg,
-		GRPC:              DefaultGRPCConfig(),
-		GRPCWeb:           DefaultGRPCWebConfig(),
 		Metrics:           DefaultMetricsConfig(),
 		Submitter:         DefaultSubmitterConfig(),
 		Reporter:          DefaultReporterConfig(),
@@ -151,7 +139,9 @@ func (cfg *Config) SaveToYAML(filePath string) error {
 	enc := yaml.NewEncoder(&buf)
 	enc.SetIndent(2)
 
-	if err := enc.Encode(cfg); err != nil {
+	wrappedConfig := MapstructureYAMLWrapper{Value: cfg}
+
+	if err := enc.Encode(wrappedConfig); err != nil {
 		return fmt.Errorf("error marshaling config to YAML: %w", err)
 	}
 
@@ -164,4 +154,62 @@ func (cfg *Config) SaveToYAML(filePath string) error {
 	}
 
 	return nil
+}
+
+// MapstructureYAMLWrapper is a generic wrapper for structs that need YAML tags based on mapstructure
+type MapstructureYAMLWrapper struct {
+	Value interface{}
+}
+
+// MarshalYAML implements custom YAML marshaling based on mapstructure tags
+func (w MapstructureYAMLWrapper) MarshalYAML() (interface{}, error) {
+	val := reflect.ValueOf(w.Value)
+
+	// Handle pointer types
+	if val.Kind() == reflect.Ptr {
+		if val.IsNil() {
+			return nil, nil
+		}
+		val = val.Elem()
+	}
+
+	// We expect a struct
+	if val.Kind() != reflect.Struct {
+		return w.Value, nil
+	}
+
+	result := make(map[string]interface{})
+	typ := val.Type()
+
+	// Iterate over all fields
+	for i := 0; i < val.NumField(); i++ {
+		field := typ.Field(i)
+
+		// Skip unexported fields
+		if field.PkgPath != "" {
+			continue
+		}
+
+		// Get the mapstructure tag
+		tag := field.Tag.Get("mapstructure")
+		if tag == "" || tag == "-" {
+			continue
+		}
+
+		// Split the tag to handle options like omitempty
+		parts := strings.Split(tag, ",")
+		name := parts[0]
+
+		fieldValue := val.Field(i).Interface()
+
+		// Recursively wrap struct fields to handle nested structs
+		if val.Field(i).Kind() == reflect.Struct ||
+			(val.Field(i).Kind() == reflect.Ptr && !val.Field(i).IsNil() && val.Field(i).Elem().Kind() == reflect.Struct) {
+			fieldValue = MapstructureYAMLWrapper{Value: fieldValue}
+		}
+
+		result[name] = fieldValue
+	}
+
+	return result, nil
 }
