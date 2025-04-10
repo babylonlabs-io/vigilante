@@ -81,13 +81,13 @@ func GetReporterCmd() *cobra.Command {
 				panic(fmt.Errorf("failed to create vigilante reporter: %w", err))
 			}
 
-			// start normal-case execution
-			vigilantReporter.Start()
-
 			// start Prometheus metrics server
 			addr := fmt.Sprintf("%s:%d", cfg.Metrics.Host, cfg.Metrics.ServerPort)
 			metrics.Start(addr, reporterMetrics.Registry)
-			
+
+			// start normal-case execution
+			vigilantReporter.Start()
+
 			addInterruptHandler(func() {
 				rootLogger.Info("Stopping reporter...")
 				vigilantReporter.Stop()
