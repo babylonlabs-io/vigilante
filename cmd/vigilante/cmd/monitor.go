@@ -10,7 +10,6 @@ import (
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/monitor"
-	"github.com/babylonlabs-io/vigilante/rpcserver"
 	"github.com/babylonlabs-io/vigilante/types"
 )
 
@@ -34,7 +33,6 @@ func GetMonitorCmd() *cobra.Command {
 				btcClient        *btcclient.Client
 				bbnQueryClient   *bbnqc.QueryClient
 				vigilanteMonitor *monitor.Monitor
-				server           *rpcserver.Server
 			)
 
 			// get the config from the given file or the default file
@@ -99,28 +97,14 @@ func GetMonitorCmd() *cobra.Command {
 			if err != nil {
 				panic(fmt.Errorf("failed to create vigilante monitor: %w", err))
 			}
-			// create RPC server
-			server, err = rpcserver.New(&cfg.GRPC, rootLogger, nil, nil, vigilanteMonitor, nil)
-			if err != nil {
-				panic(fmt.Errorf("failed to create monitor's RPC server: %w", err))
-			}
 
 			// start
 			go vigilanteMonitor.Start(genesisInfo.GetBaseBTCHeight())
 
-			// start RPC server
-			server.Start()
 			// start Prometheus metrics server
 			addr := fmt.Sprintf("%s:%d", cfg.Metrics.Host, cfg.Metrics.ServerPort)
 			metrics.Start(addr, monitorMetrics.Registry)
 
-			// SIGINT handling stuff
-			addInterruptHandler(func() {
-				// TODO: Does this need to wait for the grpc server to finish up any requests?
-				rootLogger.Info("Stopping RPC server...")
-				server.Stop()
-				rootLogger.Info("RPC server shutdown")
-			})
 			addInterruptHandler(func() {
 				rootLogger.Info("Stopping monitor...")
 				vigilanteMonitor.Stop()
