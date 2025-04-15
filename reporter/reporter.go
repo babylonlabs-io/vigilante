@@ -43,6 +43,10 @@ type Reporter struct {
 	started                       bool
 	quit                          chan struct{}
 	quitMu                        sync.Mutex
+
+	bootstrapMutex      sync.Mutex
+	bootstrapInProgress bool
+	bootstrapWg         sync.WaitGroup
 }
 
 func New(

@@ -96,6 +96,8 @@ func (c *CheckpointCache) Match() {
 
 func (c *CheckpointCache) PopEarliestCheckpoint() *Ckpt {
 	if c.HasCheckpoints() {
+		c.mu.Lock()
+		defer c.mu.Unlock()
 		ckpt := c.Checkpoints[0]
 		c.Checkpoints = c.Checkpoints[1:]
 
