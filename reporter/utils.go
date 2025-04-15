@@ -241,6 +241,7 @@ func (r *Reporter) matchAndSubmitCheckpoints(signer string) int {
 	typedClient, ok := r.babylonClient.(*client.Client)
 	if !ok {
 		r.logger.Error("babylonClient is not of expected type *client.Client")
+
 		return numMatchedCkpts
 	}
 
