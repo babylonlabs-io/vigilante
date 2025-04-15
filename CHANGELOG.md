@@ -45,6 +45,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 * [#303](https://github.com/babylonlabs-io/vigilante/pull/303) chore: sew reduce logs
 * [#308](https://github.com/babylonlabs-io/vigilante/pull/308) chore: reporter handle duplicate submissions
 * [#318](https://github.com/babylonlabs-io/vigilante/pull/318) fix: start metrics server before blocking reporter execution
+* [#323](https://github.com/babylonlabs-io/vigilante/pull/323) feat: improve reporter bootstrapping performance and reliability in checkpoint submission
 
 ## v0.23.2
 
