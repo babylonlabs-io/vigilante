@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"github.com/babylonlabs-io/babylon/client/babylonclient"
+	"github.com/babylonlabs-io/babylon/client/client"
 	"github.com/babylonlabs-io/vigilante/retrywrap"
 	"github.com/cockroachdb/errors"
 	"strconv"
 
+	coserrors "cosmossdk.io/errors"
 	"github.com/avast/retry-go/v4"
 	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
 	btclctypes "github.com/babylonlabs-io/babylon/x/btclightclient/types"
@@ -236,6 +238,13 @@ func (r *Reporter) matchAndSubmitCheckpoints(signer string) int {
 		return numMatchedCkpts
 	}
 
+	typedClient, ok := r.babylonClient.(*client.Client)
+	if !ok {
+		r.logger.Error("babylonClient is not of expected type *client.Client")
+
+		return numMatchedCkpts
+	}
+
 	// for each matched checkpoint, wrap to MsgInsertBTCSpvProof and send to Babylon
 	// Note that this is a while loop that keeps popping checkpoints in the cache
 	for {
@@ -257,18 +266,17 @@ func (r *Reporter) matchAndSubmitCheckpoints(signer string) int {
 		tx2Block := ckpt.Segments[1].AssocBlock
 
 		// submit the checkpoint to Babylon
-		res, err := r.babylonClient.InsertBTCSpvProof(context.Background(), msgInsertBTCSpvProof)
+		res, err := typedClient.ReliablySendMsg(
+			context.Background(),
+			msgInsertBTCSpvProof,
+			[]*coserrors.Error{
+				btcctypes.ErrDuplicatedSubmission,
+				btcctypes.ErrEpochAlreadyFinalized,
+			},
+			[]*coserrors.Error{},
+		)
+
 		if err != nil {
-			if errors.Is(err, btcctypes.ErrDuplicatedSubmission) {
-				r.logger.Infof("Checkpoint already submitted, for epoch: %d, tx1: %s, tx2: %s, height: %s",
-					ckpt.Epoch,
-					tx1Block.Txs[ckpt.Segments[0].TxIdx].Hash().String(),
-					tx2Block.Txs[ckpt.Segments[1].TxIdx].Hash().String(),
-					strconv.Itoa(int(tx1Block.Height)))
-
-				continue
-			}
-
 			r.logger.Errorf("Failed to submit MsgInsertBTCSpvProof with error %v", err)
 			r.metrics.FailedCheckpointsCounter.Inc()
 
@@ -286,6 +294,14 @@ func (r *Reporter) matchAndSubmitCheckpoints(signer string) int {
 					tx2Block.Txs[ckpt.Segments[1].TxIdx].Hash().String(),
 				).Inc()
 			}
+
+			continue
+		} else if res == nil {
+			r.logger.Infof("Checkpoint already submitted, for epoch: %d, tx1: %s, tx2: %s, height: %s",
+				ckpt.Epoch,
+				tx1Block.Txs[ckpt.Segments[0].TxIdx].Hash().String(),
+				tx2Block.Txs[ckpt.Segments[1].TxIdx].Hash().String(),
+				strconv.Itoa(int(tx1Block.Height)))
 
 			continue
 		}
