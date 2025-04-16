@@ -80,6 +80,10 @@ func (bs *BTCSlasher) slashBTCDelegation(
 
 				// Check if both errors are not slashable
 				if errors.Is(err1, ErrNotSlashable) && errors.Is(err2, ErrNotSlashable) {
+					bs.logger.Info("Both staking and unbonding transactions are not slashable, skipping",
+						"delegation", del.BtcPk.MarshalHex(),
+						"finality_provider", fpBTCPK.MarshalHex(),
+					)
 					accumulatedErr = nil
 				}
 			case txHash = <-txHashChan:
