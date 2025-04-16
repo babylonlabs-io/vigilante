@@ -197,8 +197,10 @@ func (bs *BTCSlasher) sendSlashingTx(
 		fpBTCPK.MarshalHex(),
 	)
 
+	// sats to btc
+	totalBtc := float64(del.TotalSat) / 100000000.0
 	// submit slashing tx
-	txHash, err = bs.BTCClient.SendRawTransaction(slashingMsgTxWithWitness, true)
+	txHash, err = bs.BTCClient.SendRawTransactionWithBurnLimit(slashingMsgTxWithWitness, true, totalBtc)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to submit slashing tx of BTC delegation %s under finality provider %s to Bitcoin: %w",
