@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-func TestBTCSlasher_slashBTCDelegation(t *testing.T) {
+func TestBTCSlasher_slashBTCDelegation_exitUnslashable(t *testing.T) {
 	t.Parallel()
 	r := rand.New(rand.NewSource(time.Now().UnixMilli()))
 
