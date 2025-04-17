@@ -5,7 +5,7 @@ This repository contains vigilante programs for Babylon. They are daemon program
 There are four vigilante programs:
 
 - [Submitter](./submitter/README.md): submitting Babylon checkpoints to Bitcoin.
-- [Reporter](./reporter/README.md): reporting Bitcoin headers and Babylon checkpoints to Babylon.
+- [Reporter](./reporter/README.md): reporting Bitcoin headers and checkpoints to Babylon.
 - [BTC timestamping monitor](./monitor/README.md): monitoring censorship of Babylon checkpoints in Babylon.
 - [BTC staking tracker](./btcstaking-tracker/README.md): monitoring early unbonding of BTC delegations and slashing adversarial finality providers.
 
