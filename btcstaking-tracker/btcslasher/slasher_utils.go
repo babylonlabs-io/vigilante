@@ -24,6 +24,7 @@ import (
 
 const (
 	defaultPaginationLimit = 100
+	maxBurnAmountBTC       = float64(50000)
 )
 
 var ErrNotSlashable = errors.New("delegation is not slashable")
@@ -209,7 +210,6 @@ func (bs *BTCSlasher) sendSlashingTx(
 		fpBTCPK.MarshalHex(),
 	)
 
-	const maxBurnAmountBTC = float64(50000)
 	// submit slashing tx
 	txHash, err = bs.BTCClient.SendRawTransactionWithBurnLimit(slashingMsgTxWithWitness, true, maxBurnAmountBTC)
 	if err != nil {

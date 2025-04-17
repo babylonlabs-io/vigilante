@@ -1,10 +1,8 @@
-//go:build e2e
-// +build e2e
-
 package e2etest
 
 import (
 	"github.com/btcsuite/btcd/btcjson"
+	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 	"go.uber.org/zap"
@@ -345,8 +343,15 @@ func TestOpReturnBurn(t *testing.T) {
 
 	hash, err := tm.BTCClient.SendRawTransaction(signedTx, true)
 	require.Error(t, err)
+	require.Contains(t, err.Error(), "Unspendable output exceeds maximum configured by user (maxburnamount)")
 
-	hash, err = tm.BTCClient.SendRawTransactionWithBurnLimit(signedTx, true, 50000)
+	burnLimitBTC := btcutil.Amount(900).ToBTC()
+	hash, err = tm.BTCClient.SendRawTransactionWithBurnLimit(signedTx, true, burnLimitBTC)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "Unspendable output exceeds maximum configured by user (maxburnamount)")
+
+	burnLimitBTC = btcutil.Amount(1001).ToBTC()
+	hash, err = tm.BTCClient.SendRawTransactionWithBurnLimit(signedTx, true, burnLimitBTC)
 	require.NoError(t, err)
 
 	tm.mineBlock(t)
