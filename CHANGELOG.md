@@ -37,6 +37,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Improvements
+
+* [#331](https://github.com/babylonlabs-io/vigilante/pull/331) feat: adds send raw tx with burn amount
+
 ## v0.23.3
 
 ### Bug Fixes
