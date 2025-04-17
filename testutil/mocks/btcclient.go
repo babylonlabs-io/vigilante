@@ -164,6 +164,21 @@ func (mr *MockBTCClientMockRecorder) SendRawTransaction(tx, allowHighFees interf
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendRawTransaction", reflect.TypeOf((*MockBTCClient)(nil).SendRawTransaction), tx, allowHighFees)
 }
 
+// SendRawTransactionWithBurnLimit mocks base method.
+func (m *MockBTCClient) SendRawTransactionWithBurnLimit(tx *wire.MsgTx, allowHighFees bool, maxBurnAmount float64) (*chainhash.Hash, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendRawTransactionWithBurnLimit", tx, allowHighFees, maxBurnAmount)
+	ret0, _ := ret[0].(*chainhash.Hash)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SendRawTransactionWithBurnLimit indicates an expected call of SendRawTransactionWithBurnLimit.
+func (mr *MockBTCClientMockRecorder) SendRawTransactionWithBurnLimit(tx, allowHighFees, maxBurnAmount interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendRawTransactionWithBurnLimit", reflect.TypeOf((*MockBTCClient)(nil).SendRawTransactionWithBurnLimit), tx, allowHighFees, maxBurnAmount)
+}
+
 // Stop mocks base method.
 func (m *MockBTCClient) Stop() {
 	m.ctrl.T.Helper()
