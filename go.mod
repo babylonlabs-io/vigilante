@@ -341,9 +341,5 @@ require (
 
 replace (
 	github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0
-	// LND brings unreleased `67b8efd3ba53` version of btcd which contains bug in
-	// rpc client described here: https://github.com/btcsuite/btcd/commit/42d6eba84bf9dc23b1182a35570bcd8f7f25616f
-	// TODO: remove this once LND releases a new version with fixed btcd
-	//github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.24.2
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 )
