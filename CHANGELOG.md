@@ -37,6 +37,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+* [#330](https://github.com/babylonlabs-io/vigilante/pull/330) fix: Prevent reporter retry loop on ErrForkStartWithKnownHeader
+
+
 ## v0.23.3
 
 ### Bug Fixes

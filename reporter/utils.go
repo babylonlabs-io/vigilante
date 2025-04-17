@@ -93,7 +93,7 @@ func (r *Reporter) submitHeaderMsgs(msg *btclctypes.MsgInsertHeaders) error {
 				context.Background(),
 				msg,
 				[]*coserrors.Error{btclctypes.ErrForkStartWithKnownHeader}, // expected
-				nil, // abort errors
+				nil,                                                        // abort errors
 			)
 			if err != nil {
 				return fmt.Errorf("could not submit headers: %w", err)
@@ -105,6 +105,7 @@ func (r *Reporter) submitHeaderMsgs(msg *btclctypes.MsgInsertHeaders) error {
 					"expected ErrForkStartWithKnownHeader encountered for %d headers",
 					len(msg.Headers),
 				)
+
 				return btclctypes.ErrForkStartWithKnownHeader
 			}
 
@@ -112,6 +113,7 @@ func (r *Reporter) submitHeaderMsgs(msg *btclctypes.MsgInsertHeaders) error {
 				"successfully submitted %d headers (code: %v)",
 				len(msg.Headers), res.Code,
 			)
+
 			return nil
 		},
 		retry.Delay(r.retrySleepTime),
@@ -125,6 +127,7 @@ func (r *Reporter) submitHeaderMsgs(msg *btclctypes.MsgInsertHeaders) error {
 		switch {
 		case errors.Is(err, babylonclient.ErrTimeoutAfterWaitingForTxBroadcast):
 			r.metrics.HeadersCensorshipGauge.Inc()
+
 			return fmt.Errorf("tx broadcast timeout: %w", err)
 
 		case errors.Is(err, btclctypes.ErrForkStartWithKnownHeader):
