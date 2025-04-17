@@ -37,6 +37,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Improvements
+
+* [#328](https://github.com/babylonlabs-io/vigilante/pull/328) feat: inf slash attempts
+
 ## v0.23.3
 
 ### Bug Fixes
