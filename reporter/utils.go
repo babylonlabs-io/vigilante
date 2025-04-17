@@ -78,40 +78,75 @@ func (r *Reporter) getHeaderMsgsToSubmit(signer string, ibs []*types.IndexedBloc
 	return headerMsgsToSubmit, nil
 }
 
+// submitHeaderMsgs attempts to submit a batch of headers to the Babylon client.
+// It handles specific expected errors like ErrForkStartWithKnownHeader gracefully,
+// and records relevant metrics for both success and failure cases.
 func (r *Reporter) submitHeaderMsgs(msg *btclctypes.MsgInsertHeaders) error {
-	// submit the headers
-	err := retrywrap.Do(func() error {
-		res, err := r.babylonClient.InsertHeaders(context.Background(), msg)
-		if err != nil {
-			return fmt.Errorf("could not submit headers: %w", err)
-		}
-		r.logger.Infof("Successfully submitted %d headers to Babylon with response code %v", len(msg.Headers), res.Code)
+	typedClient, ok := r.babylonClient.(*client.Client)
+	if !ok {
+		return errors.New("babylon client is not of expected type *client.Client")
+	}
 
-		return nil
-	},
+	err := retrywrap.Do(
+		func() error {
+			res, err := typedClient.ReliablySendMsg(
+				context.Background(),
+				msg,
+				[]*coserrors.Error{btclctypes.ErrForkStartWithKnownHeader}, // expected
+				nil, // abort errors
+			)
+			if err != nil {
+				return fmt.Errorf("could not submit headers: %w", err)
+			}
+
+			if res == nil {
+				// This indicates an expected error occurred (handled internally by ReliablySendMsg)
+				r.logger.Infof(
+					"expected ErrForkStartWithKnownHeader encountered for %d headers",
+					len(msg.Headers),
+				)
+				return btclctypes.ErrForkStartWithKnownHeader
+			}
+
+			r.logger.Infof(
+				"successfully submitted %d headers (code: %v)",
+				len(msg.Headers), res.Code,
+			)
+			return nil
+		},
 		retry.Delay(r.retrySleepTime),
 		retry.MaxDelay(r.maxRetrySleepTime),
 		retry.Attempts(r.maxRetryTimes),
 	)
+
 	if err != nil {
-		// we increase this even on DuplicateSubmission error, as sometimes they are legitimate
 		r.metrics.FailedHeadersCounter.Add(float64(len(msg.Headers)))
 
-		if errors.Is(err, babylonclient.ErrTimeoutAfterWaitingForTxBroadcast) {
+		switch {
+		case errors.Is(err, babylonclient.ErrTimeoutAfterWaitingForTxBroadcast):
 			r.metrics.HeadersCensorshipGauge.Inc()
-		}
+			return fmt.Errorf("tx broadcast timeout: %w", err)
 
-		return fmt.Errorf("failed to submit headers: %w", err)
+		case errors.Is(err, btclctypes.ErrForkStartWithKnownHeader):
+			// Not a failure, but reported upwards to allow calling code to decide how to handle
+			return err
+
+		default:
+			return fmt.Errorf("failed to submit headers: %w", err)
+		}
 	}
 
-	// update metrics
+	// Success path
 	r.metrics.SuccessfulHeadersCounter.Add(float64(len(msg.Headers)))
 	r.metrics.SecondsSinceLastHeaderGauge.Set(0)
+
 	for _, header := range msg.Headers {
-		r.metrics.NewReportedHeaderGaugeVec.WithLabelValues(header.Hash().String()).SetToCurrentTime()
+		r.metrics.NewReportedHeaderGaugeVec.
+			WithLabelValues(header.Hash().String()).
+			SetToCurrentTime()
 	}
 
-	return err
+	return nil
 }
 
 // ProcessHeaders extracts and reports headers from a list of blocks

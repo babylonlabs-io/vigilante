@@ -24,6 +24,7 @@ var unrecoverableErrors = []error{
 var expectedErrors = []error{
 	btcctypes.ErrDuplicatedSubmission,
 	btcctypes.ErrInvalidHeader,
+	btclctypes.ErrForkStartWithKnownHeader,
 }
 
 func containsErr(errs []error, err error) bool {
