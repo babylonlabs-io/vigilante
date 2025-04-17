@@ -4,6 +4,9 @@
 package e2etest
 
 import (
+	"github.com/btcsuite/btcd/btcjson"
+	"github.com/btcsuite/btcd/txscript"
+	"github.com/btcsuite/btcd/wire"
 	"go.uber.org/zap"
 	"testing"
 	"time"
@@ -315,4 +318,44 @@ func TestSlasher_Bootstrapping(t *testing.T) {
 	minedBlock := tm.mineBlock(t)
 	// ensure 2 txs will eventually be received (staking tx and slashing tx)
 	require.Equal(t, 2, len(minedBlock.Transactions))
+}
+
+func TestOpReturnBurn(t *testing.T) {
+	t.Parallel()
+	numMatureOutputs := uint32(300)
+
+	tm := StartManager(t, numMatureOutputs, 5)
+	defer tm.Stop(t)
+
+	tx := wire.NewMsgTx(wire.TxVersion)
+	script, err := txscript.NewScriptBuilder().
+		AddOp(txscript.OP_RETURN).
+		AddData([]byte("test")).
+		Script()
+	require.NoError(t, err)
+
+	tx.AddTxOut(wire.NewTxOut(1000, script))
+
+	res, err := tm.BTCClient.FundRawTransaction(tx, btcjson.FundRawTransactionOpts{}, nil)
+	require.NoError(t, err)
+
+	signedTx, allSigned, err := tm.BTCClient.SignRawTransactionWithWallet(res.Transaction)
+	require.NoError(t, err)
+	require.True(t, allSigned)
+
+	hash, err := tm.BTCClient.SendRawTransaction(signedTx, true)
+	require.Error(t, err)
+
+	hash, err = tm.BTCClient.SendRawTransactionWithBurnLimit(signedTx, true, 50000)
+	require.NoError(t, err)
+
+	tm.mineBlock(t)
+
+	require.Eventually(t, func() bool {
+		res, err := tm.BTCClient.GetRawTransactionVerbose(hash)
+		if err != nil {
+			return false
+		}
+		return len(res.BlockHash) > 0
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
 }
