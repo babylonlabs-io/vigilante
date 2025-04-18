@@ -65,7 +65,7 @@ func (r *Reporter) getHeaderMsgsToSubmit(signer string, ibs []*types.IndexedBloc
 	// wrap the headers to MsgInsertHeaders msgs from the subset of indexed blocks
 	ibsToSubmit = ibs[startPoint:]
 
-	blockChunks := chunkBy(ibsToSubmit, int(r.Cfg.MaxHeadersInMsg))
+	blockChunks := chunkBy(ibsToSubmit, int(r.cfg.MaxHeadersInMsg))
 
 	headerMsgsToSubmit := make([]*btclctypes.MsgInsertHeaders, 0, len(blockChunks))
 
@@ -87,7 +87,7 @@ func (r *Reporter) submitHeaderMsgs(msg *btclctypes.MsgInsertHeaders) error {
 				context.Background(),
 				msg,
 				[]*coserrors.Error{btclctypes.ErrForkStartWithKnownHeader}, // expected
-				nil,                                                        // abort errors
+				nil, // abort errors
 			)
 			if err != nil {
 				return fmt.Errorf("could not submit headers: %w", err)
@@ -238,10 +238,10 @@ func (r *Reporter) extractCheckpoints(ib *types.IndexedBlock) int {
 		}
 
 		// cache the segment to ckptCache
-		ckptSeg := types.NewCkptSegment(r.CheckpointCache.Tag, r.CheckpointCache.Version, ib, tx)
+		ckptSeg := types.NewCkptSegment(r.checkpointCache.Tag, r.checkpointCache.Version, ib, tx)
 		if ckptSeg != nil {
 			r.logger.Infof("Found a checkpoint segment in tx %v with index %d: %v", tx.Hash(), ckptSeg.Index, ckptSeg.Data)
-			if err := r.CheckpointCache.AddSegment(ckptSeg); err != nil {
+			if err := r.checkpointCache.AddSegment(ckptSeg); err != nil {
 				r.logger.Errorf("Failed to add the ckpt segment in tx %v to the ckptCache: %v", tx.Hash(), err)
 
 				continue
@@ -261,8 +261,8 @@ func (r *Reporter) matchAndSubmitCheckpoints(signer string) int {
 
 	// get matched ckpt parts from the ckptCache
 	// Note that Match() has ensured the checkpoints are always ordered by epoch number
-	r.CheckpointCache.Match()
-	numMatchedCkpts := r.CheckpointCache.NumCheckpoints()
+	r.checkpointCache.Match()
+	numMatchedCkpts := r.checkpointCache.NumCheckpoints()
 
 	if numMatchedCkpts == 0 {
 		r.logger.Debug("Found no matched pair of checkpoint segments in this match attempt")
@@ -275,7 +275,7 @@ func (r *Reporter) matchAndSubmitCheckpoints(signer string) int {
 	for {
 		// pop the earliest checkpoint
 		// if popping a nil checkpoint, then all checkpoints are popped, break the for loop
-		ckpt := r.CheckpointCache.PopEarliestCheckpoint()
+		ckpt := r.checkpointCache.PopEarliestCheckpoint()
 		if ckpt == nil {
 			break
 		}
