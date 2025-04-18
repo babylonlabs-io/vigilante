@@ -21,7 +21,7 @@ import (
 )
 
 type Reporter struct {
-	Cfg    *config.ReporterConfig
+	cfg    *config.ReporterConfig
 	logger *zap.SugaredLogger
 
 	btcClient     btcclient.BTCClient
@@ -34,7 +34,7 @@ type Reporter struct {
 	maxRetryTimes     uint
 
 	// Internal states of the reporter
-	CheckpointCache               *types.CheckpointCache
+	checkpointCache               *types.CheckpointCache
 	btcCache                      *types.BTCCache
 	btcConfirmationDepth          uint32
 	checkpointFinalizationTimeout uint32
@@ -43,6 +43,13 @@ type Reporter struct {
 	started                       bool
 	quit                          chan struct{}
 	quitMu                        sync.Mutex
+
+	bootstrapMutex      sync.Mutex
+	bootstrapInProgress bool
+	// bootstrapWg is used to wait for the bootstrap process to finish
+	// bootstrapWg is incremented in bootstrap()
+	// bootstrapWg is waited in bootstrapWithRetries()
+	bootstrapWg sync.WaitGroup
 }
 
 func New(
@@ -86,7 +93,7 @@ func New(
 	ckptCache := types.NewCheckpointCache(checkpointTag, btctxformatter.CurrentVersion)
 
 	return &Reporter{
-		Cfg:                           cfg,
+		cfg:                           cfg,
 		logger:                        logger,
 		retrySleepTime:                retrySleepTime,
 		maxRetrySleepTime:             maxRetrySleepTime,
@@ -94,7 +101,7 @@ func New(
 		btcClient:                     btcClient,
 		babylonClient:                 babylonClient,
 		btcNotifier:                   btcNotifier,
-		CheckpointCache:               ckptCache,
+		checkpointCache:               ckptCache,
 		btcConfirmationDepth:          k,
 		checkpointFinalizationTimeout: w,
 		metrics:                       metrics,
@@ -142,7 +149,7 @@ func (r *Reporter) Start() {
 	r.wg.Add(1)
 	go r.blockEventHandler(blockNotifier)
 
-	go r.CheckpointCache.StartCleanupRoutine(r.quit, time.Hour, 24*time.Hour)
+	go r.checkpointCache.StartCleanupRoutine(r.quit, time.Hour, 24*time.Hour)
 
 	// start record time-related metrics
 	r.metrics.RecordMetrics()
