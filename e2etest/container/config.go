@@ -20,7 +20,7 @@ type ImageConfig struct {
 //nolint:deadcode
 const (
 	dockerBitcoindRepository = "lncm/bitcoind"
-	dockerBitcoindVersionTag = "v27.0"
+	dockerBitcoindVersionTag = "v28.0"
 	dockerBabylondRepository = "babylonlabs/babylond"
 	dockerElectrsRepository  = "mempool/electrs"
 	dockerElectrsVersionTag  = "v3.1.0"
