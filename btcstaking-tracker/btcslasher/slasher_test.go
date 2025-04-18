@@ -313,7 +313,7 @@ func FuzzSlasher(f *testing.F) {
 			AnyTimes()
 
 		mockBTCClient.EXPECT().
-			SendRawTransaction(gomock.Any(), gomock.Eq(true)).
+			SendRawTransactionWithBurnLimit(gomock.Any(), gomock.Eq(true), gomock.Any()).
 			Return(&chainhash.Hash{}, nil).
 			AnyTimes()
 
