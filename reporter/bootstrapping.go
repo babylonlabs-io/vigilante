@@ -178,6 +178,8 @@ func (r *Reporter) bootstrapWithRetries() {
 	ctx, cancel := r.reporterQuitCtx()
 	defer cancel()
 	if err := retry.Do(func() error {
+		// we don't want to allow concurrent bootstrap process, if bootstrap is already in progress
+		// we should wait for it to finish
 		r.bootstrapWg.Wait()
 
 		return r.bootstrap()
@@ -210,7 +212,7 @@ func (r *Reporter) initBTCCache() error {
 		ibs                  []*types.IndexedBlock
 	)
 
-	r.btcCache, err = types.NewBTCCache(r.Cfg.BTCCacheSize) // TODO: give an option to be unsized
+	r.btcCache, err = types.NewBTCCache(r.cfg.BTCCacheSize) // TODO: give an option to be unsized
 	if err != nil {
 		panic(err)
 	}
