@@ -24,7 +24,10 @@ import (
 
 const (
 	defaultPaginationLimit = 100
+	maxBurnAmountBTC       = float64(50000)
 )
+
+var ErrNotSlashable = errors.New("delegation is not slashable")
 
 type SlashResult struct {
 	Del            *bstypes.BTCDelegationResponse
@@ -75,6 +78,15 @@ func (bs *BTCSlasher) slashBTCDelegation(
 			select {
 			case err2 := <-errChan:
 				accumulatedErr = multierror.Append(err1, err2)
+
+				// Check if both errors are not slashable
+				if errors.Is(err1, ErrNotSlashable) && errors.Is(err2, ErrNotSlashable) {
+					bs.logger.Info("Both staking and unbonding transactions are not slashable, skipping",
+						"delegation", del.BtcPk.MarshalHex(),
+						"finality_provider", fpBTCPK.MarshalHex(),
+					)
+					accumulatedErr = nil
+				}
 			case txHash = <-txHashChan:
 				// Second transaction succeeded, ignore the first error
 				innerCancel()
@@ -91,7 +103,7 @@ func (bs *BTCSlasher) slashBTCDelegation(
 		retry.Context(ctx),
 		retry.Delay(bs.retrySleepTime),
 		retry.MaxDelay(bs.maxRetrySleepTime),
-		retry.Attempts(bs.maxRetryTimes),
+		retry.Attempts(0), // inf retries, we exit via context, tx included in chain, or both unspendable
 	)
 
 	slashRes := &SlashResult{
@@ -160,9 +172,10 @@ func (bs *BTCSlasher) sendSlashingTx(
 	// this staking/unbonding tx is no longer slashable on Bitcoin
 	if !spendable {
 		return nil, fmt.Errorf(
-			"the staking/unbonding tx of BTC delegation %s under finality provider %s is not slashable",
+			"the staking/unbonding tx of BTC delegation %s under finality provider %s is not slashable: %w",
 			del.BtcPk.MarshalHex(),
 			fpBTCPK.MarshalHex(),
+			ErrNotSlashable,
 		)
 	}
 
@@ -198,7 +211,7 @@ func (bs *BTCSlasher) sendSlashingTx(
 	)
 
 	// submit slashing tx
-	txHash, err = bs.BTCClient.SendRawTransaction(slashingMsgTxWithWitness, true)
+	txHash, err = bs.BTCClient.SendRawTransactionWithBurnLimit(slashingMsgTxWithWitness, true, maxBurnAmountBTC)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to submit slashing tx of BTC delegation %s under finality provider %s to Bitcoin: %w",
