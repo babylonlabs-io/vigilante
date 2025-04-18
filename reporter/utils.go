@@ -81,14 +81,13 @@ func (r *Reporter) getHeaderMsgsToSubmit(signer string, ibs []*types.IndexedBloc
 // It handles specific expected errors like ErrForkStartWithKnownHeader gracefully,
 // and records relevant metrics for both success and failure cases.
 func (r *Reporter) submitHeaderMsgs(msg *btclctypes.MsgInsertHeaders) error {
-
 	err := retrywrap.Do(
 		func() error {
 			res, err := r.babylonClient.ReliablySendMsg(
 				context.Background(),
 				msg,
 				[]*coserrors.Error{btclctypes.ErrForkStartWithKnownHeader}, // expected
-				nil, // abort errors
+				nil,                                                        // abort errors
 			)
 			if err != nil {
 				return fmt.Errorf("could not submit headers: %w", err)
