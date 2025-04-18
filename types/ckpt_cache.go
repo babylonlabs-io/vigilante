@@ -95,7 +95,10 @@ func (c *CheckpointCache) Match() {
 }
 
 func (c *CheckpointCache) PopEarliestCheckpoint() *Ckpt {
-	if c.HasCheckpoints() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if len(c.Checkpoints) > 0 {
 		ckpt := c.Checkpoints[0]
 		c.Checkpoints = c.Checkpoints[1:]
 
@@ -122,10 +125,6 @@ func (c *CheckpointCache) NumCheckpoints() int {
 	defer c.mu.Unlock()
 
 	return len(c.Checkpoints)
-}
-
-func (c *CheckpointCache) HasCheckpoints() bool {
-	return c.NumCheckpoints() > 0
 }
 
 func (c *CheckpointCache) StartCleanupRoutine(stopChan chan struct{}, cleanupInterval time.Duration, segmentTTL time.Duration) {
