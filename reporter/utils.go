@@ -87,7 +87,7 @@ func (r *Reporter) submitHeaderMsgs(msg *btclctypes.MsgInsertHeaders) error {
 				context.Background(),
 				msg,
 				[]*coserrors.Error{btclctypes.ErrForkStartWithKnownHeader}, // expected
-				nil, // abort errors
+				nil,                                                        // abort errors
 			)
 			if err != nil {
 				return fmt.Errorf("could not submit headers: %w", err)
@@ -322,15 +322,17 @@ func (r *Reporter) matchAndSubmitCheckpoints(signer string) int {
 
 			continue
 		} else if res == nil {
-			r.logger.Infof("Checkpoint already submitted, for epoch: %d, tx1: %s, tx2: %s, height: %s",
+			r.logger.Infof("Checkpoint (MsgInsertBTCSpvProof) already submitted, for epoch: %d, tx1: %s, tx2: %s, height: %s",
 				ckpt.Epoch,
 				tx1Block.Txs[ckpt.Segments[0].TxIdx].Hash().String(),
 				tx2Block.Txs[ckpt.Segments[1].TxIdx].Hash().String(),
 				strconv.Itoa(int(tx1Block.Height)))
-
-			continue
+		} else {
+			r.logger.Infof("Successfully submitted checkpoint (MsgInsertBTCSpvProof) with response %d, for epoch %d, height %d",
+				res.Code, ckpt.Epoch, tx1Block.Height)
 		}
-		r.logger.Infof("Successfully submitted MsgInsertBTCSpvProof with response %d", res.Code)
+
+		// either way if we or some other reporter submitted the checkpoint, we want to update the metrics
 		r.metrics.SuccessfulCheckpointsCounter.Inc()
 		r.metrics.SecondsSinceLastCheckpointGauge.Set(0)
 		r.metrics.NewReportedCheckpointGaugeVec.WithLabelValues(
