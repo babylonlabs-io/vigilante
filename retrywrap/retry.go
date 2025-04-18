@@ -18,6 +18,7 @@ var unrecoverableErrors = []error{
 	btcctypes.ErrNoCheckpointsForPreviousEpoch,
 	btcctypes.ErrInvalidCheckpointProof,
 	checkpointingtypes.ErrBlsPrivKeyDoesNotExist,
+	btclctypes.ErrForkStartWithKnownHeader,
 }
 
 // expectedErrors is a list of errors which can safely be ignored and should not be retried.
