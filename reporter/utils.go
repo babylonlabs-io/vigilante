@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/babylonlabs-io/babylon/client/babylonclient"
-	"github.com/babylonlabs-io/babylon/client/client"
 	"github.com/babylonlabs-io/vigilante/retrywrap"
 	"github.com/cockroachdb/errors"
 	"strconv"
@@ -82,18 +81,14 @@ func (r *Reporter) getHeaderMsgsToSubmit(signer string, ibs []*types.IndexedBloc
 // It handles specific expected errors like ErrForkStartWithKnownHeader gracefully,
 // and records relevant metrics for both success and failure cases.
 func (r *Reporter) submitHeaderMsgs(msg *btclctypes.MsgInsertHeaders) error {
-	typedClient, ok := r.babylonClient.(*client.Client)
-	if !ok {
-		return errors.New("babylon client is not of expected type *client.Client")
-	}
 
 	err := retrywrap.Do(
 		func() error {
-			res, err := typedClient.ReliablySendMsg(
+			res, err := r.babylonClient.ReliablySendMsg(
 				context.Background(),
 				msg,
 				[]*coserrors.Error{btclctypes.ErrForkStartWithKnownHeader}, // expected
-				nil,                                                        // abort errors
+				nil, // abort errors
 			)
 			if err != nil {
 				return fmt.Errorf("could not submit headers: %w", err)
@@ -276,13 +271,6 @@ func (r *Reporter) matchAndSubmitCheckpoints(signer string) int {
 		return numMatchedCkpts
 	}
 
-	typedClient, ok := r.babylonClient.(*client.Client)
-	if !ok {
-		r.logger.Error("babylonClient is not of expected type *client.Client")
-
-		return numMatchedCkpts
-	}
-
 	// for each matched checkpoint, wrap to MsgInsertBTCSpvProof and send to Babylon
 	// Note that this is a while loop that keeps popping checkpoints in the cache
 	for {
@@ -304,7 +292,7 @@ func (r *Reporter) matchAndSubmitCheckpoints(signer string) int {
 		tx2Block := ckpt.Segments[1].AssocBlock
 
 		// submit the checkpoint to Babylon
-		res, err := typedClient.ReliablySendMsg(
+		res, err := r.babylonClient.ReliablySendMsg(
 			context.Background(),
 			msgInsertBTCSpvProof,
 			[]*coserrors.Error{

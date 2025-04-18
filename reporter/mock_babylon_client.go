@@ -8,11 +8,13 @@ import (
 	context "context"
 	reflect "reflect"
 
+	errors "cosmossdk.io/errors"
 	babylonclient "github.com/babylonlabs-io/babylon/client/babylonclient"
 	config "github.com/babylonlabs-io/babylon/client/config"
 	types "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
 	types0 "github.com/babylonlabs-io/babylon/x/btclightclient/types"
 	chainhash "github.com/btcsuite/btcd/chaincfg/chainhash"
+	types1 "github.com/cosmos/cosmos-sdk/types"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -155,6 +157,21 @@ func (m *MockBabylonClient) MustGetAddr() string {
 func (mr *MockBabylonClientMockRecorder) MustGetAddr() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MustGetAddr", reflect.TypeOf((*MockBabylonClient)(nil).MustGetAddr))
+}
+
+// ReliablySendMsg mocks base method.
+func (m *MockBabylonClient) ReliablySendMsg(ctx context.Context, msg types1.Msg, expectedErrors, unrecoverableErrors []*errors.Error) (*babylonclient.RelayerTxResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReliablySendMsg", ctx, msg, expectedErrors, unrecoverableErrors)
+	ret0, _ := ret[0].(*babylonclient.RelayerTxResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReliablySendMsg indicates an expected call of ReliablySendMsg.
+func (mr *MockBabylonClientMockRecorder) ReliablySendMsg(ctx, msg, expectedErrors, unrecoverableErrors interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReliablySendMsg", reflect.TypeOf((*MockBabylonClient)(nil).ReliablySendMsg), ctx, msg, expectedErrors, unrecoverableErrors)
 }
 
 // Stop mocks base method.
