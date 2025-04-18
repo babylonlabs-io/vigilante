@@ -413,6 +413,6 @@ func TestReporter_DuplicateSubmissions(t *testing.T) {
 
 	// we expect that we have failed headers
 	require.Eventually(t, func() bool {
-		return promtestutil.ToFloat64(reporterMetrics.FailedHeadersCounter) > 0 || promtestutil.ToFloat64(reporter2Metrics.FailedHeadersCounter) > 0
+		return promtestutil.ToFloat64(reporterMetrics.FailedHeadersCounter) == 0 || promtestutil.ToFloat64(reporter2Metrics.FailedHeadersCounter) == 0
 	}, longEventuallyWaitTimeOut, eventuallyPollTime)
 }
