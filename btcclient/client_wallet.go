@@ -1,6 +1,9 @@
 package btcclient
 
 import (
+	"bytes"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	notifier "github.com/lightningnetwork/lnd/chainntnfs"
 
@@ -25,6 +28,9 @@ const (
 )
 const (
 	txNotFoundErrMsgBitcoind = "No such mempool or blockchain transaction"
+	// defaultMaxFeeRate is the default maximum fee rate in BTC/kvB enforced
+	// by bitcoind v0.19.0 or after for transaction broadcast.
+	defaultMaxFeeRate btcjson.BTCPerkvB = 0.1
 )
 
 // NewWallet creates a new BTC wallet
@@ -192,4 +198,52 @@ func rpcHostURL(host, walletName string) string {
 	}
 
 	return host
+}
+
+func (c *Client) SendRawTransactionWithBurnLimit(tx *wire.MsgTx, allowHighFees bool, maxBurnAmount float64) (*chainhash.Hash, error) {
+	var buf bytes.Buffer
+	if err := tx.Serialize(&buf); err != nil {
+		return nil, err
+	}
+	txHex := hex.EncodeToString(buf.Bytes())
+
+	params := make([]json.RawMessage, 0, 3)
+
+	txHexJSON, err := json.Marshal(txHex)
+	if err != nil {
+		return nil, err
+	}
+	params = append(params, txHexJSON)
+
+	var maxFeeRate btcjson.BTCPerkvB
+	if allowHighFees {
+		maxFeeRate = 0 // accept any fee
+	} else {
+		maxFeeRate = defaultMaxFeeRate // default conservative cap
+	}
+
+	maxFeeJSON, err := json.Marshal(maxFeeRate)
+	if err != nil {
+		return nil, err
+	}
+	params = append(params, maxFeeJSON)
+
+	maxBurnJSON, err := json.Marshal(maxBurnAmount)
+	if err != nil {
+		return nil, err
+	}
+
+	params = append(params, maxBurnJSON)
+
+	rawResp, err := c.Client.RawRequest("sendrawtransaction", params)
+	if err != nil {
+		return nil, err
+	}
+
+	var txHashStr string
+	if err := json.Unmarshal(rawResp, &txHashStr); err != nil {
+		return nil, err
+	}
+
+	return chainhash.NewHashFromStr(txHashStr)
 }

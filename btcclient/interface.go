@@ -21,6 +21,7 @@ type BTCClient interface {
 	GetBlockByHeight(height uint32) (*types.IndexedBlock, *wire.MsgBlock, error)
 	GetTxOut(txHash *chainhash.Hash, index uint32, mempool bool) (*btcjson.GetTxOutResult, error)
 	SendRawTransaction(tx *wire.MsgTx, allowHighFees bool) (*chainhash.Hash, error)
+	SendRawTransactionWithBurnLimit(tx *wire.MsgTx, allowHighFees bool, maxBurnAmount float64) (*chainhash.Hash, error)
 	GetTransaction(txHash *chainhash.Hash) (*btcjson.GetTransactionResult, error)
 	GetRawTransaction(txHash *chainhash.Hash) (*btcutil.Tx, error)
 	TxDetails(txHash *chainhash.Hash, pkScript []byte) (*notifier.TxConfirmation, TxStatus, error)

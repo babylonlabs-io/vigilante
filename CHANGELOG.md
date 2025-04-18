@@ -39,7 +39,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Improvements
 
+* [#330](https://github.com/babylonlabs-io/vigilante/pull/330) fix: Prevent reporter retry loop on ErrForkStartWithKnownHeader
 * [#327](https://github.com/babylonlabs-io/vigilante/pull/327) chore: bootstrap only once
+
+## v0.23.4
+
+### Improvements
+
+* [#328](https://github.com/babylonlabs-io/vigilante/pull/328) feat: inf slash attempts
+* [#331](https://github.com/babylonlabs-io/vigilante/pull/331) feat: adds send raw tx with burn amount
 
 ## v0.23.3
 
