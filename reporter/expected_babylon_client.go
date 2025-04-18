@@ -2,7 +2,9 @@ package reporter
 
 import (
 	"context"
+	"cosmossdk.io/errors"
 	"github.com/babylonlabs-io/babylon/client/babylonclient"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/babylonlabs-io/babylon/client/config"
 	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
@@ -19,5 +21,6 @@ type BabylonClient interface {
 	BTCHeaderChainTip() (*btclctypes.QueryTipResponse, error)
 	BTCBaseHeader() (*btclctypes.QueryBaseHeaderResponse, error)
 	InsertBTCSpvProof(ctx context.Context, msg *btcctypes.MsgInsertBTCSpvProof) (*babylonclient.RelayerTxResponse, error)
+	ReliablySendMsg(ctx context.Context, msg sdk.Msg, expectedErrors []*errors.Error, unrecoverableErrors []*errors.Error) (*babylonclient.RelayerTxResponse, error)
 	Stop() error
 }

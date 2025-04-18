@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/babylonlabs-io/babylon/client/babylonclient"
-	"github.com/babylonlabs-io/babylon/client/client"
 	"github.com/babylonlabs-io/vigilante/retrywrap"
 	"github.com/cockroachdb/errors"
 	"strconv"
@@ -66,7 +65,7 @@ func (r *Reporter) getHeaderMsgsToSubmit(signer string, ibs []*types.IndexedBloc
 	// wrap the headers to MsgInsertHeaders msgs from the subset of indexed blocks
 	ibsToSubmit = ibs[startPoint:]
 
-	blockChunks := chunkBy(ibsToSubmit, int(r.Cfg.MaxHeadersInMsg))
+	blockChunks := chunkBy(ibsToSubmit, int(r.cfg.MaxHeadersInMsg))
 
 	headerMsgsToSubmit := make([]*btclctypes.MsgInsertHeaders, 0, len(blockChunks))
 
@@ -78,40 +77,73 @@ func (r *Reporter) getHeaderMsgsToSubmit(signer string, ibs []*types.IndexedBloc
 	return headerMsgsToSubmit, nil
 }
 
+// submitHeaderMsgs attempts to submit a batch of headers to the Babylon client.
+// It handles specific expected errors like ErrForkStartWithKnownHeader gracefully,
+// and records relevant metrics for both success and failure cases.
 func (r *Reporter) submitHeaderMsgs(msg *btclctypes.MsgInsertHeaders) error {
-	// submit the headers
-	err := retrywrap.Do(func() error {
-		res, err := r.babylonClient.InsertHeaders(context.Background(), msg)
-		if err != nil {
-			return fmt.Errorf("could not submit headers: %w", err)
-		}
-		r.logger.Infof("Successfully submitted %d headers to Babylon with response code %v", len(msg.Headers), res.Code)
+	err := retrywrap.Do(
+		func() error {
+			res, err := r.babylonClient.ReliablySendMsg(
+				context.Background(),
+				msg,
+				[]*coserrors.Error{btclctypes.ErrForkStartWithKnownHeader}, // expected
+				nil, // abort errors
+			)
+			if err != nil {
+				return fmt.Errorf("could not submit headers: %w", err)
+			}
 
-		return nil
-	},
+			if res == nil {
+				// This indicates an expected error occurred (handled internally by ReliablySendMsg)
+				r.logger.Infof(
+					"expected ErrForkStartWithKnownHeader encountered for %d headers",
+					len(msg.Headers),
+				)
+
+				return btclctypes.ErrForkStartWithKnownHeader
+			}
+
+			r.logger.Infof(
+				"successfully submitted %d headers (code: %v)",
+				len(msg.Headers), res.Code,
+			)
+
+			return nil
+		},
 		retry.Delay(r.retrySleepTime),
 		retry.MaxDelay(r.maxRetrySleepTime),
 		retry.Attempts(r.maxRetryTimes),
 	)
+
 	if err != nil {
-		// we increase this even on DuplicateSubmission error, as sometimes they are legitimate
 		r.metrics.FailedHeadersCounter.Add(float64(len(msg.Headers)))
 
-		if errors.Is(err, babylonclient.ErrTimeoutAfterWaitingForTxBroadcast) {
+		switch {
+		case errors.Is(err, babylonclient.ErrTimeoutAfterWaitingForTxBroadcast):
 			r.metrics.HeadersCensorshipGauge.Inc()
-		}
 
-		return fmt.Errorf("failed to submit headers: %w", err)
+			return fmt.Errorf("tx broadcast timeout: %w", err)
+
+		case errors.Is(err, btclctypes.ErrForkStartWithKnownHeader):
+			// Not a failure, but reported upwards to allow calling code to decide how to handle
+			return err
+
+		default:
+			return fmt.Errorf("failed to submit headers: %w", err)
+		}
 	}
 
-	// update metrics
+	// Success path
 	r.metrics.SuccessfulHeadersCounter.Add(float64(len(msg.Headers)))
 	r.metrics.SecondsSinceLastHeaderGauge.Set(0)
+
 	for _, header := range msg.Headers {
-		r.metrics.NewReportedHeaderGaugeVec.WithLabelValues(header.Hash().String()).SetToCurrentTime()
+		r.metrics.NewReportedHeaderGaugeVec.
+			WithLabelValues(header.Hash().String()).
+			SetToCurrentTime()
 	}
 
-	return err
+	return nil
 }
 
 // ProcessHeaders extracts and reports headers from a list of blocks
@@ -206,10 +238,10 @@ func (r *Reporter) extractCheckpoints(ib *types.IndexedBlock) int {
 		}
 
 		// cache the segment to ckptCache
-		ckptSeg := types.NewCkptSegment(r.CheckpointCache.Tag, r.CheckpointCache.Version, ib, tx)
+		ckptSeg := types.NewCkptSegment(r.checkpointCache.Tag, r.checkpointCache.Version, ib, tx)
 		if ckptSeg != nil {
 			r.logger.Infof("Found a checkpoint segment in tx %v with index %d: %v", tx.Hash(), ckptSeg.Index, ckptSeg.Data)
-			if err := r.CheckpointCache.AddSegment(ckptSeg); err != nil {
+			if err := r.checkpointCache.AddSegment(ckptSeg); err != nil {
 				r.logger.Errorf("Failed to add the ckpt segment in tx %v to the ckptCache: %v", tx.Hash(), err)
 
 				continue
@@ -229,18 +261,11 @@ func (r *Reporter) matchAndSubmitCheckpoints(signer string) int {
 
 	// get matched ckpt parts from the ckptCache
 	// Note that Match() has ensured the checkpoints are always ordered by epoch number
-	r.CheckpointCache.Match()
-	numMatchedCkpts := r.CheckpointCache.NumCheckpoints()
+	r.checkpointCache.Match()
+	numMatchedCkpts := r.checkpointCache.NumCheckpoints()
 
 	if numMatchedCkpts == 0 {
 		r.logger.Debug("Found no matched pair of checkpoint segments in this match attempt")
-
-		return numMatchedCkpts
-	}
-
-	typedClient, ok := r.babylonClient.(*client.Client)
-	if !ok {
-		r.logger.Error("babylonClient is not of expected type *client.Client")
 
 		return numMatchedCkpts
 	}
@@ -250,7 +275,7 @@ func (r *Reporter) matchAndSubmitCheckpoints(signer string) int {
 	for {
 		// pop the earliest checkpoint
 		// if popping a nil checkpoint, then all checkpoints are popped, break the for loop
-		ckpt := r.CheckpointCache.PopEarliestCheckpoint()
+		ckpt := r.checkpointCache.PopEarliestCheckpoint()
 		if ckpt == nil {
 			break
 		}
@@ -266,7 +291,7 @@ func (r *Reporter) matchAndSubmitCheckpoints(signer string) int {
 		tx2Block := ckpt.Segments[1].AssocBlock
 
 		// submit the checkpoint to Babylon
-		res, err := typedClient.ReliablySendMsg(
+		res, err := r.babylonClient.ReliablySendMsg(
 			context.Background(),
 			msgInsertBTCSpvProof,
 			[]*coserrors.Error{
