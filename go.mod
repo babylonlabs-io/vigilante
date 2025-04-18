@@ -1,8 +1,8 @@
 module github.com/babylonlabs-io/vigilante
 
-go 1.23.1
+go 1.23.6
 
-toolchain go1.23.3
+toolchain go1.23.8
 
 require (
 	cosmossdk.io/errors v1.0.1
@@ -11,12 +11,12 @@ require (
 	github.com/avast/retry-go/v4 v4.6.0
 	github.com/babylonlabs-io/babylon v1.0.0
 	github.com/boljen/go-bitmap v0.0.0-20151001105940-23cd2fb0ce7d
-	github.com/btcsuite/btcd v0.24.3-0.20240921052913-67b8efd3ba53
+	github.com/btcsuite/btcd v0.24.3-0.20250318170759-4f4ea81776d6
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4
 	github.com/btcsuite/btcd/btcutil v1.1.6
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.1.0
-	github.com/btcsuite/btcwallet v0.16.10-0.20240912233857-ffb143c77cc5
-	github.com/btcsuite/btcwallet/walletdb v1.4.4
+	github.com/btcsuite/btcwallet v0.16.13
+	github.com/btcsuite/btcwallet/walletdb v1.5.1
 	github.com/cockroachdb/errors v1.11.3
 	github.com/cometbft/cometbft v0.38.17
 	github.com/cosmos/cosmos-sdk v0.50.12
@@ -25,8 +25,8 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jinzhu/copier v0.3.5
 	github.com/jsternberg/zap-logfmt v1.3.0
-	github.com/lightningnetwork/lnd v0.18.4-beta
-	github.com/lightningnetwork/lnd/kvdb v1.4.10
+	github.com/lightningnetwork/lnd v0.19.0-beta.rc2
+	github.com/lightningnetwork/lnd/kvdb v1.4.15
 	github.com/ory/dockertest/v3 v3.10.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.20.5
@@ -81,17 +81,18 @@ require (
 	github.com/bgentry/speakeasy v0.1.1-0.20220910012023-760eaf8b6816 // indirect
 	github.com/bits-and-blooms/bitset v1.10.0 // indirect
 	github.com/btcsuite/btcd/btcutil/psbt v1.1.8 // indirect
-	github.com/btcsuite/btclog v0.0.0-20170628155309-84c8d2346e9f // indirect
+	github.com/btcsuite/btclog v0.0.0-20241003133417-09c4e92e319c // indirect
+	github.com/btcsuite/btclog/v2 v2.0.1-0.20250110154127-3ae4bf1cb318 // indirect
 	github.com/btcsuite/btcwallet/wallet/txauthor v1.3.5 // indirect
 	github.com/btcsuite/btcwallet/wallet/txrules v1.2.2 // indirect
 	github.com/btcsuite/btcwallet/wallet/txsizes v1.2.5 // indirect
-	github.com/btcsuite/btcwallet/wtxmgr v1.5.4 // indirect
+	github.com/btcsuite/btcwallet/wtxmgr v1.5.6 // indirect
 	github.com/btcsuite/go-socks v0.0.0-20170105172521-4720035b7bfd // indirect
 	github.com/btcsuite/websocket v0.0.0-20150119174127-31079b680792 // indirect
 	github.com/btcsuite/winsvc v1.0.0 // indirect
 	github.com/bytedance/sonic v1.12.3 // indirect
 	github.com/bytedance/sonic/loader v0.2.0 // indirect
-	github.com/cenkalti/backoff/v4 v4.2.0 // indirect
+	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chzyer/readline v1.5.1 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
@@ -218,17 +219,17 @@ require (
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/lightninglabs/gozmq v0.0.0-20191113021534-d20a764486bf // indirect
-	github.com/lightninglabs/neutrino v0.16.1-0.20240425105051-602843d34ffd // indirect
+	github.com/lightninglabs/neutrino v0.16.1 // indirect
 	github.com/lightninglabs/neutrino/cache v1.1.2 // indirect
 	github.com/lightningnetwork/lightning-onion v1.2.1-0.20240712235311-98bd56499dfb // indirect
 	github.com/lightningnetwork/lnd/clock v1.1.1 // indirect
-	github.com/lightningnetwork/lnd/fn v1.2.3 // indirect
-	github.com/lightningnetwork/lnd/healthcheck v1.2.5 // indirect
+	github.com/lightningnetwork/lnd/fn/v2 v2.0.8 // indirect
+	github.com/lightningnetwork/lnd/healthcheck v1.2.6 // indirect
 	github.com/lightningnetwork/lnd/queue v1.1.1 // indirect
-	github.com/lightningnetwork/lnd/sqldb v1.0.4 // indirect
+	github.com/lightningnetwork/lnd/sqldb v1.0.9 // indirect
 	github.com/lightningnetwork/lnd/ticker v1.1.1 // indirect
-	github.com/lightningnetwork/lnd/tlv v1.2.6 // indirect
-	github.com/lightningnetwork/lnd/tor v1.1.2 // indirect
+	github.com/lightningnetwork/lnd/tlv v1.3.0 // indirect
+	github.com/lightningnetwork/lnd/tor v1.1.6 // indirect
 	github.com/linxGnu/grocksdb v1.9.3 // indirect
 	github.com/ltcsuite/ltcd v0.0.0-20190101042124-f37f8bf35796 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
@@ -293,15 +294,15 @@ require (
 	go.etcd.io/etcd/client/pkg/v3 v3.5.12 // indirect
 	go.etcd.io/etcd/client/v2 v2.305.12 // indirect
 	go.etcd.io/etcd/client/v3 v3.5.12 // indirect
-	go.etcd.io/etcd/pkg/v3 v3.5.7 // indirect
-	go.etcd.io/etcd/raft/v3 v3.5.7 // indirect
-	go.etcd.io/etcd/server/v3 v3.5.7 // indirect
+	go.etcd.io/etcd/pkg/v3 v3.5.12 // indirect
+	go.etcd.io/etcd/raft/v3 v3.5.12 // indirect
+	go.etcd.io/etcd/server/v3 v3.5.12 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.49.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.49.0 // indirect
 	go.opentelemetry.io/otel v1.32.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.0.1 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.0.1 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.20.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.20.0 // indirect
 	go.opentelemetry.io/otel/metric v1.32.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.32.0 // indirect
 	go.opentelemetry.io/otel/trace v1.32.0 // indirect
@@ -334,15 +335,11 @@ require (
 	modernc.org/strutil v1.2.0 // indirect
 	modernc.org/token v1.1.0 // indirect
 	nhooyr.io/websocket v1.8.6 // indirect
-	pgregory.net/rapid v1.1.0 // indirect
+	pgregory.net/rapid v1.2.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
 replace (
 	github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0
-	// LND brings unreleased `67b8efd3ba53` version of btcd which contains bug in
-	// rpc client described here: https://github.com/btcsuite/btcd/commit/42d6eba84bf9dc23b1182a35570bcd8f7f25616f
-	// TODO: remove this once LND releases a new version with fixed btcd
-	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.24.2
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 )
