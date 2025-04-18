@@ -301,6 +301,7 @@ func (r *Reporter) matchAndSubmitCheckpoints(signer string) int {
 			[]*coserrors.Error{},
 		)
 
+		// nolint:gocritic // preferred over using a switch statement
 		if err != nil {
 			r.logger.Errorf("Failed to submit MsgInsertBTCSpvProof with error %v", err)
 			r.metrics.FailedCheckpointsCounter.Inc()
