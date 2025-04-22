@@ -43,6 +43,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 * [#327](https://github.com/babylonlabs-io/vigilante/pull/327) chore: bootstrap only once
 * [#336](https://github.com/babylonlabs-io/vigilante/pull/336) chore: bump btcd to v28.0
 * [#340](https://github.com/babylonlabs-io/vigilante/pull/340) chore: update reporter metric for checkpoints
+* [#340](https://github.com/babylonlabs-io/vigilante/pull/340) chore: avoid increasing the fail metrics for duplicate submissions
 
 ## v0.23.4
 
