@@ -186,11 +186,11 @@ func (bca *BabylonClientAdapter) ActivateDelegation(
 	resp, err := bca.babylonClient.ReliablySendMsg(ctx, &msg, []*sdkerrors.Error{}, []*sdkerrors.Error{})
 
 	if err != nil && resp != nil {
-		return fmt.Errorf("msg MsgAddBTCDelegationInclusionProof failed exeuction with code %d and error %w", resp.Code, err)
+		return fmt.Errorf("msg MsgAddBTCDelegationInclusionProof failed execution with code %d and error %w", resp.Code, err)
 	}
 
 	if err != nil {
-		return fmt.Errorf("failed to report unbonding: %w", err)
+		return fmt.Errorf("failed to report MsgAddBTCDelegationInclusionProof: %w", err)
 	}
 
 	return nil
