@@ -93,6 +93,7 @@ type StakingEventWatcher struct {
 	unbondingDelegationChan chan *newDelegation
 	unbondingRemovalChan    chan *delegationInactive
 	currentBestBlockHeight  atomic.Uint32
+	currentCometTipHeight   atomic.Int64
 	activationLimiter       *semaphore.Weighted
 }
 
@@ -887,4 +888,48 @@ func (sew *StakingEventWatcher) getFundingTxs(tx *wire.MsgTx) ([][]byte, error) 
 	}
 
 	return fundingTxs, nil
+}
+
+func (sew *StakingEventWatcher) fetchCometBftBlockForever() {
+	defer sew.wg.Done()
+
+	ticker := time.NewTicker(sew.cfg.FetchCometBlockInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			if err := sew.fetchCometBftBlockOnce(); err != nil {
+				sew.logger.Errorf("error fetching comet bft block: %v", err)
+			}
+		case <-sew.quit:
+			sew.logger.Debug("fetch babylon block loop quit")
+
+			return
+		}
+	}
+}
+
+func (sew *StakingEventWatcher) fetchCometBftBlockOnce() error {
+	sew.logger.Debug("Querying comet bft for new blocks")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	height, err := sew.babylonNodeAdapter.CometBFTTipHeight(ctx)
+	cancel()
+	if err != nil {
+		return fmt.Errorf("error querying comet bft for new blocks: %w", err)
+	}
+
+	sew.currentCometTipHeight.Store(height)
+
+	return nil
+}
+
+func (sew *StakingEventWatcher) fetchDelegationsByEvents(startHeight, endHeight int64) error {
+	const (
+		covQuorumEvent           = `babylon.btcstaking.v1.EventCovenantQuorumReached`
+		inclusionProofReceived   = `babylon.btcstaking.v1.EventBTCDelegationInclusionProofReceived`
+		btcDelegationStateUpdate = `babylon.btcstaking.v1.EventBTCDelegationStateUpdate`
+	)
+
+	return nil
 }

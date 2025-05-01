@@ -22,9 +22,10 @@ type BTCStakingTrackerConfig struct {
 	// the BTC network
 	BTCNetParams string `mapstructure:"btcnetparams"` // should be mainnet|testnet|simnet|signet|regtest
 	// number of concurrent requests that when slashing
-	MaxSlashingConcurrency uint8         `mapstructure:"max-slashing-concurrency"`
-	IndexerAddr            string        `mapstructure:"indexer-addr"`
-	FetchEvidenceInterval  time.Duration `mapstructure:"fetch-evidence-interval"`
+	MaxSlashingConcurrency  uint8         `mapstructure:"max-slashing-concurrency"`
+	IndexerAddr             string        `mapstructure:"indexer-addr"`
+	FetchEvidenceInterval   time.Duration `mapstructure:"fetch-evidence-interval"`
+	FetchCometBlockInterval time.Duration `mapstructure:"fetch-comet-block-interval"`
 }
 
 func DefaultBTCStakingTrackerConfig() BTCStakingTrackerConfig {
