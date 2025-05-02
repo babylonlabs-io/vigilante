@@ -32,6 +32,7 @@ func DefaultBTCStakingTrackerConfig() BTCStakingTrackerConfig {
 	return BTCStakingTrackerConfig{
 		CheckDelegationsInterval: 1 * time.Minute,
 		FetchEvidenceInterval:    30 * time.Second,
+		FetchCometBlockInterval:  2 * time.Second,
 		NewDelegationsBatchSize:  500,
 		// This can be quite large to avoid wasting resources on checking if delegation is active
 		CheckDelegationActiveInterval: 5 * time.Minute,

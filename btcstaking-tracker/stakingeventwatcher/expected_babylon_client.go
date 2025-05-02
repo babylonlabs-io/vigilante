@@ -33,6 +33,7 @@ type Delegation struct {
 	DelegationStartHeight uint32
 	UnbondingOutput       *wire.TxOut
 	HasProof              bool
+	Status                string
 }
 
 type BabylonParams struct {
@@ -51,6 +52,7 @@ type BabylonNodeAdapter interface {
 	Params() (*BabylonParams, error)
 	CometBFTTipHeight(ctx context.Context) (int64, error)
 	StakingTxHashesByEvent(ctx context.Context, eventType string, criteria string, page, count *int) ([]string, error)
+	BTCDelegation(stakingTxHash string) (*Delegation, error)
 }
 
 type BabylonClientAdapter struct {
@@ -67,7 +69,7 @@ func NewBabylonClientAdapter(babylonClient *bbnclient.Client, cfg *config.BTCSta
 	}
 }
 
-// DelegationsByStatus - returns btc delegations by status
+// DelegationsByStatus - returns btc delegations by Status
 func (bca *BabylonClientAdapter) DelegationsByStatus(
 	status btcstakingtypes.BTCDelegationStatus, offset uint64, limit uint64) ([]Delegation, error) {
 	resp, err := bca.babylonClient.BTCDelegations(
@@ -101,6 +103,7 @@ func (bca *BabylonClientAdapter) DelegationsByStatus(
 			DelegationStartHeight: delegation.StartHeight,
 			UnbondingOutput:       unbondingTx.TxOut[0],
 			HasProof:              delegation.StartHeight > 0,
+			Status:                delegation.StatusDesc,
 		}
 	}
 
@@ -118,7 +121,7 @@ func (bca *BabylonClientAdapter) IsDelegationActive(stakingTxHash chainhash.Hash
 	return resp.BtcDelegation.Active, nil
 }
 
-// IsDelegationVerified method for BabylonClientAdapter checks if delegation is in status verified
+// IsDelegationVerified method for BabylonClientAdapter checks if delegation is in Status verified
 func (bca *BabylonClientAdapter) IsDelegationVerified(stakingTxHash chainhash.Hash) (bool, error) {
 	resp, err := bca.babylonClient.BTCDelegation(stakingTxHash.String())
 
@@ -281,4 +284,34 @@ func (bca *BabylonClientAdapter) StakingTxHashesByEvent(ctx context.Context, eve
 	}
 
 	return stakingTxHashes, nil
+}
+
+// BTCDelegation method for BabylonClientAdapter to get BTC delegation
+func (bca *BabylonClientAdapter) BTCDelegation(stakingTxHash string) (*Delegation, error) {
+	resp, err := bca.babylonClient.BTCDelegation(stakingTxHash)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve delegation from babylon: %w", err)
+	}
+
+	delegation := resp.BtcDelegation
+
+	stakingTx, _, err := bbn.NewBTCTxFromHex(delegation.StakingTxHex)
+	if err != nil {
+		return nil, err
+	}
+
+	unbondingTx, _, err := bbn.NewBTCTxFromHex(delegation.UndelegationResponse.UnbondingTxHex)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Delegation{
+		StakingTx:             stakingTx,
+		StakingOutputIdx:      delegation.StakingOutputIdx,
+		DelegationStartHeight: delegation.StartHeight,
+		UnbondingOutput:       unbondingTx.TxOut[0],
+		HasProof:              delegation.StartHeight > 0,
+		Status:                delegation.StatusDesc,
+	}, nil
 }
