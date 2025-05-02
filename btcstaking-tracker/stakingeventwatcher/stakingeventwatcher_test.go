@@ -89,10 +89,11 @@ func TestHandlingDelegations(t *testing.T) {
 	}
 	mockBTCClient.EXPECT().TxDetails(gomock.Any(), gomock.Any()).Return(details, btcclient.TxInChain, nil).AnyTimes()
 
-	sew.wg.Add(2)
+	sew.wg.Add(3)
 	go func() {
 		go sew.fetchDelegations()
 		go sew.handlerVerifiedDelegations()
+		go sew.handleUnbondedDelegations()
 	}()
 
 	require.Eventually(t, func() bool {

@@ -52,6 +52,21 @@ func (mr *MockBabylonNodeAdapterMockRecorder) ActivateDelegation(ctx, stakingTxH
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActivateDelegation", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).ActivateDelegation), ctx, stakingTxHash, proof)
 }
 
+// BTCDelegation mocks base method.
+func (m *MockBabylonNodeAdapter) BTCDelegation(stakingTxHash string) (*Delegation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BTCDelegation", stakingTxHash)
+	ret0, _ := ret[0].(*Delegation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BTCDelegation indicates an expected call of BTCDelegation.
+func (mr *MockBabylonNodeAdapterMockRecorder) BTCDelegation(stakingTxHash interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BTCDelegation", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).BTCDelegation), stakingTxHash)
+}
+
 // BtcClientTipHeight mocks base method.
 func (m *MockBabylonNodeAdapter) BtcClientTipHeight() (uint32, error) {
 	m.ctrl.T.Helper()
@@ -65,6 +80,21 @@ func (m *MockBabylonNodeAdapter) BtcClientTipHeight() (uint32, error) {
 func (mr *MockBabylonNodeAdapterMockRecorder) BtcClientTipHeight() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BtcClientTipHeight", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).BtcClientTipHeight))
+}
+
+// CometBFTTipHeight mocks base method.
+func (m *MockBabylonNodeAdapter) CometBFTTipHeight(ctx context.Context) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CometBFTTipHeight", ctx)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CometBFTTipHeight indicates an expected call of CometBFTTipHeight.
+func (mr *MockBabylonNodeAdapterMockRecorder) CometBFTTipHeight(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CometBFTTipHeight", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).CometBFTTipHeight), ctx)
 }
 
 // DelegationsByStatus mocks base method.
@@ -154,4 +184,19 @@ func (m *MockBabylonNodeAdapter) ReportUnbonding(ctx context.Context, stakingTxH
 func (mr *MockBabylonNodeAdapterMockRecorder) ReportUnbonding(ctx, stakingTxHash, stakeSpendingTx, inclusionProof, fundingTxs interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportUnbonding", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).ReportUnbonding), ctx, stakingTxHash, stakeSpendingTx, inclusionProof, fundingTxs)
+}
+
+// StakingTxHashesByEvent mocks base method.
+func (m *MockBabylonNodeAdapter) StakingTxHashesByEvent(ctx context.Context, eventType, criteria string, page, count *int) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StakingTxHashesByEvent", ctx, eventType, criteria, page, count)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// StakingTxHashesByEvent indicates an expected call of StakingTxHashesByEvent.
+func (mr *MockBabylonNodeAdapterMockRecorder) StakingTxHashesByEvent(ctx, eventType, criteria, page, count interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StakingTxHashesByEvent", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).StakingTxHashesByEvent), ctx, eventType, criteria, page, count)
 }

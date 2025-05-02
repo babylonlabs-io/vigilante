@@ -274,7 +274,7 @@ func (bca *BabylonClientAdapter) StakingTxHashesByEvent(ctx context.Context, eve
 		for _, event := range tx.TxResult.Events {
 			if event.Type == eventType {
 				for _, attr := range event.Attributes {
-					if string(attr.Key) == stakingTxHashKey {
+					if attr.Key == stakingTxHashKey {
 						stakingTxHash := strings.ReplaceAll(attr.Value, `"`, "")
 						stakingTxHashes = append(stakingTxHashes, stakingTxHash)
 					}

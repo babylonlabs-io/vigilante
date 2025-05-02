@@ -266,7 +266,7 @@ func (sew *StakingEventWatcher) fetchDelegations() {
 	go func() {
 		defer wg.Done()
 		if err = sew.checkBabylonDelegations(btcstakingtypes.BTCDelegationStatus_VERIFIED,
-			[]func(Delegation){sew.addToUnbondingFunc, sew.addToPendingFunc}); err != nil {
+			[]func(Delegation){sew.addToPendingFunc, sew.addToUnbondingFunc}); err != nil {
 			sew.logger.Errorf("error checking babylon delegations: %v", err)
 		}
 	}()
@@ -922,9 +922,11 @@ func (sew *StakingEventWatcher) fetchDelegationsByEvents(startHeight, endHeight 
 			if err != nil {
 				return fmt.Errorf("error fetching staking txs by event %s: %w", event, err)
 			}
+
 			mu.Lock()
 			stakingTxHashes = append(stakingTxHashes, res...)
 			mu.Unlock()
+
 			return nil
 		})
 	}
