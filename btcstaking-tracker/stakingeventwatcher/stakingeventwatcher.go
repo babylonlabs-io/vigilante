@@ -901,7 +901,7 @@ func (sew *StakingEventWatcher) fetchCometBftBlockOnce() error {
 		return nil
 	}
 
-	if err := sew.fetchDelegationsByEvents(sew.currentCometTipHeight.Load(), latestHeight); err != nil {
+	if err := sew.fetchDelegationsByEvents(sew.currentCometTipHeight.Load()+1, latestHeight); err != nil {
 		sew.logger.Errorf("fetchDelegationsByEvents: %v", err)
 	}
 
@@ -922,7 +922,6 @@ func (sew *StakingEventWatcher) fetchDelegationsByEvents(startHeight, endHeight 
 	for _, event := range events {
 		res, err := sew.fetchStakingTxsByEvent(context.Background(), startHeight, endHeight, event)
 		if err != nil {
-			// todo or log and continue
 			return fmt.Errorf("error fetching staking txs by event %s: %w", event, err)
 		}
 
@@ -933,7 +932,6 @@ func (sew *StakingEventWatcher) fetchDelegationsByEvents(startHeight, endHeight 
 
 	// todo(lazar): consider passing in a func for adding stakingTxHashes, we would be making dup rpc calls
 	// but maybe better than waiting for whole range to finish
-
 	for _, stakingTxHash := range stakingTxHashes {
 		delegation, err := sew.babylonNodeAdapter.BTCDelegation(stakingTxHash)
 		if err != nil {
@@ -957,9 +955,9 @@ func (sew *StakingEventWatcher) fetchDelegationsByEvents(startHeight, endHeight 
 func (sew *StakingEventWatcher) fetchStakingTxsByEvent(ctx context.Context, startHeight, endHeight int64, event string) ([]string, error) {
 	var stakingTxHashes []string
 
-	criteria := fmt.Sprintf(`tx.height>=%d AND tx.height<=%d AND %s"`, startHeight, endHeight, event)
+	criteria := fmt.Sprintf(`tx.height>=%d AND tx.height<=%d AND %s.new_state EXISTS`, startHeight, endHeight, event)
 
-	i := 0
+	i := 1
 	batchSize := 500
 	for {
 		stkTxs, err := sew.babylonNodeAdapter.StakingTxHashesByEvent(ctx, event, criteria, &i, &batchSize)
@@ -1021,11 +1019,11 @@ func (sew *StakingEventWatcher) addToPendingFunc(delegation Delegation) {
 	}
 }
 
-func deduplicateStrings(s []string) []string {
+func deduplicateStrings(slice []string) []string {
 	seen := make(map[string]struct{})
 	var deduped []string
 
-	for _, s := range s {
+	for _, s := range slice {
 		if _, ok := seen[s]; !ok {
 			seen[s] = struct{}{}
 			deduped = append(deduped, s)
