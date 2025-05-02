@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/babylonlabs-io/babylon/client/babylonclient"
 	bbn "github.com/babylonlabs-io/babylon/types"
+	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 	"strings"
 	"sync"
@@ -250,17 +251,6 @@ func (sew *StakingEventWatcher) fetchDelegations() {
 
 	sew.delegationRetrievalInProgress.Store(true)
 
-	//for {
-	//	select {
-	//	case <-ticker.C:
-	//		sew.logger.Debug("Querying babylon for new delegations")
-
-	//nodeSynced, err := sew.syncedWithBabylon()
-	// if err != nil || !nodeSynced {
-	//	// Log message and continue if there's an error or node isn't synced
-	//	continue
-	//}
-
 	var err error
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -283,13 +273,6 @@ func (sew *StakingEventWatcher) fetchDelegations() {
 
 	wg.Wait()
 	sew.delegationRetrievalInProgress.Store(false)
-
-	//	case <-sew.quit:
-	//		sew.logger.Debug("fetch delegations loop quit")
-	//
-	//		return
-	//	}
-	//}
 }
 
 func (sew *StakingEventWatcher) syncedWithBabylon() (bool, error) {
@@ -875,6 +858,13 @@ func (sew *StakingEventWatcher) fetchCometBftBlockForever() {
 
 				continue
 			}
+			nodeSynced, err := sew.syncedWithBabylon()
+			if err != nil || !nodeSynced {
+				// Log message and continue if there's an error or node isn't synced
+				sew.logger.Debugf("err or node not synced with babylon, err: %v, synced: %v", err, nodeSynced)
+
+				continue
+			}
 			if err := sew.fetchCometBftBlockOnce(); err != nil {
 				sew.logger.Errorf("error fetching comet bft block: %v", err)
 			}
@@ -896,13 +886,13 @@ func (sew *StakingEventWatcher) fetchCometBftBlockOnce() error {
 	}
 
 	if latestHeight == sew.currentCometTipHeight.Load() {
-		sew.logger.Debugf("no new comet bft blocks")
+		sew.logger.Debugf("no new comet bft blocks, current height: %d", sew.currentCometTipHeight.Load())
 
 		return nil
 	}
 
 	if err := sew.fetchDelegationsByEvents(sew.currentCometTipHeight.Load()+1, latestHeight); err != nil {
-		sew.logger.Errorf("fetchDelegationsByEvents: %v", err)
+		return fmt.Errorf("error fetching delegations by events: %w", err)
 	}
 
 	sew.currentCometTipHeight.Store(latestHeight)
@@ -916,16 +906,31 @@ func (sew *StakingEventWatcher) fetchDelegationsByEvents(startHeight, endHeight 
 		inclusionProofReceived   = `babylon.btcstaking.v1.EventBTCDelegationInclusionProofReceived`
 		btcDelegationStateUpdate = `babylon.btcstaking.v1.EventBTCDelegationStateUpdate`
 	)
+	var (
+		mu              sync.Mutex
+		stakingTxHashes []string
+	)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	g, ctx := errgroup.WithContext(ctx)
 
 	events := []string{covQuorumEvent, inclusionProofReceived, btcDelegationStateUpdate}
-	var stakingTxHashes []string
-	for _, event := range events {
-		res, err := sew.fetchStakingTxsByEvent(context.Background(), startHeight, endHeight, event)
-		if err != nil {
-			return fmt.Errorf("error fetching staking txs by event %s: %w", event, err)
-		}
 
-		stakingTxHashes = append(stakingTxHashes, res...)
+	for _, event := range events {
+		g.Go(func() error {
+			res, err := sew.fetchStakingTxsByEvent(ctx, startHeight, endHeight, event)
+			if err != nil {
+				return fmt.Errorf("error fetching staking txs by event %s: %w", event, err)
+			}
+			mu.Lock()
+			stakingTxHashes = append(stakingTxHashes, res...)
+			mu.Unlock()
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return err
 	}
 
 	stakingTxHashes = deduplicateStrings(stakingTxHashes)
@@ -953,6 +958,7 @@ func (sew *StakingEventWatcher) fetchDelegationsByEvents(startHeight, endHeight 
 }
 
 func (sew *StakingEventWatcher) fetchStakingTxsByEvent(ctx context.Context, startHeight, endHeight int64, event string) ([]string, error) {
+	sew.latency("fetchStakingTxsByEvent")()
 	var stakingTxHashes []string
 
 	criteria := fmt.Sprintf(`tx.height>=%d AND tx.height<=%d AND %s.new_state EXISTS`, startHeight, endHeight, event)
