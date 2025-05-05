@@ -82,5 +82,9 @@ func (cfg *BTCStakingTrackerConfig) Validate() error {
 		return errors.New("indexer-addr cannot be empty")
 	}
 
+	if cfg.FetchCometBlockInterval <= 0 {
+		return errors.New("fetch-comet-block-interval can't be negative")
+	}
+
 	return nil
 }
