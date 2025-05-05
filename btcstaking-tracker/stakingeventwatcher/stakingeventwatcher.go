@@ -891,7 +891,7 @@ func (sew *StakingEventWatcher) fetchCometBftBlockOnce() error {
 		return nil
 	}
 
-	if err := sew.fetchDelegationsByEvents(sew.currentCometTipHeight.Load()+1, latestHeight); err != nil {
+	if err := sew.fetchDelegationsByEvents(sew.currentCometTipHeight.Load(), latestHeight); err != nil {
 		return fmt.Errorf("error fetching delegations by events: %w", err)
 	}
 
@@ -978,6 +978,10 @@ func (sew *StakingEventWatcher) fetchStakingTxsByEvent(ctx context.Context, star
 
 		if len(stkTxs) < batchSize {
 			// we received fewer results than we asked for; it means went through all of them
+			if len(stakingTxHashes) > 0 {
+				sew.logger.Debugf("fetched %d staking txs by event %s", len(stakingTxHashes), event)
+			}
+
 			return stakingTxHashes, nil
 		}
 
