@@ -52,6 +52,21 @@ func (mr *MockBabylonNodeAdapterMockRecorder) ActivateDelegation(ctx, stakingTxH
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActivateDelegation", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).ActivateDelegation), ctx, stakingTxHash, proof)
 }
 
+// BTCDelegation mocks base method.
+func (m *MockBabylonNodeAdapter) BTCDelegation(stakingTxHash string) (*Delegation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BTCDelegation", stakingTxHash)
+	ret0, _ := ret[0].(*Delegation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BTCDelegation indicates an expected call of BTCDelegation.
+func (mr *MockBabylonNodeAdapterMockRecorder) BTCDelegation(stakingTxHash interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BTCDelegation", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).BTCDelegation), stakingTxHash)
+}
+
 // BtcClientTipHeight mocks base method.
 func (m *MockBabylonNodeAdapter) BtcClientTipHeight() (uint32, error) {
 	m.ctrl.T.Helper()
