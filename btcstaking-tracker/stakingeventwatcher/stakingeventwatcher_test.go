@@ -13,7 +13,6 @@ import (
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/semaphore"
 	"math/rand"
 	"testing"
@@ -122,7 +121,7 @@ func TestHandlingDelegationsByEvents(t *testing.T) {
 	bsMetrics := metrics.NewBTCStakingTrackerMetrics()
 
 	sew := StakingEventWatcher{
-		logger:                          zaptest.NewLogger(t).Sugar(),
+		logger:                          zap.NewNop().Sugar(),
 		quit:                            make(chan struct{}),
 		cfg:                             &cfg,
 		babylonNodeAdapter:              mockBabylonNodeAdapter,

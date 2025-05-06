@@ -968,6 +968,7 @@ func (sew *StakingEventWatcher) fetchStakingTxsByEvent(ctx context.Context, star
 
 	i := 1
 	batchSize := 500
+	// #nosec G115 -- performed check
 	if sew.cfg.NewDelegationsBatchSize <= uint64(math.MaxInt) {
 		batchSize = int(sew.cfg.NewDelegationsBatchSize)
 	}
