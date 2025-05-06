@@ -139,14 +139,13 @@ func TestHandlingDelegationsByEvents(t *testing.T) {
 
 	sew.delegationRetrievalInProgress.Store(false)
 
-	mockBabylonNodeAdapter.EXPECT().CometBFTTipHeight(gomock.Any()).DoAndReturn(func(ctx context.Context) (int64, error) {
+	mockBabylonNodeAdapter.EXPECT().CometBFTTipHeight(gomock.Any()).DoAndReturn(func(_ context.Context) (int64, error) {
 		return sew.currentCometTipHeight.Load() + 1, nil
 	}).AnyTimes()
 
 	defer close(sew.quit)
 
 	expectedActivated := 1000
-	delegations := make([]Delegation, 0, expectedActivated)
 	stakingTxHashes := make([]string, 0, expectedActivated)
 
 	for i := 0; i < expectedActivated; i++ {
@@ -159,7 +158,6 @@ func TestHandlingDelegationsByEvents(t *testing.T) {
 			HasProof:              false,
 			Status:                btcstakingtypes.BTCDelegationStatus_VERIFIED.String(),
 		}
-		delegations = append(delegations, delegation)
 		stkHash := stk.TxHash()
 		stakingTxHashes = append(stakingTxHashes, stkHash.String())
 		mockBabylonNodeAdapter.EXPECT().

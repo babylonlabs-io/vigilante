@@ -217,24 +217,27 @@ func (sew *StakingEventWatcher) handleNewBlocks(blockNotifier *notifier.BlockEpo
 	}
 }
 
-// checkBabylonDelegations iterates over all active babylon delegations, and reports not already
-// tracked delegations to the unbondingDelegationChan
-func (sew *StakingEventWatcher) checkBabylonDelegations(status btcstakingtypes.BTCDelegationStatus, addDelFuncs []func(del Delegation)) error {
+// checkBabylonDelegations iterates over all babylon delegations and adds them to unbondingTracker or pendingTracker
+func (sew *StakingEventWatcher) checkBabylonDelegations() error {
+	status := btcstakingtypes.BTCDelegationStatus_ANY
 	defer sew.latency(fmt.Sprintf("checkBabylonDelegations: %s", status))()
 
 	var i = uint64(0)
 	for {
 		delegations, err := sew.babylonNodeAdapter.DelegationsByStatus(status, i, sew.cfg.NewDelegationsBatchSize)
-
 		if err != nil {
 			return fmt.Errorf("error fetching active delegations from babylon: %w", err)
 		}
 
-		sew.logger.Debugf("fetched %d delegations from babylon by Status %s", len(delegations), status)
+		sew.logger.Debugf("fetched %d delegations from babylon by status %s", len(delegations), status)
 
 		for _, delegation := range delegations {
-			for _, addDel := range addDelFuncs {
-				addDel(delegation)
+			switch delegation.Status {
+			case btcstakingtypes.BTCDelegationStatus_ACTIVE.String():
+				sew.addToUnbondingFunc(delegation)
+			case btcstakingtypes.BTCDelegationStatus_VERIFIED.String():
+				sew.addToPendingFunc(delegation)
+				sew.addToUnbondingFunc(delegation)
 			}
 		}
 
@@ -247,35 +250,20 @@ func (sew *StakingEventWatcher) checkBabylonDelegations(status btcstakingtypes.B
 	}
 }
 
+// fetchDelegations - fetches all babylon delegations, used for bootstrap
 func (sew *StakingEventWatcher) fetchDelegations() {
 	defer sew.wg.Done()
 
 	sew.delegationRetrievalInProgress.Store(true)
 
-	var err error
-	var wg sync.WaitGroup
-	wg.Add(2)
+	if err := sew.checkBabylonDelegations(); err != nil {
+		sew.logger.Errorf("error checking babylon delegations: %v", err)
+	}
 
-	go func() {
-		defer wg.Done()
-		if err = sew.checkBabylonDelegations(btcstakingtypes.BTCDelegationStatus_ACTIVE,
-			[]func(Delegation){sew.addToUnbondingFunc}); err != nil {
-			sew.logger.Errorf("error checking babylon delegations: %v", err)
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		if err = sew.checkBabylonDelegations(btcstakingtypes.BTCDelegationStatus_VERIFIED,
-			[]func(Delegation){sew.addToPendingFunc, sew.addToUnbondingFunc}); err != nil {
-			sew.logger.Errorf("error checking babylon delegations: %v", err)
-		}
-	}()
-
-	wg.Wait()
 	sew.delegationRetrievalInProgress.Store(false)
 }
 
+// syncedWithBabylon - indicates whether the current btc tip is same as babylon btc light client tip
 func (sew *StakingEventWatcher) syncedWithBabylon() (bool, error) {
 	btcLightClientTipHeight, err := sew.babylonNodeAdapter.BtcClientTipHeight()
 	if err != nil {
