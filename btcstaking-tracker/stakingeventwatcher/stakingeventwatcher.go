@@ -9,6 +9,7 @@ import (
 	bbn "github.com/babylonlabs-io/babylon/types"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
+	"math"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -942,9 +943,7 @@ func (sew *StakingEventWatcher) fetchDelegationsByEvents(startHeight, endHeight 
 	for _, stakingTxHash := range stakingTxHashes {
 		delegation, err := sew.babylonNodeAdapter.BTCDelegation(stakingTxHash)
 		if err != nil {
-			sew.logger.Errorf("error getting delegation %s: %v", stakingTxHash, err)
-
-			continue
+			return fmt.Errorf("error getting delegation %s: %w", stakingTxHash, err)
 		}
 
 		switch delegation.Status {
@@ -967,6 +966,10 @@ func (sew *StakingEventWatcher) fetchStakingTxsByEvent(ctx context.Context, star
 
 	i := 1
 	batchSize := 500
+	if sew.cfg.NewDelegationsBatchSize <= uint64(math.MaxInt) {
+		batchSize = int(sew.cfg.NewDelegationsBatchSize)
+	}
+
 	for {
 		stkTxs, err := sew.babylonNodeAdapter.StakingTxHashesByEvent(ctx, event, criteria, &i, &batchSize)
 
