@@ -417,7 +417,14 @@ func (sew *StakingEventWatcher) reportUnbondingToBabylon(
 
 		if err = sew.babylonNodeAdapter.ReportUnbonding(ctx, stakingTxHash, stakeSpendingTx, proof, fundingTxs); err != nil {
 			if !strings.Contains(err.Error(), "cannot unbond an unbonded BTC delegation") {
-				sew.metrics.FailedReportedUnbondingTransactions.Inc()
+				del, err := sew.babylonNodeAdapter.BTCDelegation(stakingTxHash.String())
+				if err != nil {
+					return fmt.Errorf("error fetching delegation from babylon: %w", err)
+				}
+				// delegation still not unbonded, some other vigilante didn't manage to do it, err
+				if del.Status != btcstakingtypes.BTCDelegationStatus_UNBONDED.String() {
+					sew.metrics.FailedReportedUnbondingTransactions.Inc()
+				}
 			}
 
 			if errors.Is(err, babylonclient.ErrTimeoutAfterWaitingForTxBroadcast) {
@@ -781,7 +788,14 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 
 		if err := sew.babylonNodeAdapter.ActivateDelegation(ctx, stakingTxHash, proof); err != nil {
 			if !strings.Contains(err.Error(), "already has inclusion proof") {
-				sew.metrics.FailedReportedActivateDelegations.Inc()
+				verified, err = sew.babylonNodeAdapter.IsDelegationVerified(stakingTxHash)
+				if err != nil {
+					return fmt.Errorf("error checking if delegation is active: %w", err)
+				}
+				// delegation still not activated, increase the err metric
+				if verified {
+					sew.metrics.FailedReportedActivateDelegations.Inc()
+				}
 			}
 
 			if errors.Is(err, babylonclient.ErrTimeoutAfterWaitingForTxBroadcast) {

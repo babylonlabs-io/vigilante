@@ -33,6 +33,7 @@ type Delegation struct {
 	DelegationStartHeight uint32
 	UnbondingOutput       *wire.TxOut
 	HasProof              bool
+	Status                string
 }
 
 type BabylonParams struct {
@@ -49,6 +50,7 @@ type BabylonNodeAdapter interface {
 	ActivateDelegation(ctx context.Context, stakingTxHash chainhash.Hash, proof *btcctypes.BTCSpvProof) error
 	QueryHeaderDepth(headerHash *chainhash.Hash) (uint32, error)
 	Params() (*BabylonParams, error)
+	BTCDelegation(stakingTxHash string) (*Delegation, error)
 }
 
 type BabylonClientAdapter struct {
@@ -245,4 +247,34 @@ func (bca *BabylonClientAdapter) Params() (*BabylonParams, error) {
 	}
 
 	return &BabylonParams{ConfirmationTimeBlocks: bccParams.BtcConfirmationDepth}, nil
+}
+
+// BTCDelegation method for BabylonClientAdapter to get BTC delegation
+func (bca *BabylonClientAdapter) BTCDelegation(stakingTxHash string) (*Delegation, error) {
+	resp, err := bca.babylonClient.BTCDelegation(stakingTxHash)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve delegation from babylon: %w", err)
+	}
+
+	delegation := resp.BtcDelegation
+
+	stakingTx, _, err := bbn.NewBTCTxFromHex(delegation.StakingTxHex)
+	if err != nil {
+		return nil, err
+	}
+
+	unbondingTx, _, err := bbn.NewBTCTxFromHex(delegation.UndelegationResponse.UnbondingTxHex)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Delegation{
+		StakingTx:             stakingTx,
+		StakingOutputIdx:      delegation.StakingOutputIdx,
+		DelegationStartHeight: delegation.StartHeight,
+		UnbondingOutput:       unbondingTx.TxOut[0],
+		HasProof:              delegation.StartHeight > 0,
+		Status:                delegation.StatusDesc,
+	}, nil
 }
