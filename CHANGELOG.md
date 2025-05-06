@@ -39,12 +39,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Improvements
 
+* [#345](https://github.com/babylonlabs-io/vigilante/pull/345) feat: delegation retrieval through tx events
+
+## v0.23.5
+
+### Improvements
+
 * [#330](https://github.com/babylonlabs-io/vigilante/pull/330) fix: Prevent reporter retry loop on ErrForkStartWithKnownHeader
 * [#327](https://github.com/babylonlabs-io/vigilante/pull/327) chore: bootstrap only once
 * [#336](https://github.com/babylonlabs-io/vigilante/pull/336) chore: bump btcd to v28.0
 * [#340](https://github.com/babylonlabs-io/vigilante/pull/340) chore: update reporter metric for checkpoints
 * [#340](https://github.com/babylonlabs-io/vigilante/pull/340) chore: avoid increasing the fail metrics for duplicate submissions
-* [#345](https://github.com/babylonlabs-io/vigilante/pull/345) feat: delegation retrieval through tx events
+* [#349](https://github.com/babylonlabs-io/vigilante/pull/349) chore: handle err and metrics in unbonding watcher
 
 ## v0.23.4
 
