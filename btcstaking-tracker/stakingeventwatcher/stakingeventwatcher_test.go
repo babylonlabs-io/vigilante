@@ -64,6 +64,7 @@ func TestHandlingDelegations(t *testing.T) {
 			DelegationStartHeight: 0,
 			UnbondingOutput:       nil,
 			HasProof:              false,
+			Status:                btcstakingtypes.BTCDelegationStatus_VERIFIED.String(),
 		})
 	}
 
