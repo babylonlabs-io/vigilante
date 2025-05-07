@@ -37,6 +37,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Improvements
+
+* [#345](https://github.com/babylonlabs-io/vigilante/pull/345) feat: delegation retrieval through tx events
+
 ## v0.23.5
 
 ### Improvements
