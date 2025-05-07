@@ -50,6 +50,8 @@ type BabylonNodeAdapter interface {
 	ActivateDelegation(ctx context.Context, stakingTxHash chainhash.Hash, proof *btcctypes.BTCSpvProof) error
 	QueryHeaderDepth(headerHash *chainhash.Hash) (uint32, error)
 	Params() (*BabylonParams, error)
+	CometBFTTipHeight(ctx context.Context) (int64, error)
+	StakingTxHashesByEvent(ctx context.Context, eventType string, criteria string, page, count *int) ([]string, error)
 	BTCDelegation(stakingTxHash string) (*Delegation, error)
 }
 
@@ -67,7 +69,7 @@ func NewBabylonClientAdapter(babylonClient *bbnclient.Client, cfg *config.BTCSta
 	}
 }
 
-// DelegationsByStatus - returns btc delegations by status
+// DelegationsByStatus - returns btc delegations by Status
 func (bca *BabylonClientAdapter) DelegationsByStatus(
 	status btcstakingtypes.BTCDelegationStatus, offset uint64, limit uint64) ([]Delegation, error) {
 	resp, err := bca.babylonClient.BTCDelegations(
@@ -101,6 +103,7 @@ func (bca *BabylonClientAdapter) DelegationsByStatus(
 			DelegationStartHeight: delegation.StartHeight,
 			UnbondingOutput:       unbondingTx.TxOut[0],
 			HasProof:              delegation.StartHeight > 0,
+			Status:                delegation.StatusDesc,
 		}
 	}
 
@@ -118,7 +121,7 @@ func (bca *BabylonClientAdapter) IsDelegationActive(stakingTxHash chainhash.Hash
 	return resp.BtcDelegation.Active, nil
 }
 
-// IsDelegationVerified method for BabylonClientAdapter checks if delegation is in status verified
+// IsDelegationVerified method for BabylonClientAdapter checks if delegation is in Status verified
 func (bca *BabylonClientAdapter) IsDelegationVerified(stakingTxHash chainhash.Hash) (bool, error) {
 	resp, err := bca.babylonClient.BTCDelegation(stakingTxHash.String())
 
@@ -247,6 +250,40 @@ func (bca *BabylonClientAdapter) Params() (*BabylonParams, error) {
 	}
 
 	return &BabylonParams{ConfirmationTimeBlocks: bccParams.BtcConfirmationDepth}, nil
+}
+
+func (bca *BabylonClientAdapter) CometBFTTipHeight(ctx context.Context) (int64, error) {
+	res, err := bca.babylonClient.RPCClient.Status(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to retrieve cometbft tip height: %w", err)
+	}
+
+	return res.SyncInfo.LatestBlockHeight, nil
+}
+
+func (bca *BabylonClientAdapter) StakingTxHashesByEvent(ctx context.Context, eventType string, criteria string, page, count *int) ([]string, error) {
+	res, err := bca.babylonClient.RPCClient.TxSearch(ctx, criteria, false, page, count, "asc")
+	if err != nil {
+		return nil, fmt.Errorf("failed to do tx_search for: %s ,err: %w", criteria, err)
+	}
+
+	const stakingTxHashKey = "staking_tx_hash"
+
+	var stakingTxHashes []string
+	for _, tx := range res.Txs {
+		for _, event := range tx.TxResult.Events {
+			if event.Type == eventType {
+				for _, attr := range event.Attributes {
+					if attr.Key == stakingTxHashKey {
+						stakingTxHash := strings.ReplaceAll(attr.Value, `"`, "")
+						stakingTxHashes = append(stakingTxHashes, stakingTxHash)
+					}
+				}
+			}
+		}
+	}
+
+	return stakingTxHashes, nil
 }
 
 // BTCDelegation method for BabylonClientAdapter to get BTC delegation

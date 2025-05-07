@@ -22,15 +22,17 @@ type BTCStakingTrackerConfig struct {
 	// the BTC network
 	BTCNetParams string `mapstructure:"btcnetparams"` // should be mainnet|testnet|simnet|signet|regtest
 	// number of concurrent requests that when slashing
-	MaxSlashingConcurrency uint8         `mapstructure:"max-slashing-concurrency"`
-	IndexerAddr            string        `mapstructure:"indexer-addr"`
-	FetchEvidenceInterval  time.Duration `mapstructure:"fetch-evidence-interval"`
+	MaxSlashingConcurrency  uint8         `mapstructure:"max-slashing-concurrency"`
+	IndexerAddr             string        `mapstructure:"indexer-addr"`
+	FetchEvidenceInterval   time.Duration `mapstructure:"fetch-evidence-interval"`
+	FetchCometBlockInterval time.Duration `mapstructure:"fetch-comet-block-interval"`
 }
 
 func DefaultBTCStakingTrackerConfig() BTCStakingTrackerConfig {
 	return BTCStakingTrackerConfig{
 		CheckDelegationsInterval: 1 * time.Minute,
 		FetchEvidenceInterval:    30 * time.Second,
+		FetchCometBlockInterval:  2 * time.Second,
 		NewDelegationsBatchSize:  500,
 		// This can be quite large to avoid wasting resources on checking if delegation is active
 		CheckDelegationActiveInterval: 5 * time.Minute,
@@ -78,6 +80,10 @@ func (cfg *BTCStakingTrackerConfig) Validate() error {
 
 	if cfg.IndexerAddr == "" {
 		return errors.New("indexer-addr cannot be empty")
+	}
+
+	if cfg.FetchCometBlockInterval <= 0 {
+		return errors.New("fetch-comet-block-interval can't be negative")
 	}
 
 	return nil
