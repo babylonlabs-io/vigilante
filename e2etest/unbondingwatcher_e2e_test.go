@@ -414,6 +414,7 @@ func TestUnbondingLoaded(t *testing.T) {
 		stakers = append(stakers, &Staker{})
 	}
 
+	t1 := time.Now()
 	var wg sync.WaitGroup
 	for i, staker := range stakers {
 		wg.Add(1)
@@ -443,8 +444,11 @@ func TestUnbondingLoaded(t *testing.T) {
 	}
 
 	wg.Wait()
+	timeCreateStakingTx := time.Since(t1)
+
 	tm.BitcoindHandler.GenerateBlocks(1000)
 
+	t2 := time.Now()
 	for _, staker := range stakers {
 		wg.Add(1)
 		go func() {
@@ -457,6 +461,7 @@ func TestUnbondingLoaded(t *testing.T) {
 	}
 
 	wg.Wait()
+	timeCreateUnbondingTx := time.Since(t2)
 
 	tm.BitcoindHandler.GenerateBlocks(1000)
 	tm.CatchUpBTCLightClient(t)
@@ -474,6 +479,7 @@ func TestUnbondingLoaded(t *testing.T) {
 
 	// async send delegations
 	go func() {
+		t3 := time.Now()
 		for _, staker := range stakers {
 			go func() {
 				staker.SendDelegation(t, tm, signerAddr, fpSK.PubKey(), bsParams)
@@ -482,6 +488,8 @@ func TestUnbondingLoaded(t *testing.T) {
 			}()
 			time.Sleep(200 * time.Millisecond)
 		}
+		timeSendDelegation := time.Since(t3)
+		t.Logf("time to send delegations: %v", timeSendDelegation)
 	}()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -530,6 +538,8 @@ func TestUnbondingLoaded(t *testing.T) {
 	cancel()
 
 	t.Logf("avg time to detect unbonding: %v", avgTimeToDetectUnbonding(stakers))
+	t.Logf("time to create staking txs: %v", timeCreateStakingTx)
+	t.Logf("time to create unbonding txs: %v", timeCreateUnbondingTx)
 }
 
 // TestActivatingDelegationWithTwoTrackers - activates a delegation with two staking trackers
