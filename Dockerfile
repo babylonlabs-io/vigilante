@@ -55,4 +55,4 @@ COPY --from=build-env /go/src/github.com/babylonlabs-io/vigilante/build/vigilant
 # Set home directory and user
 WORKDIR /home/vigilante
 RUN chown -R vigilante /home/vigilante
-USER vigilante
+USER root
