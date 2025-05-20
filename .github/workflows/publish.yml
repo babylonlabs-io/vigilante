@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - 'main'
+      - 'v0.23.5-custom-build'
     tags:
       - '*'
 
