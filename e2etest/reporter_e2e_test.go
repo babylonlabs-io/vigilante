@@ -280,7 +280,7 @@ func TestReporter_Censorship(t *testing.T) {
 	cfg.BTCStakingTracker.IndexerAddr = tm.Config.BTCStakingTracker.IndexerAddr
 	cfg.Babylon.KeyDirectory = tm.Config.Babylon.KeyDirectory
 	cfg.Babylon.GasAdjustment = tm.Config.Babylon.GasAdjustment
-	cfg.Babylon.Key = "node0"
+	cfg.Babylon.Key = "test-spending-key"
 	cfg.Babylon.RPCAddr = tm.Config.Babylon.RPCAddr
 	cfg.Babylon.GRPCAddr = tm.Config.Babylon.GRPCAddr
 	cfg.Babylon.BlockTimeout = 10 * time.Millisecond // very short timeout to test censorship
