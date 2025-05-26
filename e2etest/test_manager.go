@@ -173,7 +173,7 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 
 	// create Babylon client
 	cfg.Babylon.KeyDirectory = filepath.Join(tmpDir, "node0", "babylond")
-	cfg.Babylon.Key = "test-spending-key" // keyring to bbn node
+	cfg.Babylon.Key = "node0" // keyring to bbn node
 	cfg.Babylon.GasAdjustment = 3.0
 	cfg.Babylon.BlockTimeout = 30 * time.Second
 
