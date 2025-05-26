@@ -1,11 +1,15 @@
 package btcslasher
 
 import (
-	sdkmath "cosmossdk.io/math"
 	"fmt"
-	"github.com/babylonlabs-io/babylon/testutil/datagen"
-	bbn "github.com/babylonlabs-io/babylon/types"
-	bstypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
+	"math/rand"
+	"testing"
+	"time"
+
+	sdkmath "cosmossdk.io/math"
+	"github.com/babylonlabs-io/babylon/v4/testutil/datagen"
+	bbn "github.com/babylonlabs-io/babylon/v4/types"
+	bstypes "github.com/babylonlabs-io/babylon/v4/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/testutil/mocks"
 	"github.com/btcsuite/btcd/btcec/v2"
@@ -13,9 +17,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
-	"math/rand"
-	"testing"
-	"time"
 )
 
 func TestBTCSlasher_slashBTCDelegation_exitUnslashable(t *testing.T) {

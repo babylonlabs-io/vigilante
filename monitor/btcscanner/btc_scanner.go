@@ -7,8 +7,8 @@ import (
 
 	notifier "github.com/lightningnetwork/lnd/chainntnfs"
 
-	"github.com/babylonlabs-io/babylon/btctxformatter"
-	ckpttypes "github.com/babylonlabs-io/babylon/x/checkpointing/types"
+	"github.com/babylonlabs-io/babylon/v4/btctxformatter"
+	ckpttypes "github.com/babylonlabs-io/babylon/v4/x/checkpointing/types"
 	"github.com/btcsuite/btcd/wire"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"

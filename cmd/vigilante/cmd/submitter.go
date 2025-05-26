@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	bbnqccfg "github.com/babylonlabs-io/babylon/client/config"
-	bbnqc "github.com/babylonlabs-io/babylon/client/query"
+	bbnqccfg "github.com/babylonlabs-io/babylon/v4/client/config"
+	bbnqc "github.com/babylonlabs-io/babylon/v4/client/query"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/spf13/cobra"
 

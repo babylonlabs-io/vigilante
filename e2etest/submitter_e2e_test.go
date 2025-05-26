@@ -4,16 +4,17 @@
 package e2etest
 
 import (
-	"github.com/babylonlabs-io/vigilante/testutil"
-	"github.com/btcsuite/btcd/btcjson"
-	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"math/rand"
 	"testing"
 	"time"
 
-	"github.com/babylonlabs-io/babylon/testutil/datagen"
-	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
-	checkpointingtypes "github.com/babylonlabs-io/babylon/x/checkpointing/types"
+	"github.com/babylonlabs-io/vigilante/testutil"
+	"github.com/btcsuite/btcd/btcjson"
+	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
+
+	"github.com/babylonlabs-io/babylon/v4/testutil/datagen"
+	btcctypes "github.com/babylonlabs-io/babylon/v4/x/btccheckpoint/types"
+	checkpointingtypes "github.com/babylonlabs-io/babylon/v4/x/checkpointing/types"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	sdk "github.com/cosmos/cosmos-sdk/types"

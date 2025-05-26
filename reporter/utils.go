@@ -3,15 +3,16 @@ package reporter
 import (
 	"context"
 	"fmt"
-	"github.com/babylonlabs-io/babylon/client/babylonclient"
+	"strconv"
+
+	"github.com/babylonlabs-io/babylon/v4/client/babylonclient"
 	"github.com/babylonlabs-io/vigilante/retrywrap"
 	"github.com/cockroachdb/errors"
-	"strconv"
 
 	coserrors "cosmossdk.io/errors"
 	"github.com/avast/retry-go/v4"
-	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
-	btclctypes "github.com/babylonlabs-io/babylon/x/btclightclient/types"
+	btcctypes "github.com/babylonlabs-io/babylon/v4/x/btccheckpoint/types"
+	btclctypes "github.com/babylonlabs-io/babylon/v4/x/btclightclient/types"
 	"github.com/babylonlabs-io/vigilante/types"
 )
 
@@ -87,7 +88,7 @@ func (r *Reporter) submitHeaderMsgs(msg *btclctypes.MsgInsertHeaders) error {
 				context.Background(),
 				msg,
 				[]*coserrors.Error{btclctypes.ErrForkStartWithKnownHeader}, // expected
-				nil,                                                        // abort errors
+				nil, // abort errors
 			)
 			if err != nil {
 				return fmt.Errorf("could not submit headers: %w", err)

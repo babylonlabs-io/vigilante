@@ -7,7 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	monitortypes "github.com/babylonlabs-io/babylon/x/monitor/types"
+	monitortypes "github.com/babylonlabs-io/babylon/v4/x/monitor/types"
 
 	"github.com/babylonlabs-io/vigilante/types"
 )

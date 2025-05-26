@@ -2,12 +2,13 @@ package btcstakingtracker
 
 import (
 	"fmt"
-	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/indexer"
-	"github.com/babylonlabs-io/vigilante/version"
 	"sync"
 	"time"
 
-	bbnclient "github.com/babylonlabs-io/babylon/client/client"
+	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/indexer"
+	"github.com/babylonlabs-io/vigilante/version"
+
+	bbnclient "github.com/babylonlabs-io/babylon/v4/client/client"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/atomicslasher"
 	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/btcslasher"

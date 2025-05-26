@@ -3,7 +3,11 @@ package relayer
 import (
 	"errors"
 	"fmt"
-	"github.com/babylonlabs-io/babylon/testutil/datagen"
+	"math/rand"
+	"testing"
+	"time"
+
+	"github.com/babylonlabs-io/babylon/v4/testutil/datagen"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/submitter/store"
@@ -21,9 +25,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
-	"math/rand"
-	"testing"
-	"time"
 )
 
 func Test_maybeResendFromStore(t *testing.T) {

@@ -2,20 +2,22 @@ package stakingeventwatcher
 
 import (
 	"context"
-	sdkerrors "cosmossdk.io/errors"
 	"fmt"
-	"github.com/avast/retry-go/v4"
-	btclctypes "github.com/babylonlabs-io/babylon/x/btclightclient/types"
-	"github.com/babylonlabs-io/vigilante/config"
-	"github.com/cosmos/cosmos-sdk/client"
 	"strings"
 	"time"
 
+	sdkerrors "cosmossdk.io/errors"
+	"github.com/avast/retry-go/v4"
+	btclctypes "github.com/babylonlabs-io/babylon/v4/x/btclightclient/types"
+	"github.com/babylonlabs-io/vigilante/config"
+	"github.com/cosmos/cosmos-sdk/client"
+
 	"errors"
-	bbnclient "github.com/babylonlabs-io/babylon/client/client"
-	bbn "github.com/babylonlabs-io/babylon/types"
-	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
-	btcstakingtypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
+
+	bbnclient "github.com/babylonlabs-io/babylon/v4/client/client"
+	bbn "github.com/babylonlabs-io/babylon/v4/types"
+	btcctypes "github.com/babylonlabs-io/babylon/v4/x/btccheckpoint/types"
+	btcstakingtypes "github.com/babylonlabs-io/babylon/v4/x/btcstaking/types"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/cosmos/cosmos-sdk/types/query"

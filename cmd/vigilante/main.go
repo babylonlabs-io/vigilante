@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/babylonlabs-io/babylon/app/params"
-	"github.com/babylonlabs-io/vigilante/cmd/vigilante/cmd"
 	"os"
+
+	"github.com/babylonlabs-io/babylon/v4/app/params"
+	"github.com/babylonlabs-io/vigilante/cmd/vigilante/cmd"
 )
 
 // TODO: init log

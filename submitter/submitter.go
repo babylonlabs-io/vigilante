@@ -3,15 +3,16 @@ package submitter
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/babylonlabs-io/vigilante/retrywrap"
-	"github.com/babylonlabs-io/vigilante/version"
-	"github.com/lightningnetwork/lnd/kvdb"
 	"sync"
 	"time"
 
+	"github.com/babylonlabs-io/vigilante/retrywrap"
+	"github.com/babylonlabs-io/vigilante/version"
+	"github.com/lightningnetwork/lnd/kvdb"
+
 	"github.com/avast/retry-go/v4"
-	"github.com/babylonlabs-io/babylon/btctxformatter"
-	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
+	"github.com/babylonlabs-io/babylon/v4/btctxformatter"
+	btcctypes "github.com/babylonlabs-io/babylon/v4/x/btccheckpoint/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"go.uber.org/zap"
 

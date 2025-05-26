@@ -6,16 +6,17 @@ package e2etest
 import (
 	"context"
 	"encoding/hex"
-	bbnclient "github.com/babylonlabs-io/babylon/client/client"
+	"sync"
+	"testing"
+	"time"
+
+	bbnclient "github.com/babylonlabs-io/babylon/v4/client/client"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/cosmos/cosmos-sdk/testutil/testdata"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"go.uber.org/zap/zaptest"
-	"sync"
-	"testing"
-	"time"
 
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/netparams"

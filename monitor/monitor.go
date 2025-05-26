@@ -3,10 +3,11 @@ package monitor
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/babylonlabs-io/vigilante/version"
 	"math"
 	"sort"
 	"sync"
+
+	"github.com/babylonlabs-io/vigilante/version"
 
 	"github.com/babylonlabs-io/vigilante/monitor/store"
 	notifier "github.com/lightningnetwork/lnd/chainntnfs"
@@ -18,7 +19,7 @@ import (
 	"go.uber.org/zap"
 
 	sdkerrors "cosmossdk.io/errors"
-	checkpointingtypes "github.com/babylonlabs-io/babylon/x/checkpointing/types"
+	checkpointingtypes "github.com/babylonlabs-io/babylon/v4/x/checkpointing/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/babylonlabs-io/vigilante/btcclient"

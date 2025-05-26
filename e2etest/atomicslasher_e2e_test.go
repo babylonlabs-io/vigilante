@@ -4,11 +4,12 @@
 package e2etest
 
 import (
-	"go.uber.org/zap"
 	"testing"
 	"time"
 
-	bstypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
+	"go.uber.org/zap"
+
+	bstypes "github.com/babylonlabs-io/babylon/v4/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	bst "github.com/babylonlabs-io/vigilante/btcstaking-tracker"
 	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/btcslasher"

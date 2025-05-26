@@ -8,8 +8,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	types "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
-	types0 "github.com/babylonlabs-io/babylon/x/btcstaking/types"
+	types "github.com/babylonlabs-io/babylon/v4/x/btccheckpoint/types"
+	types0 "github.com/babylonlabs-io/babylon/v4/x/btcstaking/types"
 	chainhash "github.com/btcsuite/btcd/chaincfg/chainhash"
 	wire "github.com/btcsuite/btcd/wire"
 	gomock "github.com/golang/mock/gomock"

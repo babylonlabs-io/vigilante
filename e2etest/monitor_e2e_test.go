@@ -5,7 +5,9 @@ package e2etest
 
 import (
 	"fmt"
-	bbnclient "github.com/babylonlabs-io/babylon/client/client"
+	"time"
+
+	bbnclient "github.com/babylonlabs-io/babylon/v4/client/client"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/monitor"
@@ -18,7 +20,6 @@ import (
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"time"
 
 	"testing"
 )

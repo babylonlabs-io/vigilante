@@ -9,10 +9,10 @@ import (
 	reflect "reflect"
 
 	errors "cosmossdk.io/errors"
-	babylonclient "github.com/babylonlabs-io/babylon/client/babylonclient"
-	config "github.com/babylonlabs-io/babylon/client/config"
-	types "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
-	types0 "github.com/babylonlabs-io/babylon/x/btclightclient/types"
+	babylonclient "github.com/babylonlabs-io/babylon/v4/client/babylonclient"
+	config "github.com/babylonlabs-io/babylon/v4/client/config"
+	types "github.com/babylonlabs-io/babylon/v4/x/btccheckpoint/types"
+	types0 "github.com/babylonlabs-io/babylon/v4/x/btclightclient/types"
 	chainhash "github.com/btcsuite/btcd/chaincfg/chainhash"
 	types1 "github.com/cosmos/cosmos-sdk/types"
 	gomock "github.com/golang/mock/gomock"
@@ -160,7 +160,7 @@ func (mr *MockBabylonClientMockRecorder) MustGetAddr() *gomock.Call {
 }
 
 // ReliablySendMsg mocks base method.
-func (m *MockBabylonClient) ReliablySendMsg(ctx context.Context, msg types1.Msg, expectedErrors, unrecoverableErrors []*errors.Error) (*babylonclient.RelayerTxResponse, error) {
+func (m *MockBabylonClient) ReliablySendMsg(ctx context.Context, msg types1.Msg, expectedErrors, unrecoverableErrors []*errors.Error, retries ...uint) (*babylonclient.RelayerTxResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReliablySendMsg", ctx, msg, expectedErrors, unrecoverableErrors)
 	ret0, _ := ret[0].(*babylonclient.RelayerTxResponse)

@@ -2,8 +2,9 @@ package types
 
 import (
 	"bytes"
-	"github.com/babylonlabs-io/babylon/crypto/bls12381"
-	ckpttypes "github.com/babylonlabs-io/babylon/x/checkpointing/types"
+
+	"github.com/babylonlabs-io/babylon/v4/crypto/bls12381"
+	ckpttypes "github.com/babylonlabs-io/babylon/v4/x/checkpointing/types"
 	"github.com/boljen/go-bitmap"
 	"github.com/pkg/errors"
 )
