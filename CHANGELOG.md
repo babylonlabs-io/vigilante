@@ -37,6 +37,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Improvements
+
+* [#356](https://github.com/babylonlabs-io/vigilante/pull/356) deps: Bump babylon version to v4
+
 ## v0.23.6
 
 ### Improvements
