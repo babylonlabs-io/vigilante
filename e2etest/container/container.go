@@ -192,7 +192,7 @@ func (m *Manager) RunBabylondResource(
 ) (*dockertest.Resource, error) {
 	cmd := []string{
 		"sh", "-c", fmt.Sprintf(
-			"babylond testnet --v=1 --output-dir=/home --starting-ip-address=192.168.10.2 "+
+			"export BABYLON_BLS_PASSWORD=password && babylond testnet --v=1 --output-dir=/home --starting-ip-address=192.168.10.2 "+
 				"--keyring-backend=test --chain-id=chain-test --btc-finalization-timeout=4 "+
 				"--btc-confirmation-depth=2 --additional-sender-account --btc-network=regtest "+
 				"--min-staking-time-blocks=200 --min-staking-amount-sat=10000 "+
