@@ -60,7 +60,7 @@ func GetGenesisInfoFromFile(filePath string) (*GenesisInfo, error) {
 		return nil, fmt.Errorf("unexpected message type: %T", gentxModule)
 	}
 
-	checkpointingGenState, err := getCheckpointGenState(appState)
+	checkpointingGenState, err := getCheckpointGenState(tmpBabylon.AppCodec(), appState)
 	if err != nil {
 		return nil, fmt.Errorf("invalid checkpointing genesis %w ", err)
 	}
@@ -265,15 +265,39 @@ func messageValidatorCreateValidator(msgs []sdk.Msg) error {
 // getCheckpointGenState gets only the genesis keys of the genesis state.
 // NOTE: this is the only field we care about, and we use this function to avoid
 // having errors if new fields are added to the genesis (eg. like in v2 changes)
-func getCheckpointGenState(appState map[string]json.RawMessage) (checkpointingtypes.GenesisState, error) {
+func getCheckpointGenState(cdc codec.Codec, appState map[string]json.RawMessage) (checkpointingtypes.GenesisState, error) {
 	var genesisState checkpointingtypes.GenesisState
 
 	if appState[checkpointingtypes.ModuleName] != nil {
-		// use 'encoding/json' pkg that ignores extra fields
-		err := json.Unmarshal(appState[checkpointingtypes.ModuleName], &genesisState)
+		// Unmarshal the nested field manually
+		var raw map[string]json.RawMessage
+		err := json.Unmarshal(appState[checkpointingtypes.ModuleName], &raw)
 		if err != nil {
 			return genesisState, err
 		}
+
+		// Extract just the "genesis_keys" field
+		genKeysRaw, ok := raw["genesis_keys"]
+		if !ok {
+			return genesisState, errors.New("genesis_keys not found")
+		}
+
+		// Decode genKeysRaw as a list of raw messages
+		var rawKeys []json.RawMessage
+		err = json.Unmarshal(genKeysRaw, &rawKeys)
+		if err != nil {
+			return genesisState, fmt.Errorf("failed to unmarshal genesis_keys array: %w", err)
+		}
+
+		var keys []*checkpointingtypes.GenesisKey
+		for _, rk := range rawKeys {
+			var key checkpointingtypes.GenesisKey
+			if err := cdc.UnmarshalJSON(rk, &key); err != nil {
+				return genesisState, fmt.Errorf("failed to decode genesis key: %w", err)
+			}
+			keys = append(keys, &key)
+		}
+		genesisState.GenesisKeys = keys
 	}
 
 	return genesisState, nil
