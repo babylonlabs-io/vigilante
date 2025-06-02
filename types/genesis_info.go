@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"github.com/cosmos/cosmos-sdk/x/staking/types"
 
 	"github.com/babylonlabs-io/babylon/app"
@@ -59,7 +60,10 @@ func GetGenesisInfoFromFile(filePath string) (*GenesisInfo, error) {
 		return nil, fmt.Errorf("unexpected message type: %T", gentxModule)
 	}
 
-	checkpointingGenState := checkpointingtypes.GetGenesisStateFromAppState(tmpBabylon.AppCodec(), appState)
+	checkpointingGenState, err := getCheckpointGenState(tmpBabylon.AppCodec(), appState)
+	if err != nil {
+		return nil, fmt.Errorf("invalid checkpointing genesis %w ", err)
+	}
 	err1 := checkpointingGenState.Validate()
 	err2 := validateGenesisKeys(checkpointingGenState.GenesisKeys)
 	if err1 != nil && err2 != nil {
@@ -128,19 +132,25 @@ func GetGenesisInfoFromFile(filePath string) (*GenesisInfo, error) {
 	}
 	baseBTCHeight = btclightclientGenState.BtcHeaders[0].Height
 
-	epochingGenState := GetEpochingGenesisStateFromAppState(tmpBabylon.AppCodec(), appState)
-	err = epochingGenState.Validate()
+	epochingParams, err := getEpochingParamsFromAppState(tmpBabylon.AppCodec(), appState)
 	if err != nil {
 		return nil, fmt.Errorf("invalid epoching genesis %w", err)
 	}
-	epochInterval = epochingGenState.Params.EpochInterval
+	err = epochingParams.Validate()
+	if err != nil {
+		return nil, fmt.Errorf("invalid epoching params %w", err)
+	}
+	epochInterval = epochingParams.EpochInterval
 
-	btccheckpointGenState := GetBtccheckpointGenesisStateFromAppState(tmpBabylon.AppCodec(), appState)
-	err = btccheckpointGenState.Validate()
+	btccheckpointParams, err := getBtccheckpointParamsFromAppState(tmpBabylon.AppCodec(), appState)
 	if err != nil {
 		return nil, fmt.Errorf("invalid btccheckpoint genesis %w", err)
 	}
-	checkpointTag = btccheckpointGenState.Params.CheckpointTag
+	err = btccheckpointParams.Validate()
+	if err != nil {
+		return nil, fmt.Errorf("invalid btccheckpoint params %w", err)
+	}
+	checkpointTag = btccheckpointParams.CheckpointTag
 
 	genesisInfo := &GenesisInfo{
 		baseBTCHeight: baseBTCHeight,
@@ -164,28 +174,60 @@ func GetBtclightclientGenesisStateFromAppState(cdc codec.Codec, appState map[str
 	return genesisState
 }
 
-// GetEpochingGenesisStateFromAppState returns x/epoching GenesisState given raw application
+// getEpochingParamsFromAppState returns x/epoching Params given raw application
 // genesis state.
-func GetEpochingGenesisStateFromAppState(cdc codec.Codec, appState map[string]json.RawMessage) epochingtypes.GenesisState {
-	var genesisState epochingtypes.GenesisState
-
+// NOTE: we get only the params for compatibility with changes on the genesis
+func getEpochingParamsFromAppState(cdc codec.Codec, appState map[string]json.RawMessage) (epochingtypes.Params, error) {
+	var params epochingtypes.Params
 	if appState[epochingtypes.ModuleName] != nil {
-		cdc.MustUnmarshalJSON(appState[epochingtypes.ModuleName], &genesisState)
+		// Unmarshal the nested field manually
+		var raw map[string]json.RawMessage
+		err := json.Unmarshal(appState[epochingtypes.ModuleName], &raw)
+		if err != nil {
+			return params, err
+		}
+
+		// Extract just the "params" field
+		paramsRaw, ok := raw["params"]
+		if !ok {
+			return params, errors.New("params not found")
+		}
+
+		err = cdc.UnmarshalJSON(paramsRaw, &params)
+		if err != nil {
+			return params, err
+		}
 	}
 
-	return genesisState
+	return params, nil
 }
 
-// GetBtccheckpointGenesisStateFromAppState returns x/btccheckpoint GenesisState given raw application
+// getBtccheckpointParamsFromAppState returns x/btccheckpoint Params given raw application
 // genesis state.
-func GetBtccheckpointGenesisStateFromAppState(cdc codec.Codec, appState map[string]json.RawMessage) btccheckpointtypes.GenesisState {
-	var genesisState btccheckpointtypes.GenesisState
+func getBtccheckpointParamsFromAppState(cdc codec.Codec, appState map[string]json.RawMessage) (btccheckpointtypes.Params, error) {
+	var params btccheckpointtypes.Params
 
 	if appState[btccheckpointtypes.ModuleName] != nil {
-		cdc.MustUnmarshalJSON(appState[btccheckpointtypes.ModuleName], &genesisState)
+		// Unmarshal the nested field manually
+		var raw map[string]json.RawMessage
+		err := json.Unmarshal(appState[btccheckpointtypes.ModuleName], &raw)
+		if err != nil {
+			return params, err
+		}
+
+		// Extract just the "params" field
+		paramsRaw, ok := raw["params"]
+		if !ok {
+			return params, errors.New("params not found")
+		}
+
+		err = cdc.UnmarshalJSON(paramsRaw, &params)
+		if err != nil {
+			return params, err
+		}
 	}
 
-	return genesisState
+	return params, nil
 }
 
 func (gi *GenesisInfo) GetBaseBTCHeight() uint32 {
@@ -218,4 +260,45 @@ func messageValidatorCreateValidator(msgs []sdk.Msg) error {
 	}
 
 	return nil
+}
+
+// getCheckpointGenState gets only the genesis keys of the genesis state.
+// NOTE: this is the only field we care about, and we use this function to avoid
+// having errors if new fields are added to the genesis (eg. like in v2 changes)
+func getCheckpointGenState(cdc codec.Codec, appState map[string]json.RawMessage) (checkpointingtypes.GenesisState, error) {
+	var genesisState checkpointingtypes.GenesisState
+
+	if appState[checkpointingtypes.ModuleName] != nil {
+		// Unmarshal the nested field manually
+		var raw map[string]json.RawMessage
+		err := json.Unmarshal(appState[checkpointingtypes.ModuleName], &raw)
+		if err != nil {
+			return genesisState, err
+		}
+
+		// Extract just the "genesis_keys" field
+		genKeysRaw, ok := raw["genesis_keys"]
+		if !ok {
+			return genesisState, errors.New("genesis_keys not found")
+		}
+
+		// Decode genKeysRaw as a list of raw messages
+		var rawKeys []json.RawMessage
+		err = json.Unmarshal(genKeysRaw, &rawKeys)
+		if err != nil {
+			return genesisState, fmt.Errorf("failed to unmarshal genesis_keys array: %w", err)
+		}
+
+		var keys []*checkpointingtypes.GenesisKey
+		for _, rk := range rawKeys {
+			var key checkpointingtypes.GenesisKey
+			if err := cdc.UnmarshalJSON(rk, &key); err != nil {
+				return genesisState, fmt.Errorf("failed to decode genesis key: %w", err)
+			}
+			keys = append(keys, &key)
+		}
+		genesisState.GenesisKeys = keys
+	}
+
+	return genesisState, nil
 }
