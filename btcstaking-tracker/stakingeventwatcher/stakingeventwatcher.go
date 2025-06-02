@@ -991,7 +991,7 @@ func (sew *StakingEventWatcher) fetchStakingTxsByEvent(ctx context.Context, star
 			return stakingTxHashes, nil
 		}
 
-		i += batchSize
+		i++
 	}
 }
 
