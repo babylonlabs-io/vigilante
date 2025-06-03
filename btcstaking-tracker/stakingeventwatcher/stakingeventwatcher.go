@@ -166,6 +166,7 @@ func (sew *StakingEventWatcher) Start() error {
 		}
 
 		sew.currentCometTipHeight.Store(latestHeight)
+		sew.delegationRetrievalInProgress.Store(true) // avoid potential race condition with fetchDelegations
 
 		sew.wg.Add(5)
 		go sew.handleNewBlocks(blockEventNotifier)
