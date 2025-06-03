@@ -888,8 +888,16 @@ func (sew *StakingEventWatcher) fetchCometBftBlockOnce() error {
 		return fmt.Errorf("error querying comet bft for new blocks: %w", err)
 	}
 
-	if latestHeight == sew.currentCometTipHeight.Load() {
-		sew.logger.Debugf("no new comet bft blocks, current height: %d", sew.currentCometTipHeight.Load())
+	currentHeight := sew.currentCometTipHeight.Load()
+
+	// Enforce monotonic block height processing
+	if latestHeight < currentHeight {
+		return fmt.Errorf("non-monotonic block height detected: latest height %d is less than current height %d",
+			latestHeight, currentHeight)
+	}
+
+	if latestHeight == currentHeight {
+		sew.logger.Debugf("no new comet bft blocks, current height: %d", currentHeight)
 
 		return nil
 	}
