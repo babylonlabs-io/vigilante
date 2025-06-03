@@ -964,9 +964,7 @@ func (sew *StakingEventWatcher) fetchStakingTxsByEvent(ctx context.Context, star
 	sew.latency("fetchStakingTxsByEvent")()
 	var stakingTxHashes []string
 
-	criteria := fmt.Sprintf(`tx.height>=%d AND tx.height<=%d AND %s.new_state EXISTS`, startHeight, endHeight, event)
-
-	i := 1
+	page := 1
 	batchSize := 500
 	// #nosec G115 -- performed check
 	if sew.cfg.NewDelegationsBatchSize <= uint64(math.MaxInt) {
@@ -974,7 +972,12 @@ func (sew *StakingEventWatcher) fetchStakingTxsByEvent(ctx context.Context, star
 	}
 
 	for {
-		stkTxs, err := sew.babylonNodeAdapter.StakingTxHashesByEvent(ctx, event, criteria, &i, &batchSize)
+		operator := ">="
+		if page > 1 {
+			operator = ">"
+		}
+		criteria := fmt.Sprintf(`tx.height%s%d AND tx.height<=%d AND %s.new_state EXISTS`, operator, startHeight, endHeight, event)
+		stkTxs, err := sew.babylonNodeAdapter.StakingTxHashesByEvent(ctx, event, criteria, &page, &batchSize)
 
 		if err != nil {
 			return nil, fmt.Errorf("error fetching active delegations from babylon: %w", err)
@@ -991,7 +994,7 @@ func (sew *StakingEventWatcher) fetchStakingTxsByEvent(ctx context.Context, star
 			return stakingTxHashes, nil
 		}
 
-		i++
+		page++
 	}
 }
 
