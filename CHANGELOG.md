@@ -40,6 +40,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Improvements
 
 * [#357](https://github.com/babylonlabs-io/vigilante/pull/357) imp: handle modules genesis changes
+* [#362](https://github.com/babylonlabs-io/vigilante/pull/362) chore: manage overlap block range
 
 ### Bug Fixes
 * [#359](https://github.com/babylonlabs-io/vigilante/pull/359) fix: correctly increment page for stk hash query
