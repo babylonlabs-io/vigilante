@@ -970,13 +970,9 @@ func (sew *StakingEventWatcher) fetchStakingTxsByEvent(ctx context.Context, star
 	if sew.cfg.NewDelegationsBatchSize <= uint64(math.MaxInt) {
 		batchSize = int(sew.cfg.NewDelegationsBatchSize)
 	}
-
+	startHeight = max(startHeight-1, 0)
 	for {
-		operator := ">="
-		if page > 1 {
-			operator = ">"
-		}
-		criteria := fmt.Sprintf(`tx.height%s%d AND tx.height<=%d AND %s.new_state EXISTS`, operator, startHeight, endHeight, event)
+		criteria := fmt.Sprintf(`tx.height>%d AND tx.height<=%d AND %s.new_state EXISTS`, startHeight, endHeight, event)
 		stkTxs, err := sew.babylonNodeAdapter.StakingTxHashesByEvent(ctx, event, criteria, &page, &batchSize)
 
 		if err != nil {
