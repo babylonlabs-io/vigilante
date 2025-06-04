@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	minBTCCacheSize = 1000
+	minBTCCacheSize = 100
 	maxHeadersInMsg = 100 // maximum number of headers in a MsgInsertHeaders message
 )
 
