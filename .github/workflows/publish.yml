@@ -25,7 +25,6 @@ jobs:
 
 
   docker_pipeline:
-    needs: ["lint_test"]
     uses: babylonlabs-io/.github/.github/workflows/reusable_docker_pipeline.yml@v0.11.2
     secrets: inherit
     with:
