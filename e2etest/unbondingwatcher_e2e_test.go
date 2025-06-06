@@ -446,7 +446,7 @@ func TestUnbondingLoaded(t *testing.T) {
 	wg.Wait()
 	timeCreateStakingTx := time.Since(t1)
 
-	tm.BitcoindHandler.GenerateBlocks(1000)
+	tm.BitcoindHandler.GenerateBlocks(100)
 
 	t2 := time.Now()
 	for _, staker := range stakers {
@@ -463,7 +463,7 @@ func TestUnbondingLoaded(t *testing.T) {
 	wg.Wait()
 	timeCreateUnbondingTx := time.Since(t2)
 
-	tm.BitcoindHandler.GenerateBlocks(1000)
+	tm.BitcoindHandler.GenerateBlocks(100)
 	tm.CatchUpBTCLightClient(t)
 
 	t.Logf("waiting for indexer to catch up")
