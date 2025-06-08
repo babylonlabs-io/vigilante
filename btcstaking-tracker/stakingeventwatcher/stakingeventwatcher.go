@@ -171,7 +171,7 @@ func (sew *StakingEventWatcher) Start() error {
 		sew.wg.Add(5)
 		go sew.handleNewBlocks(blockEventNotifier)
 		go sew.handleUnbondedDelegations()
-		go sew.fetchDelegations()
+		go sew.fetchDelegations(uint64(latestHeight))
 		go sew.handlerVerifiedDelegations()
 		go sew.fetchCometBftBlockForever()
 
@@ -219,13 +219,13 @@ func (sew *StakingEventWatcher) handleNewBlocks(blockNotifier *notifier.BlockEpo
 }
 
 // checkBabylonDelegations iterates over all babylon delegations and adds them to unbondingTracker or pendingTracker
-func (sew *StakingEventWatcher) checkBabylonDelegations() error {
+func (sew *StakingEventWatcher) checkBabylonDelegations(height uint64) error {
 	status := btcstakingtypes.BTCDelegationStatus_ANY
 	defer sew.latency(fmt.Sprintf("checkBabylonDelegations: %s", status))()
 
 	var i = uint64(0)
 	for {
-		delegations, err := sew.babylonNodeAdapter.DelegationsByStatus(status, i, sew.cfg.NewDelegationsBatchSize)
+		delegations, err := sew.babylonNodeAdapter.DelegationsByStatus(status, height, i, sew.cfg.NewDelegationsBatchSize)
 		if err != nil {
 			return fmt.Errorf("error fetching active delegations from babylon: %w", err)
 		}
@@ -252,12 +252,12 @@ func (sew *StakingEventWatcher) checkBabylonDelegations() error {
 }
 
 // fetchDelegations - fetches all babylon delegations, used for bootstrap
-func (sew *StakingEventWatcher) fetchDelegations() {
+func (sew *StakingEventWatcher) fetchDelegations(height uint64) {
 	defer sew.wg.Done()
 
 	sew.delegationRetrievalInProgress.Store(true)
 
-	if err := sew.checkBabylonDelegations(); err != nil {
+	if err := sew.checkBabylonDelegations(height); err != nil {
 		sew.logger.Errorf("error checking babylon delegations: %v", err)
 	}
 

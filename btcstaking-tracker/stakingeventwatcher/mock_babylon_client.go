@@ -98,18 +98,18 @@ func (mr *MockBabylonNodeAdapterMockRecorder) CometBFTTipHeight(ctx interface{})
 }
 
 // DelegationsByStatus mocks base method.
-func (m *MockBabylonNodeAdapter) DelegationsByStatus(status types0.BTCDelegationStatus, offset, limit uint64) ([]Delegation, error) {
+func (m *MockBabylonNodeAdapter) DelegationsByStatus(status types0.BTCDelegationStatus, height, offset, limit uint64) ([]Delegation, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DelegationsByStatus", status, offset, limit)
+	ret := m.ctrl.Call(m, "DelegationsByStatus", status, height, offset, limit)
 	ret0, _ := ret[0].([]Delegation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // DelegationsByStatus indicates an expected call of DelegationsByStatus.
-func (mr *MockBabylonNodeAdapterMockRecorder) DelegationsByStatus(status, offset, limit interface{}) *gomock.Call {
+func (mr *MockBabylonNodeAdapterMockRecorder) DelegationsByStatus(status, height, offset, limit interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DelegationsByStatus", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).DelegationsByStatus), status, offset, limit)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DelegationsByStatus", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).DelegationsByStatus), status, height, offset, limit)
 }
 
 // IsDelegationActive mocks base method.

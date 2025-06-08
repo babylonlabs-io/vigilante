@@ -68,7 +68,7 @@ func TestHandlingDelegations(t *testing.T) {
 	}
 
 	mockBabylonNodeAdapter.EXPECT().
-		DelegationsByStatus(gomock.Any(), gomock.Any(), gomock.Any()).
+		DelegationsByStatus(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(delegations, nil).AnyTimes()
 
 	mockBabylonNodeAdapter.EXPECT().
@@ -94,7 +94,7 @@ func TestHandlingDelegations(t *testing.T) {
 
 	sew.wg.Add(3)
 	go func() {
-		go sew.fetchDelegations()
+		go sew.fetchDelegations(1)
 		go sew.handlerVerifiedDelegations()
 		go sew.handleUnbondedDelegations()
 	}()

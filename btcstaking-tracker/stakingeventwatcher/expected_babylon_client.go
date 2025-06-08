@@ -41,7 +41,7 @@ type BabylonParams struct {
 }
 
 type BabylonNodeAdapter interface {
-	DelegationsByStatus(status btcstakingtypes.BTCDelegationStatus, offset uint64, limit uint64) ([]Delegation, error)
+	DelegationsByStatus(status btcstakingtypes.BTCDelegationStatus, height, offset, limit uint64) ([]Delegation, error)
 	IsDelegationActive(stakingTxHash chainhash.Hash) (bool, error)
 	IsDelegationVerified(stakingTxHash chainhash.Hash) (bool, error)
 	ReportUnbonding(ctx context.Context, stakingTxHash chainhash.Hash, stakeSpendingTx *wire.MsgTx,
@@ -71,9 +71,10 @@ func NewBabylonClientAdapter(babylonClient *bbnclient.Client, cfg *config.BTCSta
 
 // DelegationsByStatus - returns btc delegations by Status
 func (bca *BabylonClientAdapter) DelegationsByStatus(
-	status btcstakingtypes.BTCDelegationStatus, offset uint64, limit uint64) ([]Delegation, error) {
-	resp, err := bca.babylonClient.BTCDelegations(
+	status btcstakingtypes.BTCDelegationStatus, height, offset, limit uint64) ([]Delegation, error) {
+	resp, md, err := bca.babylonClient.BTCDelegationsAtHeight(
 		status,
+		height,
 		&query.PageRequest{
 			Key:    nil,
 			Offset: offset,
@@ -83,6 +84,8 @@ func (bca *BabylonClientAdapter) DelegationsByStatus(
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve delegations from babylon: %w", err)
 	}
+
+	_ = md
 
 	delegations := make([]Delegation, len(resp.BtcDelegations))
 
