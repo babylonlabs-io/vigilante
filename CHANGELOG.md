@@ -44,6 +44,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 * [#364](https://github.com/babylonlabs-io/vigilante/pull/364) chore: enforce monotonic block height in unbonding watcher
 * [#362](https://github.com/babylonlabs-io/vigilante/pull/362) chore: manage overlap block range
 * [#369](https://github.com/babylonlabs-io/vigilante/pull/369) chore: do not reprocess block heights - but for real now
+* [#370](https://github.com/babylonlabs-io/vigilante/pull/370) chore: staking event watcher add retry
 
 ### Bug Fixes
 * [#359](https://github.com/babylonlabs-io/vigilante/pull/359) fix: correctly increment page for stk hash query
