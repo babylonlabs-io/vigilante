@@ -983,10 +983,26 @@ func (sew *StakingEventWatcher) fetchStakingTxsByEvent(ctx context.Context, star
 	criteria := fmt.Sprintf(`tx.height>=%d AND tx.height<=%d AND %s.new_state EXISTS`, startHeight, endHeight, event)
 
 	for {
-		stkTxs, err := sew.babylonNodeAdapter.StakingTxHashesByEvent(ctx, event, criteria, &page, &batchSize)
+		var stkTxs []string
+		err := retry.Do(func() error {
+			var err error
+			stkTxs, err = sew.babylonNodeAdapter.StakingTxHashesByEvent(ctx, event, criteria, &page, &batchSize)
 
+			if err != nil {
+				return fmt.Errorf("error fetching staking tx hashes by event from babylon: %w", err)
+			}
+
+			return nil
+		},
+			retry.Context(ctx),
+			retry.Attempts(5),
+			fixedDelyTypeWithJitter,
+			retry.Delay(5*time.Second),
+			retry.MaxJitter(5*time.Second),
+			retry.LastErrorOnly(true),
+		)
 		if err != nil {
-			return nil, fmt.Errorf("error fetching active delegations from babylon: %w", err)
+			return nil, err
 		}
 
 		stakingTxHashes = append(stakingTxHashes, stkTxs...)
