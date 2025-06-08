@@ -187,8 +187,6 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 	require.Eventually(t, func() bool {
 		resp, err := babylonClient.CurrentEpoch()
 		if err != nil {
-			log.Infof(": %v", err)
-
 			return false
 		}
 		log.Infof("Babylon is ready: %v", resp)

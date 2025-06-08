@@ -9,7 +9,7 @@ require (
 	cosmossdk.io/log v1.5.0
 	cosmossdk.io/math v1.5.0
 	github.com/avast/retry-go/v4 v4.6.0
-	github.com/babylonlabs-io/babylon/v2 v2.0.0-rc.3
+	github.com/babylonlabs-io/babylon/v2 v2.0.0-rc.3 // todo(lazar955): bump to v2.0.0 once released
 	github.com/boljen/go-bitmap v0.0.0-20151001105940-23cd2fb0ce7d
 	github.com/btcsuite/btcd v0.24.3-0.20250318170759-4f4ea81776d6
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4
