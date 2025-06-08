@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/babylonlabs-io/babylon/client/babylonclient"
+	"github.com/babylonlabs-io/babylon/v2/client/babylonclient"
 	"github.com/babylonlabs-io/vigilante/e2etest/container"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/ory/dockertest/v3"
@@ -17,9 +17,9 @@ import (
 	"testing"
 	"time"
 
-	bbnclient "github.com/babylonlabs-io/babylon/client/client"
-	bbn "github.com/babylonlabs-io/babylon/types"
-	btclctypes "github.com/babylonlabs-io/babylon/x/btclightclient/types"
+	bbnclient "github.com/babylonlabs-io/babylon/v2/client/client"
+	bbn "github.com/babylonlabs-io/babylon/v2/types"
+	btclctypes "github.com/babylonlabs-io/babylon/v2/x/btclightclient/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/btcsuite/btcd/btcec/v2"
@@ -102,7 +102,7 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 		}
 		return err == nil
 	}, 25*time.Second, 500*time.Millisecond)
-	
+
 	passphrase := "pass"
 	_ = btcHandler.CreateWallet("default", passphrase)
 
@@ -187,6 +187,8 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 	require.Eventually(t, func() bool {
 		resp, err := babylonClient.CurrentEpoch()
 		if err != nil {
+			log.Infof(": %v", err)
+
 			return false
 		}
 		log.Infof("Babylon is ready: %v", resp)

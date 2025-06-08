@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	bbncfg "github.com/babylonlabs-io/babylon/client/config"
+	bbncfg "github.com/babylonlabs-io/babylon/v2/client/config"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"

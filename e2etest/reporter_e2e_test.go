@@ -6,7 +6,7 @@ package e2etest
 import (
 	"context"
 	"encoding/hex"
-	bbnclient "github.com/babylonlabs-io/babylon/client/client"
+	bbnclient "github.com/babylonlabs-io/babylon/v2/client/client"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/cosmos/cosmos-sdk/testutil/testdata"
 	sdk "github.com/cosmos/cosmos-sdk/types"

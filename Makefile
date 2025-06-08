@@ -5,7 +5,7 @@ MOCKGEN_VERSION=v1.6.0
 MOCKGEN_CMD=go run ${MOCKGEN_REPO}@${MOCKGEN_VERSION}
 BUILDDIR ?= $(CURDIR)/build
 
-BABYLON_PKG := github.com/babylonlabs-io/babylon/cmd/babylond
+BABYLON_PKG := github.com/babylonlabs-io/babylon/v2/cmd/babylond
 
 GO_BIN := ${GOPATH}/bin
 VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
