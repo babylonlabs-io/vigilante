@@ -193,7 +193,7 @@ func (m *Manager) RunBabylondResource(
 		"sh", "-c", fmt.Sprintf(
 			"babylond testnet --v=1 --output-dir=/home --starting-ip-address=192.168.10.2 "+
 				"--keyring-backend=test --chain-id=chain-test --btc-finalization-timeout=4 "+
-				"--btc-confirmation-depth=2 --additional-sender-account --btc-network=regtest "+
+				"--btc-confirmation-depth=3 --additional-sender-account --btc-network=regtest "+
 				"--min-staking-time-blocks=200 --min-staking-amount-sat=10000 "+
 				"--epoch-interval=%d --slashing-pk-script=%s --btc-base-header=%s "+
 				"--covenant-quorum=1 --covenant-pks=%s && chmod -R 777 /home && "+

@@ -181,7 +181,7 @@ func TestRelayHeadersAndHandleRollbacks(t *testing.T) {
 	// tips should eventually match
 	require.Eventually(t, func() bool {
 		return tm.BabylonBTCChainMatchesBtc(t)
-	}, longEventuallyWaitTimeOut, eventuallyPollTime)
+	}, 2*longEventuallyWaitTimeOut, eventuallyPollTime)
 }
 
 func TestHandleReorgAfterRestart(t *testing.T) {
