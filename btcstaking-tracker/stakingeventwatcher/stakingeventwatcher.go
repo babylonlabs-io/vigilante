@@ -907,7 +907,7 @@ func (sew *StakingEventWatcher) fetchCometBftBlockOnce() error {
 		return fmt.Errorf("error fetching delegations by events: %w", err)
 	}
 
-	sew.currentCometTipHeight.Store(latestHeight)
+	sew.currentCometTipHeight.Store(latestHeight + 1)
 
 	return nil
 }
@@ -979,9 +979,10 @@ func (sew *StakingEventWatcher) fetchStakingTxsByEvent(ctx context.Context, star
 	if sew.cfg.NewDelegationsBatchSize <= uint64(math.MaxInt) {
 		batchSize = int(sew.cfg.NewDelegationsBatchSize)
 	}
-	startHeight = max(startHeight-1, 0)
+
+	criteria := fmt.Sprintf(`tx.height>=%d AND tx.height<=%d AND %s.new_state EXISTS`, startHeight, endHeight, event)
+
 	for {
-		criteria := fmt.Sprintf(`tx.height>%d AND tx.height<=%d AND %s.new_state EXISTS`, startHeight, endHeight, event)
 		stkTxs, err := sew.babylonNodeAdapter.StakingTxHashesByEvent(ctx, event, criteria, &page, &batchSize)
 
 		if err != nil {
