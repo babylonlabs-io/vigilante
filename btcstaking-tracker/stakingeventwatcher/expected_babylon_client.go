@@ -2,16 +2,18 @@ package stakingeventwatcher
 
 import (
 	"context"
-	sdkerrors "cosmossdk.io/errors"
 	"fmt"
+	"strings"
+	"time"
+
+	sdkerrors "cosmossdk.io/errors"
 	"github.com/avast/retry-go/v4"
 	btclctypes "github.com/babylonlabs-io/babylon/x/btclightclient/types"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/cosmos/cosmos-sdk/client"
-	"strings"
-	"time"
 
 	"errors"
+
 	bbnclient "github.com/babylonlabs-io/babylon/client/client"
 	bbn "github.com/babylonlabs-io/babylon/types"
 	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
