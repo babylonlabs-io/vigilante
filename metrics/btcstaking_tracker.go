@@ -27,6 +27,7 @@ type UnbondingWatcherMetrics struct {
 	ReportedUnbondingTransactionsCounter        prometheus.Counter
 	FailedReportedUnbondingTransactions         prometheus.Counter
 	NumberOfTrackedActiveDelegations            prometheus.Gauge
+	DetectedUnbondedStakeExpansionCounter       prometheus.Counter
 	DetectedUnbondingTransactionsCounter        prometheus.Counter
 	DetectedNonUnbondingTransactionsCounter     prometheus.Counter
 	FailedReportedActivateDelegations           prometheus.Counter
@@ -62,6 +63,11 @@ func newUnbondingWatcherMetrics(registry *prometheus.Registry) *UnbondingWatcher
 			Namespace: "vigilante",
 			Name:      "unbonding_watcher_tracked_active_delegations",
 			Help:      "The number of active delegations tracked by unbonding watcher",
+		}),
+		DetectedUnbondedStakeExpansionCounter: registerer.NewGauge(prometheus.GaugeOpts{
+			Namespace: "vigilante",
+			Name:      "unbonding_watcher_detected_unbonded_stake_expansion",
+			Help:      "The number of spend staking transaction that are expanding their stake",
 		}),
 		DetectedUnbondingTransactionsCounter: registerer.NewCounter(prometheus.CounterOpts{
 			Namespace: "vigilante",

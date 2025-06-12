@@ -64,15 +64,16 @@ func (ba *BabylonAdapter) BTCStakingParams(ctx context.Context, version uint32) 
 }
 
 func (ba *BabylonAdapter) BTCDelegation(ctx context.Context, stakingTxHashHex string) (*bstypes.QueryBTCDelegationResponse, error) {
-	var resp *bstypes.QueryBTCDelegationResponse
-	err := retry.Do(
+	var (
+		resp *bstypes.QueryBTCDelegationResponse
+		err  error
+	)
+	err = retry.Do(
 		func() error {
-			resp2, err := ba.bbnClient.BTCDelegation(stakingTxHashHex)
+			resp, err = ba.bbnClient.BTCDelegation(stakingTxHashHex)
 			if err != nil {
 				return err
 			}
-			resp = resp2
-
 			return nil
 		},
 		retry.Context(ctx),

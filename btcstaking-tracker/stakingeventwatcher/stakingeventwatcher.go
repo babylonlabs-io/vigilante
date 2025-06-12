@@ -5,15 +5,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/babylonlabs-io/babylon/client/babylonclient"
-	bbn "github.com/babylonlabs-io/babylon/types"
-	"golang.org/x/sync/errgroup"
-	"golang.org/x/sync/semaphore"
 	"math"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/babylonlabs-io/babylon/client/babylonclient"
+	bbn "github.com/babylonlabs-io/babylon/types"
+	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 
 	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
 	btcstakingtypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
@@ -98,6 +99,7 @@ type StakingEventWatcher struct {
 	currentCometTipHeight         atomic.Int64
 	delegationRetrievalInProgress atomic.Bool
 	activationLimiter             *semaphore.Weighted
+	babylonConfirmationTimeBlocks uint32
 }
 
 func NewStakingEventWatcher(
@@ -164,6 +166,13 @@ func (sew *StakingEventWatcher) Start() error {
 
 			return
 		}
+
+		params, err := sew.babylonNodeAdapter.Params()
+		if err != nil {
+			startErr = fmt.Errorf("error getting tx params: %s", err.Error())
+			return
+		}
+		sew.babylonConfirmationTimeBlocks = params.ConfirmationTimeBlocks
 
 		sew.currentCometTipHeight.Store(latestHeight)
 		sew.delegationRetrievalInProgress.Store(true) // avoid potential race condition with fetchDelegations
@@ -395,11 +404,40 @@ func (sew *StakingEventWatcher) reportUnbondingToBabylon(
 }
 
 func (sew *StakingEventWatcher) handleSpend(ctx context.Context, spendingTx *wire.MsgTx, td *TrackedDelegation) {
-	_, err := tryParseStakerSignatureFromSpentTx(spendingTx, td)
 	delegationID := td.StakingTx.TxHash()
 	spendingTxHash := spendingTx.TxHash()
 
-	if err != nil {
+	// if the spending tx is a stake expansion it should wait to be k-deep
+	stakeExpansion, err := sew.babylonNodeAdapter.BTCDelegation(spendingTxHash.String())
+	if err != nil && stakeExpansion != nil {
+		sew.metrics.DetectedUnbondedStakeExpansionCounter.Inc()
+		sew.logger.Debugf("found stake expansion tx %s spending the previous staking tx %s", spendingTxHash, delegationID)
+
+		txResult, err := sew.btcClient.GetTransaction(&spendingTxHash)
+		if err != nil {
+			return // check what to do with err with lazar
+		}
+
+		blkHashInclusion, err := chainhash.NewHashFromStr(txResult.BlockHash)
+		if err != nil {
+			return
+		}
+		// wait stk expansion to be k-deep
+		if err := sew.waitForRequiredDepth(ctx, blkHashInclusion, sew.babylonConfirmationTimeBlocks); err != nil {
+			sew.logger.Warnf("exceeded waiting for required depth for stake expansion tx: %s, will try later. Err: %v", spendingTxHash.String(), err)
+			return
+		}
+
+		proof := sew.waitForStakeSpendInclusionProof(ctx, spendingTx)
+		if proof == nil {
+			sew.logger.Errorf("stake expansion tx %s for staking tx %s proof not built", spendingTxHash, delegationID)
+			return
+		}
+		sew.reportUnbondingToBabylon(ctx, delegationID, spendingTx, proof)
+	}
+
+	_, errParseStkSig := tryParseStakerSignatureFromSpentTx(spendingTx, td)
+	if errParseStkSig != nil {
 		sew.metrics.DetectedNonUnbondingTransactionsCounter.Inc()
 		// Error means that this is not unbonding tx. At this point, it means that it is
 		// either withdrawal transaction or slashing transaction spending staking staking output.
@@ -612,13 +650,6 @@ func (sew *StakingEventWatcher) handlerVerifiedDelegations() {
 // checkBtcForStakingTx gets a snapshot of current Delegations in cache
 // checks if staking tx is in BTC, generates a proof and invokes sending of MsgAddBTCDelegationInclusionProof
 func (sew *StakingEventWatcher) checkBtcForStakingTx() {
-	params, err := sew.babylonNodeAdapter.Params()
-	if err != nil {
-		sew.logger.Errorf("error getting tx params: %s", err.Error())
-
-		return
-	}
-
 	for del := range sew.pendingTracker.DelegationsIter(1000) {
 		if del.InProgress {
 			continue
@@ -670,7 +701,7 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 
 		go func() {
 			defer sew.activationLimiter.Release(1)
-			sew.activateBtcDelegation(txHash, proof, details.Block.BlockHash(), params.ConfirmationTimeBlocks)
+			sew.activateBtcDelegation(txHash, proof, details.Block.BlockHash(), sew.babylonConfirmationTimeBlocks)
 		}()
 	}
 }
