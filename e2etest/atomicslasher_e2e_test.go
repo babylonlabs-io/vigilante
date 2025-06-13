@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	bstypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
+	bstypes "github.com/babylonlabs-io/babylon/v2/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	bst "github.com/babylonlabs-io/vigilante/btcstaking-tracker"
 	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/btcslasher"

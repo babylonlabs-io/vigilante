@@ -3,10 +3,10 @@ package atomicslasher
 import (
 	"errors"
 	"fmt"
-	"github.com/babylonlabs-io/babylon/client/babylonclient"
+	"github.com/babylonlabs-io/babylon/v2/client/babylonclient"
 	"time"
 
-	bstypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
+	bstypes "github.com/babylonlabs-io/babylon/v2/x/btcstaking/types"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"go.uber.org/zap"
 )

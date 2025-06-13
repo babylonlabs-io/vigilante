@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	bbnclient "github.com/babylonlabs-io/babylon/client/client"
+	bbnclient "github.com/babylonlabs-io/babylon/v2/client/client"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/atomicslasher"
 	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/btcslasher"

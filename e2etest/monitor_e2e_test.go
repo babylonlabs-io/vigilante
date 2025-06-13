@@ -5,7 +5,7 @@ package e2etest
 
 import (
 	"fmt"
-	bbnclient "github.com/babylonlabs-io/babylon/client/client"
+	bbnclient "github.com/babylonlabs-io/babylon/v2/client/client"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/monitor"
