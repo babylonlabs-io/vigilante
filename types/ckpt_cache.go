@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/babylonlabs-io/babylon/btctxformatter"
+	"github.com/babylonlabs-io/babylon/v2/btctxformatter"
 )
 
 type CheckpointCache struct {

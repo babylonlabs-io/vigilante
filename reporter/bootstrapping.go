@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	bbntypes "github.com/babylonlabs-io/babylon/types"
+	bbntypes "github.com/babylonlabs-io/babylon/v2/types"
 	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 )

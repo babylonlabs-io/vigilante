@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	bbnclient "github.com/babylonlabs-io/babylon/client/client"
+	bbnclient "github.com/babylonlabs-io/babylon/v2/client/client"
 	"github.com/spf13/cobra"
 
 	"github.com/babylonlabs-io/vigilante/btcclient"

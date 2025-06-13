@@ -11,7 +11,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/babylonlabs-io/babylon/btctxformatter"
+	"github.com/babylonlabs-io/babylon/v2/btctxformatter"
 
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"

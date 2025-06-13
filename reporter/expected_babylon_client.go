@@ -3,12 +3,12 @@ package reporter
 import (
 	"context"
 	"cosmossdk.io/errors"
-	"github.com/babylonlabs-io/babylon/client/babylonclient"
+	"github.com/babylonlabs-io/babylon/v2/client/babylonclient"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/babylonlabs-io/babylon/client/config"
-	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
-	btclctypes "github.com/babylonlabs-io/babylon/x/btclightclient/types"
+	"github.com/babylonlabs-io/babylon/v2/client/config"
+	btcctypes "github.com/babylonlabs-io/babylon/v2/x/btccheckpoint/types"
+	btclctypes "github.com/babylonlabs-io/babylon/v2/x/btclightclient/types"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 )
 

@@ -2,8 +2,8 @@ package stakingeventwatcher
 
 import (
 	"context"
-	"github.com/babylonlabs-io/babylon/testutil/datagen"
-	btcstakingtypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
+	"github.com/babylonlabs-io/babylon/v2/testutil/datagen"
+	btcstakingtypes "github.com/babylonlabs-io/babylon/v2/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"

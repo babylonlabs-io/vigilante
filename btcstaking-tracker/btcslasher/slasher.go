@@ -10,8 +10,8 @@ import (
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"golang.org/x/sync/semaphore"
 
-	bbn "github.com/babylonlabs-io/babylon/types"
-	bstypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
+	bbn "github.com/babylonlabs-io/babylon/v2/types"
+	bstypes "github.com/babylonlabs-io/babylon/v2/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/btcsuite/btcd/btcec/v2"

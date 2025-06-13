@@ -1,14 +1,14 @@
 package reporter_test
 
 import (
-	"github.com/babylonlabs-io/babylon/client/babylonclient"
+	"github.com/babylonlabs-io/babylon/v2/client/babylonclient"
 	"github.com/lightningnetwork/lnd/lntest/mock"
 	"math/rand"
 	"testing"
 
-	"github.com/babylonlabs-io/babylon/testutil/datagen"
-	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
-	btclctypes "github.com/babylonlabs-io/babylon/x/btclightclient/types"
+	"github.com/babylonlabs-io/babylon/v2/testutil/datagen"
+	btcctypes "github.com/babylonlabs-io/babylon/v2/x/btccheckpoint/types"
+	btclctypes "github.com/babylonlabs-io/babylon/v2/x/btclightclient/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 

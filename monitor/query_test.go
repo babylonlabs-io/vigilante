@@ -4,8 +4,8 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/babylonlabs-io/babylon/testutil/datagen"
-	ckpttypes "github.com/babylonlabs-io/babylon/x/checkpointing/types"
+	"github.com/babylonlabs-io/babylon/v2/testutil/datagen"
+	ckpttypes "github.com/babylonlabs-io/babylon/v2/x/checkpointing/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
