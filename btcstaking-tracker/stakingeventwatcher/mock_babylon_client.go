@@ -112,6 +112,21 @@ func (mr *MockBabylonNodeAdapterMockRecorder) DelegationsByStatus(status, offset
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DelegationsByStatus", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).DelegationsByStatus), status, offset, limit)
 }
 
+// DelegationsModifedInBlock mocks base method.
+func (m *MockBabylonNodeAdapter) DelegationsModifedInBlock(ctx context.Context, height int64, eventTypes []string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DelegationsModifedInBlock", ctx, height, eventTypes)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DelegationsModifedInBlock indicates an expected call of DelegationsModifedInBlock.
+func (mr *MockBabylonNodeAdapterMockRecorder) DelegationsModifedInBlock(ctx, height, eventTypes interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DelegationsModifedInBlock", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).DelegationsModifedInBlock), ctx, height, eventTypes)
+}
+
 // IsDelegationActive mocks base method.
 func (m *MockBabylonNodeAdapter) IsDelegationActive(stakingTxHash chainhash.Hash) (bool, error) {
 	m.ctrl.T.Helper()
@@ -184,19 +199,4 @@ func (m *MockBabylonNodeAdapter) ReportUnbonding(ctx context.Context, stakingTxH
 func (mr *MockBabylonNodeAdapterMockRecorder) ReportUnbonding(ctx, stakingTxHash, stakeSpendingTx, inclusionProof, fundingTxs interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportUnbonding", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).ReportUnbonding), ctx, stakingTxHash, stakeSpendingTx, inclusionProof, fundingTxs)
-}
-
-// StakingTxHashesByEvent mocks base method.
-func (m *MockBabylonNodeAdapter) StakingTxHashesByEvent(ctx context.Context, eventType, criteria string, page, count *int) ([]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StakingTxHashesByEvent", ctx, eventType, criteria, page, count)
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// StakingTxHashesByEvent indicates an expected call of StakingTxHashesByEvent.
-func (mr *MockBabylonNodeAdapterMockRecorder) StakingTxHashesByEvent(ctx, eventType, criteria, page, count interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StakingTxHashesByEvent", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).StakingTxHashesByEvent), ctx, eventType, criteria, page, count)
 }

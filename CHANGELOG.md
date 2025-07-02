@@ -41,6 +41,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 * [#376](https://github.com/babylonlabs-io/vigilante/pull/376) chore: bump babylon node dep to v2 rc
 * [#381](https://github.com/babylonlabs-io/vigilante/pull/381) chore: bump babylon node dep to v2
+* [#386](https://github.com/babylonlabs-io/vigilante/pull/386) change methods of retrieving
+events
 
 ## v0.23.7
 
@@ -310,7 +312,7 @@ fix some dockerfile issue
 
 ### Bug Fixes
 
-* [#84](https://github.com/babylonlabs-io/vigilante/pull/84) fix spawning more go routines than needed when activating 
+* [#84](https://github.com/babylonlabs-io/vigilante/pull/84) fix spawning more go routines than needed when activating
 delegations, add more logging
 
 ### Improvements
