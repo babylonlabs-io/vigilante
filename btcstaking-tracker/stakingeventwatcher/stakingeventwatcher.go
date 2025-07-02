@@ -902,7 +902,7 @@ func (sew *StakingEventWatcher) fetchCometBftBlockOnce() error {
 		return nil
 	}
 
-	if err := sew.fetchDelegationsByEvents(sew.currentCometTipHeight.Load(), latestHeight); err != nil {
+	if err := sew.fetchDelegationsByEvents(currentHeight, latestHeight); err != nil {
 		return fmt.Errorf("error fetching delegations by events: %w", err)
 	}
 
@@ -926,7 +926,7 @@ func (sew *StakingEventWatcher) fetchDelegationsByEvents(startHeight, endHeight 
 	events := []string{covQuorumEvent, inclusionProofReceived, btcDelegationStateUpdate}
 
 	for i := startHeight; i <= endHeight; i++ {
-		hashes, err := sew.fetchModifedDelegationsByEvents(ctx, i, events)
+		hashes, err := sew.fetchDelegationsModifiedByEvents(ctx, i, events)
 		if err != nil {
 			return fmt.Errorf("error fetching modifed delegations by events: %w", err)
 		}
@@ -956,12 +956,12 @@ func (sew *StakingEventWatcher) fetchDelegationsByEvents(startHeight, endHeight 
 	return nil
 }
 
-func (sew *StakingEventWatcher) fetchModifedDelegationsByEvents(
+func (sew *StakingEventWatcher) fetchDelegationsModifiedByEvents(
 	ctx context.Context,
 	height int64,
 	eventTypes []string,
 ) ([]string, error) {
-	sew.latency("fetchModifedDelegationsByEvents")()
+	sew.latency("fetchDelegationsModifiedByEvents")()
 	var stakingTxHashes []string
 
 	err := retry.Do(func() error {
