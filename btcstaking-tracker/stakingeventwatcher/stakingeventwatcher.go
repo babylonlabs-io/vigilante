@@ -928,7 +928,7 @@ func (sew *StakingEventWatcher) fetchDelegationsByEvents(startHeight, endHeight 
 	for i := startHeight; i <= endHeight; i++ {
 		hashes, err := sew.fetchDelegationsModifiedByEvents(ctx, i, events)
 		if err != nil {
-			return fmt.Errorf("error fetching modifed delegations by events: %w", err)
+			return fmt.Errorf("error fetching modified delegations by events: %w", err)
 		}
 
 		stakingTxHashes = append(stakingTxHashes, hashes...)
