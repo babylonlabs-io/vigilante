@@ -5,15 +5,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/babylonlabs-io/babylon/v2/client/babylonclient"
-	bbn "github.com/babylonlabs-io/babylon/v2/types"
-	"golang.org/x/sync/errgroup"
-	"golang.org/x/sync/semaphore"
-	"math"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/babylonlabs-io/babylon/v2/client/babylonclient"
+	bbn "github.com/babylonlabs-io/babylon/v2/types"
+	"golang.org/x/sync/semaphore"
 
 	btcctypes "github.com/babylonlabs-io/babylon/v2/x/btccheckpoint/types"
 	btcstakingtypes "github.com/babylonlabs-io/babylon/v2/x/btcstaking/types"
@@ -919,32 +918,20 @@ func (sew *StakingEventWatcher) fetchDelegationsByEvents(startHeight, endHeight 
 		btcDelegationStateUpdate = `babylon.btcstaking.v1.EventBTCDelegationStateUpdate`
 	)
 	var (
-		mu              sync.Mutex
 		stakingTxHashes []string
 	)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	g, ctx := errgroup.WithContext(ctx)
 
 	events := []string{covQuorumEvent, inclusionProofReceived, btcDelegationStateUpdate}
 
-	for _, event := range events {
-		g.Go(func() error {
-			res, err := sew.fetchStakingTxsByEvent(ctx, startHeight, endHeight, event)
-			if err != nil {
-				return fmt.Errorf("error fetching staking txs by event %s: %w", event, err)
-			}
+	for i := startHeight; i <= endHeight; i++ {
+		hashes, err := sew.fetchModifedDelegationsByEvents(ctx, i, events)
+		if err != nil {
+			return fmt.Errorf("error fetching modifed delegations by events: %w", err)
+		}
 
-			mu.Lock()
-			stakingTxHashes = append(stakingTxHashes, res...)
-			mu.Unlock()
-
-			return nil
-		})
-	}
-
-	if err := g.Wait(); err != nil {
-		return err
+		stakingTxHashes = append(stakingTxHashes, hashes...)
 	}
 
 	stakingTxHashes = deduplicateStrings(stakingTxHashes)
@@ -969,55 +956,37 @@ func (sew *StakingEventWatcher) fetchDelegationsByEvents(startHeight, endHeight 
 	return nil
 }
 
-func (sew *StakingEventWatcher) fetchStakingTxsByEvent(ctx context.Context, startHeight, endHeight int64, event string) ([]string, error) {
-	sew.latency("fetchStakingTxsByEvent")()
+func (sew *StakingEventWatcher) fetchModifedDelegationsByEvents(
+	ctx context.Context,
+	height int64,
+	eventTypes []string,
+) ([]string, error) {
+	sew.latency("fetchModifedDelegationsByEvents")()
 	var stakingTxHashes []string
 
-	page := 1
-	batchSize := 500
-	// #nosec G115 -- performed check
-	if sew.cfg.NewDelegationsBatchSize <= uint64(math.MaxInt) {
-		batchSize = int(sew.cfg.NewDelegationsBatchSize)
-	}
+	err := retry.Do(func() error {
+		stkTxs, err := sew.babylonNodeAdapter.DelegationsModifedInBlock(ctx, height, eventTypes)
 
-	criteria := fmt.Sprintf(`tx.height>=%d AND tx.height<=%d AND %s.new_state EXISTS`, startHeight, endHeight, event)
-
-	for {
-		var stkTxs []string
-		err := retry.Do(func() error {
-			var err error
-			stkTxs, err = sew.babylonNodeAdapter.StakingTxHashesByEvent(ctx, event, criteria, &page, &batchSize)
-
-			if err != nil {
-				return fmt.Errorf("error fetching staking tx hashes by event from babylon: %w", err)
-			}
-
-			return nil
-		},
-			retry.Context(ctx),
-			retry.Attempts(5),
-			fixedDelyTypeWithJitter,
-			retry.Delay(5*time.Second),
-			retry.MaxJitter(5*time.Second),
-			retry.LastErrorOnly(true),
-		)
 		if err != nil {
-			return nil, err
+			return fmt.Errorf("error fetching staking tx hashes by event from babylon: %w", err)
 		}
 
 		stakingTxHashes = append(stakingTxHashes, stkTxs...)
 
-		if len(stkTxs) < batchSize {
-			// we received fewer results than we asked for; it means went through all of them
-			if len(stakingTxHashes) > 0 {
-				sew.logger.Debugf("fetched %d staking txs by event %s", len(stakingTxHashes), event)
-			}
-
-			return stakingTxHashes, nil
-		}
-
-		page++
+		return nil
+	},
+		retry.Context(ctx),
+		retry.Attempts(5),
+		fixedDelyTypeWithJitter,
+		retry.Delay(5*time.Second),
+		retry.MaxJitter(5*time.Second),
+		retry.LastErrorOnly(true),
+	)
+	if err != nil {
+		return nil, err
 	}
+
+	return stakingTxHashes, nil
 }
 
 func (sew *StakingEventWatcher) addToUnbondingFunc(delegation Delegation) {
