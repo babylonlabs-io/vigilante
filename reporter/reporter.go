@@ -11,8 +11,8 @@ import (
 	notifier "github.com/lightningnetwork/lnd/chainntnfs"
 
 	"github.com/avast/retry-go/v4"
-	"github.com/babylonlabs-io/babylon/btctxformatter"
-	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
+	"github.com/babylonlabs-io/babylon/v2/btctxformatter"
+	btcctypes "github.com/babylonlabs-io/babylon/v2/x/btccheckpoint/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"

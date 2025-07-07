@@ -4,7 +4,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/babylonlabs-io/babylon/testutil/datagen"
+	"github.com/babylonlabs-io/babylon/v2/testutil/datagen"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/monitor/btcscanner"
 	vdatagen "github.com/babylonlabs-io/vigilante/testutil/datagen"

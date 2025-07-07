@@ -1,7 +1,7 @@
 package store_test
 
 import (
-	bbndatagen "github.com/babylonlabs-io/babylon/testutil/datagen"
+	bbndatagen "github.com/babylonlabs-io/babylon/v2/testutil/datagen"
 	"github.com/babylonlabs-io/vigilante/monitor/store"
 	"github.com/babylonlabs-io/vigilante/testutil"
 	"github.com/stretchr/testify/require"

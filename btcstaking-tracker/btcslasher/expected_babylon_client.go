@@ -1,9 +1,9 @@
 package btcslasher
 
 import (
-	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
-	bstypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
-	ftypes "github.com/babylonlabs-io/babylon/x/finality/types"
+	btcctypes "github.com/babylonlabs-io/babylon/v2/x/btccheckpoint/types"
+	bstypes "github.com/babylonlabs-io/babylon/v2/x/btcstaking/types"
+	ftypes "github.com/babylonlabs-io/babylon/v2/x/finality/types"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
 )

@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/babylonlabs-io/babylon/testutil/datagen"
-	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
-	checkpointingtypes "github.com/babylonlabs-io/babylon/x/checkpointing/types"
+	"github.com/babylonlabs-io/babylon/v2/testutil/datagen"
+	btcctypes "github.com/babylonlabs-io/babylon/v2/x/btccheckpoint/types"
+	checkpointingtypes "github.com/babylonlabs-io/babylon/v2/x/checkpointing/types"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	sdk "github.com/cosmos/cosmos-sdk/types"

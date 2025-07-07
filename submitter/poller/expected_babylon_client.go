@@ -1,7 +1,7 @@
 package poller
 
 import (
-	checkpointingtypes "github.com/babylonlabs-io/babylon/x/checkpointing/types"
+	checkpointingtypes "github.com/babylonlabs-io/babylon/v2/x/checkpointing/types"
 	sdkquerytypes "github.com/cosmos/cosmos-sdk/types/query"
 )
 

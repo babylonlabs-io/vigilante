@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/babylonlabs-io/babylon/testutil/datagen"
+	"github.com/babylonlabs-io/babylon/v2/testutil/datagen"
 	vdatagen "github.com/babylonlabs-io/vigilante/testutil/datagen"
 	"github.com/babylonlabs-io/vigilante/types"
 )

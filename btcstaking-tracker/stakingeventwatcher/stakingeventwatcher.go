@@ -5,8 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/babylonlabs-io/babylon/client/babylonclient"
-	bbn "github.com/babylonlabs-io/babylon/types"
+	"github.com/babylonlabs-io/babylon/v2/client/babylonclient"
+	bbn "github.com/babylonlabs-io/babylon/v2/types"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 	"math"
@@ -15,8 +15,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
-	btcstakingtypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
+	btcctypes "github.com/babylonlabs-io/babylon/v2/x/btccheckpoint/types"
+	btcstakingtypes "github.com/babylonlabs-io/babylon/v2/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/types"
 
