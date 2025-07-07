@@ -229,6 +229,10 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedFpBTCSK *btcec.PrivateKey) 
 			}
 			defer sem.Release(1)
 
+			bs.logger.Debugf("'SlashFinalityProvider' -> start slashing BTC delegation %s under finality provider %s",
+				del.BtcPk.MarshalHex(),
+				fpBTCPK.MarshalHex())
+
 			safeExtractedFpBTCSK.UseKey(func(key *secp256k1.PrivateKey) {
 				bs.slashBTCDelegation(fpBTCPK, key, d)
 			})

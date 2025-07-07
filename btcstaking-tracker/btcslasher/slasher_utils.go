@@ -44,6 +44,10 @@ func (bs *BTCSlasher) slashBTCDelegation(
 	ctx, cancel := bs.quitContext()
 	defer cancel()
 
+	bs.logger.Debugf("'slashBTCDelegation' -> start slashing BTC delegation %s under finality provider %s",
+		del.BtcPk.MarshalHex(),
+		fpBTCPK.MarshalHex())
+
 	err := retry.Do(func() error {
 		innerCtx, innerCancel := context.WithCancel(ctx)
 		defer innerCancel()
@@ -121,6 +125,10 @@ func (bs *BTCSlasher) sendSlashingTx(
 	del *bstypes.BTCDelegationResponse,
 	isUnbondingSlashingTx bool,
 ) (*chainhash.Hash, error) {
+	bs.logger.Debugf("'sendSlashingTx' -> start slashing BTC delegation %s under finality provider %s",
+		del.BtcPk.MarshalHex(),
+		fpBTCPK.MarshalHex())
+
 	var (
 		err     error
 		slashTx *bstypes.BTCSlashingTx
