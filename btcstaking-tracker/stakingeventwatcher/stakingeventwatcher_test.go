@@ -2,6 +2,10 @@ package stakingeventwatcher
 
 import (
 	"context"
+	"math/rand"
+	"testing"
+	"time"
+
 	"github.com/babylonlabs-io/babylon/v2/testutil/datagen"
 	btcstakingtypes "github.com/babylonlabs-io/babylon/v2/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
@@ -14,9 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
-	"math/rand"
-	"testing"
-	"time"
 )
 
 func TestHandlingDelegations(t *testing.T) {
@@ -166,11 +167,11 @@ func TestHandlingDelegationsByEvents(t *testing.T) {
 	}
 
 	firstCall := mockBabylonNodeAdapter.EXPECT().
-		StakingTxHashesByEvent(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DelegationsModifedInBlock(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(stakingTxHashes, nil).Times(1)
 
 	mockBabylonNodeAdapter.EXPECT().
-		StakingTxHashesByEvent(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DelegationsModifedInBlock(gomock.Any(), gomock.Any(), gomock.Any()).
 		After(firstCall).
 		Return(nil, nil).AnyTimes()
 
