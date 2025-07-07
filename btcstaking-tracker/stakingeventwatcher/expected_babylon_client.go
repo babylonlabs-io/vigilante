@@ -323,7 +323,9 @@ func (bca *BabylonClientAdapter) DelegationsModifedInBlock(
 		}
 	}
 
-	// iterate over endblocker results
+	// iterate over `FinalizeBlockEvents`
+	// we need to check `FinalizeBlockEvents`, as events about stake expiration
+	// are included here
 	for _, finBlockEvent := range res.FinalizeBlockEvents {
 		if _, ok := events[finBlockEvent.Type]; !ok {
 			continue
