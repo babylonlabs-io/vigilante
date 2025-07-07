@@ -732,7 +732,7 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 
 		if err := sew.babylonNodeAdapter.ActivateDelegation(ctx, stakingTxHash, proof); err != nil {
 			if !strings.Contains(err.Error(), "already has inclusion proof") {
-				verified, err = sew.babylonNodeAdapter.IsDelegationVerified(stakingTxHash)
+				verified, err := sew.babylonNodeAdapter.IsDelegationVerified(stakingTxHash)
 				if err != nil {
 					return fmt.Errorf("error checking if delegation is active: %w", err)
 				}
