@@ -8,16 +8,16 @@ import (
 
 	sdkerrors "cosmossdk.io/errors"
 	"github.com/avast/retry-go/v4"
-	btclctypes "github.com/babylonlabs-io/babylon/v2/x/btclightclient/types"
+	btclctypes "github.com/babylonlabs-io/babylon/v3/x/btclightclient/types"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/cosmos/cosmos-sdk/client"
 
 	"errors"
 
-	bbnclient "github.com/babylonlabs-io/babylon/v2/client/client"
-	bbn "github.com/babylonlabs-io/babylon/v2/types"
-	btcctypes "github.com/babylonlabs-io/babylon/v2/x/btccheckpoint/types"
-	btcstakingtypes "github.com/babylonlabs-io/babylon/v2/x/btcstaking/types"
+	bbnclient "github.com/babylonlabs-io/babylon/v3/client/client"
+	bbn "github.com/babylonlabs-io/babylon/v3/types"
+	btcctypes "github.com/babylonlabs-io/babylon/v3/x/btccheckpoint/types"
+	btcstakingtypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/cosmos/cosmos-sdk/types/query"

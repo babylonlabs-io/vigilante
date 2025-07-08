@@ -4,14 +4,15 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"time"
 
-	bbncfg "github.com/babylonlabs-io/babylon/v2/client/config"
+	"gopkg.in/yaml.v3"
+
+	bbncfg "github.com/babylonlabs-io/babylon/v3/client/config"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"

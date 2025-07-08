@@ -8,8 +8,8 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/babylonlabs-io/babylon/v2/testutil/datagen"
-	btcctypes "github.com/babylonlabs-io/babylon/v2/x/btccheckpoint/types"
+	"github.com/babylonlabs-io/babylon/v3/testutil/datagen"
+	btcctypes "github.com/babylonlabs-io/babylon/v3/x/btccheckpoint/types"
 	vdatagen "github.com/babylonlabs-io/vigilante/testutil/datagen"
 	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/chaincfg"

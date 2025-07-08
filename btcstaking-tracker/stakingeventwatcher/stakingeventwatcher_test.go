@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/babylonlabs-io/babylon/v2/testutil/datagen"
-	btcstakingtypes "github.com/babylonlabs-io/babylon/v2/x/btcstaking/types"
+	"github.com/babylonlabs-io/babylon/v3/testutil/datagen"
+	btcstakingtypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"

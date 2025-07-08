@@ -5,24 +5,27 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"github.com/babylonlabs-io/babylon/v2/client/babylonclient"
 	"math/rand"
 	"testing"
 	"time"
 
+	appparams "github.com/babylonlabs-io/babylon/v3/app/params"
+	"github.com/babylonlabs-io/babylon/v3/app/signingcontext"
+	"github.com/babylonlabs-io/babylon/v3/client/babylonclient"
+
 	sdkmath "cosmossdk.io/math"
 	"github.com/avast/retry-go/v4"
-	"github.com/babylonlabs-io/babylon/v2/btcstaking"
-	txformat "github.com/babylonlabs-io/babylon/v2/btctxformatter"
-	"github.com/babylonlabs-io/babylon/v2/crypto/eots"
-	asig "github.com/babylonlabs-io/babylon/v2/crypto/schnorr-adaptor-signature"
-	"github.com/babylonlabs-io/babylon/v2/testutil/datagen"
-	bbn "github.com/babylonlabs-io/babylon/v2/types"
-	btcctypes "github.com/babylonlabs-io/babylon/v2/x/btccheckpoint/types"
-	btclctypes "github.com/babylonlabs-io/babylon/v2/x/btclightclient/types"
-	bstypes "github.com/babylonlabs-io/babylon/v2/x/btcstaking/types"
-	ckpttypes "github.com/babylonlabs-io/babylon/v2/x/checkpointing/types"
-	ftypes "github.com/babylonlabs-io/babylon/v2/x/finality/types"
+	"github.com/babylonlabs-io/babylon/v3/btcstaking"
+	txformat "github.com/babylonlabs-io/babylon/v3/btctxformatter"
+	"github.com/babylonlabs-io/babylon/v3/crypto/eots"
+	asig "github.com/babylonlabs-io/babylon/v3/crypto/schnorr-adaptor-signature"
+	"github.com/babylonlabs-io/babylon/v3/testutil/datagen"
+	bbn "github.com/babylonlabs-io/babylon/v3/types"
+	btcctypes "github.com/babylonlabs-io/babylon/v3/x/btccheckpoint/types"
+	btclctypes "github.com/babylonlabs-io/babylon/v3/x/btclightclient/types"
+	bstypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
+	ckpttypes "github.com/babylonlabs-io/babylon/v3/x/checkpointing/types"
+	ftypes "github.com/babylonlabs-io/babylon/v3/x/finality/types"
 	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
@@ -58,7 +61,8 @@ func (tm *TestManager) CreateFinalityProvider(t *testing.T) (*bstypes.FinalityPr
 
 	fpSK, _, err := datagen.GenRandomBTCKeyPair(r)
 	require.NoError(t, err)
-	btcFp, err := datagen.GenRandomFinalityProviderWithBTCBabylonSKs(r, fpSK, addr)
+	signCtx := signingcontext.StakerPopContextV0(tm.Config.Babylon.ChainID, appparams.AccBTCStaking.String())
+	btcFp, err := datagen.GenCustomFinalityProvider(r, fpSK, signCtx, addr, "")
 	require.NoError(t, err)
 
 	/*
@@ -141,7 +145,8 @@ func (tm *TestManager) CreateBTCDelegation(
 	require.NoError(t, err)
 
 	// create PoP
-	pop, err := datagen.NewPoPBTC(addr, tm.WalletPrivKey)
+	signCtx := signingcontext.StakerPopContextV0(tm.Config.Babylon.ChainID, appparams.AccBTCStaking.String())
+	pop, err := datagen.NewPoPBTC(signCtx, addr, tm.WalletPrivKey)
 	require.NoError(t, err)
 	slashingSpendPath, err := stakingSlashingInfo.StakingInfo.SlashingPathSpendInfo()
 	require.NoError(t, err)
@@ -247,7 +252,8 @@ func (tm *TestManager) CreateBTCDelegationWithoutIncl(
 	require.NoError(t, err)
 
 	// create PoP
-	pop, err := datagen.NewPoPBTC(addr, tm.WalletPrivKey)
+	signCtx := signingcontext.StakerPopContextV0(tm.Config.Babylon.ChainID, appparams.AccBTCStaking.String())
+	pop, err := datagen.NewPoPBTC(signCtx, addr, tm.WalletPrivKey)
 	require.NoError(t, err)
 	slashingSpendPath, err := stakingSlashingInfo.StakingInfo.SlashingPathSpendInfo()
 	require.NoError(t, err)
@@ -608,7 +614,8 @@ func (tm *TestManager) VoteAndEquivocate(t *testing.T, fpSK *btcec.PrivateKey) {
 	/*
 		commit a number of public randomness since activatedHeight
 	*/
-	srList, msgCommitPubRandList, err := datagen.GenRandomMsgCommitPubRandList(r, fpSK, activatedHeight, 100)
+	signCtx := signingcontext.StakerPopContextV0(tm.Config.Babylon.ChainID, appparams.AccBTCStaking.String())
+	srList, msgCommitPubRandList, err := datagen.GenRandomMsgCommitPubRandList(r, fpSK, signCtx, activatedHeight, 100)
 	require.NoError(t, err)
 	msgCommitPubRandList.Signer = signerAddr
 	_, err = tm.BabylonClient.ReliablySendMsg(context.Background(), msgCommitPubRandList, nil, nil)

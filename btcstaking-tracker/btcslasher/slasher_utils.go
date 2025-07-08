@@ -5,10 +5,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
+	"strings"
+
 	"github.com/avast/retry-go/v4"
-	"github.com/babylonlabs-io/babylon/v2/btcstaking"
-	bbn "github.com/babylonlabs-io/babylon/v2/types"
-	bstypes "github.com/babylonlabs-io/babylon/v2/x/btcstaking/types"
+	"github.com/babylonlabs-io/babylon/v3/btcstaking"
+	bbn "github.com/babylonlabs-io/babylon/v3/types"
+	bstypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/utils"
 	"github.com/btcsuite/btcd/btcec/v2"
@@ -18,8 +21,6 @@ import (
 	"github.com/btcsuite/btcd/wire"
 	"github.com/cosmos/cosmos-sdk/types/query"
 	"github.com/hashicorp/go-multierror"
-	"math"
-	"strings"
 )
 
 const (
