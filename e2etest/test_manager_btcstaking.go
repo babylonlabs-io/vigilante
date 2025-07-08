@@ -61,8 +61,8 @@ func (tm *TestManager) CreateFinalityProvider(t *testing.T) (*bstypes.FinalityPr
 
 	fpSK, _, err := datagen.GenRandomBTCKeyPair(r)
 	require.NoError(t, err)
-	signCtx := signingcontext.StakerPopContextV0(tm.Config.Babylon.ChainID, appparams.AccBTCStaking.String())
-	btcFp, err := datagen.GenCustomFinalityProvider(r, fpSK, signCtx, addr, "")
+	fpSignCtx := signingcontext.FpPopContextV0(tm.Config.Babylon.ChainID, appparams.AccBTCStaking.String())
+	btcFp, err := datagen.GenCustomFinalityProvider(r, fpSK, fpSignCtx, addr, "")
 	require.NoError(t, err)
 
 	/*
@@ -614,7 +614,7 @@ func (tm *TestManager) VoteAndEquivocate(t *testing.T, fpSK *btcec.PrivateKey) {
 	/*
 		commit a number of public randomness since activatedHeight
 	*/
-	signCtx := signingcontext.StakerPopContextV0(tm.Config.Babylon.ChainID, appparams.AccBTCStaking.String())
+	signCtx := signingcontext.FpRandCommitContextV0(tm.Config.Babylon.ChainID, appparams.AccBTCStaking.String())
 	srList, msgCommitPubRandList, err := datagen.GenRandomMsgCommitPubRandList(r, fpSK, signCtx, activatedHeight, 100)
 	require.NoError(t, err)
 	msgCommitPubRandList.Signer = signerAddr
