@@ -6,8 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/babylonlabs-io/vigilante/types"
-	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"golang.org/x/sync/semaphore"
 
 	bbn "github.com/babylonlabs-io/babylon/v2/types"
@@ -204,9 +202,6 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedFpBTCSK *btcec.PrivateKey) 
 		return fmt.Errorf("failed to get BTC delegations under finality provider %s: %w", fpBTCPK.MarshalHex(), err)
 	}
 
-	// Initialize a mutex protected *btcec.PrivateKey
-	safeExtractedFpBTCSK := types.NewPrivateKeyWithMutex(extractedFpBTCSK)
-
 	// Initialize a semaphore to control the number of concurrent operations
 	sem := semaphore.NewWeighted(bs.maxSlashingConcurrency)
 	activeBTCDels = append(activeBTCDels, unbondedBTCDels...)
@@ -229,9 +224,7 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedFpBTCSK *btcec.PrivateKey) 
 			}
 			defer sem.Release(1)
 
-			safeExtractedFpBTCSK.UseKey(func(key *secp256k1.PrivateKey) {
-				bs.slashBTCDelegation(fpBTCPK, key, d)
-			})
+			bs.slashBTCDelegation(fpBTCPK, extractedFpBTCSK, d)
 		}(del)
 	}
 
