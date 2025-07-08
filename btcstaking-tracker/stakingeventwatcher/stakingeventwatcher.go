@@ -260,6 +260,7 @@ func (sew *StakingEventWatcher) runBlockNotifier() error {
 
 		case <-sew.quit:
 			sew.logger.Info("Block notifier shutting down")
+
 			return nil
 		}
 	}
