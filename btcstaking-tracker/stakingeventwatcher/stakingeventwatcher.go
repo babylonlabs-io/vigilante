@@ -429,6 +429,7 @@ func (sew *StakingEventWatcher) handleSpend(ctx context.Context, spendingTx *wir
 			if err != nil {
 				return err
 			}
+
 			return nil
 		},
 			retry.Context(ctx),
