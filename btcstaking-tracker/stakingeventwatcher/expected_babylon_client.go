@@ -8,20 +8,22 @@ import (
 
 	sdkerrors "cosmossdk.io/errors"
 	"github.com/avast/retry-go/v4"
-	btclctypes "github.com/babylonlabs-io/babylon/x/btclightclient/types"
+	btclctypes "github.com/babylonlabs-io/babylon/v2/x/btclightclient/types"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/cosmos/cosmos-sdk/client"
 
 	"errors"
 
-	bbnclient "github.com/babylonlabs-io/babylon/client/client"
-	bbn "github.com/babylonlabs-io/babylon/types"
-	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
-	btcstakingtypes "github.com/babylonlabs-io/babylon/x/btcstaking/types"
+	bbnclient "github.com/babylonlabs-io/babylon/v2/client/client"
+	bbn "github.com/babylonlabs-io/babylon/v2/types"
+	btcctypes "github.com/babylonlabs-io/babylon/v2/x/btccheckpoint/types"
+	btcstakingtypes "github.com/babylonlabs-io/babylon/v2/x/btcstaking/types"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/cosmos/cosmos-sdk/types/query"
 )
+
+const stakingTxHashKey = "staking_tx_hash"
 
 var (
 	ErrHeaderNotKnownToBabylon       = errors.New("btc header not known to babylon")
@@ -53,7 +55,7 @@ type BabylonNodeAdapter interface {
 	QueryHeaderDepth(headerHash *chainhash.Hash) (uint32, error)
 	Params() (*BabylonParams, error)
 	CometBFTTipHeight(ctx context.Context) (int64, error)
-	StakingTxHashesByEvent(ctx context.Context, eventType string, criteria string, page, count *int) ([]string, error)
+	DelegationsModifedInBlock(ctx context.Context, height int64, eventTypes []string) ([]string, error)
 	BTCDelegation(stakingTxHash string) (*Delegation, error)
 }
 
@@ -281,6 +283,58 @@ func (bca *BabylonClientAdapter) StakingTxHashesByEvent(ctx context.Context, eve
 						stakingTxHashes = append(stakingTxHashes, stakingTxHash)
 					}
 				}
+			}
+		}
+	}
+
+	return stakingTxHashes, nil
+}
+
+func (bca *BabylonClientAdapter) DelegationsModifedInBlock(
+	ctx context.Context,
+	height int64,
+	eventTypes []string,
+) ([]string, error) {
+	var stakingTxHashes []string
+	events := make(map[string]bool)
+
+	for _, eventType := range eventTypes {
+		events[eventType] = true
+	}
+
+	res, err := bca.babylonClient.RPCClient.BlockResults(ctx, &height)
+	if err != nil {
+		return nil, fmt.Errorf("failed to do block_results for: %d ,err: %w", height, err)
+	}
+
+	// iterate over all tx results
+	for _, txResult := range res.TxsResults {
+		for _, event := range txResult.Events {
+			// check if event type is in the list of event types we are interested in
+			if _, ok := events[event.Type]; !ok {
+				continue
+			}
+			for _, attr := range event.Attributes {
+				if attr.Key == stakingTxHashKey {
+					stakingTxHash := strings.ReplaceAll(attr.Value, `"`, "")
+					stakingTxHashes = append(stakingTxHashes, stakingTxHash)
+				}
+			}
+		}
+	}
+
+	// iterate over `FinalizeBlockEvents`
+	// we need to check `FinalizeBlockEvents`, as events about stake expiration
+	// are included here
+	for _, finBlockEvent := range res.FinalizeBlockEvents {
+		if _, ok := events[finBlockEvent.Type]; !ok {
+			continue
+		}
+
+		for _, attr := range finBlockEvent.Attributes {
+			if attr.Key == stakingTxHashKey {
+				stakingTxHash := strings.ReplaceAll(attr.Value, `"`, "")
+				stakingTxHashes = append(stakingTxHashes, stakingTxHash)
 			}
 		}
 	}

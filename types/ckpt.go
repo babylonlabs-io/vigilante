@@ -3,8 +3,8 @@ package types
 import (
 	"fmt"
 
-	"github.com/babylonlabs-io/babylon/btctxformatter"
-	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
+	"github.com/babylonlabs-io/babylon/v2/btctxformatter"
+	btcctypes "github.com/babylonlabs-io/babylon/v2/x/btccheckpoint/types"
 )
 
 type Ckpt struct {

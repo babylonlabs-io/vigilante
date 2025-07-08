@@ -14,8 +14,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/babylonlabs-io/babylon/btctxformatter"
-	ckpttypes "github.com/babylonlabs-io/babylon/x/checkpointing/types"
+	"github.com/babylonlabs-io/babylon/v2/btctxformatter"
+	ckpttypes "github.com/babylonlabs-io/babylon/v2/x/checkpointing/types"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/txscript"

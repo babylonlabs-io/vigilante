@@ -1,8 +1,8 @@
 package types
 
 import (
-	"github.com/babylonlabs-io/babylon/btctxformatter"
-	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
+	"github.com/babylonlabs-io/babylon/v2/btctxformatter"
+	btcctypes "github.com/babylonlabs-io/babylon/v2/x/btccheckpoint/types"
 	"github.com/btcsuite/btcd/btcutil"
 	"time"
 )

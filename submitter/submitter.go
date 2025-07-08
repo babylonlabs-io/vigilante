@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	"github.com/babylonlabs-io/babylon/btctxformatter"
-	btcctypes "github.com/babylonlabs-io/babylon/x/btccheckpoint/types"
+	"github.com/babylonlabs-io/babylon/v2/btctxformatter"
+	btcctypes "github.com/babylonlabs-io/babylon/v2/x/btccheckpoint/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"go.uber.org/zap"
 
