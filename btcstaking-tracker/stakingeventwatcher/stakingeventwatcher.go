@@ -23,6 +23,7 @@ import (
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/utils"
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
+	"github.com/btcsuite/btcd/btcjson"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
 	notifier "github.com/lightningnetwork/lnd/chainntnfs"
@@ -418,8 +419,25 @@ func (sew *StakingEventWatcher) handleSpend(ctx context.Context, spendingTx *wir
 		sew.metrics.DetectedUnbondedStakeExpansionCounter.Inc()
 		sew.logger.Debugf("found stake expansion tx %s spending the previous staking tx %s", spendingTxHash, delegationID)
 
-		txResult, err := sew.btcClient.GetTransaction(&spendingTxHash)
-		if err != nil {
+		var (
+			txResult *btcjson.GetTransactionResult
+			err      error
+		)
+
+		if err := retry.Do(func() error {
+			txResult, err = sew.btcClient.GetTransaction(&spendingTxHash)
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+			retry.Context(ctx),
+			retry.Attempts(5),
+			fixedDelyTypeWithJitter,
+			retry.Delay(5*time.Second),
+			retry.MaxJitter(5*time.Second),
+			retry.LastErrorOnly(true),
+		); err != nil {
 			sew.logger.Warnf("error on getting stake expansion tx result from BTC client: tx %s for staking tx %s. Error: %w", spendingTxHash, delegationID, err)
 
 			return // check what to do with err with lazar
