@@ -74,6 +74,7 @@ func (ba *BabylonAdapter) BTCDelegation(ctx context.Context, stakingTxHashHex st
 			if err != nil {
 				return err
 			}
+
 			return nil
 		},
 		retry.Context(ctx),

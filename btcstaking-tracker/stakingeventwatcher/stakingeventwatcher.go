@@ -170,6 +170,7 @@ func (sew *StakingEventWatcher) Start() error {
 		params, err := sew.babylonNodeAdapter.Params()
 		if err != nil {
 			startErr = fmt.Errorf("error getting tx params: %s", err.Error())
+
 			return
 		}
 		sew.babylonConfirmationTimeBlocks = params.ConfirmationTimeBlocks
@@ -407,14 +408,23 @@ func (sew *StakingEventWatcher) handleSpend(ctx context.Context, spendingTx *wir
 	delegationID := td.StakingTx.TxHash()
 	spendingTxHash := spendingTx.TxHash()
 
+	// check if the spending tx is a valid unbonding tx
+	_, errParseStkSig := tryParseStakerSignatureFromSpentTx(spendingTx, td)
+	nonUnbondingTx := errParseStkSig != nil
+
 	// if the spending tx is a stake expansion it should wait to be k-deep
 	stakeExpansion, err := sew.babylonNodeAdapter.BTCDelegation(spendingTxHash.String())
-	if err != nil && stakeExpansion != nil {
+	isStakeExpansion := err == nil && stakeExpansion != nil
+
+	switch {
+	case isStakeExpansion:
 		sew.metrics.DetectedUnbondedStakeExpansionCounter.Inc()
 		sew.logger.Debugf("found stake expansion tx %s spending the previous staking tx %s", spendingTxHash, delegationID)
 
 		txResult, err := sew.btcClient.GetTransaction(&spendingTxHash)
 		if err != nil {
+			sew.logger.Warnf("error on getting stake expansion tx result from BTC client: tx %s for staking tx %s. Error: %w", spendingTxHash, delegationID, err)
+
 			return // check what to do with err with lazar
 		}
 
@@ -425,46 +435,33 @@ func (sew *StakingEventWatcher) handleSpend(ctx context.Context, spendingTx *wir
 		// wait stk expansion to be k-deep
 		if err := sew.waitForRequiredDepth(ctx, blkHashInclusion, sew.babylonConfirmationTimeBlocks); err != nil {
 			sew.logger.Warnf("exceeded waiting for required depth for stake expansion tx: %s, will try later. Err: %v", spendingTxHash.String(), err)
+
 			return
 		}
 
-		proof := sew.waitForStakeSpendInclusionProof(ctx, spendingTx)
-		if proof == nil {
-			sew.logger.Errorf("stake expansion tx %s for staking tx %s proof not built", spendingTxHash, delegationID)
-			return
-		}
-		sew.reportUnbondingToBabylon(ctx, delegationID, spendingTx, proof)
-	}
-
-	_, errParseStkSig := tryParseStakerSignatureFromSpentTx(spendingTx, td)
-	if errParseStkSig != nil {
+	case nonUnbondingTx:
 		sew.metrics.DetectedNonUnbondingTransactionsCounter.Inc()
 		// Error means that this is not unbonding tx. At this point, it means that it is
 		// either withdrawal transaction or slashing transaction spending staking staking output.
 		// As we only care about unbonding transactions, we do not need to take additional actions.
 		// We start polling babylon for delegation to stop being active, and then delete it from unbondingTracker.
 		sew.logger.Debugf("Spending tx %s for staking tx %s is not unbonding tx. Info: %v", spendingTxHash, delegationID, err)
-		proof := sew.waitForStakeSpendInclusionProof(ctx, spendingTx)
-		if proof == nil {
-			sew.logger.Errorf("unbonding tx %s for staking tx %s proof not built", spendingTxHash, delegationID)
 
-			return
-		}
-		sew.reportUnbondingToBabylon(ctx, delegationID, spendingTx, proof)
-	} else {
+	default: // spending tx is the expected unbonding tx
 		sew.metrics.DetectedUnbondingTransactionsCounter.Inc()
 		// We found valid unbonding tx. We need to try to report it to babylon.
 		// We stop reporting if delegation is no longer active or we succeed.
-		proof := sew.waitForStakeSpendInclusionProof(ctx, spendingTx)
-		if proof == nil {
-			sew.logger.Errorf("unbonding tx %s for staking tx %s proof not built", spendingTxHash, delegationID)
-
-			return
-		}
-		sew.logger.Debugf("found unbonding tx %s for staking tx %s", spendingTxHash, delegationID)
-		sew.reportUnbondingToBabylon(ctx, delegationID, spendingTx, proof)
-		sew.logger.Debugf("unbonding tx %s for staking tx %s reported to babylon", spendingTxHash, delegationID)
 	}
+
+	proof := sew.waitForStakeSpendInclusionProof(ctx, spendingTx)
+	if proof == nil {
+		sew.logger.Errorf("unbonding tx %s for staking tx %s proof not built", spendingTxHash, delegationID)
+
+		return
+	}
+	sew.logger.Debugf("found unbonding tx %s for staking tx %s", spendingTxHash, delegationID)
+	sew.reportUnbondingToBabylon(ctx, delegationID, spendingTx, proof)
+	sew.logger.Debugf("unbonding tx %s for staking tx %s reported to babylon", spendingTxHash, delegationID)
 
 	utils.PushOrQuit[*delegationInactive](
 		sew.unbondingRemovalChan,
