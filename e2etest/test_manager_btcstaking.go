@@ -643,7 +643,8 @@ func (tm *TestManager) VoteAndEquivocate(t *testing.T, fpSK *btcec.PrivateKey) {
 	require.NoError(t, err)
 	fpFinVoteContext := signingcontext.FpFinVoteContextV0(tm.Config.Babylon.ChainID, appparams.AccFinality.String())
 	msgToSign := []byte(fpFinVoteContext)
-	msgToSign = append(sdk.Uint64ToBigEndian(activatedHeight), blockToVote.Block.AppHash...)
+	msgToSign = append(msgToSign, sdk.Uint64ToBigEndian(activatedHeight)...)
+	msgToSign = append(msgToSign, blockToVote.Block.AppHash...)
 	// generate EOTS signature
 	idx := activatedHeight - commitStartHeight
 	sig, err := eots.Sign(fpSK, srList.SRList[idx], msgToSign)
@@ -668,7 +669,8 @@ func (tm *TestManager) VoteAndEquivocate(t *testing.T, fpSK *btcec.PrivateKey) {
 	*/
 	invalidAppHash := datagen.GenRandomByteArray(r, 32)
 	invalidMsgToSign := []byte(fpFinVoteContext)
-	invalidMsgToSign = append(sdk.Uint64ToBigEndian(activatedHeight), invalidAppHash...)
+	invalidMsgToSign = append(invalidMsgToSign, sdk.Uint64ToBigEndian(activatedHeight)...)
+	invalidMsgToSign = append(invalidMsgToSign, invalidAppHash...)
 	invalidSig, err := eots.Sign(fpSK, srList.SRList[idx], invalidMsgToSign)
 	require.NoError(t, err)
 	invalidEotsSig := bbn.NewSchnorrEOTSSigFromModNScalar(invalidSig)
