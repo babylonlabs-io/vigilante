@@ -60,6 +60,7 @@ func (bs *BTCSlasher) processEvidencesFromHeight(startHeight uint64) (uint64, er
 				ForkAppHash:          evidence.ForkAppHash,
 				CanonicalFinalitySig: evidence.CanonicalFinalitySig,
 				ForkFinalitySig:      evidence.ForkFinalitySig,
+				SigningContext:       evidence.SigningContext,
 			}
 
 			// Extract the SK of the slashed finality provider
