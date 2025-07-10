@@ -223,7 +223,7 @@ func (sew *StakingEventWatcher) runBlockNotifier() error {
 	defer blockNotifier.Cancel()
 
 	// Timeout as a fail-safe mechanism, as we should get !ok from blockNotifier.Epochs
-	blockTimeout := 30 * time.Minute
+	blockTimeout := 60 * time.Minute
 	timeoutTimer := time.NewTimer(blockTimeout)
 	defer timeoutTimer.Stop()
 
