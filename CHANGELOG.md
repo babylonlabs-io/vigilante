@@ -40,6 +40,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Improvements
 
 * [#380](https://github.com/babylonlabs-io/vigilante/pull/380) feat: add support for stake expansion
+* [#399](https://github.com/babylonlabs-io/vigilante/pull/399) feat: adds a reconnect mechanism for btc notifier
 
 ## v0.23.9
 
