@@ -153,6 +153,8 @@ func (sew *StakingEventWatcher) Start() error {
 			return
 		}
 
+		blockEventNotifier.Cancel()
+
 		sew.logger.Infof("Initial btc best block height is: %d", sew.currentBestBlockHeight.Load())
 
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -168,7 +170,7 @@ func (sew *StakingEventWatcher) Start() error {
 		sew.delegationRetrievalInProgress.Store(true) // avoid potential race condition with fetchDelegations
 
 		sew.wg.Add(5)
-		go sew.handleNewBlocks(blockEventNotifier)
+		go sew.handleNewBlocks()
 		go sew.handleUnbondedDelegations()
 		go sew.fetchDelegations()
 		go sew.handlerVerifiedDelegations()
@@ -192,18 +194,59 @@ func (sew *StakingEventWatcher) Stop() error {
 	return stopErr
 }
 
-func (sew *StakingEventWatcher) handleNewBlocks(blockNotifier *notifier.BlockEpochEvent) {
+func (sew *StakingEventWatcher) handleNewBlocks() {
 	defer sew.wg.Done()
+
+	for {
+		select {
+		case <-sew.quit:
+			return
+		default:
+			if err := sew.runBlockNotifier(); err != nil {
+				sew.logger.Errorf("Block notifier error: %v, reconnecting in 5s", err)
+				select {
+				case <-time.After(time.Second * 5):
+				case <-sew.quit:
+					return
+				}
+			}
+		}
+	}
+}
+func (sew *StakingEventWatcher) runBlockNotifier() error {
+	sew.logger.Info("Starting RegisterBlockEpochNtfn")
+
+	blockNotifier, err := sew.btcNotifier.RegisterBlockEpochNtfn(nil)
+	if err != nil {
+		return fmt.Errorf("failed to register block notifier: %w", err)
+	}
 	defer blockNotifier.Cancel()
+
+	// Timeout as a fail-safe mechanism, as we should get !ok from blockNotifier.Epochs
+	blockTimeout := 60 * time.Minute
+	timeoutTimer := time.NewTimer(blockTimeout)
+	defer timeoutTimer.Stop()
+
 	for {
 		select {
 		case block, ok := <-blockNotifier.Epochs:
 			if !ok {
-				return
+				return fmt.Errorf("block notifier channel closed")
 			}
+
+			// Reset timeout timer on each block received
+			if !timeoutTimer.Stop() {
+				select {
+				case <-timeoutTimer.C:
+				default:
+				}
+			}
+			timeoutTimer.Reset(blockTimeout)
+
 			if block.Height < 0 {
 				panic(fmt.Errorf("received negative block height: %d", block.Height))
 			}
+
 			sew.currentBestBlockHeight.Store(uint32(block.Height))
 			sew.metrics.BestBlockHeight.Set(float64(block.Height))
 			sew.logger.Debugf("Received new best btc block: %d", block.Height)
@@ -211,8 +254,14 @@ func (sew *StakingEventWatcher) handleNewBlocks(blockNotifier *notifier.BlockEpo
 			if err := sew.checkSpend(); err != nil {
 				sew.logger.Errorf("error checking spend: %v", err)
 			}
+
+		case <-timeoutTimer.C:
+			return fmt.Errorf("no block received from notifier for %v, connection may be stale", blockTimeout)
+
 		case <-sew.quit:
-			return
+			sew.logger.Info("Block notifier shutting down")
+
+			return nil
 		}
 	}
 }
