@@ -821,8 +821,13 @@ func TestStakeExpansionFlow(t *testing.T) {
 	require.NoError(t, err)
 	expansionStakingMsgTx.TxIn[0].Witness = witness
 
+	// Sign the funding input with wallet
+	signedTx, complete, err := tm.BTCClient.SignRawTransactionWithWallet(expansionStakingMsgTx)
+	require.NoError(t, err)
+	require.True(t, complete, "Transaction signing incomplete")
+
 	// Step 5: send expansion staking tx to Bitcoin node's mempool
-	_, err = tm.BTCClient.SendRawTransaction(expansionStakingMsgTx, true)
+	_, err = tm.BTCClient.SendRawTransaction(signedTx, true)
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
