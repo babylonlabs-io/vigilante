@@ -773,12 +773,6 @@ func TestStakeExpansionFlow(t *testing.T) {
 	unbondingSlashingPathSpendInfo, err := expansionUnbondingSlashingInfo.UnbondingInfo.SlashingPathSpendInfo()
 	require.NoError(t, err)
 
-	// Get the funding transaction output for the expansion
-	fundingTxHash := expansionStakingMsgTx.TxIn[1].PreviousOutPoint.Hash
-	fundingRawTx, err := tm.BTCClient.GetRawTransaction(&fundingTxHash)
-	require.NoError(t, err)
-	fundingTxOut := fundingRawTx.MsgTx().TxOut[expansionStakingMsgTx.TxIn[1].PreviousOutPoint.Index]
-
 	tm.addCovenantSigStkExp(
 		t,
 		signerAddr,
@@ -791,11 +785,10 @@ func TestStakeExpansionFlow(t *testing.T) {
 		unbondingSlashingPathSpendInfo,
 		0,
 		originalStakingSlashingInfo,
-		fundingTxOut,
+		fundingMsgTx.TxOut[0],
 	)
 
 	// Step 4: Add witness to the stake expansion transaction before sending to Bitcoin
-
 	// Get the original and funding outputs for witness generation
 	originalStakingUnbondingPathSpendInfo, err := originalStakingSlashingInfo.StakingInfo.UnbondingPathSpendInfo()
 
