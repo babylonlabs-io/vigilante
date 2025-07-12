@@ -761,16 +761,26 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 	}
 
 	_ = retry.Do(func() error {
-		verified, err := sew.babylonNodeAdapter.IsDelegationVerified(stakingTxHash)
+		del, err := sew.babylonNodeAdapter.BTCDelegation(stakingTxHash.String())
 		if err != nil {
 			return fmt.Errorf("error checking if delegation is active: %w", err)
 		}
 
-		if !verified {
+		if del.Status != btcstakingtypes.BTCDelegationStatus_VERIFIED.String() {
 			sew.logger.Debugf("skipping tx %s is not in verified Status", stakingTxHash)
 			sew.pendingTracker.RemoveDelegation(stakingTxHash)
 			sew.verifiedSufficientConfTracker.RemoveDelegation(stakingTxHash)
 			sew.metrics.NumberOfVerifiedDelegations.Dec()
+
+			return nil
+		}
+
+		// if is stake expansion, we should not activate it,
+		// the inclusion proof is reported in a MsgBTCUndelegate of the expanded delegation
+		if del.IsStakeExpansion {
+			sew.logger.Debugf("skipping stake expansion tx %s", stakingTxHash)
+			sew.pendingTracker.RemoveDelegation(stakingTxHash)
+			sew.verifiedSufficientConfTracker.RemoveDelegation(stakingTxHash)
 
 			return nil
 		}

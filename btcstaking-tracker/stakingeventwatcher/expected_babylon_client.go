@@ -38,6 +38,7 @@ type Delegation struct {
 	UnbondingOutput       *wire.TxOut
 	HasProof              bool
 	Status                string
+	IsStakeExpansion      bool
 }
 
 type BabylonParams struct {
@@ -369,5 +370,6 @@ func (bca *BabylonClientAdapter) BTCDelegation(stakingTxHash string) (*Delegatio
 		UnbondingOutput:       unbondingTx.TxOut[0],
 		HasProof:              delegation.StartHeight > 0,
 		Status:                delegation.StatusDesc,
+		IsStakeExpansion:      delegation.StkExp != nil,
 	}, nil
 }
