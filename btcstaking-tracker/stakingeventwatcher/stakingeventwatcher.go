@@ -830,6 +830,7 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 			sew.logger.Debugf("skipping stake expansion tx %s", stakingTxHash)
 			sew.pendingTracker.RemoveDelegation(stakingTxHash)
 			sew.verifiedSufficientConfTracker.RemoveDelegation(stakingTxHash)
+			sew.metrics.NumberOfVerifiedDelegations.Dec()
 
 			return nil
 		}
