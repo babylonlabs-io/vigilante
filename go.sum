@@ -728,8 +728,8 @@ github.com/aws/aws-sdk-go v1.44.122/go.mod h1:y4AeaBuwd2Lk+GepC1E9v0qOiTws0MIWAX
 github.com/aws/aws-sdk-go v1.49.6 h1:yNldzF5kzLBRvKlKz1S0bkvc2+04R1kt13KfBWQBfFA=
 github.com/aws/aws-sdk-go v1.49.6/go.mod h1:LF8svs817+Nz+DmiMQKTO3ubZ/6IaTpq3TjupRn3Eqk=
 github.com/aws/aws-sdk-go-v2 v0.18.0/go.mod h1:JWVYvqSMppoMJC0x5wdwiImzgXTI9FuZwxzkQq9wy+g=
-github.com/babylonlabs-io/babylon/v3 v3.0.0-snapshot.250710 h1:3uaFbGVtLPtk1Y/rFf+ftRifm0EPuxYA2NlIBRY40j8=
-github.com/babylonlabs-io/babylon/v3 v3.0.0-snapshot.250710/go.mod h1:/X1bVC4WUKDBxRTazXvZd/6WINc2tqXAtZOBJknM8OA=
+github.com/babylonlabs-io/babylon/v3 v3.0.0-snapshot.250714 h1:RYXQ5BwW/mIzm7u+tm2owY+B901S7p9mfrPlpK4nxM0=
+github.com/babylonlabs-io/babylon/v3 v3.0.0-snapshot.250714/go.mod h1:kZirEr92KRSK1amofhTL/mz4+KYn/oikr+F+4kFqWgQ=
 github.com/babylonlabs-io/btcd/btcec/v2 v2.3.4-babylon.rc.0 h1:BVqjtFpXKYnaPMTfrWgt0sg03jZMywNzz142ZV9ck+g=
 github.com/babylonlabs-io/btcd/btcec/v2 v2.3.4-babylon.rc.0/go.mod h1:zYzJ8etWJQIv1Ogk7OzpWjowwOdXY1W/17j2MW85J04=
 github.com/babylonlabs-io/tokenfactory v0.50.6-wasmvm2 h1:7wtBLjwncBsYgc+LlW4eir/bGcycrhpbz7PkUVADzBc=
@@ -889,8 +889,8 @@ github.com/cosmos/cosmos-db v1.1.1 h1:FezFSU37AlBC8S98NlSagL76oqBRWq/prTPvFcEJNC
 github.com/cosmos/cosmos-db v1.1.1/go.mod h1:AghjcIPqdhSLP/2Z0yha5xPH3nLnskz81pBx3tcVSAw=
 github.com/cosmos/cosmos-proto v1.0.0-beta.5 h1:eNcayDLpip+zVLRLYafhzLvQlSmyab+RC5W7ZfmxJLA=
 github.com/cosmos/cosmos-proto v1.0.0-beta.5/go.mod h1:hQGLpiIUloJBMdQMMWb/4wRApmI9hjHH05nefC0Ojec=
-github.com/cosmos/cosmos-sdk v0.53.2 h1:QUok0dUzdxZedwunZ7N1GgJrctaGGGO8DUnKqkVRf1k=
-github.com/cosmos/cosmos-sdk v0.53.2/go.mod h1:90S054hIbadFB1MlXVZVC5w0QbKfd1P4b79zT+vvJxw=
+github.com/cosmos/cosmos-sdk v0.53.3 h1:GbDJNUP9OD0gGDVnjecZVZr0ZReD1BtIIxmtgrAsWiw=
+github.com/cosmos/cosmos-sdk v0.53.3/go.mod h1:90S054hIbadFB1MlXVZVC5w0QbKfd1P4b79zT+vvJxw=
 github.com/cosmos/go-bip39 v1.0.0 h1:pcomnQdrdH22njcAatO0yWojsUnCO3y2tNoV1cb6hHY=
 github.com/cosmos/go-bip39 v1.0.0/go.mod h1:RNJv0H/pOIVgxw6KS7QeX2a0Uo0aKUlfhZ4xuwvCdJw=
 github.com/cosmos/gogogateway v1.2.0 h1:Ae/OivNhp8DqBi/sh2A8a1D0y638GpL3tkmLQAiKxTE=
