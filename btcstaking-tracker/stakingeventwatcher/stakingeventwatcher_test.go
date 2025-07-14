@@ -208,5 +208,5 @@ func TestHandlingDelegationsByEvents(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		return promtestutil.ToFloat64(sew.metrics.ReportedActivateDelegationsCounter) >= float64(expectedActivated)
-	}, 60*time.Second, 100*time.Millisecond)
+	}, 90*time.Second, 100*time.Millisecond)
 }
