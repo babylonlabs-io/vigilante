@@ -3,16 +3,17 @@ package reporter
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/babylonlabs-io/vigilante/version"
 	"sync"
 	"time"
+
+	"github.com/babylonlabs-io/vigilante/version"
 
 	"github.com/babylonlabs-io/vigilante/retrywrap"
 	notifier "github.com/lightningnetwork/lnd/chainntnfs"
 
 	"github.com/avast/retry-go/v4"
-	"github.com/babylonlabs-io/babylon/v2/btctxformatter"
-	btcctypes "github.com/babylonlabs-io/babylon/v2/x/btccheckpoint/types"
+	"github.com/babylonlabs-io/babylon/v3/btctxformatter"
+	btcctypes "github.com/babylonlabs-io/babylon/v3/x/btccheckpoint/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"

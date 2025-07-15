@@ -1,13 +1,14 @@
 package store_test
 
 import (
-	bbndatagen "github.com/babylonlabs-io/babylon/v2/testutil/datagen"
+	"math/rand"
+	"testing"
+
+	bbndatagen "github.com/babylonlabs-io/babylon/v3/testutil/datagen"
 	"github.com/babylonlabs-io/vigilante/submitter/store"
 	"github.com/babylonlabs-io/vigilante/testutil"
 	"github.com/babylonlabs-io/vigilante/testutil/datagen"
 	"github.com/stretchr/testify/require"
-	"math/rand"
-	"testing"
 )
 
 func FuzzStoringCkpt(f *testing.F) {

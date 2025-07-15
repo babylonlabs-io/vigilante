@@ -1,10 +1,11 @@
 package types
 
 import (
-	"github.com/babylonlabs-io/babylon/v2/btctxformatter"
-	btcctypes "github.com/babylonlabs-io/babylon/v2/x/btccheckpoint/types"
-	"github.com/btcsuite/btcd/btcutil"
 	"time"
+
+	"github.com/babylonlabs-io/babylon/v3/btctxformatter"
+	btcctypes "github.com/babylonlabs-io/babylon/v3/x/btccheckpoint/types"
+	"github.com/btcsuite/btcd/btcutil"
 )
 
 // CkptSegment is a segment of the Babylon checkpoint, including

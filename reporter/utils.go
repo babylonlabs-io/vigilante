@@ -3,15 +3,16 @@ package reporter
 import (
 	"context"
 	"fmt"
-	"github.com/babylonlabs-io/babylon/v2/client/babylonclient"
+	"strconv"
+
+	"github.com/babylonlabs-io/babylon/v3/client/babylonclient"
 	"github.com/babylonlabs-io/vigilante/retrywrap"
 	"github.com/cockroachdb/errors"
-	"strconv"
 
 	coserrors "cosmossdk.io/errors"
 	"github.com/avast/retry-go/v4"
-	btcctypes "github.com/babylonlabs-io/babylon/v2/x/btccheckpoint/types"
-	btclctypes "github.com/babylonlabs-io/babylon/v2/x/btclightclient/types"
+	btcctypes "github.com/babylonlabs-io/babylon/v3/x/btccheckpoint/types"
+	btclctypes "github.com/babylonlabs-io/babylon/v3/x/btclightclient/types"
 	"github.com/babylonlabs-io/vigilante/types"
 )
 

@@ -1,8 +1,9 @@
 package relayer_test
 
 import (
-	"github.com/babylonlabs-io/vigilante/testutil"
 	"testing"
+
+	"github.com/babylonlabs-io/vigilante/testutil"
 
 	"github.com/btcsuite/btcd/btcjson"
 	"github.com/btcsuite/btcd/chaincfg"
@@ -11,7 +12,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/babylonlabs-io/babylon/v2/btctxformatter"
+	"github.com/babylonlabs-io/babylon/v3/btctxformatter"
 
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"
