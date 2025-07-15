@@ -1,13 +1,14 @@
 package types
 
 import (
-	"github.com/babylonlabs-io/babylon/v2/crypto/bls12381"
-	"github.com/babylonlabs-io/babylon/v2/x/checkpointing/types"
+	"testing"
+
+	"github.com/babylonlabs-io/babylon/v3/crypto/bls12381"
+	"github.com/babylonlabs-io/babylon/v3/x/checkpointing/types"
 	cmtcrypto "github.com/cometbft/cometbft/crypto"
 	"github.com/cometbft/cometbft/crypto/ed25519"
 	"github.com/cosmos/cosmos-sdk/crypto/codec"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestProofOfPossession_ValidPop(t *testing.T) {

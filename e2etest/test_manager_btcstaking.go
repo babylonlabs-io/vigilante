@@ -5,28 +5,34 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"github.com/babylonlabs-io/babylon/v2/client/babylonclient"
 	"math/rand"
 	"testing"
 	"time"
 
+	appparams "github.com/babylonlabs-io/babylon/v3/app/params"
+	"github.com/babylonlabs-io/babylon/v3/app/signingcontext"
+	"github.com/babylonlabs-io/babylon/v3/client/babylonclient"
+
 	sdkmath "cosmossdk.io/math"
 	"github.com/avast/retry-go/v4"
-	"github.com/babylonlabs-io/babylon/v2/btcstaking"
-	txformat "github.com/babylonlabs-io/babylon/v2/btctxformatter"
-	"github.com/babylonlabs-io/babylon/v2/crypto/eots"
-	asig "github.com/babylonlabs-io/babylon/v2/crypto/schnorr-adaptor-signature"
-	"github.com/babylonlabs-io/babylon/v2/testutil/datagen"
-	bbn "github.com/babylonlabs-io/babylon/v2/types"
-	btcctypes "github.com/babylonlabs-io/babylon/v2/x/btccheckpoint/types"
-	btclctypes "github.com/babylonlabs-io/babylon/v2/x/btclightclient/types"
-	bstypes "github.com/babylonlabs-io/babylon/v2/x/btcstaking/types"
-	ckpttypes "github.com/babylonlabs-io/babylon/v2/x/checkpointing/types"
-	ftypes "github.com/babylonlabs-io/babylon/v2/x/finality/types"
+	"github.com/babylonlabs-io/babylon/v3/btcstaking"
+	txformat "github.com/babylonlabs-io/babylon/v3/btctxformatter"
+	"github.com/babylonlabs-io/babylon/v3/crypto/eots"
+	asig "github.com/babylonlabs-io/babylon/v3/crypto/schnorr-adaptor-signature"
+	"github.com/babylonlabs-io/babylon/v3/testutil/datagen"
+	bbn "github.com/babylonlabs-io/babylon/v3/types"
+	btcctypes "github.com/babylonlabs-io/babylon/v3/x/btccheckpoint/types"
+	btclctypes "github.com/babylonlabs-io/babylon/v3/x/btclightclient/types"
+	bstypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
+	ckpttypes "github.com/babylonlabs-io/babylon/v3/x/checkpointing/types"
+	ftypes "github.com/babylonlabs-io/babylon/v3/x/finality/types"
 	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
+	"github.com/btcsuite/btcd/btcutil"
+	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkquery "github.com/cosmos/cosmos-sdk/types/query"
@@ -58,7 +64,8 @@ func (tm *TestManager) CreateFinalityProvider(t *testing.T) (*bstypes.FinalityPr
 
 	fpSK, _, err := datagen.GenRandomBTCKeyPair(r)
 	require.NoError(t, err)
-	btcFp, err := datagen.GenRandomFinalityProviderWithBTCBabylonSKs(r, fpSK, addr)
+	fpSignCtx := signingcontext.FpPopContextV0(tm.Config.Babylon.ChainID, appparams.AccBTCStaking.String())
+	btcFp, err := datagen.GenCustomFinalityProvider(r, fpSK, fpSignCtx, addr, "")
 	require.NoError(t, err)
 
 	/*
@@ -141,7 +148,8 @@ func (tm *TestManager) CreateBTCDelegation(
 	require.NoError(t, err)
 
 	// create PoP
-	pop, err := datagen.NewPoPBTC(addr, tm.WalletPrivKey)
+	signCtx := signingcontext.StakerPopContextV0(tm.Config.Babylon.ChainID, appparams.AccBTCStaking.String())
+	pop, err := datagen.NewPoPBTC(signCtx, addr, tm.WalletPrivKey)
 	require.NoError(t, err)
 	slashingSpendPath, err := stakingSlashingInfo.StakingInfo.SlashingPathSpendInfo()
 	require.NoError(t, err)
@@ -247,7 +255,8 @@ func (tm *TestManager) CreateBTCDelegationWithoutIncl(
 	require.NoError(t, err)
 
 	// create PoP
-	pop, err := datagen.NewPoPBTC(addr, tm.WalletPrivKey)
+	signCtx := signingcontext.StakerPopContextV0(tm.Config.Babylon.ChainID, appparams.AccBTCStaking.String())
+	pop, err := datagen.NewPoPBTC(signCtx, addr, tm.WalletPrivKey)
 	require.NoError(t, err)
 	slashingSpendPath, err := stakingSlashingInfo.StakingInfo.SlashingPathSpendInfo()
 	require.NoError(t, err)
@@ -365,7 +374,51 @@ func (tm *TestManager) createStakingAndSlashingTx(
 	stakingSlashingInfo.SlashingTx, err = bstypes.NewBTCSlashingTxFromMsgTx(slashingMsgTx)
 	require.NoError(t, err)
 
-	return stakingMsgTx, stakingSlashingInfo, stakingMsgTxHash
+	return stakingSlashingInfo.StakingTx, stakingSlashingInfo, stakingMsgTxHash
+}
+
+func (tm *TestManager) createStakeExpStakingAndSlashingTx(
+	t *testing.T, fpSK *btcec.PrivateKey,
+	bsParams *bstypes.QueryParamsResponse,
+	covenantBtcPks []*btcec.PublicKey,
+	stakingValue int64,
+	stakingTimeBlocks uint32,
+	prevStakeTxHash string,
+	prevDelStakingOutputIdx uint32,
+	fundingTx *wire.MsgTx,
+) (*wire.MsgTx, *datagen.TestStakingSlashingInfo, *chainhash.Hash) {
+	// generate staking tx and slashing tx
+	fpPK := fpSK.PubKey()
+
+	// Convert prevStakeTxHash string to OutPoint
+	prevHash, err := chainhash.NewHashFromStr(prevStakeTxHash)
+	require.NoError(t, err)
+	prevStakingOutPoint := wire.NewOutPoint(prevHash, prevDelStakingOutputIdx)
+
+	// Convert fundingTxHash to OutPoint
+	fundingTxHash := fundingTx.TxHash()
+	fundingOutPoint := wire.NewOutPoint(&fundingTxHash, 0)
+	outPoints := []*wire.OutPoint{prevStakingOutPoint, fundingOutPoint}
+
+	// generate legitimate BTC del
+	stakingSlashingInfo := datagen.GenBTCStakingSlashingInfoWithInputs(
+		r,
+		t,
+		regtestParams,
+		outPoints,
+		tm.WalletPrivKey,
+		[]*btcec.PublicKey{fpPK},
+		covenantBtcPks,
+		bsParams.Params.CovenantQuorum,
+		uint16(stakingTimeBlocks),
+		stakingValue,
+		bsParams.Params.SlashingPkScript,
+		bsParams.Params.SlashingRate,
+		uint16(tm.getBTCUnbondingTime(t)),
+	)
+
+	stakingTxHash := stakingSlashingInfo.StakingTx.TxHash()
+	return stakingSlashingInfo.StakingTx, stakingSlashingInfo, &stakingTxHash
 }
 
 func (tm *TestManager) createUnbondingData(
@@ -442,6 +495,41 @@ func (tm *TestManager) addCovenantSig(
 	return msgAddCovenantSig.UnbondingTxSig
 }
 
+func (tm *TestManager) addCovenantSigStkExp(
+	t *testing.T,
+	signerAddr string,
+	stakingExpMsgTx *wire.MsgTx,
+	stakingMsgTxHash *chainhash.Hash,
+	fpSK *btcec.PrivateKey,
+	slashingSpendPath *btcstaking.SpendInfo,
+	stakingSlashingInfo *datagen.TestStakingSlashingInfo,
+	unbondingSlashingInfo *datagen.TestUnbondingSlashingInfo,
+	unbondingSlashingPathSpendInfo *btcstaking.SpendInfo,
+	stakingOutIdx uint32,
+	prevStakingSlashingInfo *datagen.TestStakingSlashingInfo,
+	fundingTxOut *wire.TxOut,
+) *bbn.BIP340Signature {
+	msgAddCovenantSig := tm.createMsgAddCovenantSigs(t,
+		signerAddr,
+		stakingExpMsgTx,
+		stakingMsgTxHash,
+		fpSK,
+		slashingSpendPath,
+		stakingSlashingInfo,
+		unbondingSlashingInfo,
+		unbondingSlashingPathSpendInfo,
+		stakingOutIdx,
+	)
+
+	stkExpSig := tm.signStakeExpansionTx(t, stakingExpMsgTx, prevStakingSlashingInfo, fundingTxOut)
+	msgAddCovenantSig.StakeExpansionTxSig = stkExpSig
+
+	_, err := tm.BabylonClient.ReliablySendMsg(context.Background(), msgAddCovenantSig, nil, nil)
+	require.NoError(t, err)
+	t.Logf("submitted covenant signature")
+	return msgAddCovenantSig.UnbondingTxSig
+}
+
 func (tm *TestManager) createMsgAddCovenantSigs(
 	t *testing.T,
 	signerAddr string,
@@ -498,6 +586,34 @@ func (tm *TestManager) createMsgAddCovenantSigs(
 	}
 	return msgAddCovenantSig
 
+}
+
+// signStakeExpansionTx signs a stake expansion transaction for covenant participation
+// This is simplified to work with the existing test structures
+func (tm *TestManager) signStakeExpansionTx(
+	t *testing.T,
+	expansionStakingTx *wire.MsgTx,
+	originalStakingSlashingInfo *datagen.TestStakingSlashingInfo,
+	fundingTxOut *wire.TxOut,
+) *bbn.BIP340Signature {
+	// Get the unbonding path spend info from the original staking transaction
+	// This is what the expansion transaction will spend from
+	prevDelUnbondPathSpendInfo, err := originalStakingSlashingInfo.StakingInfo.UnbondingPathSpendInfo()
+	require.NoError(t, err)
+
+	// Sign the expansion transaction with the covenant key
+	// This assumes the expansion tx has the original staking output as first input
+	// and the funding output as second input
+	sig, err := btcstaking.SignTxForFirstScriptSpendWithTwoInputsFromScript(
+		expansionStakingTx,
+		originalStakingSlashingInfo.StakingTx.TxOut[0],
+		fundingTxOut,
+		covenantSk,
+		prevDelUnbondPathSpendInfo.GetPkScriptPath(),
+	)
+	require.NoError(t, err)
+
+	return bbn.NewBIP340SignatureFromBTCSig(sig)
 }
 
 func (tm *TestManager) Undelegate(
@@ -608,7 +724,8 @@ func (tm *TestManager) VoteAndEquivocate(t *testing.T, fpSK *btcec.PrivateKey) {
 	/*
 		commit a number of public randomness since activatedHeight
 	*/
-	srList, msgCommitPubRandList, err := datagen.GenRandomMsgCommitPubRandList(r, fpSK, activatedHeight, 100)
+	signCtx := signingcontext.FpRandCommitContextV0(tm.Config.Babylon.ChainID, appparams.AccFinality.String())
+	srList, msgCommitPubRandList, err := datagen.GenRandomMsgCommitPubRandList(r, fpSK, signCtx, activatedHeight, 100)
 	require.NoError(t, err)
 	msgCommitPubRandList.Signer = signerAddr
 	_, err = tm.BabylonClient.ReliablySendMsg(context.Background(), msgCommitPubRandList, nil, nil)
@@ -634,7 +751,10 @@ func (tm *TestManager) VoteAndEquivocate(t *testing.T, fpSK *btcec.PrivateKey) {
 	// get block to vote
 	blockToVote, err := tm.BabylonClient.GetBlock(int64(activatedHeight))
 	require.NoError(t, err)
-	msgToSign := append(sdk.Uint64ToBigEndian(activatedHeight), blockToVote.Block.AppHash...)
+	fpFinVoteContext := signingcontext.FpFinVoteContextV0(tm.Config.Babylon.ChainID, appparams.AccFinality.String())
+	msgToSign := []byte(fpFinVoteContext)
+	msgToSign = append(msgToSign, sdk.Uint64ToBigEndian(activatedHeight)...)
+	msgToSign = append(msgToSign, blockToVote.Block.AppHash...)
 	// generate EOTS signature
 	idx := activatedHeight - commitStartHeight
 	sig, err := eots.Sign(fpSK, srList.SRList[idx], msgToSign)
@@ -658,7 +778,9 @@ func (tm *TestManager) VoteAndEquivocate(t *testing.T, fpSK *btcec.PrivateKey) {
 		equivocate
 	*/
 	invalidAppHash := datagen.GenRandomByteArray(r, 32)
-	invalidMsgToSign := append(sdk.Uint64ToBigEndian(activatedHeight), invalidAppHash...)
+	invalidMsgToSign := []byte(fpFinVoteContext)
+	invalidMsgToSign = append(invalidMsgToSign, sdk.Uint64ToBigEndian(activatedHeight)...)
+	invalidMsgToSign = append(invalidMsgToSign, invalidAppHash...)
 	invalidSig, err := eots.Sign(fpSK, srList.SRList[idx], invalidMsgToSign)
 	require.NoError(t, err)
 	invalidEotsSig := bbn.NewSchnorrEOTSSigFromModNScalar(invalidSig)
@@ -950,4 +1072,240 @@ func (tm *TestManager) getFundingTxs(t *testing.T, tx *wire.MsgTx) [][]byte {
 	}
 
 	return fundingTxs
+}
+
+// CreateBTCStakeExpansion creates a stake expansion delegation that references a previous staking transaction
+func (tm *TestManager) CreateBTCStakeExpansion(
+	t *testing.T,
+	fpSK *btcec.PrivateKey,
+	stakingValue uint64,
+	previousStakingTxHash string,
+	prevDelStakingOutputIdx uint32,
+) (*wire.MsgTx, *wire.MsgTx, *datagen.TestStakingSlashingInfo, *datagen.TestUnbondingSlashingInfo, *btcec.PrivateKey) {
+	signerAddr := tm.BabylonClient.MustGetAddr()
+	addr := sdk.MustAccAddressFromBech32(signerAddr)
+
+	fpPK := fpSK.PubKey()
+
+	// generate staking tx and slashing tx for expansion
+	bsParams, err := tm.BabylonClient.BTCStakingParams()
+	require.NoError(t, err)
+	covenantBtcPks, err := bbnPksToBtcPks(bsParams.Params.CovenantPks)
+	require.NoError(t, err)
+	stakingTimeBlocks := bsParams.Params.MaxStakingTimeBlocks
+
+	// get top UTXO for the actual staking output
+	topUnspentResult, _, err := tm.BTCClient.GetHighUTXOAndSum()
+	require.NoError(t, err)
+	stakingUTXO, err := types.NewUTXO(topUnspentResult, regtestParams)
+	require.NoError(t, err)
+
+	// get a different UTXO for funding the expansion (fees and potentially additional stake)
+	allUnspentResult, err := tm.BTCClient.ListUnspent()
+	require.NoError(t, err)
+	require.True(t, len(allUnspentResult) >= 2, "Need at least 2 UTXOs for stake expansion")
+
+	var fundingUTXO *types.UTXO
+	for _, unspent := range allUnspentResult {
+		if unspent.TxID != stakingUTXO.GetOutPoint().Hash.String() {
+			fundingUTXO, err = types.NewUTXO(&unspent, regtestParams)
+			require.NoError(t, err)
+			break
+		}
+	}
+	require.NotNil(t, fundingUTXO, "Could not find a different UTXO for funding")
+
+	// staking value for expansion (should be >= original to not reduce stake)
+	additionalStake := uint64(fundingUTXO.Amount) / 4
+	totalStakingValue := stakingValue + additionalStake
+
+	// Get the funding transaction
+	fundingTxHash := fundingUTXO.GetOutPoint().Hash
+	fundingRawTx, err := tm.BTCClient.GetRawTransaction(&fundingTxHash)
+	require.NoError(t, err)
+	fundingMsgTx := fundingRawTx.MsgTx()
+
+	// generate expansion staking and slashing tx
+	stakingMsgTx, stakingSlashingInfo, stakingMsgTxHash := tm.createStakeExpStakingAndSlashingTx(t, fpSK, bsParams, covenantBtcPks, int64(totalStakingValue), stakingTimeBlocks, previousStakingTxHash, prevDelStakingOutputIdx, fundingMsgTx)
+
+	stakingOutIdx, err := outIdx(stakingSlashingInfo.StakingTx, stakingSlashingInfo.StakingInfo.StakingOutput)
+	require.NoError(t, err)
+
+	// create PoP
+	signCtx := signingcontext.StakerPopContextV0(tm.Config.Babylon.ChainID, appparams.AccBTCStaking.String())
+	pop, err := datagen.NewPoPBTC(signCtx, addr, tm.WalletPrivKey)
+	require.NoError(t, err)
+	slashingSpendPath, err := stakingSlashingInfo.StakingInfo.SlashingPathSpendInfo()
+	require.NoError(t, err)
+
+	// generate proper delegator sig
+	delegatorSig, err := stakingSlashingInfo.SlashingTx.Sign(
+		stakingMsgTx,
+		stakingOutIdx,
+		slashingSpendPath.GetPkScriptPath(),
+		tm.WalletPrivKey,
+	)
+	require.NoError(t, err)
+
+	// Generate all data necessary for unbonding
+	unbondingSlashingInfo, _, unbondingTxBytes, slashingTxSig := tm.createUnbondingData(
+		t,
+		fpPK,
+		bsParams,
+		covenantBtcPks,
+		stakingSlashingInfo,
+		stakingMsgTxHash,
+		stakingOutIdx,
+		stakingTimeBlocks,
+		uint16(bsParams.Params.UnbondingTimeBlocks),
+	)
+
+	// Serialize the staking transaction
+	var stakingTxBuf bytes.Buffer
+	err = stakingMsgTx.Serialize(&stakingTxBuf)
+	require.NoError(t, err)
+
+	// Get and serialize the separate funding transaction
+	fundingTxBytes, err := bbn.SerializeBTCTx(fundingRawTx.MsgTx())
+	require.NoError(t, err)
+
+	// submit BTC stake expansion to Babylon
+	msgBTCStakeExpansion := &bstypes.MsgBtcStakeExpand{
+		StakerAddr:                    signerAddr,
+		Pop:                           pop,
+		BtcPk:                         bbn.NewBIP340PubKeyFromBTCPK(tm.WalletPrivKey.PubKey()),
+		FpBtcPkList:                   []bbn.BIP340PubKey{*bbn.NewBIP340PubKeyFromBTCPK(fpPK)},
+		StakingTime:                   stakingTimeBlocks,
+		StakingValue:                  int64(totalStakingValue),
+		StakingTx:                     stakingTxBuf.Bytes(),
+		SlashingTx:                    stakingSlashingInfo.SlashingTx,
+		DelegatorSlashingSig:          delegatorSig,
+		UnbondingTime:                 tm.getBTCUnbondingTime(t),
+		UnbondingTx:                   unbondingTxBytes,
+		UnbondingValue:                unbondingSlashingInfo.UnbondingInfo.UnbondingOutput.Value,
+		UnbondingSlashingTx:           unbondingSlashingInfo.SlashingTx,
+		DelegatorUnbondingSlashingSig: slashingTxSig,
+		PreviousStakingTxHash:         previousStakingTxHash,
+		FundingTx:                     fundingTxBytes,
+	}
+	_, err = tm.BabylonClient.ReliablySendMsg(context.Background(), msgBTCStakeExpansion, nil, nil)
+	require.NoError(t, err)
+	t.Logf("submitted MsgBtcStakeExpand for previous staking tx: %s", previousStakingTxHash)
+
+	return stakingMsgTx, fundingMsgTx, stakingSlashingInfo, unbondingSlashingInfo, tm.WalletPrivKey
+}
+
+// AddWitnessToStakeExpTx adds witness to stake expansion transaction
+func (tm *TestManager) AddWitnessToStakeExpTx(
+	t *testing.T,
+	stakingOutput *wire.TxOut,
+	fundingOutput *wire.TxOut,
+	stakerSk *btcec.PrivateKey,
+	covenantSks []*btcec.PrivateKey,
+	covenantQuorum uint32,
+	finalityProviderPKs []*btcec.PublicKey,
+	stakingTime uint16,
+	stakingValue int64,
+	spendingTx *wire.MsgTx, // this is the stake expansion transaction
+	net *chaincfg.Params,
+) *wire.MsgTx {
+	var covenantPks []*btcec.PublicKey
+	for _, sk := range covenantSks {
+		covenantPks = append(covenantPks, sk.PubKey())
+	}
+
+	stakingInfo, err := btcstaking.BuildStakingInfo(
+		stakerSk.PubKey(),
+		finalityProviderPKs,
+		covenantPks,
+		covenantQuorum,
+		stakingTime,
+		btcutil.Amount(stakingValue),
+		net,
+	)
+	require.NoError(t, err)
+
+	// sanity check that what we re-build is the same as what we have in the BTC delegation
+	require.Equal(t, stakingOutput, stakingInfo.StakingOutput)
+
+	unbondingSpendInfo, err := stakingInfo.UnbondingPathSpendInfo()
+	require.NoError(t, err)
+
+	unbondingScript := unbondingSpendInfo.RevealedLeaf.Script
+	require.NotNil(t, unbondingScript)
+
+	covenantSigs := tm.GenerateSignaturesForStakeExpansion(
+		t,
+		covenantSks,
+		spendingTx,
+		stakingOutput,
+		fundingOutput,
+		unbondingSpendInfo.RevealedLeaf,
+	)
+	require.NoError(t, err)
+
+	stakerSig, err := btcstaking.SignTxForFirstScriptSpendWithTwoInputsFromTapLeaf(
+		spendingTx,
+		stakingOutput,
+		fundingOutput,
+		stakerSk,
+		unbondingSpendInfo.RevealedLeaf,
+	)
+	require.NoError(t, err)
+
+	ubWitness, err := unbondingSpendInfo.CreateUnbondingPathWitness(covenantSigs, stakerSig)
+	require.NoError(t, err)
+
+	spendingTx.TxIn[0].Witness = ubWitness
+
+	return spendingTx
+}
+
+// GenerateSignaturesForStakeExpansion generates covenant signatures for stake expansion
+func (tm *TestManager) GenerateSignaturesForStakeExpansion(
+	t *testing.T,
+	keys []*btcec.PrivateKey,
+	tx *wire.MsgTx,
+	stakingOutput *wire.TxOut,
+	fundingOutput *wire.TxOut,
+	leaf txscript.TapLeaf,
+) []*schnorr.Signature {
+	// Create a map to hold signatures by public key for sorting
+	sigMap := make(map[string]*schnorr.Signature)
+	var pubKeys []*btcec.PublicKey
+
+	for _, key := range keys {
+		pubKey := key.PubKey()
+		sig, err := btcstaking.SignTxForFirstScriptSpendWithTwoInputsFromTapLeaf(
+			tx,
+			stakingOutput,
+			fundingOutput,
+			key,
+			leaf,
+		)
+		require.NoError(t, err)
+
+		// Use compressed public key as map key for sorting
+		pubKeyStr := string(pubKey.SerializeCompressed())
+		sigMap[pubKeyStr] = sig
+		pubKeys = append(pubKeys, pubKey)
+	}
+
+	// Sort public keys by their serialized bytes
+	for i := 0; i < len(pubKeys)-1; i++ {
+		for j := i + 1; j < len(pubKeys); j++ {
+			if bytes.Compare(pubKeys[i].SerializeCompressed(), pubKeys[j].SerializeCompressed()) > 0 {
+				pubKeys[i], pubKeys[j] = pubKeys[j], pubKeys[i]
+			}
+		}
+	}
+
+	// Create sorted signatures array
+	var sigs []*schnorr.Signature = make([]*schnorr.Signature, len(pubKeys))
+	for i, pubKey := range pubKeys {
+		pubKeyStr := string(pubKey.SerializeCompressed())
+		sigs[i] = sigMap[pubKeyStr]
+	}
+
+	return sigs
 }

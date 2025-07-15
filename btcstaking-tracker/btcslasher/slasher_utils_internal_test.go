@@ -1,11 +1,15 @@
 package btcslasher
 
 import (
-	sdkmath "cosmossdk.io/math"
 	"fmt"
-	"github.com/babylonlabs-io/babylon/v2/testutil/datagen"
-	bbn "github.com/babylonlabs-io/babylon/v2/types"
-	bstypes "github.com/babylonlabs-io/babylon/v2/x/btcstaking/types"
+	"math/rand"
+	"testing"
+	"time"
+
+	sdkmath "cosmossdk.io/math"
+	"github.com/babylonlabs-io/babylon/v3/testutil/datagen"
+	bbn "github.com/babylonlabs-io/babylon/v3/types"
+	bstypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/testutil/mocks"
 	"github.com/btcsuite/btcd/btcec/v2"
@@ -13,9 +17,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
-	"math/rand"
-	"testing"
-	"time"
 )
 
 func TestBTCSlasher_slashBTCDelegation_exitUnslashable(t *testing.T) {
@@ -70,6 +71,7 @@ func TestBTCSlasher_slashBTCDelegation_exitUnslashable(t *testing.T) {
 		&chaincfg.SimNetParams,
 		[]bbn.BIP340PubKey{*fpBTCPK},
 		delSK,
+		"",
 		covenantSks,
 		covPks,
 		1,

@@ -2,10 +2,11 @@ package atomicslasher
 
 import (
 	"context"
-	"github.com/babylonlabs-io/babylon/v2/client/babylonclient"
+
+	"github.com/babylonlabs-io/babylon/v3/client/babylonclient"
 
 	"cosmossdk.io/errors"
-	bstypes "github.com/babylonlabs-io/babylon/v2/x/btcstaking/types"
+	bstypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkquerytypes "github.com/cosmos/cosmos-sdk/types/query"
 )
@@ -15,6 +16,6 @@ type BabylonClient interface {
 	BTCDelegations(status bstypes.BTCDelegationStatus, pagination *sdkquerytypes.PageRequest) (*bstypes.QueryBTCDelegationsResponse, error)
 	BTCDelegation(stakingTxHashHex string) (*bstypes.QueryBTCDelegationResponse, error)
 	BTCStakingParamsByVersion(version uint32) (*bstypes.QueryParamsByVersionResponse, error)
-	ReliablySendMsg(ctx context.Context, msg sdk.Msg, expectedErrors []*errors.Error, unrecoverableErrors []*errors.Error) (*babylonclient.RelayerTxResponse, error)
+	ReliablySendMsg(ctx context.Context, msg sdk.Msg, expectedErrors []*errors.Error, unrecoverableErrors []*errors.Error, retries ...uint) (*babylonclient.RelayerTxResponse, error)
 	MustGetAddr() string
 }

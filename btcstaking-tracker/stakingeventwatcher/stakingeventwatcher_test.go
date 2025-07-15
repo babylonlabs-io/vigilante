@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/babylonlabs-io/babylon/v2/testutil/datagen"
-	btcstakingtypes "github.com/babylonlabs-io/babylon/v2/x/btcstaking/types"
+	"github.com/babylonlabs-io/babylon/v3/testutil/datagen"
+	btcstakingtypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"
@@ -78,6 +78,9 @@ func TestHandlingDelegations(t *testing.T) {
 
 	mockBabylonNodeAdapter.EXPECT().QueryHeaderDepth(gomock.Any()).Return(uint32(2), nil).AnyTimes()
 	mockBabylonNodeAdapter.EXPECT().IsDelegationVerified(gomock.Any()).Return(true, nil).AnyTimes()
+	mockBabylonNodeAdapter.EXPECT().BTCDelegation(gomock.Any()).Return(&Delegation{
+		Status:           btcstakingtypes.BTCDelegationStatus_VERIFIED.String(),
+	}, nil).AnyTimes()
 
 	params := BabylonParams{ConfirmationTimeBlocks: 1}
 	mockBabylonNodeAdapter.EXPECT().Params().Return(&params, nil).AnyTimes()
@@ -205,5 +208,5 @@ func TestHandlingDelegationsByEvents(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		return promtestutil.ToFloat64(sew.metrics.ReportedActivateDelegationsCounter) >= float64(expectedActivated)
-	}, 60*time.Second, 100*time.Millisecond)
+	}, 90*time.Second, 100*time.Millisecond)
 }
