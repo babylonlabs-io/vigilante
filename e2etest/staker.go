@@ -3,11 +3,14 @@ package e2etest
 import (
 	"bytes"
 	"context"
-	"github.com/babylonlabs-io/babylon/v2/btcstaking"
-	"github.com/babylonlabs-io/babylon/v2/testutil/datagen"
-	bbn "github.com/babylonlabs-io/babylon/v2/types"
-	btcctypes "github.com/babylonlabs-io/babylon/v2/x/btccheckpoint/types"
-	bstypes "github.com/babylonlabs-io/babylon/v2/x/btcstaking/types"
+	"testing"
+	"time"
+
+	"github.com/babylonlabs-io/babylon/v3/btcstaking"
+	"github.com/babylonlabs-io/babylon/v3/testutil/datagen"
+	bbn "github.com/babylonlabs-io/babylon/v3/types"
+	btcctypes "github.com/babylonlabs-io/babylon/v3/x/btccheckpoint/types"
+	bstypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
@@ -15,8 +18,6 @@ import (
 	"github.com/btcsuite/btcd/wire"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
-	"testing"
-	"time"
 )
 
 type Staker struct {

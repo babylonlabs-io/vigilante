@@ -7,11 +7,11 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	"github.com/babylonlabs-io/babylon/v2/app"
-	btccheckpointtypes "github.com/babylonlabs-io/babylon/v2/x/btccheckpoint/types"
-	btclightclienttypes "github.com/babylonlabs-io/babylon/v2/x/btclightclient/types"
-	checkpointingtypes "github.com/babylonlabs-io/babylon/v2/x/checkpointing/types"
-	epochingtypes "github.com/babylonlabs-io/babylon/v2/x/epoching/types"
+	bbnappv3 "github.com/babylonlabs-io/babylon/v3/app"
+	btccheckpointtypes "github.com/babylonlabs-io/babylon/v3/x/btccheckpoint/types"
+	btclightclienttypes "github.com/babylonlabs-io/babylon/v3/x/btclightclient/types"
+	checkpointingtypes "github.com/babylonlabs-io/babylon/v3/x/checkpointing/types"
+	epochingtypes "github.com/babylonlabs-io/babylon/v3/x/epoching/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/genutil"
@@ -54,7 +54,7 @@ func GetGenesisInfoFromFile(filePath string) (*GenesisInfo, error) {
 		return nil, fmt.Errorf("failed to read genesis file %v, %w", filePath, err)
 	}
 
-	tmpBabylon := app.NewTmpBabylonApp()
+	tmpBabylon := bbnappv3.NewTmpBabylonApp()
 	gentxModule, ok := tmpBabylon.BasicModuleManager[genutiltypes.ModuleName].(genutil.AppModuleBasic)
 	if !ok {
 		return nil, fmt.Errorf("unexpected message type: %T", gentxModule)

@@ -3,7 +3,7 @@ package btcslasher
 import (
 	"fmt"
 
-	bbn "github.com/babylonlabs-io/babylon/v2/types"
+	bbn "github.com/babylonlabs-io/babylon/v3/types"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 )
 

@@ -2,20 +2,21 @@ package btcslasher_test
 
 import (
 	"fmt"
-	"github.com/babylonlabs-io/vigilante/btcclient"
-	"github.com/lightningnetwork/lnd/chainntnfs"
 	"math/rand"
 	"testing"
 	"time"
 
+	"github.com/babylonlabs-io/vigilante/btcclient"
+	"github.com/lightningnetwork/lnd/chainntnfs"
+
 	sdkmath "cosmossdk.io/math"
 	"github.com/btcsuite/btcd/btcec/v2"
 
-	datagen "github.com/babylonlabs-io/babylon/v2/testutil/datagen"
-	bbn "github.com/babylonlabs-io/babylon/v2/types"
-	btcctypes "github.com/babylonlabs-io/babylon/v2/x/btccheckpoint/types"
-	bstypes "github.com/babylonlabs-io/babylon/v2/x/btcstaking/types"
-	ftypes "github.com/babylonlabs-io/babylon/v2/x/finality/types"
+	datagen "github.com/babylonlabs-io/babylon/v3/testutil/datagen"
+	bbn "github.com/babylonlabs-io/babylon/v3/types"
+	btcctypes "github.com/babylonlabs-io/babylon/v3/x/btccheckpoint/types"
+	bstypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
+	ftypes "github.com/babylonlabs-io/babylon/v3/x/finality/types"
 	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/btcslasher"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"

@@ -10,12 +10,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/babylonlabs-io/babylon/v2/client/babylonclient"
-	bbn "github.com/babylonlabs-io/babylon/v2/types"
+	"github.com/babylonlabs-io/babylon/v3/client/babylonclient"
+	bbn "github.com/babylonlabs-io/babylon/v3/types"
 	"golang.org/x/sync/semaphore"
 
-	btcctypes "github.com/babylonlabs-io/babylon/v2/x/btccheckpoint/types"
-	btcstakingtypes "github.com/babylonlabs-io/babylon/v2/x/btcstaking/types"
+	btcctypes "github.com/babylonlabs-io/babylon/v3/x/btccheckpoint/types"
+	btcstakingtypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/types"
 
