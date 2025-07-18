@@ -60,10 +60,10 @@ func GetMonitorCmd() *cobra.Command {
 			}
 
 			// create BTC client and connect to BTC server
-			// btcClient, err = btcclient.NewWallet(&cfg, rootLogger)
-			// if err != nil {
-			// 	panic(fmt.Errorf("failed to open BTC client: %w", err))
-			// }
+			btcClient, err = btcclient.NewWallet(&cfg, rootLogger)
+			if err != nil {
+				panic(fmt.Errorf("failed to open BTC client: %w", err))
+			}
 			genesisInfo, err := types.GetGenesisInfoFromFile(genesisFile)
 			if err != nil {
 				panic(fmt.Errorf("failed to read genesis file: %w", err))
