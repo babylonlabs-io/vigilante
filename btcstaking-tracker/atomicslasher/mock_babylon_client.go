@@ -9,8 +9,8 @@ import (
 	reflect "reflect"
 
 	errors "cosmossdk.io/errors"
-	babylonclient "github.com/babylonlabs-io/babylon/v2/client/babylonclient"
-	types "github.com/babylonlabs-io/babylon/v2/x/btcstaking/types"
+	babylonclient "github.com/babylonlabs-io/babylon/v3/client/babylonclient"
+	types "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
 	types0 "github.com/cosmos/cosmos-sdk/types"
 	query "github.com/cosmos/cosmos-sdk/types/query"
 	gomock "github.com/golang/mock/gomock"
@@ -114,16 +114,21 @@ func (mr *MockBabylonClientMockRecorder) MustGetAddr() *gomock.Call {
 }
 
 // ReliablySendMsg mocks base method.
-func (m *MockBabylonClient) ReliablySendMsg(ctx context.Context, msg types0.Msg, expectedErrors, unrecoverableErrors []*errors.Error) (*babylonclient.RelayerTxResponse, error) {
+func (m *MockBabylonClient) ReliablySendMsg(ctx context.Context, msg types0.Msg, expectedErrors, unrecoverableErrors []*errors.Error, retries ...uint) (*babylonclient.RelayerTxResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReliablySendMsg", ctx, msg, expectedErrors, unrecoverableErrors)
+	varargs := []interface{}{ctx, msg, expectedErrors, unrecoverableErrors}
+	for _, a := range retries {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ReliablySendMsg", varargs...)
 	ret0, _ := ret[0].(*babylonclient.RelayerTxResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ReliablySendMsg indicates an expected call of ReliablySendMsg.
-func (mr *MockBabylonClientMockRecorder) ReliablySendMsg(ctx, msg, expectedErrors, unrecoverableErrors interface{}) *gomock.Call {
+func (mr *MockBabylonClientMockRecorder) ReliablySendMsg(ctx, msg, expectedErrors, unrecoverableErrors interface{}, retries ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReliablySendMsg", reflect.TypeOf((*MockBabylonClient)(nil).ReliablySendMsg), ctx, msg, expectedErrors, unrecoverableErrors)
+	varargs := append([]interface{}{ctx, msg, expectedErrors, unrecoverableErrors}, retries...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReliablySendMsg", reflect.TypeOf((*MockBabylonClient)(nil).ReliablySendMsg), varargs...)
 }

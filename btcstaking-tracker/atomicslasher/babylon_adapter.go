@@ -7,8 +7,8 @@ import (
 
 	"cosmossdk.io/errors"
 	"github.com/avast/retry-go/v4"
-	bbn "github.com/babylonlabs-io/babylon/v2/types"
-	bstypes "github.com/babylonlabs-io/babylon/v2/x/btcstaking/types"
+	bbn "github.com/babylonlabs-io/babylon/v3/types"
+	bstypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/cosmos/cosmos-sdk/types/query"
@@ -64,14 +64,16 @@ func (ba *BabylonAdapter) BTCStakingParams(ctx context.Context, version uint32) 
 }
 
 func (ba *BabylonAdapter) BTCDelegation(ctx context.Context, stakingTxHashHex string) (*bstypes.QueryBTCDelegationResponse, error) {
-	var resp *bstypes.QueryBTCDelegationResponse
-	err := retry.Do(
+	var (
+		resp *bstypes.QueryBTCDelegationResponse
+		err  error
+	)
+	err = retry.Do(
 		func() error {
-			resp2, err := ba.bbnClient.BTCDelegation(stakingTxHashHex)
+			resp, err = ba.bbnClient.BTCDelegation(stakingTxHashHex)
 			if err != nil {
 				return err
 			}
-			resp = resp2
 
 			return nil
 		},

@@ -3,11 +3,16 @@ package e2etest
 import (
 	"bytes"
 	"context"
-	"github.com/babylonlabs-io/babylon/v2/btcstaking"
-	"github.com/babylonlabs-io/babylon/v2/testutil/datagen"
-	bbn "github.com/babylonlabs-io/babylon/v2/types"
-	btcctypes "github.com/babylonlabs-io/babylon/v2/x/btccheckpoint/types"
-	bstypes "github.com/babylonlabs-io/babylon/v2/x/btcstaking/types"
+	"testing"
+	"time"
+
+	appparams "github.com/babylonlabs-io/babylon/v3/app/params"
+	"github.com/babylonlabs-io/babylon/v3/app/signingcontext"
+	"github.com/babylonlabs-io/babylon/v3/btcstaking"
+	"github.com/babylonlabs-io/babylon/v3/testutil/datagen"
+	bbn "github.com/babylonlabs-io/babylon/v3/types"
+	btcctypes "github.com/babylonlabs-io/babylon/v3/x/btccheckpoint/types"
+	bstypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
@@ -15,8 +20,6 @@ import (
 	"github.com/btcsuite/btcd/wire"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
-	"testing"
-	"time"
 )
 
 type Staker struct {
@@ -57,7 +60,8 @@ func (s *Staker) CreateStakingTx(
 	stakingOutIdx, err := outIdx(stakingSlashingInfo.StakingTx, stakingSlashingInfo.StakingInfo.StakingOutput)
 	require.NoError(t, err)
 	// create PoP
-	pop, err := datagen.NewPoPBTC(addr, tm.WalletPrivKey)
+	signCtx := signingcontext.StakerPopContextV0(tm.Config.Babylon.ChainID, appparams.AccBTCStaking.String())
+	pop, err := datagen.NewPoPBTC(signCtx, addr, tm.WalletPrivKey)
 	require.NoError(t, err)
 	slashingSpendPath, err := stakingSlashingInfo.StakingInfo.SlashingPathSpendInfo()
 	require.NoError(t, err)

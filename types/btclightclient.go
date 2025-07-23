@@ -1,8 +1,8 @@
 package types
 
 import (
-	babylontypes "github.com/babylonlabs-io/babylon/v2/types"
-	btcltypes "github.com/babylonlabs-io/babylon/v2/x/btclightclient/types"
+	babylontypes "github.com/babylonlabs-io/babylon/v3/types"
+	btcltypes "github.com/babylonlabs-io/babylon/v3/x/btclightclient/types"
 )
 
 func NewMsgInsertHeaders(
