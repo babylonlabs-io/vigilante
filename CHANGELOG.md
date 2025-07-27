@@ -37,6 +37,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Bug Fixes
+
+* [#406](https://github.com/babylonlabs-io/vigilante/pull/406) fix: getting tx raw for stk expansion
+
 ### Improvements
 
 * [#380](https://github.com/babylonlabs-io/vigilante/pull/380) feat: add support for stake expansion
