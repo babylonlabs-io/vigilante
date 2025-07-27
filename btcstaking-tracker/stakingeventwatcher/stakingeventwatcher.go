@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/btcsuite/btcd/btcjson"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -23,7 +24,6 @@ import (
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/utils"
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
-	"github.com/btcsuite/btcd/btcjson"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
 	notifier "github.com/lightningnetwork/lnd/chainntnfs"
@@ -469,12 +469,12 @@ func (sew *StakingEventWatcher) handleSpend(ctx context.Context, spendingTx *wir
 		sew.logger.Debugf("found stake expansion tx %s spending the previous staking tx %s", spendingTxHash, delegationID)
 
 		var (
-			txResult *btcjson.GetTransactionResult
+			txResult *btcjson.TxRawResult
 			err      error
 		)
 
 		if err := retry.Do(func() error {
-			txResult, err = sew.btcClient.GetTransaction(&spendingTxHash)
+			txResult, err = sew.btcClient.GetRawTransactionVerbose(&spendingTxHash)
 			if err != nil {
 				return err
 			}

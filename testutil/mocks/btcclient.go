@@ -119,6 +119,21 @@ func (mr *MockBTCClientMockRecorder) GetRawTransaction(txHash interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRawTransaction", reflect.TypeOf((*MockBTCClient)(nil).GetRawTransaction), txHash)
 }
 
+// GetRawTransactionVerbose mocks base method.
+func (m *MockBTCClient) GetRawTransactionVerbose(txHash *chainhash.Hash) (*btcjson.TxRawResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRawTransactionVerbose", txHash)
+	ret0, _ := ret[0].(*btcjson.TxRawResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRawTransactionVerbose indicates an expected call of GetRawTransactionVerbose.
+func (mr *MockBTCClientMockRecorder) GetRawTransactionVerbose(txHash interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRawTransactionVerbose", reflect.TypeOf((*MockBTCClient)(nil).GetRawTransactionVerbose), txHash)
+}
+
 // GetTransaction mocks base method.
 func (m *MockBTCClient) GetTransaction(txHash *chainhash.Hash) (*btcjson.GetTransactionResult, error) {
 	m.ctrl.T.Helper()

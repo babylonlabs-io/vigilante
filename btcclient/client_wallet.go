@@ -146,6 +146,10 @@ func (c *Client) GetRawTransaction(txHash *chainhash.Hash) (*btcutil.Tx, error) 
 	return c.Client.GetRawTransaction(txHash)
 }
 
+func (c *Client) GetRawTransactionVerbose(txHash *chainhash.Hash) (*btcjson.TxRawResult, error) {
+	return c.Client.GetRawTransactionVerbose(txHash)
+}
+
 func notifierStateToWalletState(state notifier.TxConfStatus) TxStatus {
 	switch state {
 	case notifier.TxNotFoundIndex:
