@@ -329,7 +329,7 @@ func (rl *Relayer) calculateBumpedFee(ckptInfo *types.CheckpointInfo, previousFa
 	}
 
 	txID := ckptInfo.Tx2.TxID.String()
-	mempoolEntry, err := rl.BTCWallet.GetMempoolEntry(txID)
+	mempoolEntry, err := rl.GetMempoolEntry(txID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get mempool entry for %s: %w", txID, err)
 	}
@@ -469,7 +469,7 @@ func (rl *Relayer) maybeResendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bu
 		rl.logger.Debugf("Resending the second tx of the checkpoint %v with bumped fee: %v Satoshis, fee rate: %v BTC/kB",
 			tx2.TxID, bumpedFee, roundedFeeRate)
 		// Need to create new inputs to cover the fee
-		fundedTx, err := rl.BTCWallet.FundRawTransaction(tx2.Tx, btcjson.FundRawTransactionOpts{
+		fundedTx, err := rl.FundRawTransaction(tx2.Tx, btcjson.FundRawTransactionOpts{
 			FeeRate:        &roundedFeeRate,
 			ChangePosition: &changePosition,
 		}, nil)
@@ -513,7 +513,7 @@ func (rl *Relayer) maybeResendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bu
 }
 func (rl *Relayer) verifyRBFRequirements(txID string, newFee btcutil.Amount, txVirtualSize int64) error {
 	// Fetch mempool data for original transaction and its descendants
-	mempoolEntry, err := rl.BTCWallet.GetMempoolEntry(txID)
+	mempoolEntry, err := rl.GetMempoolEntry(txID)
 	if err != nil {
 		return fmt.Errorf("%w: %s: %w", ErrTxNotInMempool, txID, err)
 	}
@@ -586,7 +586,7 @@ func (rl *Relayer) signTx(tx *wire.MsgTx) (*wire.MsgTx, error) {
 		return nil, err
 	}
 
-	signedTx, allSigned, err := rl.BTCWallet.SignRawTransactionWithWallet(tx)
+	signedTx, allSigned, err := rl.SignRawTransactionWithWallet(tx)
 	if err != nil {
 		return nil, err
 	}
@@ -758,7 +758,7 @@ func (rl *Relayer) buildDataTx(data []byte) (*types.BtcTxInfo, error) {
 	// Fund the transaction
 	changePosition := 1
 	feeRate := btcutil.Amount(rl.getFeeRate()).ToBTC()
-	rawTxResult, err := rl.BTCWallet.FundRawTransaction(tx, btcjson.FundRawTransactionOpts{
+	rawTxResult, err := rl.FundRawTransaction(tx, btcjson.FundRawTransactionOpts{
 		FeeRate:        &feeRate,
 		ChangePosition: &changePosition,
 	}, nil)
@@ -770,7 +770,7 @@ func (rl *Relayer) buildDataTx(data []byte) (*types.BtcTxInfo, error) {
 	hasChange := len(rawTxResult.Transaction.TxOut) > changePosition
 	if !hasChange {
 		rl.logger.Debugf("no change, adding change address manually, tx ref: %s", tx.TxHash())
-		changeAddr, err := rl.BTCWallet.GetNewAddress("")
+		changeAddr, err := rl.GetNewAddress("")
 		if err != nil {
 			return nil, fmt.Errorf("err getting raw change address %w", err)
 		}
@@ -786,7 +786,7 @@ func (rl *Relayer) buildDataTx(data []byte) (*types.BtcTxInfo, error) {
 		// reselect the inputs as the change output has been added, we have to do this because:
 		// change output increases the tx size and decrease the fee, therefore it may decrease fee-rate,
 		// reducing miner's incentive to include this tx in the block
-		rawTxResult, err = rl.BTCWallet.FundRawTransaction(rawTxResult.Transaction, btcjson.FundRawTransactionOpts{
+		rawTxResult, err = rl.FundRawTransaction(rawTxResult.Transaction, btcjson.FundRawTransactionOpts{
 			FeeRate:        &feeRate,
 			ChangePosition: &changePosition,
 		}, nil)
@@ -828,7 +828,7 @@ func (rl *Relayer) buildChainedDataTx(data []byte, prevTx *wire.MsgTx) (*types.B
 	// Fund the transaction
 	changePosition := 1
 	feeRate := btcutil.Amount(rl.getFeeRate()).ToBTC()
-	rawTxResult, err := rl.BTCWallet.FundRawTransaction(tx, btcjson.FundRawTransactionOpts{
+	rawTxResult, err := rl.FundRawTransaction(tx, btcjson.FundRawTransactionOpts{
 		FeeRate:        &feeRate,
 		ChangePosition: &changePosition,
 	}, nil)
@@ -1010,7 +1010,7 @@ func maybeResendFromStore(
 }
 
 func (rl *Relayer) getIncrementalRelayFeerate() (btcutil.Amount, error) {
-	networkInfo, err := rl.BTCWallet.GetNetworkInfo()
+	networkInfo, err := rl.GetNetworkInfo()
 	if err != nil {
 		return 0, fmt.Errorf("failed to get network info for incremental relay feerate: %w", err)
 	}

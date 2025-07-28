@@ -1,4 +1,4 @@
-package types
+package types // nolint:revive
 
 import (
 	ckpttypes "github.com/babylonlabs-io/babylon/v3/x/checkpointing/types"
