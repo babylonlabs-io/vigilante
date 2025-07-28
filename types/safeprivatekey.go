@@ -1,4 +1,4 @@
-package types
+package types // nolint:revive
 
 import (
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
