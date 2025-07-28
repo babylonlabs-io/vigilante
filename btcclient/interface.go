@@ -24,6 +24,7 @@ type BTCClient interface {
 	SendRawTransactionWithBurnLimit(tx *wire.MsgTx, allowHighFees bool, maxBurnAmount float64) (*chainhash.Hash, error)
 	GetTransaction(txHash *chainhash.Hash) (*btcjson.GetTransactionResult, error)
 	GetRawTransaction(txHash *chainhash.Hash) (*btcutil.Tx, error)
+	GetRawTransactionVerbose(txHash *chainhash.Hash) (*btcjson.TxRawResult, error)
 	TxDetails(txHash *chainhash.Hash, pkScript []byte) (*notifier.TxConfirmation, TxStatus, error)
 }
 
