@@ -45,6 +45,7 @@ func AllocateUniquePort(t *testing.T) int {
 		defer lock.Close()
 		defer os.Remove(lockFile)
 
+		//nolint:noctx // context not needed for port availability check
 		listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 		if err != nil {
 			continue // Port is already in use

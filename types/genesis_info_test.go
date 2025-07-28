@@ -1,4 +1,4 @@
-package types
+package types // nolint:revive
 
 import (
 	"context"
@@ -39,7 +39,7 @@ func FuzzGetGenesisInfoFromFile(f *testing.F) {
 			WithHomeDir(home).
 			WithTxConfig(tmpBabylon.TxConfig())
 
-		ctx := context.Background()
+		ctx := t.Context()
 		ctx = context.WithValue(ctx, server.ServerContextKey, serverCtx)
 		ctx = context.WithValue(ctx, client.ClientContextKey, &clientCtx)
 		cmd := bbncmd.TestnetCmd(tmpBabylon.BasicModuleManager, banktypes.GenesisBalancesIterator{})

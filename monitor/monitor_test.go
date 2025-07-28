@@ -81,10 +81,7 @@ func FuzzVerifyCheckpoint(f *testing.F) {
 
 		// generate case 3, using invalid epoch num
 		newEpoch := datagen.GenRandomEpochNum(r)
-		for {
-			if newEpoch != btcCheckpoint2.EpochNum {
-				break
-			}
+		for newEpoch != btcCheckpoint2.EpochNum {
 			newEpoch = datagen.GenRandomEpochNum(r)
 		}
 		btcCheckpoint3 := &ckpttypes.RawCheckpoint{}

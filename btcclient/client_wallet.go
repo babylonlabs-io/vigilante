@@ -239,7 +239,7 @@ func (c *Client) SendRawTransactionWithBurnLimit(tx *wire.MsgTx, allowHighFees b
 
 	params = append(params, maxBurnJSON)
 
-	rawResp, err := c.Client.RawRequest("sendrawtransaction", params)
+	rawResp, err := c.RawRequest("sendrawtransaction", params)
 	if err != nil {
 		return nil, err
 	}

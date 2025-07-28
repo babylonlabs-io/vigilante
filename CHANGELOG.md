@@ -44,6 +44,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Improvements
 
 * [#380](https://github.com/babylonlabs-io/vigilante/pull/380) feat: add support for stake expansion
+* [#408](https://github.com/babylonlabs-io/vigilante/pull/408) chore: bump go1.24
 
 ## v0.23.10
 
