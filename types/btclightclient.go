@@ -1,4 +1,4 @@
-package types
+package types // nolint:revive
 
 import (
 	babylontypes "github.com/babylonlabs-io/babylon/v3/types"

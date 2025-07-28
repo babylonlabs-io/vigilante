@@ -97,6 +97,7 @@ func (c *EmptyHintCache) PurgeConfirmHint(_ ...chainntnfs.ConfRequest) error {
 // // works over tor.
 func BuildDialer(rpcHost string) func(string) (net.Conn, error) {
 	return func(_ string) (net.Conn, error) {
+		//nolint:noctx // context not needed for port availability check
 		return net.Dial("tcp", rpcHost)
 	}
 }

@@ -1,6 +1,6 @@
 module github.com/babylonlabs-io/vigilante
 
-go 1.23.8
+go 1.24.5
 
 require (
 	cosmossdk.io/errors v1.0.2
