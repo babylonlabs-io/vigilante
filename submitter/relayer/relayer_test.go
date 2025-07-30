@@ -1498,7 +1498,7 @@ func TestRelayer_MaybeResendSecondTxOfCheckpointToBTC(t *testing.T) {
 				}
 			},
 			bumpedFee: btcutil.Amount(2000),
-			mockSetup: func(m *mocks.MockBTCWallet, _ *types.BtcTxInfo, _ btcutil.Amount) {
+			mockSetup: func(_ *mocks.MockBTCWallet, _ *types.BtcTxInfo, _ btcutil.Amount) {
 				// No mock setup needed - error should occur before any wallet calls
 			},
 			expectedErrSubstr: "transaction has no change output",

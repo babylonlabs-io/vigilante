@@ -451,6 +451,7 @@ func (rl *Relayer) maybeResendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bu
 	// Check if the transaction has a change output
 	if len(tx2.Tx.TxOut) <= changePosition {
 		rl.logger.Warnf("Transaction %v has no change output (only %d outputs), cannot bump fee using RBF", tx2.TxID, len(tx2.Tx.TxOut))
+		
 		return nil, fmt.Errorf("%w: expected at least %d outputs, got %d", ErrNoChangeOutput, changePosition+1, len(tx2.Tx.TxOut))
 	}
 
