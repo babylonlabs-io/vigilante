@@ -21,6 +21,7 @@ import (
 	"github.com/btcsuite/btcd/wire"
 	"github.com/golang/mock/gomock"
 	"github.com/lightningnetwork/lnd/lnwallet/chainfee"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -1472,6 +1473,36 @@ func TestRelayer_MaybeResendSecondTxOfCheckpointToBTC(t *testing.T) {
 			},
 			expectedErrSubstr: "transaction rejected",
 		},
+		{
+			name: "transaction has no change output",
+			tx2Setup: func() *types.BtcTxInfo {
+				// Create a transaction with only one output (no change)
+				tx := wire.NewMsgTx(wire.TxVersion)
+				
+				// Add a dummy input
+				hash, _ := chainhash.NewHashFromStr("0000000000000000000000000000000000000000000000000000000000000001")
+				tx.AddTxIn(wire.NewTxIn(wire.NewOutPoint(hash, 0), nil, nil))
+				
+				// Add only OP_RETURN output (no change output)
+				builder := txscript.NewScriptBuilder()
+				dataScript, _ := builder.AddOp(txscript.OP_RETURN).AddData([]byte("test data")).Script()
+				tx.AddTxOut(wire.NewTxOut(0, dataScript))
+				
+				txID := tx.TxHash()
+				
+				return &types.BtcTxInfo{
+					TxID: &txID,
+					Tx:   tx,
+					Size: 200,
+					Fee:  btcutil.Amount(1000),
+				}
+			},
+			bumpedFee: btcutil.Amount(2000),
+			mockSetup: func(m *mocks.MockBTCWallet, _ *types.BtcTxInfo, _ btcutil.Amount) {
+				// No mock setup needed - error should occur before any wallet calls
+			},
+			expectedErrSubstr: "transaction has no change output",
+		},
 	}
 
 	for _, tc := range tests {
@@ -1501,6 +1532,7 @@ func TestRelayer_MaybeResendSecondTxOfCheckpointToBTC(t *testing.T) {
 		})
 	}
 }
+
 
 func TestRelayer_BuildChainedDataTx(t *testing.T) {
 	t.Parallel()
@@ -1723,3 +1755,29 @@ func TestRelayer_BuildChainedDataTx(t *testing.T) {
 		})
 	}
 }
+
+
+// MockCounter is a simple mock implementation of prometheus.Counter for testing
+type MockCounter struct {
+	value float64
+}
+
+func (m *MockCounter) Inc() {
+	m.value++
+}
+
+func (m *MockCounter) Add(delta float64) {
+	m.value += delta
+}
+
+func (m *MockCounter) Desc() <-chan *prometheus.Desc {
+	return nil
+}
+
+func (m *MockCounter) Write(*prometheus.Metric) error {
+	return nil
+}
+
+func (m *MockCounter) Describe(chan<- *prometheus.Desc) {}
+
+func (m *MockCounter) Collect(chan<- prometheus.Metric) {}
