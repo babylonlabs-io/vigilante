@@ -43,6 +43,7 @@ var (
 	ErrFeeIncrementTooSmall = errors.New("fee increment too small")
 	ErrTxNotInMempool       = errors.New("transaction not found in mempool")
 	ErrRelayFeerate         = errors.New("failed to get relay feerate")
+	ErrNoChangeOutput       = errors.New("transaction has no change output")
 )
 
 type GetLatestCheckpointFunc func() (*store.StoredCheckpoint, bool, error)
@@ -226,6 +227,11 @@ func (rl *Relayer) MaybeResubmitSecondCheckpointTx(ckpt *ckpttypes.RawCheckpoint
 					rl.logger.Warnf("Transaction %s has too many descendants, won't attempt RBF again: %v", rl.lastSubmittedCheckpoint.Tx2.TxID, err)
 
 					return nil // Don't retry with RBF if there are too many descendants
+				}
+				if errors.Is(err, ErrNoChangeOutput) {
+					rl.logger.Warnf("Transaction %s has no change output, cannot bump fee: %v", rl.lastSubmittedCheckpoint.Tx2.TxID, err)
+
+					return nil // Don't retry if there's no change output
 				}
 
 				return err
@@ -442,6 +448,12 @@ func (rl *Relayer) adjustFeeForInsufficientFeerate(
 
 // maybeResendSecondTxOfCheckpointToBTC resends the second tx of the checkpoint with bumpedFee
 func (rl *Relayer) maybeResendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bumpedFee btcutil.Amount) (*types.BtcTxInfo, error) {
+	// Check if the transaction has a change output
+	if len(tx2.Tx.TxOut) <= changePosition {
+		rl.logger.Warnf("Transaction %v has no change output (only %d outputs), cannot bump fee using RBF", tx2.TxID, len(tx2.Tx.TxOut))
+		return nil, fmt.Errorf("%w: expected at least %d outputs, got %d", ErrNoChangeOutput, changePosition+1, len(tx2.Tx.TxOut))
+	}
+
 	_, status, err := rl.TxDetails(tx2.TxID, tx2.Tx.TxOut[changePosition].PkScript)
 	if err != nil {
 		return nil, err
