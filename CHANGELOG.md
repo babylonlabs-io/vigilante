@@ -40,6 +40,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Bug Fixes
 
 * [#406](https://github.com/babylonlabs-io/vigilante/pull/406) fix: getting tx raw for stk expansion
+* [#410](https://github.com/babylonlabs-io/vigilante/pull/410) fix: handle missing change output in transaction resend to prevent index out of range panic
 
 ### Improvements
 
