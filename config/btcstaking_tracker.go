@@ -22,10 +22,11 @@ type BTCStakingTrackerConfig struct {
 	// the BTC network
 	BTCNetParams string `mapstructure:"btcnetparams"` // should be mainnet|testnet|simnet|signet|regtest
 	// number of concurrent requests that when slashing
-	MaxSlashingConcurrency  uint8         `mapstructure:"max-slashing-concurrency"`
-	IndexerAddr             string        `mapstructure:"indexer-addr"`
-	FetchEvidenceInterval   time.Duration `mapstructure:"fetch-evidence-interval"`
-	FetchCometBlockInterval time.Duration `mapstructure:"fetch-comet-block-interval"`
+	MaxSlashingConcurrency   uint8         `mapstructure:"max-slashing-concurrency"`
+	IndexerAddr              string        `mapstructure:"indexer-addr"`
+	FetchEvidenceInterval    time.Duration `mapstructure:"fetch-evidence-interval"`
+	FetchCometBlockInterval  time.Duration `mapstructure:"fetch-comet-block-interval"`
+	ReconnectBTCNodeInterval time.Duration `mapstructure:"reconnect-btc-node-interval"`
 }
 
 func DefaultBTCStakingTrackerConfig() BTCStakingTrackerConfig {
@@ -39,10 +40,11 @@ func DefaultBTCStakingTrackerConfig() BTCStakingTrackerConfig {
 		// This should be small, as we want to report unbonding tx as soon as possible even if we initially failed
 		RetrySubmitUnbondingTxInterval: 1 * time.Minute,
 		// pretty large jitter to avoid spamming babylon with requests
-		RetryJitter:            30 * time.Second,
-		BTCNetParams:           types.BtcSimnet.String(),
-		MaxSlashingConcurrency: MaxSlashingConcurrency,
-		IndexerAddr:            "http://localhost:3000",
+		RetryJitter:              30 * time.Second,
+		BTCNetParams:             types.BtcSimnet.String(),
+		MaxSlashingConcurrency:   MaxSlashingConcurrency,
+		IndexerAddr:              "http://localhost:3000",
+		ReconnectBTCNodeInterval: 60 * time.Minute,
 	}
 }
 
