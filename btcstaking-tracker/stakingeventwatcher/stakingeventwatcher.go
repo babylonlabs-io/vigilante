@@ -232,8 +232,7 @@ func (sew *StakingEventWatcher) runBlockNotifier() error {
 	defer blockNotifier.Cancel()
 
 	// Timeout as a fail-safe mechanism, as we should get !ok from blockNotifier.Epochs
-	blockTimeout := 60 * time.Minute
-	timeoutTimer := time.NewTimer(blockTimeout)
+	timeoutTimer := time.NewTimer(sew.cfg.ReconnectBTCNodeInterval)
 	defer timeoutTimer.Stop()
 
 	for {
@@ -250,7 +249,7 @@ func (sew *StakingEventWatcher) runBlockNotifier() error {
 				default:
 				}
 			}
-			timeoutTimer.Reset(blockTimeout)
+			timeoutTimer.Reset(sew.cfg.ReconnectBTCNodeInterval)
 
 			if block.Height < 0 {
 				panic(fmt.Errorf("received negative block height: %d", block.Height))
@@ -265,7 +264,7 @@ func (sew *StakingEventWatcher) runBlockNotifier() error {
 			}
 
 		case <-timeoutTimer.C:
-			return fmt.Errorf("no block received from notifier for %v, connection may be stale", blockTimeout)
+			return fmt.Errorf("no block received from notifier for %v, connection may be stale", sew.cfg.ReconnectBTCNodeInterval)
 
 		case <-sew.quit:
 			sew.logger.Info("Block notifier shutting down")
