@@ -44,7 +44,7 @@ func DefaultBTCStakingTrackerConfig() BTCStakingTrackerConfig {
 		BTCNetParams:             types.BtcSimnet.String(),
 		MaxSlashingConcurrency:   MaxSlashingConcurrency,
 		IndexerAddr:              "http://localhost:3000",
-		ReconnectBTCNodeInterval: 15 * time.Minute,
+		ReconnectBTCNodeInterval: 60 * time.Minute,
 	}
 }
 
