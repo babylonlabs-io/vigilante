@@ -37,6 +37,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+## v0.24.0-rc.1
+
 ### Bug Fixes
 
 * [#406](https://github.com/babylonlabs-io/vigilante/pull/406) fix: getting tx raw for stk expansion
