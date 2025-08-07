@@ -37,6 +37,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+## v0.24.0-rc.2
+
+### Improvements
+
+* [#415](https://github.com/babylonlabs-io/vigilante/pull/415) chore: bump bbn v3rc0
+
 ## v0.24.0-rc.1
 
 ### Bug Fixes
@@ -49,7 +55,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 * [#380](https://github.com/babylonlabs-io/vigilante/pull/380) feat: add support for stake expansion
 * [#408](https://github.com/babylonlabs-io/vigilante/pull/408) chore: bump go1.24
 * [#412](https://github.com/babylonlabs-io/vigilante/pull/412) chore: add cfg option for reconnect
-* [#415](https://github.com/babylonlabs-io/vigilante/pull/415) chore: bump bbn v3rc0
 
 ## v0.23.10
 
