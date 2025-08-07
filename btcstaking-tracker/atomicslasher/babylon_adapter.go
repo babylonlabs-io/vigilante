@@ -125,12 +125,10 @@ func (ba *BabylonAdapter) IsFPSlashed(
 
 func (ba *BabylonAdapter) ReportSelectiveSlashing(
 	ctx context.Context,
-	stakingTxHash string,
 	fpBTCSK *btcec.PrivateKey,
 ) error {
 	msg := &bstypes.MsgSelectiveSlashingEvidence{
 		Signer:           ba.bbnClient.MustGetAddr(),
-		StakingTxHash:    stakingTxHash,
 		RecoveredFpBtcSk: fpBTCSK.Serialize(),
 	}
 

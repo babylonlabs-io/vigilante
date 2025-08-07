@@ -209,7 +209,7 @@ func (as *AtomicSlasher) selectiveSlashingReporter() {
 
 			// report selective slashing to Babylon
 			ctx, cancel = as.quitContext()
-			if err := as.bbnAdapter.ReportSelectiveSlashing(ctx, stakingTxHashStr, fpSK); err != nil {
+			if err := as.bbnAdapter.ReportSelectiveSlashing(ctx, fpSK); err != nil {
 				// TODO: this implies that all signed covenant members collude with
 				// the finality provider. Decide what to do in this case
 				as.logger.Error(
