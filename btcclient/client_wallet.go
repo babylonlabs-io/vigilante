@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	notifier "github.com/lightningnetwork/lnd/chainntnfs"
+	"time"
 
 	"github.com/btcsuite/btcd/btcjson"
 	"github.com/btcsuite/btcd/btcutil"
@@ -239,9 +240,26 @@ func (c *Client) SendRawTransactionWithBurnLimit(tx *wire.MsgTx, allowHighFees b
 
 	params = append(params, maxBurnJSON)
 
-	rawResp, err := c.RawRequest("sendrawtransaction", params)
-	if err != nil {
-		return nil, err
+	type result struct {
+		resp []byte
+		err  error
+	}
+
+	done := make(chan result, 1)
+	go func() {
+		resp, err := c.RawRequest("sendrawtransaction", params)
+		done <- result{resp, err}
+	}()
+
+	var rawResp json.RawMessage
+	select {
+	case res := <-done:
+		if res.err != nil {
+			return nil, res.err
+		}
+		rawResp = res.resp
+	case <-time.After(60 * time.Second):
+		return nil, fmt.Errorf("SendRawTransactionWithBurnLimit timeout after 60s")
 	}
 
 	var txHashStr string
