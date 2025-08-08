@@ -61,14 +61,7 @@ func FuzzSlasher(f *testing.F) {
 			Tx:          nil,
 			Block:       block,
 		}
-		mockBTCClient.EXPECT().TxDetails(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(txHash *chainhash.Hash, _ []byte) (*chainntnfs.TxConfirmation, btcclient.TxStatus, error) {
-				t.Logf("Mocking TxDetails for txHash: %s", txHash)
-				time.Sleep(10 * time.Second)
-				return details, btcclient.TxInChain, nil
-			},
-		).AnyTimes()
-		//mockBTCClient.EXPECT().TxDetails(gomock.Any(), gomock.Any()).Return(details, btcclient.TxInChain, nil).AnyTimes()
+		mockBTCClient.EXPECT().TxDetails(gomock.Any(), gomock.Any()).Return(details, btcclient.TxInChain, nil).AnyTimes()
 		mockBTCClient.EXPECT().GetBestBlock().Return(uint32(111), nil).AnyTimes()
 
 		// covenant secret key
@@ -105,7 +98,7 @@ func FuzzSlasher(f *testing.F) {
 			commonCfg.RetrySleepTime,
 			commonCfg.MaxRetrySleepTime,
 			commonCfg.MaxRetryTimes,
-			5*config.MaxSlashingConcurrency,
+			config.MaxSlashingConcurrency,
 			slashedFPSKChan,
 			metrics.NewBTCStakingTrackerMetrics().SlasherMetrics,
 			5*time.Second,

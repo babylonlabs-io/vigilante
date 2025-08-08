@@ -230,8 +230,6 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedFpBTCSK *btcec.PrivateKey) 
 
 	bs.metrics.SlashedFinalityProvidersCounter.Inc()
 
-	bs.wg.Wait()
-	
 	return nil
 }
 
