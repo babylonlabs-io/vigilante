@@ -1131,6 +1131,8 @@ func (sew *StakingEventWatcher) addToPendingFunc(delegation Delegation) {
 			del.delegationStartHeight,
 			false,
 		)
+		sew.logger.Debugf("Received new verified delegation to watch: %s", del.stakingTxHash)
+
 		sew.metrics.NumberOfVerifiedDelegations.Inc()
 	}
 }
