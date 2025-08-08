@@ -76,8 +76,11 @@ func (bs *BTCSlasher) slashBTCDelegation(
 			accumulatedErr = ctx.Err()
 		case err1 := <-errChan:
 			// First failure, wait for another
+			bs.logger.Debugf("First tx failed, waiting for the second one: %v", err1)
 			select {
 			case err2 := <-errChan:
+				bs.logger.Debugf("Second tx failed: %v", err2)
+
 				accumulatedErr = multierror.Append(err1, err2)
 
 				// Check if both errors are not slashable
@@ -105,6 +108,15 @@ func (bs *BTCSlasher) slashBTCDelegation(
 		retry.Delay(bs.retrySleepTime),
 		retry.MaxDelay(bs.maxRetrySleepTime),
 		retry.Attempts(0), // inf retries, we exit via context, tx included in chain, or both unspendable
+		retry.OnRetry(func(n uint, err error) {
+			bs.logger.Warnf(
+				"Failed to slash BTC delegation %s under finality provider %s, attempt %d: %v",
+				del.BtcPk.MarshalHex(),
+				fpBTCPK.MarshalHex(),
+				n+1,
+				err,
+			)
+		}),
 	)
 
 	slashRes := &SlashResult{
