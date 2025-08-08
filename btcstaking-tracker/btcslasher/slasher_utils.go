@@ -108,6 +108,15 @@ func (bs *BTCSlasher) slashBTCDelegation(
 		retry.Delay(bs.retrySleepTime),
 		retry.MaxDelay(bs.maxRetrySleepTime),
 		retry.Attempts(0), // inf retries, we exit via context, tx included in chain, or both unspendable
+		retry.OnRetry(func(n uint, err error) {
+			bs.logger.Warnf(
+				"Failed to slash BTC delegation %s under finality provider %s, attempt %d: %v",
+				del.BtcPk.MarshalHex(),
+				fpBTCPK.MarshalHex(),
+				n+1,
+				err,
+			)
+		}),
 	)
 
 	slashRes := &SlashResult{
