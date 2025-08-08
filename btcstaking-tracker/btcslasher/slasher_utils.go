@@ -76,8 +76,11 @@ func (bs *BTCSlasher) slashBTCDelegation(
 			accumulatedErr = ctx.Err()
 		case err1 := <-errChan:
 			// First failure, wait for another
+			bs.logger.Debugf("First tx failed, waiting for the second one: %v", err1)
 			select {
 			case err2 := <-errChan:
+				bs.logger.Debugf("Second tx failed: %v", err2)
+
 				accumulatedErr = multierror.Append(err1, err2)
 
 				// Check if both errors are not slashable
