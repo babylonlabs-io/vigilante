@@ -315,6 +315,11 @@ func (rl *Relayer) isNotRBFError(previousFailure error) bool {
 // calculateBumpedFee calculates the bumped fees of the second tx of the checkpoint
 // based on the current BTC load, considering both tx sizes and RBF requirements
 func (rl *Relayer) calculateBumpedFee(ckptInfo *types.CheckpointInfo, previousFailure error) (btcutil.Amount, error) {
+	// Check if ckptInfo or Tx2 is nil to prevent panic
+	if ckptInfo == nil || ckptInfo.Tx2 == nil {
+		return 0, fmt.Errorf("checkpoint info or Tx2 is nil")
+	}
+
 	currentFeeRate := rl.getFeeRate()
 
 	// Convert to Satoshis per byte (SatPerKVByte is per 1000 bytes)
