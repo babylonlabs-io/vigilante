@@ -37,6 +37,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Improvements
+
+* [#425](https://github.com/babylonlabs-io/vigilante/pull/425) chore: add more logs in retries
+
 ### Bug Fixes
 
 * [#423](https://github.com/babylonlabs-io/vigilante/pull/423) Fix nil pointer panic in calculateBumpedFee when lastSubmittedCheckpoint.Tx2 is nil

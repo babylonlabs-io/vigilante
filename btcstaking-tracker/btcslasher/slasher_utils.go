@@ -105,6 +105,15 @@ func (bs *BTCSlasher) slashBTCDelegation(
 		retry.Delay(bs.retrySleepTime),
 		retry.MaxDelay(bs.maxRetrySleepTime),
 		retry.Attempts(0), // inf retries, we exit via context, tx included in chain, or both unspendable
+		retry.OnRetry(func(n uint, err error) {
+			bs.logger.Warnf(
+				"Failed to slash BTC delegation %s under finality provider %s, attempt %d: %v",
+				del.BtcPk.MarshalHex(),
+				fpBTCPK.MarshalHex(),
+				n+1,
+				err,
+			)
+		}),
 	)
 
 	slashRes := &SlashResult{
@@ -526,9 +535,18 @@ func (bs *BTCSlasher) waitForTxKDeep(ctx context.Context, txHash *chainhash.Hash
 		return fmt.Errorf("tx: %s, not deep enough: %d/%d", txHash.String(), tip-details.BlockHeight, k)
 	},
 		retry.Context(ctx),
-		retry.Attempts(0), // inf retries, but cancelled with ctx
+		retry.Attempts(0), // inf retries, but canceled with ctx
 		retry.Delay(bs.retrySleepTime),
 		retry.MaxDelay(bs.maxRetrySleepTime),
 		retry.LastErrorOnly(true),
+		retry.OnRetry(func(n uint, err error) {
+			bs.logger.Warnf(
+				"Waiting for BTC slashing tx %s to be %d blocks deep, attempt %d: %v",
+				txHash.String(),
+				k,
+				n+1,
+				err,
+			)
+		}),
 	)
 }
