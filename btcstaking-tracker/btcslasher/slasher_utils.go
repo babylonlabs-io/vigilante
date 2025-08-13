@@ -344,8 +344,7 @@ func BuildUnbondingSlashingTxWithWitness(
 // findFPIdxInWitness returns the index of the given finality provider
 // among all restaked finality providers
 func findFPIdxInWitness(fpBTCPK *bbn.BIP340PubKey, fpBtcPkList []bbn.BIP340PubKey) (int, error) {
-	sortedFPBTCPKList := bbn.SortBIP340PKs(fpBtcPkList)
-	for i, pk := range sortedFPBTCPKList {
+	for i, pk := range fpBtcPkList {
 		if pk.Equals(fpBTCPK) {
 			return i, nil
 		}
