@@ -405,8 +405,7 @@ func BuildSlashingTxWithWitness(
 
 	// get the list of covenant signatures encrypted by the given finality provider's PK
 	fpBTCPK := bbn.NewBIP340PubKeyFromBTCPK(fpSK.PubKey())
-	sortedFPBTCPKList := bbn.SortBIP340PKs(d.FpBtcPkList)
-	fpIdx, err := findFPIdxInWitness(fpBTCPK, sortedFPBTCPKList)
+	fpIdx, err := findFPIdxInWitness(fpBTCPK, d.FpBtcPkList)
 	if err != nil {
 		return nil, err
 	}
@@ -429,7 +428,7 @@ func BuildSlashingTxWithWitness(
 	// assemble witness for slashing tx
 	slashingMsgTxWithWitness, err := slashTx.BuildSlashingTxWithWitness(
 		fpSK,
-		sortedFPBTCPKList,
+		d.FpBtcPkList,
 		stakingMsgTx,
 		d.StakingOutputIdx,
 		delSigSlash,

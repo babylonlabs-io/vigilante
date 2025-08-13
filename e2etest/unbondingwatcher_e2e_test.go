@@ -1,12 +1,10 @@
-//go:build e2e
-// +build e2e
-
 package e2etest
 
 import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/btcsuite/btcd/btcec/v2"
 	"sync"
 	"testing"
 	"time"
@@ -427,7 +425,7 @@ func TestUnbondingLoaded(t *testing.T) {
 			unspentIdx := i % len(topUnspentResult)
 			topUTXO, err := types.NewUTXO(&topUnspentResult[unspentIdx], regtestParams)
 			require.NoError(t, err)
-			staker.CreateStakingTx(t, tm, fpSK, topUTXO, addr, bsParams)
+			staker.CreateStakingTx(t, tm, []*btcec.PublicKey{fpSK.PubKey()}, topUTXO, addr, bsParams)
 			staker.SendTxAndWait(t, tm, staker.stakingSlashingInfo.StakingTx)
 
 			var res *btcjson.TxRawResult
@@ -454,8 +452,8 @@ func TestUnbondingLoaded(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			staker.CreateUnbondingData(t, tm, fpSK, bsParams)
-			staker.AddCov(t, tm, signerAddr, fpSK)
+			staker.CreateUnbondingData(t, tm, []*btcec.PublicKey{fpSK.PubKey()}, bsParams)
+			staker.AddCov(t, tm, signerAddr, []*btcec.PublicKey{fpSK.PubKey()})
 			staker.PrepareUnbondingTx(t, tm)
 			staker.SendTxAndWait(t, tm, staker.unbondingSlashingInfo.UnbondingTx)
 		}()
@@ -483,7 +481,7 @@ func TestUnbondingLoaded(t *testing.T) {
 		t3 := time.Now()
 		for _, staker := range stakers {
 			go func() {
-				staker.SendDelegation(t, tm, signerAddr, fpSK.PubKey(), bsParams)
+				staker.SendDelegation(t, tm, signerAddr, []*btcec.PublicKey{fpSK.PubKey()}, bsParams)
 				staker.SendCovSig(t, tm)
 				staker.stakeReportedAt = time.Now()
 			}()

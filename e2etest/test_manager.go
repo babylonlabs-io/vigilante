@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
+	sdkquerytypes "github.com/cosmos/cosmos-sdk/types/query"
 	"os"
 	"path/filepath"
 	"slices"
@@ -331,4 +333,36 @@ func tempDir(t *testing.T) (string, error) {
 	})
 
 	return tempPath, err
+}
+
+func (tm *TestManager) DeployCwContract(t *testing.T) string {
+	err := StoreWasmCode(t.Context(), tm.BabylonClient, "./bytecode/testdata.wasm")
+	require.NoError(t, err)
+
+	var codeId uint64
+	require.Eventually(t, func() bool {
+		codeId, _ = GetLatestCodeID(t.Context(), tm.BabylonClient)
+		return codeId > 0
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	require.Equal(t, uint64(1), codeId, "first deployed contract code_id should be 1")
+	initMsgBz := []byte("{}")
+
+	err = InstantiateContract(tm.BabylonClient, t.Context(), codeId, initMsgBz)
+	require.NoError(t, err)
+
+	var listContractsResponse *wasmtypes.QueryContractsByCodeResponse
+	require.Eventually(t, func() bool {
+		listContractsResponse, err = ListContractsByCode(
+			t.Context(),
+			tm.BabylonClient,
+			codeId,
+			&sdkquerytypes.PageRequest{},
+		)
+		return err == nil
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+	require.Len(t, listContractsResponse.Contracts, 1)
+	address := listContractsResponse.Contracts[0]
+	
+	return address
 }

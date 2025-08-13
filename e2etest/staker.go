@@ -45,7 +45,7 @@ type Staker struct {
 func (s *Staker) CreateStakingTx(
 	t *testing.T,
 	tm *TestManager,
-	fpSK *btcec.PrivateKey,
+	fpPKs []*btcec.PublicKey,
 	topUTXO *types.UTXO,
 	addr sdk.AccAddress,
 	bsParams *bstypes.QueryParamsResponse) {
@@ -55,7 +55,7 @@ func (s *Staker) CreateStakingTx(
 	covenantBtcPks, err := bbnPksToBtcPks(bsParams.Params.CovenantPks)
 	require.NoError(t, err)
 
-	stakingMsgTx, stakingSlashingInfo, stakingMsgTxHash := tm.createStakingAndSlashingTx(t, fpSK, bsParams, covenantBtcPks, topUTXO, stakingValue, stakingTimeBlocks)
+	stakingMsgTx, stakingSlashingInfo, stakingMsgTxHash := tm.createStakingAndSlashingTx(t, fpPKs, bsParams, covenantBtcPks, topUTXO, stakingValue, stakingTimeBlocks)
 
 	stakingOutIdx, err := outIdx(stakingSlashingInfo.StakingTx, stakingSlashingInfo.StakingInfo.StakingOutput)
 	require.NoError(t, err)
@@ -90,14 +90,14 @@ func (s *Staker) CreateStakingTx(
 func (s *Staker) CreateUnbondingData(
 	t *testing.T,
 	tm *TestManager,
-	fpSK *btcec.PrivateKey,
+	fpPKs []*btcec.PublicKey,
 	bsParams *bstypes.QueryParamsResponse) {
 	covenantBtcPks, err := bbnPksToBtcPks(bsParams.Params.CovenantPks)
 	require.NoError(t, err)
 
 	unbondingSlashingInfo, unbondingSlashingPathSpendInfo, unbondingTxBytes, slashingTxSig := tm.createUnbondingData(
 		t,
-		fpSK.PubKey(),
+		fpPKs,
 		bsParams,
 		covenantBtcPks,
 		s.stakingSlashingInfo,
@@ -176,16 +176,21 @@ func getTxInfoByHash(t *testing.T, hash *chainhash.Hash, block *wire.MsgBlock) *
 func (s *Staker) SendDelegation(t *testing.T,
 	tm *TestManager,
 	signerAddr string,
-	fpPK *btcec.PublicKey,
+	fpPKs []*btcec.PublicKey,
 	bsParams *bstypes.QueryParamsResponse,
 ) {
 	require.NotNil(t, s.stakingSlashingInfo)
+
+	var fpBtcPkList []bbn.BIP340PubKey
+	for _, fpPK := range fpPKs {
+		fpBtcPkList = append(fpBtcPkList, *bbn.NewBIP340PubKeyFromBTCPK(fpPK))
+	}
 
 	msgBTCDel := &bstypes.MsgCreateBTCDelegation{
 		StakerAddr:   signerAddr,
 		Pop:          s.pop,
 		BtcPk:        bbn.NewBIP340PubKeyFromBTCPK(tm.WalletPrivKey.PubKey()),
-		FpBtcPkList:  []bbn.BIP340PubKey{*bbn.NewBIP340PubKeyFromBTCPK(fpPK)},
+		FpBtcPkList:  fpBtcPkList,
 		StakingTime:  s.stakingTimeBlocks,
 		StakingValue: s.stakingValue,
 		StakingTx:    s.stakingTxInfo.Transaction,
@@ -209,13 +214,13 @@ func (s *Staker) SendDelegation(t *testing.T,
 
 // AddCov generate and insert new covenant signature, to activate the BTC delegation
 func (s *Staker) AddCov(t *testing.T,
-	tm *TestManager, signerAddr string, fpSK *btcec.PrivateKey) {
+	tm *TestManager, signerAddr string, fpPKs []*btcec.PublicKey) {
 	s.msgCovSigs = tm.createMsgAddCovenantSigs(
 		t,
 		signerAddr,
 		s.stakingMsgTx,
 		s.stakingMsgTxHash,
-		fpSK,
+		fpPKs,
 		s.slashingSpendPath,
 		s.stakingSlashingInfo,
 		s.unbondingSlashingInfo,
