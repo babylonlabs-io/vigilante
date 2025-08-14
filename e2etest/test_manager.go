@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
+	sdkquerytypes "github.com/cosmos/cosmos-sdk/types/query"
 	"os"
 	"path/filepath"
 	"slices"
@@ -56,15 +58,49 @@ func defaultVigilanteConfig() *config.Config {
 	return defaultConfig
 }
 
+type TestManagerOption func(*TestManagerConfig)
+type TestManagerConfig struct {
+	NumMatureOutputsInWallet uint32
+	EpochInterval            uint
+	NumCovenants             uint
+}
+
+func defaultTestManagerConfig() *TestManagerConfig {
+	return &TestManagerConfig{
+		NumMatureOutputsInWallet: 300,
+		EpochInterval:            defaultEpochInterval,
+		NumCovenants:             1,
+	}
+}
+
+func WithNumMatureOutputs(num uint32) TestManagerOption {
+	return func(config *TestManagerConfig) {
+		config.NumMatureOutputsInWallet = num
+	}
+}
+
+func WithEpochInterval(interval uint) TestManagerOption {
+	return func(config *TestManagerConfig) {
+		config.EpochInterval = interval
+	}
+}
+
+func WithNumCovenants(numCovenants uint) TestManagerOption {
+	return func(config *TestManagerConfig) {
+		config.NumCovenants = numCovenants
+	}
+}
+
 type TestManager struct {
-	TestRpcClient   *rpcclient.Client
-	BitcoindHandler *BitcoindTestHandler
-	Electrs         *ElectrsTestHandler
-	BabylonClient   *bbnclient.Client
-	BTCClient       *btcclient.Client
-	Config          *config.Config
-	WalletPrivKey   *btcec.PrivateKey
-	manger          *container.Manager
+	TestRpcClient    *rpcclient.Client
+	BitcoindHandler  *BitcoindTestHandler
+	Electrs          *ElectrsTestHandler
+	BabylonClient    *bbnclient.Client
+	BTCClient        *btcclient.Client
+	Config           *config.Config
+	WalletPrivKey    *btcec.PrivateKey
+	manger           *container.Manager
+	CovenantPrivKeys []*btcec.PrivateKey
 }
 
 func initBTCClientWithSubscriber(t *testing.T, cfg *config.Config) *btcclient.Client {
@@ -87,9 +123,14 @@ func initBTCClientWithSubscriber(t *testing.T, cfg *config.Config) *btcclient.Cl
 
 // StartManager creates a test manager
 // NOTE: uses btc client with zmq
-func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval uint) *TestManager {
+func StartManager(t *testing.T, options ...TestManagerOption) *TestManager {
 	manager, err := container.NewManager(t)
 	require.NoError(t, err)
+
+	tmCfg := defaultTestManagerConfig()
+	for _, option := range options {
+		option(tmCfg)
+	}
 
 	btcHandler := NewBitcoindHandler(t, manager)
 	var bitcoind *dockertest.Resource
@@ -140,7 +181,7 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 
 	walletPrivKey, err := importPrivateKey(btcHandler)
 	require.NoError(t, err)
-	blocksResponse := btcHandler.GenerateBlocks(int(numMatureOutputsInWallet))
+	blocksResponse := btcHandler.GenerateBlocks(int(tmCfg.NumMatureOutputsInWallet))
 
 	btcClient := initBTCClientWithSubscriber(t, cfg)
 
@@ -156,13 +197,19 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 	require.NoError(t, err)
 
 	// start Babylon node
-
 	tmpDir, err := tempDir(t)
 	require.NoError(t, err)
 
+	covenants := generateCovenants(t, tmCfg.NumCovenants)
+	covPubKeys := make([]*btcec.PublicKey, len(covenants))
+	for i, pk := range covenants {
+		covPubKeys[i] = pk.PubKey()
+	}
+
 	var babylond *dockertest.Resource
 	require.Eventually(t, func() bool {
-		babylond, err = manager.RunBabylondResource(t, tmpDir, baseHeaderHex, hex.EncodeToString(pkScript), epochInterval)
+		babylond, err = manager.RunBabylondResource(
+			t, tmpDir, baseHeaderHex, hex.EncodeToString(pkScript), tmCfg.EpochInterval, covPubKeys...)
 		if err != nil {
 			t.Logf("failed to start babylond, test: %s err: %v", t.Name(), err)
 			errResource := manager.RemoveContainer(fmt.Sprintf("babylond-%s", t.Name()))
@@ -195,14 +242,15 @@ func StartManager(t *testing.T, numMatureOutputsInWallet uint32, epochInterval u
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
 	return &TestManager{
-		TestRpcClient:   testRpcClient,
-		BabylonClient:   babylonClient,
-		BitcoindHandler: btcHandler,
-		Electrs:         electrsHandler,
-		BTCClient:       btcClient,
-		Config:          cfg,
-		WalletPrivKey:   walletPrivKey,
-		manger:          manager,
+		TestRpcClient:    testRpcClient,
+		BabylonClient:    babylonClient,
+		BitcoindHandler:  btcHandler,
+		Electrs:          electrsHandler,
+		BTCClient:        btcClient,
+		Config:           cfg,
+		WalletPrivKey:    walletPrivKey,
+		manger:           manager,
+		CovenantPrivKeys: covenants,
 	}
 }
 
@@ -331,4 +379,47 @@ func tempDir(t *testing.T) (string, error) {
 	})
 
 	return tempPath, err
+}
+
+func (tm *TestManager) DeployCwContract(t *testing.T) string {
+	err := StoreWasmCode(t.Context(), tm.BabylonClient, "./bytecode/testdata.wasm")
+	require.NoError(t, err)
+
+	var codeId uint64
+	require.Eventually(t, func() bool {
+		codeId, _ = GetLatestCodeID(t.Context(), tm.BabylonClient)
+		return codeId > 0
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	require.Equal(t, uint64(1), codeId, "first deployed contract code_id should be 1")
+	initMsgBz := []byte("{}")
+
+	err = InstantiateContract(tm.BabylonClient, t.Context(), codeId, initMsgBz)
+	require.NoError(t, err)
+
+	var listContractsResponse *wasmtypes.QueryContractsByCodeResponse
+	require.Eventually(t, func() bool {
+		listContractsResponse, err = ListContractsByCode(
+			t.Context(),
+			tm.BabylonClient,
+			codeId,
+			&sdkquerytypes.PageRequest{},
+		)
+		return err == nil
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+	require.Len(t, listContractsResponse.Contracts, 1)
+	address := listContractsResponse.Contracts[0]
+
+	return address
+}
+
+func generateCovenants(t *testing.T, num uint) []*btcec.PrivateKey {
+	covs := make([]*btcec.PrivateKey, 0, num)
+	for i := 0; i < int(num); i++ {
+		covenantPrivKey, err := btcec.NewPrivateKey()
+		require.NoError(t, err)
+		covs = append(covs, covenantPrivKey)
+	}
+
+	return covs
 }
