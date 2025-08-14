@@ -29,7 +29,7 @@ func TestMonitorBootstrap(t *testing.T) {
 	t.Parallel()
 	numMatureOutputs := uint32(150)
 
-	tm := StartManager(t, numMatureOutputs, 2)
+	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(2))
 	defer tm.Stop(t)
 
 	backend, err := btcclient.NewNodeBackend(

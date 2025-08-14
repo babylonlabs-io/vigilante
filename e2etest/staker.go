@@ -37,7 +37,7 @@ type Staker struct {
 	pop                            *bstypes.ProofOfPossessionBTC
 	stakingOutIdx                  uint32
 	slashingSpendPath              *btcstaking.SpendInfo
-	msgCovSigs                     *bstypes.MsgAddCovenantSigs
+	msgsCovSigs                    []*bstypes.MsgAddCovenantSigs
 	stakeReportedAt                time.Time
 	unbondingDetectedAt            time.Time
 }
@@ -132,8 +132,12 @@ func (s *Staker) PrepareUnbondingTx(
 	)
 	require.NoError(t, err)
 
+	covenantsSigs := make([]*schnorr.Signature, 0, len(s.msgsCovSigs))
+	for _, msgCovSigs := range s.msgsCovSigs {
+		covenantsSigs = append(covenantsSigs, msgCovSigs.UnbondingTxSig.MustToBTCSig())
+	}
 	witness, err := unbondingPathSpendInfo.CreateUnbondingPathWitness(
-		[]*schnorr.Signature{s.msgCovSigs.UnbondingTxSig.MustToBTCSig()},
+		covenantsSigs,
 		unbondingTxSchnorrSig,
 	)
 	s.unbondingSlashingInfo.UnbondingTx.TxIn[0].Witness = witness
@@ -215,26 +219,34 @@ func (s *Staker) SendDelegation(t *testing.T,
 // AddCov generate and insert new covenant signature, to activate the BTC delegation
 func (s *Staker) AddCov(t *testing.T,
 	tm *TestManager, signerAddr string, fpPKs []*btcec.PublicKey) {
-	s.msgCovSigs = tm.createMsgAddCovenantSigs(
-		t,
-		signerAddr,
-		s.stakingMsgTx,
-		s.stakingMsgTxHash,
-		fpPKs,
-		s.slashingSpendPath,
-		s.stakingSlashingInfo,
-		s.unbondingSlashingInfo,
-		s.unbondingSlashingPathSpendInfo,
-		s.stakingOutIdx,
-	)
+	msgsCovSigs := make([]*bstypes.MsgAddCovenantSigs, 0, len(tm.CovenantPrivKeys))
+	for _, key := range tm.CovenantPrivKeys {
+		msgCovSigs := tm.createMsgAddCovenantSigs(
+			t,
+			signerAddr,
+			s.stakingMsgTx,
+			s.stakingMsgTxHash,
+			fpPKs,
+			s.slashingSpendPath,
+			s.stakingSlashingInfo,
+			s.unbondingSlashingInfo,
+			s.unbondingSlashingPathSpendInfo,
+			s.stakingOutIdx,
+			key,
+		)
+		msgsCovSigs = append(msgsCovSigs, msgCovSigs)
+	}
+	s.msgsCovSigs = msgsCovSigs
 }
 
 func (s *Staker) SendCovSig(t *testing.T,
 	tm *TestManager) {
-	require.NotNil(t, s.msgCovSigs)
-	_, err := tm.BabylonClient.ReliablySendMsg(context.Background(), s.msgCovSigs, nil, nil)
-	require.NoError(t, err)
-	t.Logf("submitted MsgAddCovenantSigs")
+	require.NotNil(t, s.msgsCovSigs)
+	for _, msgCovSigs := range s.msgsCovSigs {
+		_, err := tm.BabylonClient.ReliablySendMsg(context.Background(), msgCovSigs, nil, nil)
+		require.NoError(t, err)
+		t.Logf("submitted MsgAddCovenantSigs")
+	}
 }
 
 func avgTimeToDetectUnbonding(stakers []*Staker) time.Duration {

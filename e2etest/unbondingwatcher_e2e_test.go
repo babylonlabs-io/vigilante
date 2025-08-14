@@ -35,7 +35,7 @@ func TestUnbondingWatcher(t *testing.T) {
 	// segwit is activated at height 300. It's needed by staking/slashing tx
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
+	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(defaultEpochInterval))
 	defer tm.Stop(t)
 	// Insert all existing BTC headers to babylon node
 	tm.CatchUpBTCLightClient(t)
@@ -139,7 +139,7 @@ func TestActivatingDelegation(t *testing.T) {
 	// segwit is activated at height 300. It's necessary for staking/slashing tx
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
+	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(defaultEpochInterval))
 	defer tm.Stop(t)
 	// Insert all existing BTC headers to babylon node
 	tm.CatchUpBTCLightClient(t)
@@ -248,7 +248,7 @@ func TestActivatingAndUnbondingDelegation(t *testing.T) {
 	// segwit is activated at height 300. It's necessary for staking/slashing tx
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
+	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(defaultEpochInterval))
 	defer tm.Stop(t)
 	// Insert all existing BTC headers to babylon node
 	tm.CatchUpBTCLightClient(t)
@@ -364,7 +364,7 @@ func TestActivatingAndUnbondingDelegation(t *testing.T) {
 func TestUnbondingLoaded(t *testing.T) {
 	t.Parallel()
 	numMatureOutputs := uint32(400)
-	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
+	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(defaultEpochInterval))
 	defer tm.Stop(t)
 	tm.CatchUpBTCLightClient(t)
 
@@ -549,7 +549,7 @@ func TestActivatingDelegationWithTwoTrackers(t *testing.T) {
 	// segwit is activated at height 300. It's necessary for staking/slashing tx
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
+	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(defaultEpochInterval))
 	defer tm.Stop(t)
 	tm.CatchUpBTCLightClient(t)
 
@@ -707,7 +707,7 @@ func TestStakeExpansionFlow(t *testing.T) {
 	// segwit is activated at height 300. It's necessary for staking/slashing tx
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
+	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(defaultEpochInterval))
 	defer tm.Stop(t)
 	// Insert all existing BTC headers to babylon node
 	tm.CatchUpBTCLightClient(t)
@@ -886,7 +886,7 @@ func TestUnbondingWatcherCensorship(t *testing.T) {
 	t.Parallel()
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
+	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(defaultEpochInterval))
 	defer tm.Stop(t)
 	tm.CatchUpBTCLightClient(t)
 

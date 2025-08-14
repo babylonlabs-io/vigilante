@@ -1,3 +1,5 @@
+//go:build e2e
+
 package e2etest
 
 import (
@@ -27,7 +29,7 @@ func TestSlasher_GracefulShutdown(t *testing.T) {
 	t.Parallel()
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
+	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(defaultEpochInterval))
 	defer tm.Stop(t)
 	// Insert all existing BTC headers to babylon node
 	tm.CatchUpBTCLightClient(t)
@@ -75,7 +77,7 @@ func TestSlasher_Slasher(t *testing.T) {
 	// segwit is activated at height 300. It's needed by staking/slashing tx
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, numMatureOutputs, 5)
+	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(5))
 	defer tm.Stop(t)
 	// start WebSocket connection with Babylon for subscriber services
 	err := tm.BabylonClient.Start()
@@ -153,7 +155,7 @@ func TestSlasher_SlashingUnbonding(t *testing.T) {
 	// segwit is activated at height 300. It's needed by staking/slashing tx
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, numMatureOutputs, 5)
+	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(5))
 	defer tm.Stop(t)
 	// start WebSocket connection with Babylon for subscriber services
 	err := tm.BabylonClient.Start()
@@ -253,7 +255,7 @@ func TestSlasher_Bootstrapping(t *testing.T) {
 	// segwit is activated at height 300. It's needed by staking/slashing tx
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, numMatureOutputs, 5)
+	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(5))
 	defer tm.Stop(t)
 	// start WebSocket connection with Babylon for subscriber services
 	err := tm.BabylonClient.Start()
@@ -326,7 +328,7 @@ func TestOpReturnBurn(t *testing.T) {
 	t.Parallel()
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, numMatureOutputs, 5)
+	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(5))
 	defer tm.Stop(t)
 
 	tx := wire.NewMsgTx(wire.TxVersion)
@@ -369,12 +371,13 @@ func TestOpReturnBurn(t *testing.T) {
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 }
 
-func TestSlasher_MultiDelegations(t *testing.T) {
+func TestSlasher_MultiStaking(t *testing.T) {
 	t.Parallel()
-	// segwit is activated at height 300. It's needed by staking/slashing tx
-	numMatureOutputs := uint32(300)
+	tm := StartManager(t,
+		WithNumMatureOutputs(300),
+		WithEpochInterval(5),
+		WithNumCovenants(2))
 
-	tm := StartManager(t, numMatureOutputs, 5)
 	defer tm.Stop(t)
 	// start WebSocket connection with Babylon for subscriber services
 	err := tm.BabylonClient.Start()
@@ -422,24 +425,21 @@ func TestSlasher_MultiDelegations(t *testing.T) {
 	require.NoError(t, err)
 
 	contractAddr := tm.DeployCwContract(t)
-
 	consumer := datagen.GenRandomRollupRegister(r, contractAddr)
 	tm.RegisterBSN(t, consumer, contractAddr)
+
 	// set up a finality provider
 	_, fp1SK := tm.CreateFinalityProvider(t)
-	fp2, fp2SK := tm.CreateFinalityProviderBSN(t, consumer.ConsumerId)
+	_, fp2SK := tm.CreateFinalityProviderBSN(t, consumer.ConsumerId)
 	staker := Staker{}
-
-	resfp, err := tm.BabylonClient.FinalityProvider(fp2.BtcPk.MarshalHex())
-	require.NoError(t, err)
-	require.NotNil(t, resfp)
+	fpSKs := []*btcec.PublicKey{fp1SK.PubKey(), fp2SK.PubKey()}
 
 	topUnspentResult, _, err := tm.BTCClient.GetHighUTXOAndSum()
 	require.NoError(t, err)
 	topUTXO, err := types.NewUTXO(topUnspentResult, regtestParams)
 	require.NoError(t, err)
 
-	staker.CreateStakingTx(t, tm, []*btcec.PublicKey{fp1SK.PubKey(), fp2SK.PubKey()}, topUTXO, addr, bsParams)
+	staker.CreateStakingTx(t, tm, fpSKs, topUTXO, addr, bsParams)
 	staker.SendTxAndWait(t, tm, staker.stakingSlashingInfo.StakingTx)
 
 	var res *btcjson.TxRawResult
@@ -459,15 +459,14 @@ func TestSlasher_MultiDelegations(t *testing.T) {
 
 	tm.mineBlock(t)
 
-	staker.CreateUnbondingData(t, tm, []*btcec.PublicKey{fp1SK.PubKey(), fp2SK.PubKey()}, bsParams)
-	staker.AddCov(t, tm, signerAddr, []*btcec.PublicKey{fp1SK.PubKey(), fp2SK.PubKey()})
+	staker.CreateUnbondingData(t, tm, fpSKs, bsParams)
+	staker.AddCov(t, tm, signerAddr, fpSKs)
 	staker.PrepareUnbondingTx(t, tm)
 
 	tm.mineBlock(t)
-
 	tm.CatchUpBTCLightClient(t)
 
-	staker.SendDelegation(t, tm, signerAddr, []*btcec.PublicKey{fp1SK.PubKey(), fp2SK.PubKey()}, bsParams)
+	staker.SendDelegation(t, tm, signerAddr, fpSKs, bsParams)
 	staker.SendCovSig(t, tm)
 
 	// commit public randomness, vote and equivocate
@@ -493,6 +492,7 @@ func TestSlasher_MultiDelegations(t *testing.T) {
 			t.Logf("error: %v", err)
 			return false
 		}
+
 		return len(txns) == 1
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 }
