@@ -44,11 +44,6 @@ import (
 
 var (
 	r = rand.New(rand.NewSource(time.Now().Unix()))
-
-	// covenant
-	//covenantSk, _ = btcec.PrivKeyFromBytes(
-	//	[]byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-	//)
 )
 
 func (tm *TestManager) getBTCUnbondingTime(t *testing.T) uint32 {
@@ -69,9 +64,6 @@ func (tm *TestManager) CreateFinalityProvider(t *testing.T) (*bstypes.FinalityPr
 	btcFp, err := datagen.GenCustomFinalityProvider(r, fpSK, fpSignCtx, addr, "")
 	require.NoError(t, err)
 
-	/*
-		create finality provider
-	*/
 	zero := sdkmath.LegacyZeroDec()
 	commission := bstypes.NewCommissionRates(zero, zero, zero)
 	msgNewVal := &bstypes.MsgCreateFinalityProvider{
@@ -97,10 +89,7 @@ func (tm *TestManager) CreateFinalityProviderBSN(t *testing.T, bsnID string) (*b
 	fpSignCtx := signingcontext.FpPopContextV0(tm.Config.Babylon.ChainID, appparams.AccBTCStaking.String())
 	btcFp, err := datagen.GenCustomFinalityProvider(r, fpSK, fpSignCtx, addr, bsnID)
 	require.NoError(t, err)
-
-	/*
-		create finality provider
-	*/
+	
 	zero := sdkmath.LegacyZeroDec()
 	commission := bstypes.NewCommissionRates(zero, zero, zero)
 	msgNewVal := &bstypes.MsgCreateFinalityProvider{
@@ -610,7 +599,6 @@ func (tm *TestManager) createMsgAddCovenantSigs(
 		slashingTxSigs = append(slashingTxSigs, covenantSig.MustMarshal())
 	}
 
-	// TODO: Add covenant sigs for all covenants
 	// add covenant sigs
 	// covenant Schnorr sig on unbonding tx
 	unbondingPathSpendInfo, err := stakingSlashingInfo.StakingInfo.UnbondingPathSpendInfo()
