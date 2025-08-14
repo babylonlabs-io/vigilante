@@ -298,7 +298,7 @@ func BuildUnbondingSlashingTxWithWitness(
 	// get the list of covenant signatures encrypted by the given finality provider's PK
 	fpPK := fpSK.PubKey()
 	fpBTCPK := bbn.NewBIP340PubKeyFromBTCPK(fpPK)
-	fpIdx, err := findFPIdxInWitness(fpBTCPK, d.FpBtcPkList)
+	fpIdx, err := findFPIdxForCovenantSignatures(fpBTCPK, d.FpBtcPkList)
 	if err != nil {
 		return nil, err
 	}
@@ -341,9 +341,9 @@ func BuildUnbondingSlashingTxWithWitness(
 	return slashingMsgTxWithWitness, nil
 }
 
-// findFPIdxInWitness returns the index of the given finality provider
+// findFPIdxForCovenantSignatures returns the index of the given finality provider
 // among all restaked finality providers
-func findFPIdxInWitness(fpBTCPK *bbn.BIP340PubKey, fpBtcPkList []bbn.BIP340PubKey) (int, error) {
+func findFPIdxForCovenantSignatures(fpBTCPK *bbn.BIP340PubKey, fpBtcPkList []bbn.BIP340PubKey) (int, error) {
 	for i, pk := range fpBtcPkList {
 		if pk.Equals(fpBTCPK) {
 			return i, nil
@@ -405,7 +405,7 @@ func BuildSlashingTxWithWitness(
 
 	// get the list of covenant signatures encrypted by the given finality provider's PK
 	fpBTCPK := bbn.NewBIP340PubKeyFromBTCPK(fpSK.PubKey())
-	fpIdx, err := findFPIdxInWitness(fpBTCPK, d.FpBtcPkList)
+	fpIdx, err := findFPIdxForCovenantSignatures(fpBTCPK, d.FpBtcPkList)
 	if err != nil {
 		return nil, err
 	}
