@@ -1,14 +1,18 @@
 //go:build e2e
-// +build e2e
 
 package e2etest
 
 import (
+	"github.com/babylonlabs-io/babylon/v3/testutil/datagen"
+	"github.com/babylonlabs-io/vigilante/types"
+	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcjson"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 	"testing"
 	"time"
 
@@ -26,7 +30,7 @@ func TestSlasher_GracefulShutdown(t *testing.T) {
 	t.Parallel()
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
+	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(defaultEpochInterval))
 	defer tm.Stop(t)
 	// Insert all existing BTC headers to babylon node
 	tm.CatchUpBTCLightClient(t)
@@ -74,7 +78,7 @@ func TestSlasher_Slasher(t *testing.T) {
 	// segwit is activated at height 300. It's needed by staking/slashing tx
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, numMatureOutputs, 5)
+	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(5))
 	defer tm.Stop(t)
 	// start WebSocket connection with Babylon for subscriber services
 	err := tm.BabylonClient.Start()
@@ -152,7 +156,7 @@ func TestSlasher_SlashingUnbonding(t *testing.T) {
 	// segwit is activated at height 300. It's needed by staking/slashing tx
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, numMatureOutputs, 5)
+	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(5))
 	defer tm.Stop(t)
 	// start WebSocket connection with Babylon for subscriber services
 	err := tm.BabylonClient.Start()
@@ -252,7 +256,7 @@ func TestSlasher_Bootstrapping(t *testing.T) {
 	// segwit is activated at height 300. It's needed by staking/slashing tx
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, numMatureOutputs, 5)
+	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(5))
 	defer tm.Stop(t)
 	// start WebSocket connection with Babylon for subscriber services
 	err := tm.BabylonClient.Start()
@@ -325,7 +329,7 @@ func TestOpReturnBurn(t *testing.T) {
 	t.Parallel()
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, numMatureOutputs, 5)
+	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(5))
 	defer tm.Stop(t)
 
 	tx := wire.NewMsgTx(wire.TxVersion)
@@ -365,5 +369,131 @@ func TestOpReturnBurn(t *testing.T) {
 			return false
 		}
 		return len(res.BlockHash) > 0
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+}
+
+func TestSlasher_MultiStaking(t *testing.T) {
+	t.Parallel()
+	tm := StartManager(t,
+		WithNumMatureOutputs(300),
+		WithEpochInterval(5),
+		WithNumCovenants(2))
+
+	defer tm.Stop(t)
+	// start WebSocket connection with Babylon for subscriber services
+	err := tm.BabylonClient.Start()
+	require.NoError(t, err)
+	// Insert all existing BTC headers to babylon node
+	tm.CatchUpBTCLightClient(t)
+
+	emptyHintCache := btcclient.EmptyHintCache{}
+
+	backend, err := btcclient.NewNodeBackend(
+		btcclient.ToBitcoindConfig(tm.Config.BTC),
+		&chaincfg.RegressionNetParams,
+		&emptyHintCache,
+	)
+	require.NoError(t, err)
+
+	err = backend.Start()
+	require.NoError(t, err)
+
+	commonCfg := config.DefaultCommonConfig()
+	bstCfg := config.DefaultBTCStakingTrackerConfig()
+	bstCfg.CheckDelegationsInterval = 1 * time.Second
+	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
+	bstCfg.IndexerAddr = tm.Config.BTCStakingTracker.IndexerAddr
+
+	bsTracker := bst.NewBTCStakingTracker(
+		tm.BTCClient,
+		backend,
+		tm.BabylonClient,
+		&bstCfg,
+		&commonCfg,
+		zaptest.NewLogger(t),
+		stakingTrackerMetrics,
+	)
+	go bsTracker.Start()
+	defer bsTracker.Stop()
+
+	// wait for bootstrapping
+	time.Sleep(5 * time.Second)
+
+	signerAddr := tm.BabylonClient.MustGetAddr()
+	addr := sdk.MustAccAddressFromBech32(signerAddr)
+
+	bsParams, err := tm.BabylonClient.BTCStakingParams()
+	require.NoError(t, err)
+
+	contractAddr := tm.DeployCwContract(t)
+	consumer := datagen.GenRandomRollupRegister(r, contractAddr)
+	tm.RegisterBSN(t, consumer, contractAddr)
+
+	// set up a finality provider
+	_, fp1SK := tm.CreateFinalityProvider(t)
+	_, fp2SK := tm.CreateFinalityProviderBSN(t, consumer.ConsumerId)
+	staker := Staker{}
+	fpSKs := []*btcec.PublicKey{fp1SK.PubKey(), fp2SK.PubKey()}
+
+	topUnspentResult, _, err := tm.BTCClient.GetHighUTXOAndSum()
+	require.NoError(t, err)
+	topUTXO, err := types.NewUTXO(topUnspentResult, regtestParams)
+	require.NoError(t, err)
+
+	staker.CreateStakingTx(t, tm, fpSKs, topUTXO, addr, bsParams)
+	staker.SendTxAndWait(t, tm, staker.stakingSlashingInfo.StakingTx)
+
+	var res *btcjson.TxRawResult
+	require.Eventually(t, func() bool {
+		tm.mineBlock(t)
+
+		res, err = tm.BTCClient.GetRawTransactionVerbose(staker.stakingMsgTxHash)
+		return err == nil
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+	tm.mineBlock(t)
+
+	blockHash, err := chainhash.NewHashFromStr(res.BlockHash)
+	require.NoError(t, err)
+	block, err := tm.TestRpcClient.GetBlock(blockHash)
+	require.NoError(t, err)
+	staker.stakingTxInfo = getTxInfoByHash(t, staker.stakingMsgTxHash, block)
+
+	tm.mineBlock(t)
+
+	staker.CreateUnbondingData(t, tm, fpSKs, bsParams)
+	staker.AddCov(t, tm, signerAddr, fpSKs)
+	staker.PrepareUnbondingTx(t, tm)
+
+	tm.mineBlock(t)
+	tm.CatchUpBTCLightClient(t)
+
+	staker.SendDelegation(t, tm, signerAddr, fpSKs, bsParams)
+	staker.SendCovSig(t, tm)
+
+	// commit public randomness, vote and equivocate
+	tm.VoteAndEquivocate(t, fp1SK)
+
+	// slashing tx will eventually enter mempool
+	slashingMsgTx, err := staker.stakingSlashingInfo.SlashingTx.ToMsgTx()
+	require.NoError(t, err)
+	slashingMsgTxHash1 := slashingMsgTx.TxHash()
+	slashingMsgTxHash := &slashingMsgTxHash1
+
+	btccParamsResp, err := tm.BabylonClient.BTCCheckpointParams()
+	require.NoError(t, err)
+
+	for i := 0; i <= int(btccParamsResp.Params.BtcConfirmationDepth); i++ {
+		tm.mineBlock(t)
+	}
+
+	// mine a block that includes slashing tx
+	require.Eventually(t, func() bool {
+		txns, err := tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{slashingMsgTxHash})
+		if err != nil {
+			t.Logf("error: %v", err)
+			return false
+		}
+
+		return len(txns) == 1
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 }

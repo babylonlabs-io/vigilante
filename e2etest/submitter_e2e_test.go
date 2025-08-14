@@ -30,7 +30,7 @@ func TestSubmitterSubmission(t *testing.T) {
 	r := rand.New(rand.NewSource(time.Now().Unix()))
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
+	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(defaultEpochInterval))
 	defer tm.Stop(t)
 
 	randomCheckpoint := datagen.GenRandomRawCheckpointWithMeta(r)
@@ -108,7 +108,7 @@ func TestSubmitterSubmissionReplace(t *testing.T) {
 	r := rand.New(rand.NewSource(time.Now().Unix()))
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
+	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(defaultEpochInterval))
 	defer tm.Stop(t)
 
 	randomCheckpoint := datagen.GenRandomRawCheckpointWithMeta(r)
@@ -207,7 +207,7 @@ func TestSubmitterSubmissionReplaceDust(t *testing.T) {
 	r := rand.New(rand.NewSource(time.Now().Unix()))
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
+	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(defaultEpochInterval))
 	defer tm.Stop(t)
 
 	randomCheckpoint := datagen.GenRandomRawCheckpointWithMeta(r)

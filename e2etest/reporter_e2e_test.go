@@ -72,7 +72,7 @@ func TestReporter_BoostrapUnderFrequentBTCHeaders(t *testing.T) {
 	// no need to much mature outputs, we are not going to submit transactions in this test
 	numMatureOutputs := uint32(150)
 
-	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
+	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(defaultEpochInterval))
 	defer tm.Stop(t)
 
 	reporterMetrics := metrics.NewReporterMetrics()
@@ -137,7 +137,7 @@ func TestRelayHeadersAndHandleRollbacks(t *testing.T) {
 	// no need to much mature outputs, we are not going to submit transactions in this test
 	numMatureOutputs := uint32(150)
 
-	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
+	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(defaultEpochInterval))
 	// this is necessary to receive notifications about new transactions entering mempool
 	defer tm.Stop(t)
 
@@ -190,7 +190,7 @@ func TestHandleReorgAfterRestart(t *testing.T) {
 	// no need to much mature outputs, we are not going to submit transactions in this test
 	numMatureOutputs := uint32(150)
 
-	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
+	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(defaultEpochInterval))
 	// this is necessary to receive notifications about new transactions entering mempool
 	defer tm.Stop(t)
 
@@ -263,7 +263,7 @@ func TestReporter_Censorship(t *testing.T) {
 	t.Parallel()
 	numMatureOutputs := uint32(150)
 
-	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
+	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(defaultEpochInterval))
 	defer tm.Stop(t)
 
 	reporterMetrics := metrics.NewReporterMetrics()
@@ -321,7 +321,7 @@ func TestReporter_DuplicateSubmissions(t *testing.T) {
 	// no need to much mature outputs, we are not going to submit transactions in this test
 	numMatureOutputs := uint32(150)
 
-	tm := StartManager(t, numMatureOutputs, defaultEpochInterval)
+	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(defaultEpochInterval))
 	defer tm.Stop(t)
 
 	reporterMetrics := metrics.NewReporterMetrics()
