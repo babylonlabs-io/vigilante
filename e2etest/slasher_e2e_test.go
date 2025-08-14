@@ -12,6 +12,7 @@ import (
 	"github.com/btcsuite/btcd/wire"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 	"testing"
 	"time"
 
@@ -409,7 +410,7 @@ func TestSlasher_MultiStaking(t *testing.T) {
 		tm.BabylonClient,
 		&bstCfg,
 		&commonCfg,
-		zap.NewNop(),
+		zaptest.NewLogger(t),
 		stakingTrackerMetrics,
 	)
 	go bsTracker.Start()
