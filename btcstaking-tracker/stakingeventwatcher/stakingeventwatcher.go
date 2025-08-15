@@ -243,13 +243,8 @@ func (sew *StakingEventWatcher) runBlockNotifier() error {
 			}
 
 			// Reset timeout timer on each block received
-			if !timeoutTimer.Stop() {
-				select {
-				case <-timeoutTimer.C:
-				default:
-				}
-			}
-			timeoutTimer.Reset(sew.cfg.ReconnectBTCNodeInterval)
+			timeoutTimer.Stop()
+			timeoutTimer = time.NewTimer(sew.cfg.ReconnectBTCNodeInterval)
 
 			if block.Height < 0 {
 				panic(fmt.Errorf("received negative block height: %d", block.Height))
@@ -494,6 +489,8 @@ func (sew *StakingEventWatcher) handleSpend(ctx context.Context, spendingTx *wir
 
 		blkHashInclusion, err := chainhash.NewHashFromStr(txResult.BlockHash)
 		if err != nil {
+			sew.logger.Errorf("error parsing block hash from tx result for staking tx %s: %v", delegationID, err)
+
 			return
 		}
 		// wait stk expansion to be k-deep
@@ -517,6 +514,7 @@ func (sew *StakingEventWatcher) handleSpend(ctx context.Context, spendingTx *wir
 		// We stop reporting if delegation is no longer active or we succeed.
 	}
 
+	sew.logger.Debugf("before check if stake spending tx %s is in chain for staking tx %s", spendingTxHash, delegationID)
 	proof := sew.waitForStakeSpendInclusionProof(ctx, spendingTx)
 	if proof == nil {
 		sew.logger.Errorf("unbonding tx %s for staking tx %s proof not built", spendingTxHash, delegationID)
@@ -535,8 +533,6 @@ func (sew *StakingEventWatcher) handleSpend(ctx context.Context, spendingTx *wir
 }
 
 func (sew *StakingEventWatcher) checkSpend() error {
-	var wg sync.WaitGroup
-
 	for del := range sew.unbondingTracker.DelegationsIter(1000) {
 		if del.InProgress {
 			continue
@@ -559,11 +555,8 @@ func (sew *StakingEventWatcher) checkSpend() error {
 			return err
 		}
 
-		wg.Add(1)
-
 		// nolint:contextcheck
 		go func() {
-			defer wg.Done()
 			defer func() {
 				if err := sew.unbondingTracker.UpdateActivation(del.StakingTx.TxHash(), false); err != nil {
 					sew.logger.Warnf("error updating activation Status for staking tx %s: %v", del.StakingTx.TxHash(), err)
@@ -588,8 +581,6 @@ func (sew *StakingEventWatcher) checkSpend() error {
 			sew.handleSpend(innerCtx, spendingTx.MsgTx(), del)
 		}()
 	}
-
-	wg.Wait()
 
 	return nil
 }
