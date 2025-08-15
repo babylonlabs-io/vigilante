@@ -243,13 +243,8 @@ func (sew *StakingEventWatcher) runBlockNotifier() error {
 			}
 
 			// Reset timeout timer on each block received
-			if !timeoutTimer.Stop() {
-				select {
-				case <-timeoutTimer.C:
-				default:
-				}
-			}
-			timeoutTimer.Reset(sew.cfg.ReconnectBTCNodeInterval)
+			timeoutTimer.Stop()
+			timeoutTimer = time.NewTimer(sew.cfg.ReconnectBTCNodeInterval)
 
 			if block.Height < 0 {
 				panic(fmt.Errorf("received negative block height: %d", block.Height))
