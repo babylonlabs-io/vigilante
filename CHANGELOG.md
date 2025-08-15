@@ -44,6 +44,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Bug Fixes
 
 * [#423](https://github.com/babylonlabs-io/vigilante/pull/423) Fix nil pointer panic in calculateBumpedFee when lastSubmittedCheckpoint.Tx2 is nil
+* [#428](https://github.com/babylonlabs-io/vigilante/pull/428) fix: try fix activating stk exp
 
 ## v0.24.0-rc.2
 
