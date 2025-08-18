@@ -113,9 +113,9 @@ func (mr *MockBabylonNodeAdapterMockRecorder) DelegationsByStatus(status, offset
 }
 
 // DelegationsModifedInBlock mocks base method.
-func (m *MockBabylonNodeAdapter) DelegationsModifedInBlock(ctx context.Context, height int64, eventTypes []string) ([]string, error) {
+func (m *MockBabylonNodeAdapter) DelegationsModifiedInBlock(ctx context.Context, height int64, eventTypes []string) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DelegationsModifedInBlock", ctx, height, eventTypes)
+	ret := m.ctrl.Call(m, "DelegationsModifiedInBlock", ctx, height, eventTypes)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -124,7 +124,7 @@ func (m *MockBabylonNodeAdapter) DelegationsModifedInBlock(ctx context.Context, 
 // DelegationsModifedInBlock indicates an expected call of DelegationsModifedInBlock.
 func (mr *MockBabylonNodeAdapterMockRecorder) DelegationsModifedInBlock(ctx, height, eventTypes interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DelegationsModifedInBlock", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).DelegationsModifedInBlock), ctx, height, eventTypes)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DelegationsModifiedInBlock", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).DelegationsModifiedInBlock), ctx, height, eventTypes)
 }
 
 // IsDelegationActive mocks base method.
