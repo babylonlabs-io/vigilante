@@ -56,7 +56,7 @@ type BabylonNodeAdapter interface {
 	QueryHeaderDepth(headerHash *chainhash.Hash) (uint32, error)
 	Params() (*BabylonParams, error)
 	CometBFTTipHeight(ctx context.Context) (int64, error)
-	DelegationsModifedInBlock(ctx context.Context, height int64, eventTypes []string) ([]string, error)
+	DelegationsModifiedInBlock(ctx context.Context, height int64, eventTypes []string) ([]string, error)
 	BTCDelegation(stakingTxHash string) (*Delegation, error)
 }
 
@@ -291,7 +291,7 @@ func (bca *BabylonClientAdapter) StakingTxHashesByEvent(ctx context.Context, eve
 	return stakingTxHashes, nil
 }
 
-func (bca *BabylonClientAdapter) DelegationsModifedInBlock(
+func (bca *BabylonClientAdapter) DelegationsModifiedInBlock(
 	ctx context.Context,
 	height int64,
 	eventTypes []string,

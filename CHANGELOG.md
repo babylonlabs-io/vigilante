@@ -37,6 +37,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Improvements
+
+* [#434](https://github.com/babylonlabs-io/vigilante/pull/434) chore: avoid adding to pending tracker
+
 ## v0.24.0-rc.3
 
 ### Improvements
