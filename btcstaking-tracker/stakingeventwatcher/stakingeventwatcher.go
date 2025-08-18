@@ -814,17 +814,6 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 			return nil
 		}
 
-		// if is stake expansion, we should not activate it,
-		// the inclusion proof is reported in a MsgBTCUndelegate of the expanded delegation
-		if del.IsStakeExpansion {
-			sew.logger.Debugf("skipping stake expansion tx %s", stakingTxHash)
-			sew.pendingTracker.RemoveDelegation(stakingTxHash)
-			sew.verifiedSufficientConfTracker.RemoveDelegation(stakingTxHash)
-			sew.metrics.NumberOfVerifiedDelegations.Dec()
-
-			return nil
-		}
-
 		if err := sew.babylonNodeAdapter.ActivateDelegation(ctx, stakingTxHash, proof); err != nil {
 			if !strings.Contains(err.Error(), "already has inclusion proof") {
 				verified, err := sew.babylonNodeAdapter.IsDelegationVerified(stakingTxHash)
@@ -1030,9 +1019,7 @@ func (sew *StakingEventWatcher) fetchDelegationsByEvents(startHeight, endHeight 
 	}
 
 	stakingTxHashes = deduplicateStrings(stakingTxHashes)
-
-	// todo(lazar): consider passing in a func for adding stakingTxHashes, we would be making dup rpc calls
-	// but maybe better than waiting for whole range to finish
+	
 	for _, stakingTxHash := range stakingTxHashes {
 		delegation, err := sew.babylonNodeAdapter.BTCDelegation(stakingTxHash)
 		if err != nil {
@@ -1060,7 +1047,7 @@ func (sew *StakingEventWatcher) fetchDelegationsModifiedByEvents(
 	var stakingTxHashes []string
 
 	err := retry.Do(func() error {
-		stkTxs, err := sew.babylonNodeAdapter.DelegationsModifedInBlock(ctx, height, eventTypes)
+		stkTxs, err := sew.babylonNodeAdapter.DelegationsModifiedInBlock(ctx, height, eventTypes)
 
 		if err != nil {
 			return fmt.Errorf("error fetching staking tx hashes by event from babylon: %w", err)
@@ -1105,24 +1092,27 @@ func (sew *StakingEventWatcher) addToUnbondingFunc(delegation Delegation) {
 	}
 }
 
+// addToPendingFunc adds a delegation to the pending tracker if it is not already present
 func (sew *StakingEventWatcher) addToPendingFunc(delegation Delegation) {
-	del := &newDelegation{
-		stakingTxHash:         delegation.StakingTx.TxHash(),
-		stakingTx:             delegation.StakingTx,
-		stakingOutputIdx:      delegation.StakingOutputIdx,
-		delegationStartHeight: delegation.DelegationStartHeight,
-		unbondingOutput:       delegation.UnbondingOutput,
+	// if is stake expansion, we should not activate it,
+	// the inclusion proof is reported in a MsgBTCUndelegate of the expanded delegation
+	stkTxHash := delegation.StakingTx.TxHash()
+	if delegation.IsStakeExpansion {
+		sew.logger.Debugf("skipping stake expansion tx adding to activation tracker %s", stkTxHash)
+
+		return
 	}
-	_, exists := sew.pendingTracker.GetDelegation(delegation.StakingTx.TxHash())
+
+	_, exists := sew.pendingTracker.GetDelegation(stkTxHash)
 	if !exists && !delegation.HasProof {
 		_, _ = sew.pendingTracker.AddDelegation(
-			del.stakingTx,
-			del.stakingOutputIdx,
-			del.unbondingOutput,
-			del.delegationStartHeight,
+			delegation.StakingTx,
+			delegation.StakingOutputIdx,
+			delegation.UnbondingOutput,
+			delegation.DelegationStartHeight,
 			false,
 		)
-		sew.logger.Debugf("Received new verified delegation to watch: %s", del.stakingTxHash)
+		sew.logger.Debugf("Received new verified delegation to watch: %s", stkTxHash)
 		sew.metrics.NumberOfVerifiedDelegations.Inc()
 	}
 }
