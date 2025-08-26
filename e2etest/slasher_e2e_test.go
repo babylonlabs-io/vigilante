@@ -647,7 +647,6 @@ func TestSlasher_Loaded_MultiStaking(t *testing.T) {
 		allSlashingMsgTxHashes[slashingMsgTx.TxHash()] = false
 	}
 
-	// mine a block that includes slashing tx
 	numSlashed := 0
 	t1 := time.Now()
 	require.Eventually(t, func() bool {
