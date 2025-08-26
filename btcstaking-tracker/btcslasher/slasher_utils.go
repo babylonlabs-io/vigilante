@@ -369,6 +369,7 @@ func BuildUnbondingSlashingTxWithWitness(
 				return nil, err
 			}
 
+			// #nosec G115 -- performed the conversion check above
 			return btcstaking.BuildUnbondingInfo(
 				d.BtcPk.MustToBTCPK(),
 				fpBtcPkList,
