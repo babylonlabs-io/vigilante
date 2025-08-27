@@ -3,6 +3,7 @@
 package e2etest
 
 import (
+	"context"
 	"github.com/babylonlabs-io/babylon/v3/testutil/datagen"
 	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/btcec/v2"
@@ -13,6 +14,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -496,4 +498,181 @@ func TestSlasher_MultiStaking(t *testing.T) {
 
 		return len(txns) == 1
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
+}
+
+func TestSlasher_Loaded_MultiStaking(t *testing.T) {
+	t.Parallel()
+	tm := StartManager(t,
+		WithNumMatureOutputs(300),
+		WithEpochInterval(5),
+		WithNumCovenants(2))
+
+	defer tm.Stop(t)
+	err := tm.BabylonClient.Start()
+	require.NoError(t, err)
+	tm.CatchUpBTCLightClient(t)
+
+	backend, err := btcclient.NewNodeBackend(
+		btcclient.ToBitcoindConfig(tm.Config.BTC),
+		&chaincfg.RegressionNetParams,
+		&btcclient.EmptyHintCache{},
+	)
+	require.NoError(t, err)
+
+	err = backend.Start()
+	require.NoError(t, err)
+
+	numStakers := 50
+	commonCfg := config.DefaultCommonConfig()
+	bstCfg := config.DefaultBTCStakingTrackerConfig()
+	bstCfg.CheckDelegationsInterval = 1 * time.Second
+	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
+	bstCfg.IndexerAddr = tm.Config.BTCStakingTracker.IndexerAddr
+	bstCfg.MaxSlashingConcurrency = uint8(numStakers)
+
+	bsTracker := bst.NewBTCStakingTracker(
+		tm.BTCClient,
+		backend,
+		tm.BabylonClient,
+		&bstCfg,
+		&commonCfg,
+		zaptest.NewLogger(t),
+		stakingTrackerMetrics,
+	)
+	go bsTracker.Start()
+	defer bsTracker.Stop()
+
+	// wait for bootstrapping
+	time.Sleep(5 * time.Second)
+
+	signerAddr := tm.BabylonClient.MustGetAddr()
+	addr := sdk.MustAccAddressFromBech32(signerAddr)
+
+	bsParams, err := tm.BabylonClient.BTCStakingParams()
+	require.NoError(t, err)
+
+	contractAddr := tm.DeployCwContract(t)
+	consumer := datagen.GenRandomRollupRegister(r, contractAddr)
+	tm.RegisterBSN(t, consumer, contractAddr)
+
+	// set up a finality provider
+	_, fp1SK := tm.CreateFinalityProvider(t)
+	_, fp2SK := tm.CreateFinalityProviderBSN(t, consumer.ConsumerId)
+	fpSKs := []*btcec.PublicKey{fp1SK.PubKey(), fp2SK.PubKey()}
+
+	stakers := make([]*Staker, 0, numStakers)
+	for i := 0; i < numStakers; i++ {
+		stakers = append(stakers, &Staker{})
+	}
+
+	var wg sync.WaitGroup
+	for i, staker := range stakers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			topUnspentResult, err := tm.BTCClient.ListUnspent()
+			require.NoError(t, err)
+
+			unspentIdx := i % len(topUnspentResult)
+			topUTXO, err := types.NewUTXO(&topUnspentResult[unspentIdx], regtestParams)
+			require.NoError(t, err)
+			staker.CreateStakingTx(t, tm, fpSKs, topUTXO, addr, bsParams)
+			staker.SendTxAndWait(t, tm, staker.stakingSlashingInfo.StakingTx)
+
+			var res *btcjson.TxRawResult
+			require.Eventually(t, func() bool {
+				res, err = tm.BTCClient.GetRawTransactionVerbose(staker.stakingMsgTxHash)
+				return err == nil
+			}, eventuallyWaitTimeOut, eventuallyPollTime)
+			blockHash, err := chainhash.NewHashFromStr(res.BlockHash)
+			require.NoError(t, err)
+			block, err := tm.TestRpcClient.GetBlock(blockHash)
+			require.NoError(t, err)
+			staker.stakingTxInfo = getTxInfoByHash(t, staker.stakingMsgTxHash, block)
+		}()
+		tm.mineBlock(t)
+	}
+
+	wg.Wait()
+	tm.mineBlock(t)
+
+	for _, staker := range stakers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			staker.CreateUnbondingData(t, tm, fpSKs, bsParams)
+			staker.AddCov(t, tm, signerAddr, fpSKs)
+			staker.PrepareUnbondingTx(t, tm)
+		}()
+	}
+	wg.Wait()
+
+	tm.BitcoindHandler.GenerateBlocks(10)
+	tm.CatchUpBTCLightClient(t)
+
+	for _, staker := range stakers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			tm.mineBlock(t)
+			staker.SendDelegation(t, tm, signerAddr, fpSKs, bsParams)
+			staker.SendCovSig(t, tm)
+		}()
+		time.Sleep(100 * time.Millisecond)
+	}
+	wg.Wait()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func(ctx context.Context) {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				tm.mineBlock(t)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}(ctx)
+
+	tm.CatchUpBTCLightClient(t)
+
+	// commit public randomness, vote and equivocate
+	tm.VoteAndEquivocate(t, fp1SK)
+
+	allSlashingMsgTxHashes := map[chainhash.Hash]bool{}
+	for _, staker := range stakers {
+		slashingMsgTx, err := staker.stakingSlashingInfo.SlashingTx.ToMsgTx()
+		require.NoError(t, err)
+		allSlashingMsgTxHashes[slashingMsgTx.TxHash()] = false
+	}
+
+	numSlashed := 0
+	t1 := time.Now()
+	require.Eventually(t, func() bool {
+		for slashingMsgTxHash := range allSlashingMsgTxHashes {
+			if allSlashingMsgTxHashes[slashingMsgTxHash] {
+				continue
+			}
+
+			txns, err := tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{&slashingMsgTxHash})
+			if err != nil {
+				t.Logf("error: %v", err)
+				return false
+			}
+
+			if len(txns) == 1 {
+				allSlashingMsgTxHashes[slashingMsgTxHash] = true
+				numSlashed++
+				t.Logf("num slashed: %d, %s", numSlashed, slashingMsgTxHash.String())
+			}
+		}
+
+		return numSlashed == len(stakers)
+	}, 5*eventuallyWaitTimeOut, eventuallyPollTime)
+
+	t.Logf("time elapsed to finish slashing: %v", time.Since(t1))
 }
