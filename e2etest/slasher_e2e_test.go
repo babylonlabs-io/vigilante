@@ -522,11 +522,13 @@ func TestSlasher_Loaded_MultiStaking(t *testing.T) {
 	err = backend.Start()
 	require.NoError(t, err)
 
+	numStakers := 50
 	commonCfg := config.DefaultCommonConfig()
 	bstCfg := config.DefaultBTCStakingTrackerConfig()
 	bstCfg.CheckDelegationsInterval = 1 * time.Second
 	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
 	bstCfg.IndexerAddr = tm.Config.BTCStakingTracker.IndexerAddr
+	bstCfg.MaxSlashingConcurrency = uint8(numStakers)
 
 	bsTracker := bst.NewBTCStakingTracker(
 		tm.BTCClient,
@@ -558,7 +560,6 @@ func TestSlasher_Loaded_MultiStaking(t *testing.T) {
 	_, fp2SK := tm.CreateFinalityProviderBSN(t, consumer.ConsumerId)
 	fpSKs := []*btcec.PublicKey{fp1SK.PubKey(), fp2SK.PubKey()}
 
-	numStakers := 15
 	stakers := make([]*Staker, 0, numStakers)
 	for i := 0; i < numStakers; i++ {
 		stakers = append(stakers, &Staker{})
@@ -624,7 +625,7 @@ func TestSlasher_Loaded_MultiStaking(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func(ctx context.Context) {
-		ticker := time.NewTicker(5 * time.Second)
+		ticker := time.NewTicker(1 * time.Second)
 		defer ticker.Stop()
 
 		for {
@@ -666,7 +667,7 @@ func TestSlasher_Loaded_MultiStaking(t *testing.T) {
 			if len(txns) == 1 {
 				allSlashingMsgTxHashes[slashingMsgTxHash] = true
 				numSlashed++
-				t.Logf("num slashed: %d", numSlashed)
+				t.Logf("num slashed: %d, %s", numSlashed, slashingMsgTxHash.String())
 			}
 		}
 
