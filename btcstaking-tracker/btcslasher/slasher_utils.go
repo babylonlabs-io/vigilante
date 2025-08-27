@@ -30,6 +30,21 @@ const (
 
 var ErrNotSlashable = errors.New("delegation is not slashable")
 
+// StakingInfoProvider interface for types that can provide slashing path spend info
+type StakingInfoProvider interface {
+	SlashingPathSpendInfo() (*btcstaking.SpendInfo, error)
+}
+
+// SlashingConfig holds configuration for building slashing transactions
+type SlashingConfig struct {
+	TxHex          string
+	SlashingTxHex  string
+	SlashingSigHex string
+	CovenantSigs   []*bstypes.CovenantAdaptorSignatures
+	OutputIdx      uint32
+	InfoBuilder    func() (StakingInfoProvider, error)
+}
+
 type SlashResult struct {
 	Del            *bstypes.BTCDelegationResponse
 	SlashingTxHash *chainhash.Hash
@@ -251,79 +266,59 @@ func (bs *BTCSlasher) sendSlashingTx(
 	return txHash, nil
 }
 
-// BuildUnbondingSlashingTxWithWitness returns the unbonding slashing tx.
-func BuildUnbondingSlashingTxWithWitness(
+// buildSlashingTxWithWitness is the unified function for building slashing transactions
+func buildSlashingTxWithWitness(
 	d *bstypes.BTCDelegationResponse,
 	bsParams *bstypes.Params,
-	btcNet *chaincfg.Params,
 	fpSK *btcec.PrivateKey,
+	config SlashingConfig,
 ) (*wire.MsgTx, error) {
-	unbondingMsgTx, _, err := bbn.NewBTCTxFromHex(d.UndelegationResponse.UnbondingTxHex)
+	msgTx, _, err := bbn.NewBTCTxFromHex(config.TxHex)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert a Babylon unbonding tx to wire.MsgTx: %w", err)
+		return nil, fmt.Errorf("failed to convert tx to wire.MsgTx: %w", err)
 	}
 
-	fpBtcPkList, err := bbn.NewBTCPKsFromBIP340PKs(d.FpBtcPkList)
+	// Build info using the provided builder
+	stakingInfo, err := config.InfoBuilder()
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert finality provider pks to BTC pks: %w", err)
+		return nil, fmt.Errorf("could not create staking info: %w", err)
 	}
 
-	covenantBtcPkList, err := bbn.NewBTCPKsFromBIP340PKs(bsParams.CovenantPks)
+	// Get slashing spend info
+	slashingSpendInfo, err := stakingInfo.SlashingPathSpendInfo()
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert covenant pks to BTC pks: %w", err)
+		return nil, fmt.Errorf("could not get slashing spend info: %w", err)
 	}
 
-	if d.UnbondingTime > uint32(^uint16(0)) {
-		panic(fmt.Errorf("unbondingTime (%d) exceeds maximum for uint16", d.UnbondingTime))
-	}
-
-	// get unbonding info
-	unbondingInfo, err := btcstaking.BuildUnbondingInfo(
-		d.BtcPk.MustToBTCPK(),
-		fpBtcPkList,
-		covenantBtcPkList,
-		bsParams.CovenantQuorum,
-		uint16(d.UnbondingTime),
-		btcutil.Amount(unbondingMsgTx.TxOut[0].Value),
-		btcNet,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not create BTC unbonding info: %w", err)
-	}
-	slashingSpendInfo, err := unbondingInfo.SlashingPathSpendInfo()
-	if err != nil {
-		return nil, fmt.Errorf("could not get unbonding slashing spend info: %w", err)
-	}
-
-	// get the list of covenant signatures encrypted by the given finality provider's PK
-	fpPK := fpSK.PubKey()
-	fpBTCPK := bbn.NewBIP340PubKeyFromBTCPK(fpPK)
+	// Find finality provider index
+	fpBTCPK := bbn.NewBIP340PubKeyFromBTCPK(fpSK.PubKey())
 	fpIdx, err := findFPIdxForCovenantSignatures(fpBTCPK, d.FpBtcPkList)
 	if err != nil {
 		return nil, err
 	}
 
-	covAdaptorSigs, err := bstypes.GetOrderedCovenantSignatures(fpIdx, d.UndelegationResponse.CovenantSlashingSigs, bsParams)
+	// Get ordered covenant signatures
+	covAdaptorSigs, err := bstypes.GetOrderedCovenantSignatures(fpIdx, config.CovenantSigs, bsParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get ordered covenant adaptor signatures: %w", err)
 	}
 
-	delSlashingSig, err := bbn.NewBIP340SignatureFromHex(d.UndelegationResponse.DelegatorSlashingSigHex)
+	// Parse delegator slashing signature
+	delSlashingSig, err := bbn.NewBIP340SignatureFromHex(config.SlashingSigHex)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse Delegator slashing signature: %w", err)
+		return nil, fmt.Errorf("failed to parse delegator slashing signature: %w", err)
 	}
 
-	slashTx, err := bstypes.NewBTCSlashingTxFromHex(d.UndelegationResponse.SlashingTxHex)
+	slashTx, err := bstypes.NewBTCSlashingTxFromHex(config.SlashingTxHex)
 	if err != nil {
 		return nil, err
 	}
 
-	// assemble witness for unbonding slashing tx
 	slashingMsgTxWithWitness, err := slashTx.BuildSlashingTxWithWitness(
 		fpSK,
 		d.FpBtcPkList,
-		unbondingMsgTx,
-		0,
+		msgTx,
+		config.OutputIdx,
 		delSlashingSig,
 		covAdaptorSigs,
 		bsParams.CovenantQuorum,
@@ -331,7 +326,7 @@ func BuildUnbondingSlashingTxWithWitness(
 	)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"failed to build witness for unbonding BTC delegation %s under finality provider %s: %w",
+			"failed to build witness for BTC delegation %s under finality provider %s: %w",
 			d.BtcPk.MarshalHex(),
 			bbn.NewBIP340PubKeyFromBTCPK(fpSK.PubKey()).MarshalHex(),
 			err,
@@ -339,6 +334,55 @@ func BuildUnbondingSlashingTxWithWitness(
 	}
 
 	return slashingMsgTxWithWitness, nil
+}
+
+// BuildUnbondingSlashingTxWithWitness returns the unbonding slashing tx.
+func BuildUnbondingSlashingTxWithWitness(
+	d *bstypes.BTCDelegationResponse,
+	bsParams *bstypes.Params,
+	btcNet *chaincfg.Params,
+	fpSK *btcec.PrivateKey,
+) (*wire.MsgTx, error) {
+	if d.UnbondingTime > uint32(^uint16(0)) {
+		panic(fmt.Errorf("unbondingTime (%d) exceeds maximum for uint16", d.UnbondingTime))
+	}
+
+	config := SlashingConfig{
+		TxHex:          d.UndelegationResponse.UnbondingTxHex,
+		SlashingTxHex:  d.UndelegationResponse.SlashingTxHex,
+		SlashingSigHex: d.UndelegationResponse.DelegatorSlashingSigHex,
+		CovenantSigs:   d.UndelegationResponse.CovenantSlashingSigs,
+		OutputIdx:      0,
+		InfoBuilder: func() (StakingInfoProvider, error) {
+			unbondingMsgTx, _, err := bbn.NewBTCTxFromHex(d.UndelegationResponse.UnbondingTxHex)
+			if err != nil {
+				return nil, err
+			}
+
+			fpBtcPkList, err := bbn.NewBTCPKsFromBIP340PKs(d.FpBtcPkList)
+			if err != nil {
+				return nil, err
+			}
+
+			covenantBtcPkList, err := bbn.NewBTCPKsFromBIP340PKs(bsParams.CovenantPks)
+			if err != nil {
+				return nil, err
+			}
+
+			// #nosec G115 -- performed the conversion check above
+			return btcstaking.BuildUnbondingInfo(
+				d.BtcPk.MustToBTCPK(),
+				fpBtcPkList,
+				covenantBtcPkList,
+				bsParams.CovenantQuorum,
+				uint16(d.UnbondingTime),
+				btcutil.Amount(unbondingMsgTx.TxOut[0].Value),
+				btcNet,
+			)
+		},
+	}
+
+	return buildSlashingTxWithWitness(d, bsParams, fpSK, config)
 }
 
 // findFPIdxForCovenantSignatures returns the index of the given finality provider
@@ -365,87 +409,41 @@ func BuildSlashingTxWithWitness(
 	btcNet *chaincfg.Params,
 	fpSK *btcec.PrivateKey,
 ) (*wire.MsgTx, error) {
-	stakingMsgTx, _, err := bbn.NewBTCTxFromHex(d.StakingTxHex)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert a Babylon staking tx to wire.MsgTx: %w", err)
-	}
-
-	fpBtcPkList, err := bbn.NewBTCPKsFromBIP340PKs(d.FpBtcPkList)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert finality provider pks to BTC pks: %w", err)
-	}
-
-	covenantBtcPkList, err := bbn.NewBTCPKsFromBIP340PKs(bsParams.CovenantPks)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert covenant pks to BTC pks: %w", err)
-	}
-
 	if d.TotalSat > math.MaxInt64 {
 		panic(fmt.Errorf("TotalSat %d exceeds int64 range", d.TotalSat))
 	}
 
-	// get staking info
-	// #nosec G115 -- performed the conversion check above
-	stakingInfo, err := btcstaking.BuildStakingInfo(
-		d.BtcPk.MustToBTCPK(),
-		fpBtcPkList,
-		covenantBtcPkList,
-		bsParams.CovenantQuorum,
-		uint16(d.EndHeight-d.StartHeight),
-		btcutil.Amount(d.TotalSat),
-		btcNet,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not create BTC staking info: %w", err)
-	}
-	slashingSpendInfo, err := stakingInfo.SlashingPathSpendInfo()
-	if err != nil {
-		return nil, fmt.Errorf("could not get slashing spend info: %w", err)
+	config := SlashingConfig{
+		TxHex:          d.StakingTxHex,
+		SlashingTxHex:  d.SlashingTxHex,
+		SlashingSigHex: d.DelegatorSlashSigHex,
+		CovenantSigs:   d.CovenantSigs,
+		OutputIdx:      d.StakingOutputIdx,
+		InfoBuilder: func() (StakingInfoProvider, error) {
+			fpBtcPkList, err := bbn.NewBTCPKsFromBIP340PKs(d.FpBtcPkList)
+			if err != nil {
+				return nil, err
+			}
+
+			covenantBtcPkList, err := bbn.NewBTCPKsFromBIP340PKs(bsParams.CovenantPks)
+			if err != nil {
+				return nil, err
+			}
+
+			// #nosec G115 -- performed the conversion check above
+			return btcstaking.BuildStakingInfo(
+				d.BtcPk.MustToBTCPK(),
+				fpBtcPkList,
+				covenantBtcPkList,
+				bsParams.CovenantQuorum,
+				uint16(d.EndHeight-d.StartHeight),
+				btcutil.Amount(d.TotalSat),
+				btcNet,
+			)
+		},
 	}
 
-	// get the list of covenant signatures encrypted by the given finality provider's PK
-	fpBTCPK := bbn.NewBIP340PubKeyFromBTCPK(fpSK.PubKey())
-	fpIdx, err := findFPIdxForCovenantSignatures(fpBTCPK, d.FpBtcPkList)
-	if err != nil {
-		return nil, err
-	}
-
-	covAdaptorSigs, err := bstypes.GetOrderedCovenantSignatures(fpIdx, d.CovenantSigs, bsParams)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get ordered covenant adaptor signatures: %w", err)
-	}
-
-	delSigSlash, err := bbn.NewBIP340SignatureFromHex(d.DelegatorSlashSigHex)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse Delegator slashing signature: %w", err)
-	}
-
-	slashTx, err := bstypes.NewBTCSlashingTxFromHex(d.SlashingTxHex)
-	if err != nil {
-		return nil, err
-	}
-
-	// assemble witness for slashing tx
-	slashingMsgTxWithWitness, err := slashTx.BuildSlashingTxWithWitness(
-		fpSK,
-		d.FpBtcPkList,
-		stakingMsgTx,
-		d.StakingOutputIdx,
-		delSigSlash,
-		covAdaptorSigs,
-		bsParams.CovenantQuorum,
-		slashingSpendInfo,
-	)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"failed to build witness for BTC delegation of %s under finality provider %s: %w",
-			d.BtcPk.MarshalHex(),
-			bbn.NewBIP340PubKeyFromBTCPK(fpSK.PubKey()).MarshalHex(),
-			err,
-		)
-	}
-
-	return slashingMsgTxWithWitness, nil
+	return buildSlashingTxWithWitness(d, bsParams, fpSK, config)
 }
 
 // BTC slasher will try to slash via staking path for active BTC delegations,
