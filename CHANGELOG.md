@@ -40,6 +40,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Improvements
 
 * [#434](https://github.com/babylonlabs-io/vigilante/pull/434) chore: avoid adding to pending tracker
+* [#438](https://github.com/babylonlabs-io/vigilante/pull/438) chore: better slash building
 * [#442](https://github.com/babylonlabs-io/vigilante/pull/442) chore: many slashing transactions
 
 ## v0.24.0-rc.3
