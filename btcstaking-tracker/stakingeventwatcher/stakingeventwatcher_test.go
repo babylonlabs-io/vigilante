@@ -69,7 +69,7 @@ func TestHandlingDelegations(t *testing.T) {
 	}
 
 	mockBabylonNodeAdapter.EXPECT().
-		DelegationsByStatus(gomock.Any(), gomock.Any(), gomock.Any()).
+		DelegationsByStatus(gomock.Any(), gomock.Any()).
 		Return(delegations, nil).AnyTimes()
 
 	mockBabylonNodeAdapter.EXPECT().
@@ -79,7 +79,7 @@ func TestHandlingDelegations(t *testing.T) {
 	mockBabylonNodeAdapter.EXPECT().QueryHeaderDepth(gomock.Any()).Return(uint32(2), nil).AnyTimes()
 	mockBabylonNodeAdapter.EXPECT().IsDelegationVerified(gomock.Any()).Return(true, nil).AnyTimes()
 	mockBabylonNodeAdapter.EXPECT().BTCDelegation(gomock.Any()).Return(&Delegation{
-		Status:           btcstakingtypes.BTCDelegationStatus_VERIFIED.String(),
+		Status: btcstakingtypes.BTCDelegationStatus_VERIFIED.String(),
 	}, nil).AnyTimes()
 
 	params := BabylonParams{ConfirmationTimeBlocks: 1}

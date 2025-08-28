@@ -274,32 +274,24 @@ func (sew *StakingEventWatcher) checkBabylonDelegations() error {
 	status := btcstakingtypes.BTCDelegationStatus_ANY
 	defer sew.latency(fmt.Sprintf("checkBabylonDelegations: %s", status))()
 
-	var i = uint64(0)
-	for {
-		delegations, err := sew.babylonNodeAdapter.DelegationsByStatus(status, i, sew.cfg.NewDelegationsBatchSize)
-		if err != nil {
-			return fmt.Errorf("error fetching active delegations from babylon: %w", err)
-		}
-
-		sew.logger.Debugf("fetched %d delegations from babylon by status %s", len(delegations), status)
-
-		for _, delegation := range delegations {
-			switch delegation.Status {
-			case btcstakingtypes.BTCDelegationStatus_ACTIVE.String():
-				sew.addToUnbondingFunc(delegation)
-			case btcstakingtypes.BTCDelegationStatus_VERIFIED.String():
-				sew.addToPendingFunc(delegation)
-				sew.addToUnbondingFunc(delegation)
-			}
-		}
-
-		if uint64(len(delegations)) < sew.cfg.NewDelegationsBatchSize {
-			// we received fewer delegations than we asked for; it means went through all of them
-			return nil
-		}
-
-		i += sew.cfg.NewDelegationsBatchSize
+	delegations, err := sew.babylonNodeAdapter.DelegationsByStatus(status, sew.cfg.NewDelegationsBatchSize)
+	if err != nil {
+		return fmt.Errorf("error fetching delegations: %w", err)
 	}
+
+	sew.logger.Debugf("fetched %d delegations from babylon by status %s", len(delegations), status)
+
+	for _, delegation := range delegations {
+		switch delegation.Status {
+		case btcstakingtypes.BTCDelegationStatus_ACTIVE.String():
+			sew.addToUnbondingFunc(delegation)
+		case btcstakingtypes.BTCDelegationStatus_VERIFIED.String():
+			sew.addToPendingFunc(delegation)
+			sew.addToUnbondingFunc(delegation)
+		}
+	}
+
+	return nil
 }
 
 // fetchDelegations - fetches all babylon delegations, used for bootstrap
@@ -1019,7 +1011,7 @@ func (sew *StakingEventWatcher) fetchDelegationsByEvents(startHeight, endHeight 
 	}
 
 	stakingTxHashes = deduplicateStrings(stakingTxHashes)
-	
+
 	for _, stakingTxHash := range stakingTxHashes {
 		delegation, err := sew.babylonNodeAdapter.BTCDelegation(stakingTxHash)
 		if err != nil {
