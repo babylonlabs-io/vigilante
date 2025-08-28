@@ -46,7 +46,7 @@ type BabylonParams struct {
 }
 
 type BabylonNodeAdapter interface {
-	DelegationsByStatus(status btcstakingtypes.BTCDelegationStatus, limit uint64) ([]Delegation, error)
+	DelegationsByStatus(status btcstakingtypes.BTCDelegationStatus, cursor []byte, limit uint64) ([]Delegation, []byte, error)
 	IsDelegationActive(stakingTxHash chainhash.Hash) (bool, error)
 	IsDelegationVerified(stakingTxHash chainhash.Hash) (bool, error)
 	ReportUnbonding(ctx context.Context, stakingTxHash chainhash.Hash, stakeSpendingTx *wire.MsgTx,
@@ -75,46 +75,47 @@ func NewBabylonClientAdapter(babylonClient *bbnclient.Client, cfg *config.BTCSta
 }
 
 // DelegationsByStatus - returns btc delegations by Status
-func (bca *BabylonClientAdapter) DelegationsByStatus(
-	status btcstakingtypes.BTCDelegationStatus, limit uint64) ([]Delegation,
-	error) {
-	var allDelegations []Delegation
-	pagination := query.PageRequest{Limit: limit}
-
-	for {
-		resp, err := bca.babylonClient.BTCDelegations(status, &pagination)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get BTC delegations: %w", err)
-		}
-
-		for _, delegation := range resp.BtcDelegations {
-			stakingTx, _, err := bbn.NewBTCTxFromHex(delegation.StakingTxHex)
-			if err != nil {
-				return nil, err
-			}
-			unbondingTx, _, err := bbn.NewBTCTxFromHex(delegation.UndelegationResponse.UnbondingTxHex)
-			if err != nil {
-				return nil, err
-			}
-
-			allDelegations = append(allDelegations, Delegation{
-				StakingTx:             stakingTx,
-				StakingOutputIdx:      delegation.StakingOutputIdx,
-				DelegationStartHeight: delegation.StartHeight,
-				UnbondingOutput:       unbondingTx.TxOut[0],
-				HasProof:              delegation.StartHeight > 0,
-				Status:                delegation.StatusDesc,
-				IsStakeExpansion:      delegation.StkExp != nil,
-			})
-		}
-
-		if resp.Pagination == nil || resp.Pagination.NextKey == nil {
-			break
-		}
-		pagination.Key = resp.Pagination.NextKey
+func (bca *BabylonClientAdapter) DelegationsByStatus(status btcstakingtypes.BTCDelegationStatus, cursor []byte, limit uint64) ([]Delegation, []byte, error) {
+	resp, err := bca.babylonClient.BTCDelegations(
+		status,
+		&query.PageRequest{
+			Key:   cursor,
+			Limit: limit,
+		},
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to retrieve delegations from babylon: %w", err)
 	}
 
-	return allDelegations, nil
+	delegations := make([]Delegation, len(resp.BtcDelegations))
+
+	for i, delegation := range resp.BtcDelegations {
+		stakingTx, _, err := bbn.NewBTCTxFromHex(delegation.StakingTxHex)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		unbondingTx, _, err := bbn.NewBTCTxFromHex(delegation.UndelegationResponse.UnbondingTxHex)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		delegations[i] = Delegation{
+			StakingTx:             stakingTx,
+			StakingOutputIdx:      delegation.StakingOutputIdx,
+			DelegationStartHeight: delegation.StartHeight,
+			UnbondingOutput:       unbondingTx.TxOut[0],
+			HasProof:              delegation.StartHeight > 0,
+			Status:                delegation.StatusDesc,
+		}
+	}
+
+	var nextCursor []byte
+	if resp.Pagination != nil && resp.Pagination.NextKey != nil {
+		nextCursor = resp.Pagination.NextKey
+	}
+
+	return delegations, nextCursor, nil
 }
 
 // IsDelegationActive method for BabylonClientAdapter
