@@ -1,8 +1,6 @@
-run:
-  timeout: 5m
-
+version: "2"
 linters:
-  disable-all: true
+  default: none
   enable:
     - asasalint
     - asciicheck
@@ -26,7 +24,6 @@ linters:
     - goheader
     - gomodguard
     - goprintffuncname
-    - gosimple
     - govet
     - grouper
     - importas
@@ -47,32 +44,43 @@ linters:
     - rowserrcheck
     - sqlclosecheck
     - staticcheck
-    - stylecheck
-    - usetesting
     - testableexamples
     - tparallel
-    - typecheck
     - unconvert
     - unparam
-    - usestdlibvars
     - unused
+    - usestdlibvars
+    - usetesting
     - wastedassign
     - whitespace
-#    - wrapcheck # we really should be using this, lax for now todo(lazar): unlax at somepoint, good practice
-
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - dupl
+          - errcheck
+          - gocyclo
+          - gosec
+        path: _test\.go
+      - linters:
+          - forbidigo
+        path-except: _test\.go
+    paths:
+      - e2etest
+      - third_party$
+      - builtin$
+      - examples$
 issues:
   max-same-issues: 0
-  # Default: https://golangci-lint.run/usage/false-positives/#default-exclusions
-  exclude-dirs:
-    - e2etest
-  exclude-rules:
-    # Exclude some linters from running on tests files.
-    - path: _test\.go
-      linters:
-        - gocyclo
-        - errcheck
-        - dupl
-        - gosec
-    - path-except: _test\.go
-      linters:
-        - forbidigo
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
