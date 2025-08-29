@@ -46,7 +46,7 @@ type BabylonParams struct {
 }
 
 type BabylonNodeAdapter interface {
-	DelegationsByStatus(status btcstakingtypes.BTCDelegationStatus, offset uint64, limit uint64) ([]Delegation, error)
+	DelegationsByStatus(status btcstakingtypes.BTCDelegationStatus, cursor []byte, limit uint64) ([]Delegation, []byte, error)
 	IsDelegationActive(stakingTxHash chainhash.Hash) (bool, error)
 	IsDelegationVerified(stakingTxHash chainhash.Hash) (bool, error)
 	ReportUnbonding(ctx context.Context, stakingTxHash chainhash.Hash, stakeSpendingTx *wire.MsgTx,
@@ -75,18 +75,16 @@ func NewBabylonClientAdapter(babylonClient *bbnclient.Client, cfg *config.BTCSta
 }
 
 // DelegationsByStatus - returns btc delegations by Status
-func (bca *BabylonClientAdapter) DelegationsByStatus(
-	status btcstakingtypes.BTCDelegationStatus, offset uint64, limit uint64) ([]Delegation, error) {
+func (bca *BabylonClientAdapter) DelegationsByStatus(status btcstakingtypes.BTCDelegationStatus, cursor []byte, limit uint64) ([]Delegation, []byte, error) {
 	resp, err := bca.babylonClient.BTCDelegations(
 		status,
 		&query.PageRequest{
-			Key:    nil,
-			Offset: offset,
-			Limit:  limit,
+			Key:   cursor,
+			Limit: limit,
 		},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve delegations from babylon: %w", err)
+		return nil, nil, fmt.Errorf("failed to retrieve delegations from babylon: %w", err)
 	}
 
 	delegations := make([]Delegation, len(resp.BtcDelegations))
@@ -94,12 +92,12 @@ func (bca *BabylonClientAdapter) DelegationsByStatus(
 	for i, delegation := range resp.BtcDelegations {
 		stakingTx, _, err := bbn.NewBTCTxFromHex(delegation.StakingTxHex)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		unbondingTx, _, err := bbn.NewBTCTxFromHex(delegation.UndelegationResponse.UnbondingTxHex)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		delegations[i] = Delegation{
@@ -112,7 +110,12 @@ func (bca *BabylonClientAdapter) DelegationsByStatus(
 		}
 	}
 
-	return delegations, nil
+	var nextCursor []byte
+	if resp.Pagination != nil && resp.Pagination.NextKey != nil {
+		nextCursor = resp.Pagination.NextKey
+	}
+
+	return delegations, nextCursor, nil
 }
 
 // IsDelegationActive method for BabylonClientAdapter
