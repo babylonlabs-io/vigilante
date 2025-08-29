@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/babylonlabs-io/vigilante/testutil"
 	"go.uber.org/zap"
 
 	bstypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
