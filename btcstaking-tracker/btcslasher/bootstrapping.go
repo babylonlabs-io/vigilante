@@ -15,7 +15,13 @@ import (
 // If the slashing tx under a finality provider with an equivocation evidence is still
 // spendable on Bitcoin, then it will submit it to Bitcoin thus slashing this BTC delegation.
 func (bs *BTCSlasher) Bootstrap(startHeight uint64) error {
-	bs.logger.Info("start bootstrapping BTC slasher")
+	bs.logger.Infof("start bootstrapping BTC slasher from height %d", startHeight)
+
+	if startHeight > 0 {
+		bs.mu.Lock()
+		bs.height = startHeight
+		bs.mu.Unlock()
+	}
 
 	// load module parameters
 	if err := bs.LoadParams(); err != nil {
@@ -32,7 +38,7 @@ func (bs *BTCSlasher) Bootstrap(startHeight uint64) error {
 		bs.mu.Lock()
 		bs.height = lastSlashedHeight + 1
 		bs.mu.Unlock()
-		
+
 		if err := bs.store.PutHeight(lastSlashedHeight); err != nil {
 			return fmt.Errorf("failed to store last processed height %d: %w", lastSlashedHeight, err)
 		}
@@ -40,6 +46,11 @@ func (bs *BTCSlasher) Bootstrap(startHeight uint64) error {
 
 	return nil
 }
+
+func (bs *BTCSlasher) LastEvidencesHeight() (uint64, bool, error) {
+	return bs.store.LastProcessedHeight()
+}
+
 func (bs *BTCSlasher) processEvidencesFromHeight(startHeight uint64) (uint64, error) {
 	var lastSlashedHeight uint64
 	var accumulatedErrs error

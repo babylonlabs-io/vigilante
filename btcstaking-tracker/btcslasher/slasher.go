@@ -280,11 +280,11 @@ func (bs *BTCSlasher) fetchEvidences() {
 			if lastSlashedHeight > 0 {
 				bs.mu.Lock()
 				bs.height = lastSlashedHeight + 1
+				bs.mu.Unlock()
 
 				if err := bs.store.PutHeight(lastSlashedHeight); err != nil {
 					bs.logger.Errorf("failed to store last processed height %d: %v", lastSlashedHeight, err)
 				}
-				bs.mu.Unlock()
 			}
 		case <-bs.quit:
 			bs.logger.Debug("fetch evidence loop quit")

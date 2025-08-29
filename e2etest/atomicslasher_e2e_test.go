@@ -1,5 +1,4 @@
 //go:build e2e
-// +build e2e
 
 package e2etest
 
@@ -59,6 +58,7 @@ func TestAtomicSlasher(t *testing.T) {
 		&commonCfg,
 		zap.NewNop(),
 		metrics.NewBTCStakingTrackerMetrics(),
+		testutil.MakeTestBackend(t),
 	)
 	go bsTracker.Start()
 	defer bsTracker.Stop()
@@ -186,6 +186,7 @@ func TestAtomicSlasher_Unbonding(t *testing.T) {
 		&commonCfg,
 		zap.NewNop(),
 		stakingTrackerMetrics,
+		testutil.MakeTestBackend(t),
 	)
 	go bsTracker.Start()
 	defer bsTracker.Stop()

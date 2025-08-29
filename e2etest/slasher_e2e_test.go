@@ -1,10 +1,13 @@
-//go:build e2e
-
 package e2etest
 
 import (
 	"context"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/babylonlabs-io/babylon/v3/testutil/datagen"
+	"github.com/babylonlabs-io/vigilante/testutil"
 	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcjson"
@@ -14,9 +17,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
-	"sync"
-	"testing"
-	"time"
 
 	"github.com/btcsuite/btcd/chaincfg"
 
@@ -63,6 +63,7 @@ func TestSlasher_GracefulShutdown(t *testing.T) {
 		&commonCfg,
 		zap.NewNop(),
 		stakingTrackerMetrics,
+		testutil.MakeTestBackend(t),
 	)
 
 	go bsTracker.Start()
@@ -114,6 +115,7 @@ func TestSlasher_Slasher(t *testing.T) {
 		&commonCfg,
 		zap.NewNop(),
 		stakingTrackerMetrics,
+		testutil.MakeTestBackend(t),
 	)
 	go bsTracker.Start()
 	defer bsTracker.Stop()
@@ -192,6 +194,7 @@ func TestSlasher_SlashingUnbonding(t *testing.T) {
 		&commonCfg,
 		zap.NewNop(),
 		stakingTrackerMetrics,
+		testutil.MakeTestBackend(t),
 	)
 	go bsTracker.Start()
 	defer bsTracker.Stop()
@@ -300,6 +303,7 @@ func TestSlasher_Bootstrapping(t *testing.T) {
 		&commonCfg,
 		zap.NewNop(),
 		stakingTrackerMetrics,
+		testutil.MakeTestBackend(t),
 	)
 
 	// bootstrap BTC staking tracker
@@ -414,6 +418,7 @@ func TestSlasher_MultiStaking(t *testing.T) {
 		&commonCfg,
 		zaptest.NewLogger(t),
 		stakingTrackerMetrics,
+		testutil.MakeTestBackend(t),
 	)
 	go bsTracker.Start()
 	defer bsTracker.Stop()
@@ -528,7 +533,18 @@ func TestSlasher_Loaded_MultiStaking(t *testing.T) {
 	bstCfg.CheckDelegationsInterval = 1 * time.Second
 	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
 	bstCfg.IndexerAddr = tm.Config.BTCStakingTracker.IndexerAddr
-	bstCfg.MaxSlashingConcurrency = uint8(numStakers)
+	bstCfg.MaxSlashingConcurrency = 15 // we throttle slashing on purpose to we can test a restart
+
+	tempDirName := t.TempDir()
+	cfg := config.DefaultDBConfig()
+	cfg.DBPath = tempDirName
+	dbBackend, err := cfg.GetDBBackend()
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		err := dbBackend.Close()
+		require.NoError(t, err)
+	})
 
 	bsTracker := bst.NewBTCStakingTracker(
 		tm.BTCClient,
@@ -538,6 +554,7 @@ func TestSlasher_Loaded_MultiStaking(t *testing.T) {
 		&commonCfg,
 		zaptest.NewLogger(t),
 		stakingTrackerMetrics,
+		dbBackend,
 	)
 	go bsTracker.Start()
 	defer bsTracker.Stop()
@@ -664,13 +681,35 @@ func TestSlasher_Loaded_MultiStaking(t *testing.T) {
 				return false
 			}
 
+			// let's stop the slasher and see if we correctly bootstrap from where we left off,
+			// even with abrupt shutdown we should finish all the slashing
+			if len(allSlashingMsgTxHashes)/2 == numSlashed {
+				bsTracker.Stop()
+				dbBackend.Close()
+				dbBackend, err = cfg.GetDBBackend()
+				require.NoError(t, err)
+				bsTracker = bst.NewBTCStakingTracker(
+					tm.BTCClient,
+					backend,
+					tm.BabylonClient,
+					&bstCfg,
+					&commonCfg,
+					zaptest.NewLogger(t),
+					stakingTrackerMetrics,
+					dbBackend,
+				)
+				go func() {
+					err := bsTracker.Bootstrap(0)
+					require.NoError(t, err)
+				}()
+			}
+
 			if len(txns) == 1 {
 				allSlashingMsgTxHashes[slashingMsgTxHash] = true
 				numSlashed++
 				t.Logf("num slashed: %d, %s", numSlashed, slashingMsgTxHash.String())
 			}
 		}
-
 		return numSlashed == len(stakers)
 	}, 5*eventuallyWaitTimeOut, eventuallyPollTime)
 

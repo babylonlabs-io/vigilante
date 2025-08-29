@@ -149,6 +149,13 @@ func NewBTCStakingTracker(
 // any previous evidence whose slashing tx is not submitted to Bitcoin yet
 func (tracker *BTCStakingTracker) Bootstrap(startHeight uint64) error {
 	// bootstrap BTC slasher
+	lastProcessedEvidencesHeight, f, err := tracker.btcSlasher.LastEvidencesHeight()
+	if err != nil {
+		return fmt.Errorf("failed to get last processed evidences height: %w", err)
+	} else if f {
+		startHeight = lastProcessedEvidencesHeight
+	}
+
 	if err := tracker.btcSlasher.Bootstrap(startHeight); err != nil {
 		return fmt.Errorf("failed to bootstrap BTC staking tracker: %w", err)
 	}
