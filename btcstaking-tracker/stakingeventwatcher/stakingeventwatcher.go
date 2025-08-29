@@ -274,11 +274,11 @@ func (sew *StakingEventWatcher) checkBabylonDelegations() error {
 	status := btcstakingtypes.BTCDelegationStatus_ANY
 	defer sew.latency(fmt.Sprintf("checkBabylonDelegations: %s", status))()
 
-	var i = uint64(0)
+	cursor := []byte(nil)
 	for {
-		delegations, err := sew.babylonNodeAdapter.DelegationsByStatus(status, i, sew.cfg.NewDelegationsBatchSize)
+		delegations, nextCursor, err := sew.babylonNodeAdapter.DelegationsByStatus(status, cursor, sew.cfg.NewDelegationsBatchSize)
 		if err != nil {
-			return fmt.Errorf("error fetching active delegations from babylon: %w", err)
+			return fmt.Errorf("error fetching delegations: %w", err)
 		}
 
 		sew.logger.Debugf("fetched %d delegations from babylon by status %s", len(delegations), status)
@@ -293,13 +293,13 @@ func (sew *StakingEventWatcher) checkBabylonDelegations() error {
 			}
 		}
 
-		if uint64(len(delegations)) < sew.cfg.NewDelegationsBatchSize {
-			// we received fewer delegations than we asked for; it means went through all of them
-			return nil
+		if nextCursor == nil {
+			break
 		}
-
-		i += sew.cfg.NewDelegationsBatchSize
+		cursor = nextCursor
 	}
+
+	return nil
 }
 
 // fetchDelegations - fetches all babylon delegations, used for bootstrap
@@ -1019,7 +1019,7 @@ func (sew *StakingEventWatcher) fetchDelegationsByEvents(startHeight, endHeight 
 	}
 
 	stakingTxHashes = deduplicateStrings(stakingTxHashes)
-	
+
 	for _, stakingTxHash := range stakingTxHashes {
 		delegation, err := sew.babylonNodeAdapter.BTCDelegation(stakingTxHash)
 		if err != nil {
