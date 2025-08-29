@@ -7,6 +7,7 @@ import (
 
 	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/indexer"
 	"github.com/babylonlabs-io/vigilante/version"
+	"github.com/lightningnetwork/lnd/kvdb"
 
 	bbnclient "github.com/babylonlabs-io/babylon/v3/client/client"
 	"github.com/babylonlabs-io/vigilante/btcclient"
@@ -68,6 +69,7 @@ func NewBTCStakingTracker(
 	commonCfg *config.CommonConfig,
 	parentLogger *zap.Logger,
 	metrics *metrics.BTCStakingTrackerMetrics,
+	slasherDB kvdb.Backend,
 ) *BTCStakingTracker {
 	logger := parentLogger.With(zap.String("module", "btcstaking-tracker"))
 
@@ -107,6 +109,7 @@ func NewBTCStakingTracker(
 		slashedFPSKChan,
 		metrics.SlasherMetrics,
 		cfg.FetchEvidenceInterval,
+		slasherDB,
 	)
 	if err != nil {
 		parentLogger.Fatal("failed to create BTC slasher", zap.Error(err))

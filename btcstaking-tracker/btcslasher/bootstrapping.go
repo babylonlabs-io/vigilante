@@ -32,6 +32,10 @@ func (bs *BTCSlasher) Bootstrap(startHeight uint64) error {
 		bs.mu.Lock()
 		bs.height = lastSlashedHeight + 1
 		bs.mu.Unlock()
+		
+		if err := bs.store.PutHeight(lastSlashedHeight); err != nil {
+			return fmt.Errorf("failed to store last processed height %d: %w", lastSlashedHeight, err)
+		}
 	}
 
 	return nil
