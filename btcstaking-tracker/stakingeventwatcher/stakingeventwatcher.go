@@ -274,21 +274,29 @@ func (sew *StakingEventWatcher) checkBabylonDelegations() error {
 	status := btcstakingtypes.BTCDelegationStatus_ANY
 	defer sew.latency(fmt.Sprintf("checkBabylonDelegations: %s", status))()
 
-	delegations, err := sew.babylonNodeAdapter.DelegationsByStatus(status, sew.cfg.NewDelegationsBatchSize)
-	if err != nil {
-		return fmt.Errorf("error fetching delegations: %w", err)
-	}
-
-	sew.logger.Debugf("fetched %d delegations from babylon by status %s", len(delegations), status)
-
-	for _, delegation := range delegations {
-		switch delegation.Status {
-		case btcstakingtypes.BTCDelegationStatus_ACTIVE.String():
-			sew.addToUnbondingFunc(delegation)
-		case btcstakingtypes.BTCDelegationStatus_VERIFIED.String():
-			sew.addToPendingFunc(delegation)
-			sew.addToUnbondingFunc(delegation)
+	cursor := []byte(nil)
+	for {
+		delegations, nextCursor, err := sew.babylonNodeAdapter.DelegationsByStatus(status, cursor, sew.cfg.NewDelegationsBatchSize)
+		if err != nil {
+			return fmt.Errorf("error fetching delegations: %w", err)
 		}
+
+		sew.logger.Debugf("fetched %d delegations from babylon by status %s", len(delegations), status)
+
+		for _, delegation := range delegations {
+			switch delegation.Status {
+			case btcstakingtypes.BTCDelegationStatus_ACTIVE.String():
+				sew.addToUnbondingFunc(delegation)
+			case btcstakingtypes.BTCDelegationStatus_VERIFIED.String():
+				sew.addToPendingFunc(delegation)
+				sew.addToUnbondingFunc(delegation)
+			}
+		}
+
+		if nextCursor == nil {
+			break
+		}
+		cursor = nextCursor
 	}
 
 	return nil

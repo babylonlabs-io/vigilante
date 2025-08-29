@@ -69,8 +69,8 @@ func TestHandlingDelegations(t *testing.T) {
 	}
 
 	mockBabylonNodeAdapter.EXPECT().
-		DelegationsByStatus(gomock.Any(), gomock.Any()).
-		Return(delegations, nil).AnyTimes()
+		DelegationsByStatus(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(delegations, nil, nil).AnyTimes()
 
 	mockBabylonNodeAdapter.EXPECT().
 		ActivateDelegation(gomock.Any(), gomock.Any(), gomock.Any()).
