@@ -6,10 +6,12 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"github.com/btcsuite/btcd/btcec/v2"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/babylonlabs-io/vigilante/testutil"
+	"github.com/btcsuite/btcd/btcec/v2"
 
 	bbnclient "github.com/babylonlabs-io/babylon/v3/client/client"
 	btcstakingtypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
@@ -68,6 +70,7 @@ func TestUnbondingWatcher(t *testing.T) {
 		&commonCfg,
 		zap.NewNop(),
 		stakingTrackerMetrics,
+		testutil.MakeTestBackend(t),
 	)
 	bsTracker.Start()
 	defer bsTracker.Stop()
@@ -170,6 +173,7 @@ func TestActivatingDelegation(t *testing.T) {
 		&commonCfg,
 		zap.NewNop(),
 		stakingTrackerMetrics,
+		testutil.MakeTestBackend(t),
 	)
 	bsTracker.Start()
 	defer bsTracker.Stop()
@@ -279,6 +283,7 @@ func TestActivatingAndUnbondingDelegation(t *testing.T) {
 		&commonCfg,
 		zap.NewNop(),
 		stakingTrackerMetrics,
+		testutil.MakeTestBackend(t),
 	)
 	bsTracker.Start()
 	defer bsTracker.Stop()
@@ -396,6 +401,7 @@ func TestUnbondingLoaded(t *testing.T) {
 		&commonCfg,
 		logger,
 		trackerMetrics,
+		testutil.MakeTestBackend(t),
 	)
 	bsTracker.Start()
 	defer bsTracker.Stop()
@@ -615,6 +621,7 @@ func TestActivatingDelegationWithTwoTrackers(t *testing.T) {
 		&commonCfg,
 		zap.NewNop(),
 		stakingTrackerMetrics,
+		testutil.MakeTestBackend(t),
 	)
 	bsTracker.Start()
 	defer bsTracker.Stop()
@@ -629,6 +636,7 @@ func TestActivatingDelegationWithTwoTrackers(t *testing.T) {
 		&commonCfg2,
 		zap.NewNop(),
 		stakingTrackerMetrics2,
+		testutil.MakeTestBackend(t),
 	)
 	bsTracker2.Start()
 	defer bsTracker2.Stop()
@@ -738,6 +746,7 @@ func TestStakeExpansionFlow(t *testing.T) {
 		&commonCfg,
 		zap.NewNop(),
 		stakingTrackerMetrics,
+		testutil.MakeTestBackend(t),
 	)
 	bsTracker.Start()
 	defer bsTracker.Stop()
@@ -931,6 +940,7 @@ func TestUnbondingWatcherCensorship(t *testing.T) {
 		&commonCfg,
 		zap.NewNop(),
 		stakingTrackerMetrics,
+		testutil.MakeTestBackend(t),
 	)
 	bsTracker.Start()
 	defer bsTracker.Stop()

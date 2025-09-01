@@ -44,6 +44,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 * [#442](https://github.com/babylonlabs-io/vigilante/pull/442) chore: many slashing transactions
 * [#445](https://github.com/babylonlabs-io/vigilante/pull/445) chore: bump go to 1.25
 * [#449](https://github.com/babylonlabs-io/vigilante/pull/449) chore: complete integration with cursor
+* [#451](https://github.com/babylonlabs-io/vigilante/pull/451) feat: stateful slasher
 
 ## v0.24.0-rc.3
 
