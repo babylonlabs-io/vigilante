@@ -7,6 +7,7 @@ import (
 
 	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/indexer"
 	"github.com/babylonlabs-io/vigilante/version"
+	"github.com/lightningnetwork/lnd/kvdb"
 
 	bbnclient "github.com/babylonlabs-io/babylon/v3/client/client"
 	"github.com/babylonlabs-io/vigilante/btcclient"
@@ -68,6 +69,7 @@ func NewBTCStakingTracker(
 	commonCfg *config.CommonConfig,
 	parentLogger *zap.Logger,
 	metrics *metrics.BTCStakingTrackerMetrics,
+	slasherDB kvdb.Backend,
 ) *BTCStakingTracker {
 	logger := parentLogger.With(zap.String("module", "btcstaking-tracker"))
 
@@ -107,6 +109,7 @@ func NewBTCStakingTracker(
 		slashedFPSKChan,
 		metrics.SlasherMetrics,
 		cfg.FetchEvidenceInterval,
+		slasherDB,
 	)
 	if err != nil {
 		parentLogger.Fatal("failed to create BTC slasher", zap.Error(err))
@@ -146,6 +149,13 @@ func NewBTCStakingTracker(
 // any previous evidence whose slashing tx is not submitted to Bitcoin yet
 func (tracker *BTCStakingTracker) Bootstrap(startHeight uint64) error {
 	// bootstrap BTC slasher
+	lastProcessedEvidencesHeight, f, err := tracker.btcSlasher.LastEvidencesHeight()
+	if err != nil {
+		return fmt.Errorf("failed to get last processed evidences height: %w", err)
+	} else if f {
+		startHeight = lastProcessedEvidencesHeight
+	}
+
 	if err := tracker.btcSlasher.Bootstrap(startHeight); err != nil {
 		return fmt.Errorf("failed to bootstrap BTC staking tracker: %w", err)
 	}

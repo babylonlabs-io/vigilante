@@ -27,6 +27,7 @@ type BTCStakingTrackerConfig struct {
 	FetchEvidenceInterval    time.Duration `mapstructure:"fetch-evidence-interval"`
 	FetchCometBlockInterval  time.Duration `mapstructure:"fetch-comet-block-interval"`
 	ReconnectBTCNodeInterval time.Duration `mapstructure:"reconnect-btc-node-interval"`
+	SlasherDatabaseConfig    *DBConfig     `mapstructure:"slasherdbconfig"`
 }
 
 func DefaultBTCStakingTrackerConfig() BTCStakingTrackerConfig {

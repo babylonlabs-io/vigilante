@@ -2,6 +2,7 @@ package store
 
 import (
 	"errors"
+
 	"github.com/babylonlabs-io/vigilante/proto"
 	"github.com/babylonlabs-io/vigilante/utils"
 	"github.com/btcsuite/btcd/wire"
