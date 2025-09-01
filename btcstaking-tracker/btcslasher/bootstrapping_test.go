@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/babylonlabs-io/vigilante/btcclient"
+	"github.com/babylonlabs-io/vigilante/testutil"
 	"github.com/lightningnetwork/lnd/chainntnfs"
 
 	sdkmath "cosmossdk.io/math"
@@ -90,6 +91,7 @@ func FuzzSlasher_Bootstrapping(f *testing.F) {
 			slashedFPSKChan,
 			metrics.NewBTCStakingTrackerMetrics().SlasherMetrics,
 			5*time.Second,
+			testutil.MakeTestBackend(t),
 		)
 		require.NoError(t, err)
 

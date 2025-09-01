@@ -1,8 +1,8 @@
 package btcstakingtracker
 
 type IBTCSlasher interface {
-	// common functions
 	Bootstrap(startHeight uint64) error
+	LastEvidencesHeight() (uint64, bool, error)
 	Start() error
 	Stop() error
 }

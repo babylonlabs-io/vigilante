@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/btcslasher/store"
+	"github.com/lightningnetwork/lnd/kvdb"
 	"golang.org/x/sync/semaphore"
 
 	bbn "github.com/babylonlabs-io/babylon/v3/types"
@@ -19,6 +21,7 @@ import (
 
 type BTCSlasher struct {
 	logger *zap.SugaredLogger
+	store  *store.SlasherStore
 
 	// connect to BTC node
 	BTCClient btcclient.BTCClient
@@ -61,8 +64,14 @@ func New(
 	slashedFPSKChan chan *btcec.PrivateKey,
 	metrics *metrics.SlasherMetrics,
 	evidenceFetchInterval time.Duration,
+	db kvdb.Backend,
 ) (*BTCSlasher, error) {
 	logger := parentLogger.With(zap.String("module", "slasher")).Sugar()
+
+	slasherStore, err := store.NewSlasherStore(db)
+	if err != nil {
+		return nil, err
+	}
 
 	return &BTCSlasher{
 		logger:                 logger,
@@ -78,6 +87,7 @@ func New(
 		quit:                   make(chan struct{}),
 		metrics:                metrics,
 		evidenceFetchInterval:  evidenceFetchInterval,
+		store:                  slasherStore,
 	}, nil
 }
 
@@ -271,6 +281,10 @@ func (bs *BTCSlasher) fetchEvidences() {
 				bs.mu.Lock()
 				bs.height = lastSlashedHeight + 1
 				bs.mu.Unlock()
+
+				if err := bs.store.PutHeight(lastSlashedHeight); err != nil {
+					bs.logger.Errorf("failed to store last processed height %d: %v", lastSlashedHeight, err)
+				}
 			}
 		case <-bs.quit:
 			bs.logger.Debug("fetch evidence loop quit")
