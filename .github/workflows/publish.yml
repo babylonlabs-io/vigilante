@@ -16,7 +16,7 @@ on:
         
 jobs:
   lint_test:
-    uses: babylonlabs-io/.github/.github/workflows/reusable_go_lint_test.yml@v0.13.3
+    uses: babylonlabs-io/.github/.github/workflows/reusable_go_lint_test.yml@v0.13.4
     if: ${{ !(github.event_name == 'workflow_dispatch' && inputs['skip-lint-test'] == true) }}
     with:
       go-version: '1.25'
@@ -39,7 +39,7 @@ jobs:
             needs.lint_test.result == 'success'
           )}}
     needs: ["lint_test"]
-    uses: babylonlabs-io/.github/.github/workflows/reusable_docker_pipeline.yml@v0.13.3
+    uses: babylonlabs-io/.github/.github/workflows/reusable_docker_pipeline.yml@v0.13.4
     secrets: inherit
     with:
       publish: true
