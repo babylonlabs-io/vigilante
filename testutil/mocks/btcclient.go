@@ -57,6 +57,21 @@ func (mr *MockBTCClientMockRecorder) FindTailBlocksByHeight(height interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindTailBlocksByHeight", reflect.TypeOf((*MockBTCClient)(nil).FindTailBlocksByHeight), height)
 }
 
+// FindBlocksByHeightRange mocks base method.
+func (m *MockBTCClient) FindBlocksByHeightRange(startHeight, endHeight uint32) ([]*types.IndexedBlock, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindBlocksByHeightRange", startHeight, endHeight)
+	ret0, _ := ret[0].([]*types.IndexedBlock)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindBlocksByHeightRange indicates an expected call of FindBlocksByHeightRange.
+func (mr *MockBTCClientMockRecorder) FindBlocksByHeightRange(startHeight, endHeight interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindBlocksByHeightRange", reflect.TypeOf((*MockBTCClient)(nil).FindBlocksByHeightRange), startHeight, endHeight)
+}
+
 // GetBestBlock mocks base method.
 func (m *MockBTCClient) GetBestBlock() (uint32, error) {
 	m.ctrl.T.Helper()

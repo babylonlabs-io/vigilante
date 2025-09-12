@@ -230,6 +230,37 @@ func (c *Client) FindTailBlocksByHeight(baseHeight uint32) ([]*types.IndexedBloc
 	return c.getChainBlocks(baseHeight, tipIb)
 }
 
+// FindBlocksByHeightRange returns blocks in the specified height range [startHeight, endHeight] (inclusive)
+func (c *Client) FindBlocksByHeightRange(startHeight, endHeight uint32) ([]*types.IndexedBlock, error) {
+	if startHeight > endHeight {
+		return nil, fmt.Errorf("invalid height range: start %d > end %d", startHeight, endHeight)
+	}
+
+	// Get current tip to validate range
+	tipHeight, err := c.GetBestBlock()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get best block: %w", err)
+	}
+
+	if endHeight > tipHeight {
+		return nil, fmt.Errorf("end height %d exceeds tip height %d", endHeight, tipHeight)
+	}
+
+	numBlocks := endHeight - startHeight + 1
+	blocks := make([]*types.IndexedBlock, numBlocks)
+
+	for i := uint32(0); i < numBlocks; i++ {
+		height := startHeight + i
+		ib, _, err := c.GetBlockByHeight(height)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get block at height %d: %w", height, err)
+		}
+		blocks[i] = ib
+	}
+
+	return blocks, nil
+}
+
 func (c *Client) getBlockCountWithRetry() (int64, error) {
 	var (
 		height int64

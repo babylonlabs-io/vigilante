@@ -61,7 +61,7 @@ func (r *Reporter) checkConsistency() (*consistencyCheckInfo, error) {
 
 func (r *Reporter) bootstrap() error {
 	var (
-		btcLatestBlockHeight uint64
+		btcLatestBlockHeight uint32
 		ibs                  []*types.IndexedBlock
 		err                  error
 	)
@@ -104,25 +104,42 @@ func (r *Reporter) bootstrap() error {
 		return err
 	}
 
-	ibs, err = r.btcCache.GetLastBlocks(consistencyInfo.startSyncHeight)
+	// Get current BTC tip height for batched processing
+	btcLatestBlockHeight, err = r.btcClient.GetBestBlock()
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to get BTC tip height: %w", err)
 	}
-
-	signer := r.babylonClient.MustGetAddr()
 
 	r.logger.Infof("BTC height: %d. BTCLightclient height: %d. Start syncing from height %d.",
 		btcLatestBlockHeight, consistencyInfo.bbnLatestBlockHeight, consistencyInfo.startSyncHeight)
 
-	// extracts and submits headers for each block in ibs
-	// Note: As we are retrieving blocks from btc cache from block just after confirmed block which
-	// we already checked for consistency, we can be sure that even if rest of the block headers is different than in Babylon
-	// due to reorg, our fork will be better than the one in Babylon.
-	if _, err = r.ProcessHeaders(signer, ibs); err != nil {
+	// Use batched processing for header submission to avoid memory issues
+	if err = r.bootstrapWithBatching(consistencyInfo.startSyncHeight, btcLatestBlockHeight); err != nil {
 		// this can happen when there are two contentious vigilantes or if our btc node is behind.
 		r.logger.Errorf("Failed to submit headers: %v", err)
 		// returning error as it is up to the caller to decide what do next
 		return err
+	}
+
+	signer := r.babylonClient.MustGetAddr()
+
+	// After batched processing, get the final blocks for cache initialization
+	ibs, err = r.btcCache.GetLastBlocks(consistencyInfo.startSyncHeight)
+	if err != nil {
+		// If we can't get from cache, fetch the last k+w blocks directly
+		maxEntries := r.btcConfirmationDepth + r.checkpointFinalizationTimeout
+		if btcLatestBlockHeight >= maxEntries {
+			startHeight := btcLatestBlockHeight - maxEntries + 1
+			ibs, err = r.btcClient.FindBlocksByHeightRange(startHeight, btcLatestBlockHeight)
+			if err != nil {
+				return fmt.Errorf("failed to fetch final blocks for cache: %w", err)
+			}
+		} else {
+			ibs, err = r.btcClient.FindBlocksByHeightRange(0, btcLatestBlockHeight)
+			if err != nil {
+				return fmt.Errorf("failed to fetch blocks from genesis: %w", err)
+			}
+		}
 	}
 
 	// trim cache to the latest k+w blocks on BTC (which are same as in BBN)
@@ -151,6 +168,68 @@ func (r *Reporter) bootstrap() error {
 	r.logger.Info("Successfully finished bootstrapping")
 
 	success = true
+
+	return nil
+}
+
+// bootstrapWithBatching processes blocks in batches to avoid memory issues when catching up many blocks
+func (r *Reporter) bootstrapWithBatching(startSyncHeight, tipHeight uint32) error {
+	if startSyncHeight > tipHeight {
+		r.logger.Debug("No blocks to sync")
+
+		return nil
+	}
+
+	batchSize := r.cfg.BatchSize
+	signer := r.babylonClient.MustGetAddr()
+
+	r.logger.Infof("Starting batched bootstrap from height %d to %d with batch size %d",
+		startSyncHeight, tipHeight, batchSize)
+
+	totalBlocks := tipHeight - startSyncHeight + 1
+	processedBlocks := uint32(0)
+
+	// Process blocks in batches
+	for currentHeight := startSyncHeight; currentHeight <= tipHeight; currentHeight += batchSize {
+		// Check if we should stop
+		select {
+		case <-r.quitChan():
+			return fmt.Errorf("bootstrap cancelled")
+		default:
+		}
+
+		endHeight := currentHeight + batchSize - 1
+		if endHeight > tipHeight {
+			endHeight = tipHeight
+		}
+
+		r.logger.Debugf("Processing batch: heights %d to %d", currentHeight, endHeight)
+
+		// Fetch batch of blocks
+		batch, err := r.btcClient.FindBlocksByHeightRange(currentHeight, endHeight)
+		if err != nil {
+			return fmt.Errorf("failed to fetch blocks %d-%d: %w", currentHeight, endHeight, err)
+		}
+
+		// Process headers for this batch
+		if _, err = r.ProcessHeaders(signer, batch); err != nil {
+			r.logger.Errorf("Failed to submit headers for batch %d-%d: %v", currentHeight, endHeight, err)
+
+			return fmt.Errorf("failed to submit headers: %w", err)
+		}
+
+		// Process checkpoints for this batch (async)
+		go func(batchBlocks []*types.IndexedBlock) {
+			_, _ = r.ProcessCheckpoints(signer, batchBlocks)
+		}(batch)
+
+		processedBlocks += uint32(len(batch))
+		r.logger.Infof("Processed batch %d-%d (%d/%d blocks, %.1f%%)",
+			currentHeight, endHeight, processedBlocks, totalBlocks,
+			float64(processedBlocks)/float64(totalBlocks)*100)
+	}
+
+	r.logger.Info("Batched bootstrap completed successfully")
 
 	return nil
 }
@@ -241,7 +320,13 @@ func (r *Reporter) initBTCCache() error {
 		baseHeight = bbnBaseHeight
 	}
 
-	ibs, err = r.btcClient.FindTailBlocksByHeight(baseHeight)
+	// Get current tip height to determine the range
+	tipHeight, err := r.btcClient.GetBestBlock()
+	if err != nil {
+		panic(err)
+	}
+
+	ibs, err = r.btcClient.FindBlocksByHeightRange(baseHeight, tipHeight)
 	if err != nil {
 		panic(err)
 	}

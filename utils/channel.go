@@ -1,3 +1,4 @@
+//nolint:revive
 package utils
 
 // PushOrQuit push msg to channel c, or quit if quit channel is closed
