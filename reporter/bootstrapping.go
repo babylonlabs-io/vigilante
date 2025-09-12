@@ -62,7 +62,6 @@ func (r *Reporter) checkConsistency() (*consistencyCheckInfo, error) {
 func (r *Reporter) bootstrap() error {
 	var (
 		btcLatestBlockHeight uint32
-		ibs                  []*types.IndexedBlock
 		err                  error
 	)
 
@@ -76,16 +75,12 @@ func (r *Reporter) bootstrap() error {
 	r.bootstrapWg.Add(1)
 	r.bootstrapMutex.Unlock()
 
-	// flag to indicate if we should clean up, err happened
-	success := false
+	// cleanup func in case we error, prevents deadlocks
 	defer func() {
-		// cleanup func in case we error, prevents deadlocks
-		if !success {
-			r.bootstrapMutex.Lock()
-			r.bootstrapInProgress = false
-			r.bootstrapMutex.Unlock()
-			r.bootstrapWg.Done()
-		}
+		r.bootstrapMutex.Lock()
+		r.bootstrapInProgress = false
+		r.bootstrapMutex.Unlock()
+		r.bootstrapWg.Done()
 	}()
 
 	// ensure BTC has caught up with BBN header chain
@@ -121,27 +116,8 @@ func (r *Reporter) bootstrap() error {
 		return err
 	}
 
-	signer := r.babylonClient.MustGetAddr()
-
-	// After batched processing, get the final blocks for cache initialization
-	ibs, err = r.btcCache.GetLastBlocks(consistencyInfo.startSyncHeight)
-	if err != nil {
-		// If we can't get from cache, fetch the last k+w blocks directly
-		maxEntries := r.btcConfirmationDepth + r.checkpointFinalizationTimeout
-		if btcLatestBlockHeight >= maxEntries {
-			startHeight := btcLatestBlockHeight - maxEntries + 1
-			ibs, err = r.btcClient.FindBlocksByHeightRange(startHeight, btcLatestBlockHeight)
-			if err != nil {
-				return fmt.Errorf("failed to fetch final blocks for cache: %w", err)
-			}
-		} else {
-			ibs, err = r.btcClient.FindBlocksByHeightRange(0, btcLatestBlockHeight)
-			if err != nil {
-				return fmt.Errorf("failed to fetch blocks from genesis: %w", err)
-			}
-		}
-	}
-
+	// Cache is already properly initialized and trimmed by initBTCCache()
+	// Batched processing has handled all header and checkpoint submission
 	// trim cache to the latest k+w blocks on BTC (which are same as in BBN)
 	maxEntries := r.btcConfirmationDepth + r.checkpointFinalizationTimeout
 	if err = r.btcCache.Resize(maxEntries); err != nil {
@@ -151,23 +127,7 @@ func (r *Reporter) bootstrap() error {
 	r.btcCache.Trim()
 
 	r.logger.Infof("Size of the BTC cache: %d", r.btcCache.Size())
-
-	// fetch k+w blocks from cache and submit checkpoints
-	ibs = r.btcCache.GetAllBlocks()
-	go func() {
-		defer func() {
-			r.bootstrapMutex.Lock()
-			r.bootstrapInProgress = false
-			r.bootstrapMutex.Unlock()
-			r.bootstrapWg.Done()
-		}()
-		r.logger.Infof("Async processing checkpoints started")
-		_, _ = r.ProcessCheckpoints(signer, ibs)
-	}()
-
 	r.logger.Info("Successfully finished bootstrapping")
-
-	success = true
 
 	return nil
 }
