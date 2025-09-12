@@ -147,7 +147,7 @@ func (r *Reporter) bootstrapWithBatching(startSyncHeight, tipHeight uint32) erro
 		startSyncHeight, tipHeight, batchSize)
 
 	totalBlocks := tipHeight - startSyncHeight + 1
-	processedBlocks := uint32(0)
+	processedBlocks := 0
 
 	// Process blocks in batches
 	for currentHeight := startSyncHeight; currentHeight <= tipHeight; currentHeight += batchSize {
@@ -183,7 +183,7 @@ func (r *Reporter) bootstrapWithBatching(startSyncHeight, tipHeight uint32) erro
 			_, _ = r.ProcessCheckpoints(signer, batchBlocks)
 		}(batch)
 
-		processedBlocks += uint32(len(batch))
+		processedBlocks += len(batch)
 		r.logger.Infof("Processed batch %d-%d (%d/%d blocks, %.1f%%)",
 			currentHeight, endHeight, processedBlocks, totalBlocks,
 			float64(processedBlocks)/float64(totalBlocks)*100)
