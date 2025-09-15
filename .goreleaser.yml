@@ -1,6 +1,23 @@
 version: 2
-
 project_name: vigilante
+
+env:
+  - CGO_ENABLED=1
+  - CGO_LDFLAGS=-L/lib
+
+before:
+  hooks:
+    - wget -nc https://github.com/CosmWasm/wasmvm/releases/download/{{ .Env.COSMWASM_VERSION }}/libwasmvm_muslc.x86_64.a -O /lib/libwasmvm_muslc.x86_64.a
+    - wget -nc https://github.com/CosmWasm/wasmvm/releases/download/{{ .Env.COSMWASM_VERSION }}/libwasmvm_muslc.aarch64.a -O /lib/libwasmvm_muslc.aarch64.a
+    - wget -nc https://github.com/CosmWasm/wasmvm/releases/download/{{ .Env.COSMWASM_VERSION }}/libwasmvmstatic_darwin.a -O /lib/libwasmvmstatic_darwin.a
+
+    - curl -LO https://musl.cc/x86_64-linux-musl-cross.tgz
+    - tar xf x86_64-linux-musl-cross.tgz
+    - mv -n -u x86_64-linux-musl-cross /opt/musl-cross-x86_64
+
+    - curl -LO https://musl.cc/aarch64-linux-musl-cross.tgz
+    - tar xf aarch64-linux-musl-cross.tgz
+    - mv -n -u aarch64-linux-musl-cross /opt/musl-cross-aarch64
 
 builds:
   - id: vigilante-linux-amd64
@@ -11,69 +28,77 @@ builds:
     goarch:
       - amd64
     env:
-      - GO111MODULE=on
+      - CC=/opt/musl-cross-x86_64/bin/x86_64-linux-musl-gcc
+      - LD=/opt/musl-cross-x86_64/bin/x86_64-linux-musl-ld
     flags:
       - -mod=readonly
       - -trimpath
     ldflags:
-      - -w -s
+        - -X github.com/babylonlabs-io/vigilante/version.version={{ .Version }}
+        - -X github.com/babylonlabs-io/vigilante/version.commit={{ .Commit }}
+        - -w -s
+        - -linkmode=external
+        - -extldflags "-Wl,-z,muldefs -static -z noexecstack"
     tags:
+      - muslc
       - netgo
       - osusergo
 
-  - id: vigilante-darwin-arm64
+  - id: vigilante-linux-arm64
     main: ./cmd/vigilante/main.go
     binary: vigilante
-    hooks:
-      pre:
-        - wget https://github.com/CosmWasm/wasmvm/releases/download/v2.1.3/libwasmvmstatic_darwin.a -O /lib/libwasmvmstatic_darwin.a
+    goos:
+      - linux
+    goarch:
+      - arm64
+    env:
+      - CC=/opt/musl-cross-aarch64/bin/aarch64-linux-musl-gcc
+      - LD=/opt/musl-cross-aarch64/bin/aarch64-linux-musl-ld
+    flags:
+      - -mod=readonly
+      - -trimpath
+    ldflags:
+        - -X github.com/babylonlabs-io/vigilante/version.version={{ .Version }}
+        - -X github.com/babylonlabs-io/vigilante/version.commit={{ .Commit }}
+        - -w -s
+        - -linkmode=external
+        - -extldflags "-Wl,-z,muldefs -static -z noexecstack"
+    tags:
+      - muslc
+      - netgo
+      - osusergo
+
+  - id: vigilante-darwin
+    main: ./cmd/vigilante/main.go
+    binary: vigilante
     goos:
       - darwin
     goarch:
       - arm64
     env:
-      - GO111MODULE=on
-      - CGO_ENABLED=1
       - CC=oa64-clang
-      - CGO_LDFLAGS=-L/lib -Wl,-rpath,/lib
-    ldflags:
-      - -w -s
-      - -linkmode=external
+      - CGO_CFLAGS=-mmacosx-version-min=10.12
+      - CGO_LDFLAGS=-L/lib -mmacosx-version-min=10.12
     flags:
       - -mod=readonly
       - -trimpath
+    ldflags:
+      - -X github.com/babylonlabs-io/vigilante/version.version={{ .Version }}
+      - -X github.com/babylonlabs-io/vigilante/version.commit={{ .Commit }}
+      - -w -s
+      - -linkmode=external
     tags:
-      - netgo
       - ledger
+      - netgo
       - static_wasm
 
 archives:
-  - id: zipped
-    builds:
+  - ids:
       - vigilante-linux-amd64
+      - vigilante-linux-arm64
+      - vigilante-darwin
     name_template: "{{.ProjectName}}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
-    format: tar.gz
-    files:
-      - none*
-  - id: binaries
-    builds:
-      - vigilante-linux-amd64
-    name_template: "{{.ProjectName}}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
-    format: binary
-    files:
-      - none*
-  - id: zipped-arm64
-    builds:
-      - vigilante-darwin-arm64
-    name_template: "{{.ProjectName}}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
-    format: tar.gz
-    files:
-      - none*
-  - id: binaries-arm64
-    builds:
-      - vigilante-darwin-arm64
-    name_template: "{{.ProjectName}}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
-    format: binary
+    formats: [tar.gz, binary]
     files:
       - none*
 
