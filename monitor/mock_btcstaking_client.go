@@ -8,7 +8,6 @@ import (
 	reflect "reflect"
 
 	types "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
-	query "github.com/cosmos/cosmos-sdk/types/query"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -36,31 +35,47 @@ func (m *MockBabylonBTCStakingClient) EXPECT() *MockBabylonBTCStakingClientMockR
 }
 
 // BTCDelegation mocks base method.
-func (m *MockBabylonBTCStakingClient) BTCDelegation(stakingTxHash string) (*types.QueryBTCDelegationResponse, error) {
+func (m *MockBabylonBTCStakingClient) BTCDelegation(stakingTxHashHex string) (*Delegation, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BTCDelegation", stakingTxHash)
-	ret0, _ := ret[0].(*types.QueryBTCDelegationResponse)
+	ret := m.ctrl.Call(m, "BTCDelegation", stakingTxHashHex)
+	ret0, _ := ret[0].(*Delegation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // BTCDelegation indicates an expected call of BTCDelegation.
-func (mr *MockBabylonBTCStakingClientMockRecorder) BTCDelegation(stakingTxHash interface{}) *gomock.Call {
+func (mr *MockBabylonBTCStakingClientMockRecorder) BTCDelegation(stakingTxHashHex interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BTCDelegation", reflect.TypeOf((*MockBabylonBTCStakingClient)(nil).BTCDelegation), stakingTxHash)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BTCDelegation", reflect.TypeOf((*MockBabylonBTCStakingClient)(nil).BTCDelegation), stakingTxHashHex)
 }
 
-// BTCDelegations mocks base method.
-func (m *MockBabylonBTCStakingClient) BTCDelegations(status types.BTCDelegationStatus, pageReq *query.PageRequest) (*types.QueryBTCDelegationsResponse, error) {
+// DelegationsByStatus mocks base method.
+func (m *MockBabylonBTCStakingClient) DelegationsByStatus(status types.BTCDelegationStatus, cursor []byte, limit uint64) ([]Delegation, []byte, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BTCDelegations", status, pageReq)
-	ret0, _ := ret[0].(*types.QueryBTCDelegationsResponse)
+	ret := m.ctrl.Call(m, "DelegationsByStatus", status, cursor, limit)
+	ret0, _ := ret[0].([]Delegation)
+	ret1, _ := ret[1].([]byte)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// DelegationsByStatus indicates an expected call of DelegationsByStatus.
+func (mr *MockBabylonBTCStakingClientMockRecorder) DelegationsByStatus(status, cursor, limit interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DelegationsByStatus", reflect.TypeOf((*MockBabylonBTCStakingClient)(nil).DelegationsByStatus), status, cursor, limit)
+}
+
+// GetConfirmationDepth mocks base method.
+func (m *MockBabylonBTCStakingClient) GetConfirmationDepth() (uint32, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetConfirmationDepth")
+	ret0, _ := ret[0].(uint32)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// BTCDelegations indicates an expected call of BTCDelegations.
-func (mr *MockBabylonBTCStakingClientMockRecorder) BTCDelegations(status, pageReq interface{}) *gomock.Call {
+// GetConfirmationDepth indicates an expected call of GetConfirmationDepth.
+func (mr *MockBabylonBTCStakingClientMockRecorder) GetConfirmationDepth() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BTCDelegations", reflect.TypeOf((*MockBabylonBTCStakingClient)(nil).BTCDelegations), status, pageReq)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConfirmationDepth", reflect.TypeOf((*MockBabylonBTCStakingClient)(nil).GetConfirmationDepth))
 }

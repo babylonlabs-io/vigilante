@@ -2,30 +2,96 @@ package monitor
 
 import (
 	btcstakingtypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
-	"github.com/cosmos/cosmos-sdk/types/query"
+	"github.com/babylonlabs-io/vigilante/btcclient"
+	"github.com/babylonlabs-io/vigilante/config"
 )
 
 type ActivationUnbondingMonitor struct {
 	babylonClient BabylonBTCStakingClient
+	btcClient     btcclient.BTCClient
 }
 
-func NewActivationUnbondingMonitor(client BabylonBTCStakingClient) *ActivationUnbondingMonitor {
+func NewActivationUnbondingMonitor(babylonClient BabylonBTCStakingClient, btcClient btcclient.BTCClient, cfg *config.BTCStakingTrackerConfig) *ActivationUnbondingMonitor {
 	return &ActivationUnbondingMonitor{
-		babylonClient: client,
+		babylonClient: babylonClient,
+		btcClient:     btcClient,
 	}
 }
 
-func (m *ActivationUnbondingMonitor) GetVerifiedDelegations() (*btcstakingtypes.QueryBTCDelegationsResponse, error) {
-	return m.babylonClient.BTCDelegations(
-		btcstakingtypes.BTCDelegationStatus_VERIFIED, &query.PageRequest{Limit: 100},
-	)
+func (m *ActivationUnbondingMonitor) GetVerifiedDelegations() ([]Delegation, error) {
+	cursor := []byte(nil)
+	var allDelegations []Delegation
+	for {
+		del, nextCursor, err := m.babylonClient.DelegationsByStatus(
+			btcstakingtypes.BTCDelegationStatus_VERIFIED,
+			cursor, 100,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		allDelegations = append(allDelegations, del...)
+
+		if nextCursor == nil {
+			break
+		}
+		cursor = nextCursor
+	}
+	return allDelegations, nil
 }
 
-func (m *ActivationUnbondingMonitor) GetActiveDelegations() (*btcstakingtypes.QueryBTCDelegationsResponse, error) {
-	return m.babylonClient.BTCDelegations(
-		btcstakingtypes.BTCDelegationStatus_ACTIVE, &query.PageRequest{Limit: 100})
+func (m *ActivationUnbondingMonitor) GetActiveDelegations() ([]Delegation,
+	error) {
+	cursor := []byte(nil)
+	var allDelegations []Delegation
+	for {
+		del, nextCursor, err := m.babylonClient.DelegationsByStatus(
+			btcstakingtypes.BTCDelegationStatus_ACTIVE,
+			cursor, 100,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		allDelegations = append(allDelegations, del...)
+
+		if nextCursor == nil {
+			break
+		}
+		cursor = nextCursor
+	}
+	return allDelegations, nil
 }
 
-func (m *ActivationUnbondingMonitor) GetDelegationByHash(hash string) (*btcstakingtypes.QueryBTCDelegationResponse, error) {
+func (m *ActivationUnbondingMonitor) GetDelegationByHash(hash string) (*Delegation, error) {
 	return m.babylonClient.BTCDelegation(hash)
+}
+
+func (m *ActivationUnbondingMonitor) CheckKDeepConfirmation(delegation *Delegation) (bool, error) {
+
+	outputScript := delegation.StakingTx.TxOut[delegation.StakingOutputIdx].PkScript
+	stakingTxHash := delegation.StakingTx.TxHash()
+
+	details, status, err := m.btcClient.TxDetails(&stakingTxHash, outputScript)
+	if err != nil {
+		return false, err
+	}
+
+	//if false not confirmed yet
+	if status != btcclient.TxInChain {
+		return false, nil
+	}
+
+	currentHeight, err := m.btcClient.GetBestBlock()
+	if err != nil {
+		return false, err
+	}
+
+	bbnDepth, err := m.babylonClient.GetConfirmationDepth()
+	if err != nil {
+		return false, err
+	}
+
+	confirmations := currentHeight - details.BlockHeight
+	return confirmations >= bbnDepth, nil
 }
