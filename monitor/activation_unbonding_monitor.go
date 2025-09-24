@@ -9,12 +9,14 @@ import (
 type ActivationUnbondingMonitor struct {
 	babylonClient BabylonBTCStakingClient
 	btcClient     btcclient.BTCClient
+	cfg           *config.BTCStakingTrackerConfig
 }
 
 func NewActivationUnbondingMonitor(babylonClient BabylonBTCStakingClient, btcClient btcclient.BTCClient, cfg *config.BTCStakingTrackerConfig) *ActivationUnbondingMonitor {
 	return &ActivationUnbondingMonitor{
 		babylonClient: babylonClient,
 		btcClient:     btcClient,
+		cfg:           cfg,
 	}
 }
 
@@ -37,11 +39,11 @@ func (m *ActivationUnbondingMonitor) GetVerifiedDelegations() ([]Delegation, err
 		}
 		cursor = nextCursor
 	}
+
 	return allDelegations, nil
 }
 
-func (m *ActivationUnbondingMonitor) GetActiveDelegations() ([]Delegation,
-	error) {
+func (m *ActivationUnbondingMonitor) GetActiveDelegations() ([]Delegation, error) {
 	cursor := []byte(nil)
 	var allDelegations []Delegation
 	for {
@@ -60,6 +62,7 @@ func (m *ActivationUnbondingMonitor) GetActiveDelegations() ([]Delegation,
 		}
 		cursor = nextCursor
 	}
+
 	return allDelegations, nil
 }
 
@@ -68,7 +71,6 @@ func (m *ActivationUnbondingMonitor) GetDelegationByHash(hash string) (*Delegati
 }
 
 func (m *ActivationUnbondingMonitor) CheckKDeepConfirmation(delegation *Delegation) (bool, error) {
-
 	outputScript := delegation.StakingTx.TxOut[delegation.StakingOutputIdx].PkScript
 	stakingTxHash := delegation.StakingTx.TxHash()
 
@@ -77,7 +79,7 @@ func (m *ActivationUnbondingMonitor) CheckKDeepConfirmation(delegation *Delegati
 		return false, err
 	}
 
-	//if false not confirmed yet
+	// if false not confirmed yet
 	if status != btcclient.TxInChain {
 		return false, nil
 	}
@@ -93,5 +95,6 @@ func (m *ActivationUnbondingMonitor) CheckKDeepConfirmation(delegation *Delegati
 	}
 
 	confirmations := currentHeight - details.BlockHeight
+
 	return confirmations >= bbnDepth, nil
 }

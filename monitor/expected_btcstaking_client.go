@@ -47,7 +47,6 @@ func (bc *BabylonBTCStakingClientAdapter) GetConfirmationDepth() (uint32, error)
 }
 
 func (bc *BabylonBTCStakingClientAdapter) DelegationsByStatus(status btcstakingtypes.BTCDelegationStatus, cursor []byte, limit uint64) ([]Delegation, []byte, error) {
-
 	resp, err := bc.babylonClient.BTCDelegations(status, &query.PageRequest{
 		Key:   cursor,
 		Limit: limit,
@@ -93,7 +92,6 @@ func (bc *BabylonBTCStakingClientAdapter) DelegationsByStatus(status btcstakingt
 }
 
 func (bc *BabylonBTCStakingClientAdapter) BTCDelegation(stakingTxHashHex string) (*Delegation, error) {
-
 	resp, err := bc.babylonClient.BTCDelegation(stakingTxHashHex)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve delegation: %w", err)
@@ -112,6 +110,7 @@ func (bc *BabylonBTCStakingClientAdapter) BTCDelegation(stakingTxHashHex string)
 		}
 		unbondingOutput = unbondingTx.TxOut[0]
 	}
+
 	return &Delegation{
 		StakingTx:             stakingTx,
 		StakingOutputIdx:      resp.BtcDelegation.StakingOutputIdx,

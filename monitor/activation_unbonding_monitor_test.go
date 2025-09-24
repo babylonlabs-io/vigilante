@@ -75,7 +75,6 @@ func TestActivationUnbondingMonitor(t *testing.T) {
 		require.NotNil(t, confirmation)
 		require.True(t, confirmation)
 	}
-
 }
 
 func TestActivationUnbondingMonitor_Error(t *testing.T) {
@@ -88,6 +87,7 @@ func TestActivationUnbondingMonitor_Error(t *testing.T) {
 	monitor := NewActivationUnbondingMonitor(mockClient, mockBtcClient, &cfg)
 
 	t.Run("Transaction not in chain", func(t *testing.T) {
+		t.Parallel()
 		stk := datagen.GenRandomTx(rand.New(rand.NewSource(2)))
 		delegation := Delegation{
 			StakingTx:        stk,
@@ -103,6 +103,7 @@ func TestActivationUnbondingMonitor_Error(t *testing.T) {
 	})
 
 	t.Run("Insufficient confirmations", func(t *testing.T) {
+		t.Parallel()
 		stk := datagen.GenRandomTx(rand.New(rand.NewSource(3)))
 		delegation := Delegation{
 			StakingTx:        stk,
