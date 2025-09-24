@@ -21,6 +21,7 @@ func TestActivationUnbondingMonitor(t *testing.T) {
 	ctl := gomock.NewController(t)
 	cfg := config.DefaultBTCStakingTrackerConfig()
 	mockClient := NewMockBabylonAdaptorClient(ctl)
+
 	mockBtcClient := mocks.NewMockBTCClient(ctl)
 
 	monitor := NewActivationUnbondingMonitor(mockClient, mockBtcClient, &cfg)
@@ -39,6 +40,23 @@ func TestActivationUnbondingMonitor(t *testing.T) {
 				String(),
 		})
 	}
+
+	mockClient.EXPECT().DelegationsByStatus(gomock.Any(), gomock.Any(),
+		gomock.Any()).Return(delegations, nil, nil).AnyTimes()
+
+	mockClient.EXPECT().BTCDelegation(gomock.Any()).Return(&delegations[0], nil).AnyTimes()
+	mockBtcClient.EXPECT().TxDetails(gomock.Any(), gomock.Any()).Return(
+		&chainntnfs.TxConfirmation{
+			BlockHeight: 850000,
+			BlockHash:   &chainhash.Hash{},
+			TxIndex:     1,
+		},
+		btcclient.TxInChain,
+		nil,
+	).AnyTimes()
+
+	mockBtcClient.EXPECT().GetBestBlock().Return(uint32(850006), nil).AnyTimes()
+	mockClient.EXPECT().GetConfirmationDepth().Return(uint32(4), nil).AnyTimes()
 
 	mockClient.EXPECT().DelegationsByStatus(gomock.Any(), gomock.Any(),
 		gomock.Any()).Return(delegations, nil, nil).AnyTimes()

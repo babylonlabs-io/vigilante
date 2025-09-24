@@ -27,9 +27,7 @@ func (m *ActivationUnbondingMonitor) GetDelegationsByStatus(status btcstakingtyp
 	cursor := []byte(nil)
 	var allDelegations []Delegation
 	for {
-		del, nextCursor, err := m.babylonClient.DelegationsByStatus(
-			status, cursor, 100,
-		)
+		del, nextCursor, err := m.babylonClient.DelegationsByStatus(status, cursor, 100)
 		if err != nil {
 			return nil, err
 		}
@@ -69,7 +67,6 @@ func (m *ActivationUnbondingMonitor) CheckKDeepConfirmation(delegation *Delegati
 		return false, err
 	}
 
-	// if false not confirmed yet
 	if status != btcclient.TxInChain {
 		return false, nil
 	}
@@ -85,6 +82,5 @@ func (m *ActivationUnbondingMonitor) CheckKDeepConfirmation(delegation *Delegati
 	}
 
 	confirmations := currentHeight - details.BlockHeight
-
 	return confirmations >= bbnDepth, nil
 }
