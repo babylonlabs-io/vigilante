@@ -43,6 +43,29 @@ func (m *ActivationUnbondingMonitor) GetDelegationsByStatus(status btcstakingtyp
 	return allDelegations, nil
 }
 
+func (m *ActivationUnbondingMonitor) GetActiveDelegations() ([]Delegation, error) {
+	cursor := []byte(nil)
+	var allDelegations []Delegation
+	for {
+		del, nextCursor, err := m.babylonClient.DelegationsByStatus(
+			btcstakingtypes.BTCDelegationStatus_ACTIVE,
+			cursor, 100,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		allDelegations = append(allDelegations, del...)
+
+		if nextCursor == nil {
+			break
+		}
+		cursor = nextCursor
+	}
+
+	return allDelegations, nil
+}
+
 func (m *ActivationUnbondingMonitor) GetDelegationByHash(hash string) (*Delegation, error) {
 	return m.babylonClient.BTCDelegation(hash)
 }
@@ -82,5 +105,6 @@ func (m *ActivationUnbondingMonitor) CheckKDeepConfirmation(delegation *Delegati
 	}
 
 	confirmations := currentHeight - details.BlockHeight
+
 	return confirmations >= bbnDepth, nil
 }
