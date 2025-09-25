@@ -22,6 +22,6 @@ type BabylonClient interface {
 	BTCHeaderChainTip() (*btclctypes.QueryTipResponse, error)
 	BTCBaseHeader() (*btclctypes.QueryBaseHeaderResponse, error)
 	InsertBTCSpvProof(ctx context.Context, msg *btcctypes.MsgInsertBTCSpvProof) (*babylonclient.RelayerTxResponse, error)
-	ReliablySendMsg(ctx context.Context, msg sdk.Msg, expectedErrors []*errors.Error, unrecoverableErrors []*errors.Error, retries ...uint) (*babylonclient.RelayerTxResponse, error)
+	ReliablySendMsg(ctx context.Context, msg sdk.Msg, expectedErrors []*errors.Error, unrecoverableErrors []*errors.Error) (*babylonclient.RelayerTxResponse, error)
 	Stop() error
 }

@@ -71,7 +71,6 @@ func TestBTCSlasher_slashBTCDelegation_exitUnslashable(t *testing.T) {
 		&chaincfg.SimNetParams,
 		[]bbn.BIP340PubKey{*fpBTCPK},
 		delSK,
-		"",
 		covenantSks,
 		covPks,
 		1,

@@ -6,8 +6,6 @@ import (
 	"testing"
 	"time"
 
-	appparams "github.com/babylonlabs-io/babylon/v4/app/params"
-	"github.com/babylonlabs-io/babylon/v4/app/signingcontext"
 	"github.com/babylonlabs-io/babylon/v4/btcstaking"
 	"github.com/babylonlabs-io/babylon/v4/testutil/datagen"
 	bbn "github.com/babylonlabs-io/babylon/v4/types"
@@ -60,8 +58,7 @@ func (s *Staker) CreateStakingTx(
 	stakingOutIdx, err := outIdx(stakingSlashingInfo.StakingTx, stakingSlashingInfo.StakingInfo.StakingOutput)
 	require.NoError(t, err)
 	// create PoP
-	signCtx := signingcontext.StakerPopContextV0(tm.Config.Babylon.ChainID, appparams.AccBTCStaking.String())
-	pop, err := datagen.NewPoPBTC(signCtx, addr, tm.WalletPrivKey)
+	pop, err := datagen.NewPoPBTC(addr, tm.WalletPrivKey)
 	require.NoError(t, err)
 	slashingSpendPath, err := stakingSlashingInfo.StakingInfo.SlashingPathSpendInfo()
 	require.NoError(t, err)

@@ -5,13 +5,10 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	types2 "github.com/babylonlabs-io/babylon/v4/x/btcstkconsumer/types"
 	"math/rand"
 	"testing"
 	"time"
 
-	appparams "github.com/babylonlabs-io/babylon/v4/app/params"
-	"github.com/babylonlabs-io/babylon/v4/app/signingcontext"
 	"github.com/babylonlabs-io/babylon/v4/client/babylonclient"
 
 	sdkmath "cosmossdk.io/math"
@@ -60,8 +57,7 @@ func (tm *TestManager) CreateFinalityProvider(t *testing.T) (*bstypes.FinalityPr
 
 	fpSK, _, err := datagen.GenRandomBTCKeyPair(r)
 	require.NoError(t, err)
-	fpSignCtx := signingcontext.FpPopContextV0(tm.Config.Babylon.ChainID, appparams.AccBTCStaking.String())
-	btcFp, err := datagen.GenCustomFinalityProvider(r, fpSK, fpSignCtx, addr, "")
+	btcFp, err := datagen.GenCustomFinalityProvider(r, fpSK, addr)
 	require.NoError(t, err)
 
 	zero := sdkmath.LegacyZeroDec()
@@ -86,8 +82,7 @@ func (tm *TestManager) CreateFinalityProviderBSN(t *testing.T, bsnID string) (*b
 
 	fpSK, _, err := datagen.GenRandomBTCKeyPair(r)
 	require.NoError(t, err)
-	fpSignCtx := signingcontext.FpPopContextV0(tm.Config.Babylon.ChainID, appparams.AccBTCStaking.String())
-	btcFp, err := datagen.GenCustomFinalityProvider(r, fpSK, fpSignCtx, addr, bsnID)
+	btcFp, err := datagen.GenCustomFinalityProvider(r, fpSK, addr)
 	require.NoError(t, err)
 
 	zero := sdkmath.LegacyZeroDec()
@@ -98,27 +93,11 @@ func (tm *TestManager) CreateFinalityProviderBSN(t *testing.T, bsnID string) (*b
 		Commission:  commission,
 		BtcPk:       btcFp.BtcPk,
 		Pop:         btcFp.Pop,
-		BsnId:       bsnID,
 	}
 	_, err = tm.BabylonClient.ReliablySendMsg(context.Background(), msgNewVal, nil, nil)
 	require.NoError(t, err)
 
 	return btcFp, fpSK
-}
-
-func (tm *TestManager) RegisterBSN(t *testing.T, consumer *types2.ConsumerRegister, contractAddr string) {
-	signerAddr := tm.BabylonClient.MustGetAddr()
-
-	msgNewVal := &types2.MsgRegisterConsumer{
-		Signer:                        signerAddr,
-		ConsumerId:                    consumer.ConsumerId,
-		ConsumerName:                  consumer.ConsumerName,
-		ConsumerDescription:           consumer.ConsumerDescription,
-		RollupFinalityContractAddress: contractAddr,
-		BabylonRewardsCommission:      consumer.BabylonRewardsCommission,
-	}
-	_, err := tm.BabylonClient.ReliablySendMsg(t.Context(), msgNewVal, nil, nil)
-	require.NoError(t, err)
 }
 
 func (tm *TestManager) CreateBTCDelegation(
@@ -183,8 +162,7 @@ func (tm *TestManager) CreateBTCDelegation(
 	require.NoError(t, err)
 
 	// create PoP
-	signCtx := signingcontext.StakerPopContextV0(tm.Config.Babylon.ChainID, appparams.AccBTCStaking.String())
-	pop, err := datagen.NewPoPBTC(signCtx, addr, tm.WalletPrivKey)
+	pop, err := datagen.NewPoPBTC(addr, tm.WalletPrivKey)
 	require.NoError(t, err)
 	slashingSpendPath, err := stakingSlashingInfo.StakingInfo.SlashingPathSpendInfo()
 	require.NoError(t, err)
@@ -290,8 +268,7 @@ func (tm *TestManager) CreateBTCDelegationWithoutIncl(
 	require.NoError(t, err)
 
 	// create PoP
-	signCtx := signingcontext.StakerPopContextV0(tm.Config.Babylon.ChainID, appparams.AccBTCStaking.String())
-	pop, err := datagen.NewPoPBTC(signCtx, addr, tm.WalletPrivKey)
+	pop, err := datagen.NewPoPBTC(addr, tm.WalletPrivKey)
 	require.NoError(t, err)
 	slashingSpendPath, err := stakingSlashingInfo.StakingInfo.SlashingPathSpendInfo()
 	require.NoError(t, err)
@@ -778,8 +755,7 @@ func (tm *TestManager) VoteAndEquivocate(t *testing.T, fpSK *btcec.PrivateKey) {
 	/*
 		commit a number of public randomness since activatedHeight
 	*/
-	signCtx := signingcontext.FpRandCommitContextV0(tm.Config.Babylon.ChainID, appparams.AccFinality.String())
-	srList, msgCommitPubRandList, err := datagen.GenRandomMsgCommitPubRandList(r, fpSK, signCtx, activatedHeight, 100)
+	srList, msgCommitPubRandList, err := datagen.GenRandomMsgCommitPubRandList(r, fpSK, activatedHeight, 100)
 	require.NoError(t, err)
 	msgCommitPubRandList.Signer = signerAddr
 	_, err = tm.BabylonClient.ReliablySendMsg(context.Background(), msgCommitPubRandList, nil, nil)
@@ -805,9 +781,7 @@ func (tm *TestManager) VoteAndEquivocate(t *testing.T, fpSK *btcec.PrivateKey) {
 	// get block to vote
 	blockToVote, err := tm.BabylonClient.GetBlock(int64(activatedHeight))
 	require.NoError(t, err)
-	fpFinVoteContext := signingcontext.FpFinVoteContextV0(tm.Config.Babylon.ChainID, appparams.AccFinality.String())
-	msgToSign := []byte(fpFinVoteContext)
-	msgToSign = append(msgToSign, sdk.Uint64ToBigEndian(activatedHeight)...)
+	msgToSign := sdk.Uint64ToBigEndian(activatedHeight)
 	msgToSign = append(msgToSign, blockToVote.Block.AppHash...)
 	// generate EOTS signature
 	idx := activatedHeight - commitStartHeight
@@ -832,8 +806,7 @@ func (tm *TestManager) VoteAndEquivocate(t *testing.T, fpSK *btcec.PrivateKey) {
 		equivocate
 	*/
 	invalidAppHash := datagen.GenRandomByteArray(r, 32)
-	invalidMsgToSign := []byte(fpFinVoteContext)
-	invalidMsgToSign = append(invalidMsgToSign, sdk.Uint64ToBigEndian(activatedHeight)...)
+	invalidMsgToSign := sdk.Uint64ToBigEndian(activatedHeight)
 	invalidMsgToSign = append(invalidMsgToSign, invalidAppHash...)
 	invalidSig, err := eots.Sign(fpSK, srList.SRList[idx], invalidMsgToSign)
 	require.NoError(t, err)
@@ -1186,8 +1159,7 @@ func (tm *TestManager) CreateBTCStakeExpansion(
 	require.NoError(t, err)
 
 	// create PoP
-	signCtx := signingcontext.StakerPopContextV0(tm.Config.Babylon.ChainID, appparams.AccBTCStaking.String())
-	pop, err := datagen.NewPoPBTC(signCtx, addr, tm.WalletPrivKey)
+	pop, err := datagen.NewPoPBTC(addr, tm.WalletPrivKey)
 	require.NoError(t, err)
 	slashingSpendPath, err := stakingSlashingInfo.StakingInfo.SlashingPathSpendInfo()
 	require.NoError(t, err)
