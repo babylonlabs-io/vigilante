@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	bbn "github.com/babylonlabs-io/babylon/v3/types"
+	bbn "github.com/babylonlabs-io/babylon/v4/types"
 	"github.com/babylonlabs-io/vigilante/testutil"
 	"github.com/btcsuite/btcd/btcec/v2"
 

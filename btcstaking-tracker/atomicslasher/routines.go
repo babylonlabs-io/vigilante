@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/babylonlabs-io/babylon/v3/client/babylonclient"
+	"github.com/babylonlabs-io/babylon/v4/client/babylonclient"
 
-	bstypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
+	bstypes "github.com/babylonlabs-io/babylon/v4/x/btcstaking/types"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"go.uber.org/zap"
 )

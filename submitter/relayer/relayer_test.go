@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/babylonlabs-io/babylon/v3/testutil/datagen"
+	"github.com/babylonlabs-io/babylon/v4/testutil/datagen"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/submitter/store"
@@ -1478,18 +1478,18 @@ func TestRelayer_MaybeResendSecondTxOfCheckpointToBTC(t *testing.T) {
 			tx2Setup: func() *types.BtcTxInfo {
 				// Create a transaction with only one output (no change)
 				tx := wire.NewMsgTx(wire.TxVersion)
-				
+
 				// Add a dummy input
 				hash, _ := chainhash.NewHashFromStr("0000000000000000000000000000000000000000000000000000000000000001")
 				tx.AddTxIn(wire.NewTxIn(wire.NewOutPoint(hash, 0), nil, nil))
-				
+
 				// Add only OP_RETURN output (no change output)
 				builder := txscript.NewScriptBuilder()
 				dataScript, _ := builder.AddOp(txscript.OP_RETURN).AddData([]byte("test data")).Script()
 				tx.AddTxOut(wire.NewTxOut(0, dataScript))
-				
+
 				txID := tx.TxHash()
-				
+
 				return &types.BtcTxInfo{
 					TxID: &txID,
 					Tx:   tx,
@@ -1532,7 +1532,6 @@ func TestRelayer_MaybeResendSecondTxOfCheckpointToBTC(t *testing.T) {
 		})
 	}
 }
-
 
 func TestRelayer_BuildChainedDataTx(t *testing.T) {
 	t.Parallel()
@@ -1755,7 +1754,6 @@ func TestRelayer_BuildChainedDataTx(t *testing.T) {
 		})
 	}
 }
-
 
 // MockCounter is a simple mock implementation of prometheus.Counter for testing
 type MockCounter struct {

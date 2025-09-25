@@ -3,8 +3,8 @@ package types // nolint:revive
 import (
 	"time"
 
-	"github.com/babylonlabs-io/babylon/v3/btctxformatter"
-	btcctypes "github.com/babylonlabs-io/babylon/v3/x/btccheckpoint/types"
+	"github.com/babylonlabs-io/babylon/v4/btctxformatter"
+	btcctypes "github.com/babylonlabs-io/babylon/v4/x/btccheckpoint/types"
 	"github.com/btcsuite/btcd/btcutil"
 )
 

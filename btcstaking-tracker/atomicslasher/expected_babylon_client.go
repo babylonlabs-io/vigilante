@@ -3,10 +3,10 @@ package atomicslasher
 import (
 	"context"
 
-	"github.com/babylonlabs-io/babylon/v3/client/babylonclient"
+	"github.com/babylonlabs-io/babylon/v4/client/babylonclient"
 
 	"cosmossdk.io/errors"
-	bstypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
+	bstypes "github.com/babylonlabs-io/babylon/v4/x/btcstaking/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkquerytypes "github.com/cosmos/cosmos-sdk/types/query"
 )

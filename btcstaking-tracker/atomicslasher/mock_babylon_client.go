@@ -9,8 +9,8 @@ import (
 	reflect "reflect"
 
 	errors "cosmossdk.io/errors"
-	babylonclient "github.com/babylonlabs-io/babylon/v3/client/babylonclient"
-	types "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
+	babylonclient "github.com/babylonlabs-io/babylon/v4/client/babylonclient"
+	types "github.com/babylonlabs-io/babylon/v4/x/btcstaking/types"
 	types0 "github.com/cosmos/cosmos-sdk/types"
 	query "github.com/cosmos/cosmos-sdk/types/query"
 	gomock "github.com/golang/mock/gomock"

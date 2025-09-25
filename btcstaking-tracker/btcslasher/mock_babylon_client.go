@@ -7,9 +7,9 @@ package btcslasher
 import (
 	reflect "reflect"
 
-	types "github.com/babylonlabs-io/babylon/v3/x/btccheckpoint/types"
-	types0 "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
-	types1 "github.com/babylonlabs-io/babylon/v3/x/finality/types"
+	types "github.com/babylonlabs-io/babylon/v4/x/btccheckpoint/types"
+	types0 "github.com/babylonlabs-io/babylon/v4/x/btcstaking/types"
+	types1 "github.com/babylonlabs-io/babylon/v4/x/finality/types"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	query "github.com/cosmos/cosmos-sdk/types/query"
 	gomock "github.com/golang/mock/gomock"
