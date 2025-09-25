@@ -120,6 +120,7 @@ func (m *Manager) ExecCmd(t *testing.T, containerName string, command []string) 
 			if errRegex.MatchString(errBufString) {
 				t.Log("\nstderr:")
 				t.Log(errBufString)
+				// this is fine, shutting down
 				if strings.Contains(errBufString, "-28") {
 					return true
 				}
