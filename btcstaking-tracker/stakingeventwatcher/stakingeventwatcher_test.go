@@ -170,11 +170,11 @@ func TestHandlingDelegationsByEvents(t *testing.T) {
 	}
 
 	firstCall := mockBabylonNodeAdapter.EXPECT().
-		DelegationsModifedInBlock(gomock.Any(), gomock.Any(), gomock.Any()).
+		DelegationsModifiedInBlock(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(stakingTxHashes, nil).Times(1)
 
 	mockBabylonNodeAdapter.EXPECT().
-		DelegationsModifedInBlock(gomock.Any(), gomock.Any(), gomock.Any()).
+		DelegationsModifiedInBlock(gomock.Any(), gomock.Any(), gomock.Any()).
 		After(firstCall).
 		Return(nil, nil).AnyTimes()
 
