@@ -19,25 +19,25 @@ type Delegation struct {
 	Status                string
 }
 
-type BabylonBTCStakingClient interface {
+type BabylonAdaptorClient interface {
 	DelegationsByStatus(status btcstakingtypes.BTCDelegationStatus, cursor []byte, limit uint64) ([]Delegation, []byte, error)
 	BTCDelegation(stakingTxHashHex string) (*Delegation, error)
 	GetConfirmationDepth() (uint32, error)
 }
 
-type BabylonBTCStakingClientAdapter struct {
+type BabylonAdaptorClientAdapter struct {
 	babylonClient *bbnclient.Client
 	cfg           *config.BTCStakingTrackerConfig
 }
 
-func NewBabylonBTCStakingClientAdapter(babylonClient *bbnclient.Client, cfg *config.BTCStakingTrackerConfig) *BabylonBTCStakingClientAdapter {
-	return &BabylonBTCStakingClientAdapter{
+func NewBabylonAdaptorClientAdapter(babylonClient *bbnclient.Client, cfg *config.BTCStakingTrackerConfig) *BabylonAdaptorClientAdapter {
+	return &BabylonAdaptorClientAdapter{
 		babylonClient: babylonClient,
 		cfg:           cfg,
 	}
 }
 
-func (bc *BabylonBTCStakingClientAdapter) GetConfirmationDepth() (uint32, error) {
+func (bc *BabylonAdaptorClientAdapter) GetConfirmationDepth() (uint32, error) {
 	params, err := bc.babylonClient.BTCCheckpointParams()
 	if err != nil {
 		return 0, fmt.Errorf("failed to get babylon params: %w", err)
@@ -46,7 +46,7 @@ func (bc *BabylonBTCStakingClientAdapter) GetConfirmationDepth() (uint32, error)
 	return params.Params.BtcConfirmationDepth, nil
 }
 
-func (bc *BabylonBTCStakingClientAdapter) DelegationsByStatus(status btcstakingtypes.BTCDelegationStatus, cursor []byte, limit uint64) ([]Delegation, []byte, error) {
+func (bc *BabylonAdaptorClientAdapter) DelegationsByStatus(status btcstakingtypes.BTCDelegationStatus, cursor []byte, limit uint64) ([]Delegation, []byte, error) {
 	resp, err := bc.babylonClient.BTCDelegations(status, &query.PageRequest{
 		Key:   cursor,
 		Limit: limit,
@@ -91,7 +91,7 @@ func (bc *BabylonBTCStakingClientAdapter) DelegationsByStatus(status btcstakingt
 	return delegations, nextCursor, nil
 }
 
-func (bc *BabylonBTCStakingClientAdapter) BTCDelegation(stakingTxHashHex string) (*Delegation, error) {
+func (bc *BabylonAdaptorClientAdapter) BTCDelegation(stakingTxHashHex string) (*Delegation, error) {
 	resp, err := bc.babylonClient.BTCDelegation(stakingTxHashHex)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve delegation: %w", err)

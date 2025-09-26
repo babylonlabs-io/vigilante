@@ -20,7 +20,7 @@ func TestActivationUnbondingMonitor(t *testing.T) {
 	r := rand.New(rand.NewSource(time.Now().Unix()))
 	ctl := gomock.NewController(t)
 	cfg := config.DefaultBTCStakingTrackerConfig()
-	mockClient := NewMockBabylonBTCStakingClient(ctl)
+	mockClient := NewMockBabylonAdaptorClient(ctl)
 	mockBtcClient := mocks.NewMockBTCClient(ctl)
 
 	monitor := NewActivationUnbondingMonitor(mockClient, mockBtcClient, &cfg)
@@ -57,13 +57,9 @@ func TestActivationUnbondingMonitor(t *testing.T) {
 	mockBtcClient.EXPECT().GetBestBlock().Return(uint32(850006), nil).AnyTimes()
 	mockClient.EXPECT().GetConfirmationDepth().Return(uint32(4), nil).AnyTimes()
 
-	actDels, err := monitor.GetActiveDelegations()
+	actDels, err := monitor.GetDelegationsByStatus(btcstakingtypes.BTCDelegationStatus_ACTIVE)
 	require.NoError(t, err)
 	require.NotNil(t, actDels)
-
-	verDels, err := monitor.GetVerifiedDelegations()
-	require.NoError(t, err)
-	require.NotNil(t, verDels)
 
 	hashDels, err := monitor.GetDelegationByHash("test")
 	require.NoError(t, err)
@@ -81,7 +77,7 @@ func TestActivationUnbondingMonitor_Error(t *testing.T) {
 	t.Parallel()
 	ctl := gomock.NewController(t)
 	cfg := config.DefaultBTCStakingTrackerConfig()
-	mockClient := NewMockBabylonBTCStakingClient(ctl)
+	mockClient := NewMockBabylonAdaptorClient(ctl)
 	mockBtcClient := mocks.NewMockBTCClient(ctl)
 
 	monitor := NewActivationUnbondingMonitor(mockClient, mockBtcClient, &cfg)

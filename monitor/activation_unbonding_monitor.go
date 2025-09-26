@@ -10,12 +10,12 @@ import (
 )
 
 type ActivationUnbondingMonitor struct {
-	babylonClient BabylonBTCStakingClient
+	babylonClient BabylonAdaptorClient
 	btcClient     btcclient.BTCClient
 	cfg           *config.BTCStakingTrackerConfig
 }
 
-func NewActivationUnbondingMonitor(babylonClient BabylonBTCStakingClient, btcClient btcclient.BTCClient, cfg *config.BTCStakingTrackerConfig) *ActivationUnbondingMonitor {
+func NewActivationUnbondingMonitor(babylonClient BabylonAdaptorClient, btcClient btcclient.BTCClient, cfg *config.BTCStakingTrackerConfig) *ActivationUnbondingMonitor {
 	return &ActivationUnbondingMonitor{
 		babylonClient: babylonClient,
 		btcClient:     btcClient,
