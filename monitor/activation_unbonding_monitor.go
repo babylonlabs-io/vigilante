@@ -59,6 +59,7 @@ func (m *ActivationUnbondingMonitor) CheckKDeepConfirmation(delegation *Delegati
 	err := retry.Do(func() error {
 		var err error
 		details, status, err = m.btcClient.TxDetails(&stakingTxHash, outputScript)
+
 		return err
 	},
 		retry.Attempts(3),
