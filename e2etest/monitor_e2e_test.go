@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	bbnclient "github.com/babylonlabs-io/babylon/v3/client/client"
+	bbnclient "github.com/babylonlabs-io/babylon/v4/client/client"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/monitor"

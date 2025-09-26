@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	bbnclient "github.com/babylonlabs-io/babylon/v3/client/client"
+	bbnclient "github.com/babylonlabs-io/babylon/v4/client/client"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/cosmos/cosmos-sdk/testutil/testdata"
 	sdk "github.com/cosmos/cosmos-sdk/types"

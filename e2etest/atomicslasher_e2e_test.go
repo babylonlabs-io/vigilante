@@ -9,7 +9,7 @@ import (
 	"github.com/babylonlabs-io/vigilante/testutil"
 	"go.uber.org/zap"
 
-	bstypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
+	bstypes "github.com/babylonlabs-io/babylon/v4/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	bst "github.com/babylonlabs-io/vigilante/btcstaking-tracker"
 	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/btcslasher"

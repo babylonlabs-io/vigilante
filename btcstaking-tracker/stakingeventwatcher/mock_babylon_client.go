@@ -8,8 +8,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	types "github.com/babylonlabs-io/babylon/v3/x/btccheckpoint/types"
-	types0 "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
+	types "github.com/babylonlabs-io/babylon/v4/x/btccheckpoint/types"
+	types0 "github.com/babylonlabs-io/babylon/v4/x/btcstaking/types"
 	chainhash "github.com/btcsuite/btcd/chaincfg/chainhash"
 	wire "github.com/btcsuite/btcd/wire"
 	gomock "github.com/golang/mock/gomock"
@@ -113,7 +113,7 @@ func (mr *MockBabylonNodeAdapterMockRecorder) DelegationsByStatus(status, cursor
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DelegationsByStatus", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).DelegationsByStatus), status, cursor, limit)
 }
 
-// DelegationsModifedInBlock mocks base method.
+// DelegationsModifiedInBlock mocks base method.
 func (m *MockBabylonNodeAdapter) DelegationsModifiedInBlock(ctx context.Context, height int64, eventTypes []string) ([]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DelegationsModifiedInBlock", ctx, height, eventTypes)
@@ -122,8 +122,8 @@ func (m *MockBabylonNodeAdapter) DelegationsModifiedInBlock(ctx context.Context,
 	return ret0, ret1
 }
 
-// DelegationsModifedInBlock indicates an expected call of DelegationsModifedInBlock.
-func (mr *MockBabylonNodeAdapterMockRecorder) DelegationsModifedInBlock(ctx, height, eventTypes interface{}) *gomock.Call {
+// DelegationsModifiedInBlock indicates an expected call of DelegationsModifiedInBlock.
+func (mr *MockBabylonNodeAdapterMockRecorder) DelegationsModifiedInBlock(ctx, height, eventTypes interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DelegationsModifiedInBlock", reflect.TypeOf((*MockBabylonNodeAdapter)(nil).DelegationsModifiedInBlock), ctx, height, eventTypes)
 }

@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/babylonlabs-io/babylon/v3/testutil/datagen"
-	btcstakingtypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
+	"github.com/babylonlabs-io/babylon/v4/testutil/datagen"
+	btcstakingtypes "github.com/babylonlabs-io/babylon/v4/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"
@@ -170,11 +170,11 @@ func TestHandlingDelegationsByEvents(t *testing.T) {
 	}
 
 	firstCall := mockBabylonNodeAdapter.EXPECT().
-		DelegationsModifedInBlock(gomock.Any(), gomock.Any(), gomock.Any()).
+		DelegationsModifiedInBlock(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(stakingTxHashes, nil).Times(1)
 
 	mockBabylonNodeAdapter.EXPECT().
-		DelegationsModifedInBlock(gomock.Any(), gomock.Any(), gomock.Any()).
+		DelegationsModifiedInBlock(gomock.Any(), gomock.Any(), gomock.Any()).
 		After(firstCall).
 		Return(nil, nil).AnyTimes()
 

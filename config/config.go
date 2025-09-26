@@ -12,7 +12,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	bbncfg "github.com/babylonlabs-io/babylon/v3/client/config"
+	bbncfg "github.com/babylonlabs-io/babylon/v4/client/config"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"

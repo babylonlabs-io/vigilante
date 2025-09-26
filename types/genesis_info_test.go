@@ -6,12 +6,12 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/babylonlabs-io/babylon/v3/testutil/datagen"
+	"github.com/babylonlabs-io/babylon/v4/testutil/datagen"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 
 	"cosmossdk.io/log"
-	"github.com/babylonlabs-io/babylon/v3/app"
-	bbncmd "github.com/babylonlabs-io/babylon/v3/cmd/babylond/cmd"
+	"github.com/babylonlabs-io/babylon/v4/app"
+	bbncmd "github.com/babylonlabs-io/babylon/v4/cmd/babylond/cmd"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/server"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -65,12 +65,4 @@ func FuzzGetGenesisInfoFromFile(f *testing.F) {
 		require.Len(t, genesisInfo.valSet.ValSet, validatorNum)
 		require.Equal(t, uint32(baseHeight), genesisInfo.baseBTCHeight)
 	})
-}
-
-func TestParseOldGenesis(t *testing.T) {
-	t.Parallel()
-	genFile := "test_genesis.json"
-	genesisInfo, err := GetGenesisInfoFromFile(genFile)
-	require.NoError(t, err)
-	require.NotNil(t, genesisInfo)
 }

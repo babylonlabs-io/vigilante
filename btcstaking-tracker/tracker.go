@@ -9,7 +9,7 @@ import (
 	"github.com/babylonlabs-io/vigilante/version"
 	"github.com/lightningnetwork/lnd/kvdb"
 
-	bbnclient "github.com/babylonlabs-io/babylon/v3/client/client"
+	bbnclient "github.com/babylonlabs-io/babylon/v4/client/client"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/atomicslasher"
 	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/btcslasher"

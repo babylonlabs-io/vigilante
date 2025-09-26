@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
-	bbnclient "github.com/babylonlabs-io/babylon/v3/client/client"
+	bbnclient "github.com/babylonlabs-io/babylon/v4/client/client"
 	"github.com/cosmos/cosmos-sdk/client"
 	sdkquery "github.com/cosmos/cosmos-sdk/types/query"
 	"os"

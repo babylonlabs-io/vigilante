@@ -13,8 +13,8 @@ import (
 	"github.com/babylonlabs-io/vigilante/testutil"
 	"github.com/btcsuite/btcd/btcec/v2"
 
-	bbnclient "github.com/babylonlabs-io/babylon/v3/client/client"
-	btcstakingtypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
+	bbnclient "github.com/babylonlabs-io/babylon/v4/client/client"
+	btcstakingtypes "github.com/babylonlabs-io/babylon/v4/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/btcjson"
 	"github.com/cosmos/cosmos-sdk/testutil/testdata"
@@ -23,7 +23,7 @@ import (
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"go.uber.org/zap"
 
-	"github.com/babylonlabs-io/babylon/v3/btcstaking"
+	"github.com/babylonlabs-io/babylon/v4/btcstaking"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	bst "github.com/babylonlabs-io/vigilante/btcstaking-tracker"
 	"github.com/babylonlabs-io/vigilante/config"
