@@ -7,8 +7,11 @@ import (
 )
 
 const (
-	minBTCCacheSize = 1000
-	maxHeadersInMsg = 100 // maximum number of headers in a MsgInsertHeaders message
+	minBTCCacheSize        = 1000
+	maxHeadersInMsg        = 100  // maximum number of headers in a MsgInsertHeaders message
+	defaultBootstrapBatchSize = 2000 // default number of blocks to process in each batch during bootstrap
+	minBootstrapBatchSize     = 100
+	maxBootstrapBatchSize     = 10000
 )
 
 // ReporterConfig defines configuration for the reporter.
@@ -16,6 +19,7 @@ type ReporterConfig struct {
 	NetParams       string `mapstructure:"netparams"`          // should be mainnet|testnet|simnet|signet
 	BTCCacheSize    uint32 `mapstructure:"btc_cache_size"`     // size of the BTC cache
 	MaxHeadersInMsg uint32 `mapstructure:"max_headers_in_msg"` // maximum number of headers in a MsgInsertHeaders message
+	BatchSize       uint32 `mapstructure:"batch_size"`         // number of blocks to process in each batch during bootstrap
 }
 
 func (cfg *ReporterConfig) Validate() error {
@@ -28,6 +32,9 @@ func (cfg *ReporterConfig) Validate() error {
 	if cfg.MaxHeadersInMsg < maxHeadersInMsg {
 		return fmt.Errorf("max_headers_in_msg has to be at least %d", maxHeadersInMsg)
 	}
+	if cfg.BatchSize < minBootstrapBatchSize || cfg.BatchSize > maxBootstrapBatchSize {
+		return fmt.Errorf("batch_size has to be between %d and %d", minBootstrapBatchSize, maxBootstrapBatchSize)
+	}
 
 	return nil
 }
@@ -37,5 +44,6 @@ func DefaultReporterConfig() ReporterConfig {
 		NetParams:       types.BtcSimnet.String(),
 		BTCCacheSize:    minBTCCacheSize,
 		MaxHeadersInMsg: maxHeadersInMsg,
+		BatchSize:       defaultBootstrapBatchSize,
 	}
 }

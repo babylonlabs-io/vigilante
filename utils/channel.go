@@ -1,4 +1,5 @@
-package utils // nolint:revive
+//nolint:revive
+package utils
 
 // PushOrQuit push msg to channel c, or quit if quit channel is closed
 func PushOrQuit[T any](c chan<- T, msg T, quit <-chan struct{}) {
