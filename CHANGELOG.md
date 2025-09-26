@@ -37,8 +37,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
-* [#455](https://github.com/babylonlabs-io/vigilante/pull/455) chore: ignore warnings from utils package
-* [#461](https://github.com/babylonlabs-io/vigilante/pull/461) chore: bbn to v4 and remove phase 3 BSN things
+## v0.24.0-rc.4
 
 ### Improvements
 
@@ -48,6 +47,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 * [#445](https://github.com/babylonlabs-io/vigilante/pull/445) chore: bump go to 1.25
 * [#449](https://github.com/babylonlabs-io/vigilante/pull/449) chore: complete integration with cursor
 * [#451](https://github.com/babylonlabs-io/vigilante/pull/451) feat: stateful slasher
+* [#455](https://github.com/babylonlabs-io/vigilante/pull/455) chore: ignore warnings from utils package
+* [#461](https://github.com/babylonlabs-io/vigilante/pull/461) chore: bbn to v4 and remove phase 3 BSN things
 
 ## v0.24.0-rc.3
 
