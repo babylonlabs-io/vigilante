@@ -19,7 +19,7 @@ import (
 	"go.uber.org/zap"
 
 	sdkerrors "cosmossdk.io/errors"
-	checkpointingtypes "github.com/babylonlabs-io/babylon/v3/x/checkpointing/types"
+	checkpointingtypes "github.com/babylonlabs-io/babylon/v4/x/checkpointing/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/babylonlabs-io/vigilante/btcclient"

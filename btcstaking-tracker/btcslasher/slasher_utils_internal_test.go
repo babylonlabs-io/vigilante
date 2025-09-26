@@ -7,9 +7,9 @@ import (
 	"time"
 
 	sdkmath "cosmossdk.io/math"
-	"github.com/babylonlabs-io/babylon/v3/testutil/datagen"
-	bbn "github.com/babylonlabs-io/babylon/v3/types"
-	bstypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
+	"github.com/babylonlabs-io/babylon/v4/testutil/datagen"
+	bbn "github.com/babylonlabs-io/babylon/v4/types"
+	bstypes "github.com/babylonlabs-io/babylon/v4/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/testutil/mocks"
 	"github.com/btcsuite/btcd/btcec/v2"
@@ -71,7 +71,6 @@ func TestBTCSlasher_slashBTCDelegation_exitUnslashable(t *testing.T) {
 		&chaincfg.SimNetParams,
 		[]bbn.BIP340PubKey{*fpBTCPK},
 		delSK,
-		"",
 		covenantSks,
 		covPks,
 		1,

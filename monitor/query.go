@@ -7,10 +7,10 @@ import (
 	"github.com/avast/retry-go/v4"
 	"github.com/babylonlabs-io/vigilante/retrywrap"
 
-	btclctypes "github.com/babylonlabs-io/babylon/v3/x/btclightclient/types"
-	ckpttypes "github.com/babylonlabs-io/babylon/v3/x/checkpointing/types"
-	epochingtypes "github.com/babylonlabs-io/babylon/v3/x/epoching/types"
-	monitortypes "github.com/babylonlabs-io/babylon/v3/x/monitor/types"
+	btclctypes "github.com/babylonlabs-io/babylon/v4/x/btclightclient/types"
+	ckpttypes "github.com/babylonlabs-io/babylon/v4/x/checkpointing/types"
+	epochingtypes "github.com/babylonlabs-io/babylon/v4/x/epoching/types"
+	monitortypes "github.com/babylonlabs-io/babylon/v4/x/monitor/types"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"go.uber.org/zap"
 

@@ -7,11 +7,11 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	"github.com/babylonlabs-io/babylon/v3/app"
-	btccheckpointtypes "github.com/babylonlabs-io/babylon/v3/x/btccheckpoint/types"
-	btclightclienttypes "github.com/babylonlabs-io/babylon/v3/x/btclightclient/types"
-	checkpointingtypes "github.com/babylonlabs-io/babylon/v3/x/checkpointing/types"
-	epochingtypes "github.com/babylonlabs-io/babylon/v3/x/epoching/types"
+	"github.com/babylonlabs-io/babylon/v4/app"
+	btccheckpointtypes "github.com/babylonlabs-io/babylon/v4/x/btccheckpoint/types"
+	btclightclienttypes "github.com/babylonlabs-io/babylon/v4/x/btclightclient/types"
+	checkpointingtypes "github.com/babylonlabs-io/babylon/v4/x/checkpointing/types"
+	epochingtypes "github.com/babylonlabs-io/babylon/v4/x/epoching/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/genutil"

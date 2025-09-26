@@ -15,8 +15,8 @@ import (
 	"github.com/lightningnetwork/lnd/kvdb"
 	"github.com/lightningnetwork/lnd/lntypes"
 
-	"github.com/babylonlabs-io/babylon/v3/btctxformatter"
-	ckpttypes "github.com/babylonlabs-io/babylon/v3/x/checkpointing/types"
+	"github.com/babylonlabs-io/babylon/v4/btctxformatter"
+	ckpttypes "github.com/babylonlabs-io/babylon/v4/x/checkpointing/types"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/txscript"
@@ -456,7 +456,7 @@ func (rl *Relayer) maybeResendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bu
 	// Check if the transaction has a change output
 	if len(tx2.Tx.TxOut) <= changePosition {
 		rl.logger.Warnf("Transaction %v has no change output (only %d outputs), cannot bump fee using RBF", tx2.TxID, len(tx2.Tx.TxOut))
-		
+
 		return nil, fmt.Errorf("%w: expected at least %d outputs, got %d", ErrNoChangeOutput, changePosition+1, len(tx2.Tx.TxOut))
 	}
 

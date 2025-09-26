@@ -3,8 +3,8 @@ package types // nolint:revive
 import (
 	"bytes"
 
-	"github.com/babylonlabs-io/babylon/v3/crypto/bls12381"
-	ckpttypes "github.com/babylonlabs-io/babylon/v3/x/checkpointing/types"
+	"github.com/babylonlabs-io/babylon/v4/crypto/bls12381"
+	ckpttypes "github.com/babylonlabs-io/babylon/v4/x/checkpointing/types"
 	"github.com/boljen/go-bitmap"
 	"github.com/pkg/errors"
 )

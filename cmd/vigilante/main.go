@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/babylonlabs-io/babylon/v3/app/params"
+	"github.com/babylonlabs-io/babylon/v4/app/params"
 	"github.com/babylonlabs-io/vigilante/cmd/vigilante/cmd"
 )
 

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/babylonlabs-io/babylon/v3/btctxformatter"
-	"github.com/babylonlabs-io/babylon/v3/testutil/datagen"
+	"github.com/babylonlabs-io/babylon/v4/btctxformatter"
+	"github.com/babylonlabs-io/babylon/v4/testutil/datagen"
 	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/stretchr/testify/require"
 )

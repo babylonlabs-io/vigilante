@@ -4,12 +4,12 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/babylonlabs-io/babylon/v3/client/babylonclient"
+	"github.com/babylonlabs-io/babylon/v4/client/babylonclient"
 	"github.com/lightningnetwork/lnd/lntest/mock"
 
-	"github.com/babylonlabs-io/babylon/v3/testutil/datagen"
-	btcctypes "github.com/babylonlabs-io/babylon/v3/x/btccheckpoint/types"
-	btclctypes "github.com/babylonlabs-io/babylon/v3/x/btclightclient/types"
+	"github.com/babylonlabs-io/babylon/v4/testutil/datagen"
+	btcctypes "github.com/babylonlabs-io/babylon/v4/x/btccheckpoint/types"
+	btclctypes "github.com/babylonlabs-io/babylon/v4/x/btclightclient/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
