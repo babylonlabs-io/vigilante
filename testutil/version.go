@@ -22,7 +22,7 @@ func GetBabylonVersion() (string, error) {
 		return "", err
 	}
 
-	const modName = "github.com/babylonlabs-io/babylon/v3"
+	const modName = "github.com/babylonlabs-io/babylon/v4"
 	for _, require := range modFile.Require {
 		if require.Mod.Path == modName {
 			return require.Mod.Version, nil

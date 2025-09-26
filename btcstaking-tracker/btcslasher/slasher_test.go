@@ -12,12 +12,12 @@ import (
 	"github.com/lightningnetwork/lnd/chainntnfs"
 
 	sdkmath "cosmossdk.io/math"
-	"github.com/babylonlabs-io/babylon/v3/btcstaking"
-	asig "github.com/babylonlabs-io/babylon/v3/crypto/schnorr-adaptor-signature"
-	"github.com/babylonlabs-io/babylon/v3/testutil/datagen"
-	bbn "github.com/babylonlabs-io/babylon/v3/types"
-	btcctypes "github.com/babylonlabs-io/babylon/v3/x/btccheckpoint/types"
-	bstypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
+	"github.com/babylonlabs-io/babylon/v4/btcstaking"
+	asig "github.com/babylonlabs-io/babylon/v4/crypto/schnorr-adaptor-signature"
+	"github.com/babylonlabs-io/babylon/v4/testutil/datagen"
+	bbn "github.com/babylonlabs-io/babylon/v4/types"
+	btcctypes "github.com/babylonlabs-io/babylon/v4/x/btccheckpoint/types"
+	bstypes "github.com/babylonlabs-io/babylon/v4/x/btcstaking/types"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcjson"
 	"github.com/btcsuite/btcd/btcutil"
@@ -131,7 +131,6 @@ func FuzzSlasher(f *testing.F) {
 				net,
 				[]bbn.BIP340PubKey{*fpBTCPK},
 				delSK,
-				"",
 				covenantSks,
 				covenantBtcPks,
 				bsParams.Params.CovenantQuorum,
@@ -160,7 +159,6 @@ func FuzzSlasher(f *testing.F) {
 				net,
 				[]bbn.BIP340PubKey{*fpBTCPK},
 				delSK,
-				"",
 				covenantSks,
 				covenantBtcPks,
 				bsParams.Params.CovenantQuorum,
@@ -189,7 +187,7 @@ func FuzzSlasher(f *testing.F) {
 				net,
 				[]bbn.BIP340PubKey{*fpBTCPK},
 				delSK,
-				"",
+
 				covenantSks,
 				covenantBtcPks,
 				bsParams.Params.CovenantQuorum,

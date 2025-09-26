@@ -5,9 +5,9 @@ import (
 	"math/big"
 	"math/rand"
 
-	"github.com/babylonlabs-io/babylon/v3/btctxformatter"
-	"github.com/babylonlabs-io/babylon/v3/testutil/datagen"
-	babylontypes "github.com/babylonlabs-io/babylon/v3/types"
+	"github.com/babylonlabs-io/babylon/v4/btctxformatter"
+	"github.com/babylonlabs-io/babylon/v4/testutil/datagen"
+	babylontypes "github.com/babylonlabs-io/babylon/v4/types"
 	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/blockchain"
 	"github.com/btcsuite/btcd/btcutil"

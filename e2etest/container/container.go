@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	bbn "github.com/babylonlabs-io/babylon/v3/types"
+	bbn "github.com/babylonlabs-io/babylon/v4/types"
 	"github.com/babylonlabs-io/vigilante/testutil"
 	"github.com/btcsuite/btcd/btcec/v2"
 
@@ -120,6 +120,10 @@ func (m *Manager) ExecCmd(t *testing.T, containerName string, command []string) 
 			if errRegex.MatchString(errBufString) {
 				t.Log("\nstderr:")
 				t.Log(errBufString)
+				// this is fine, shutting down
+				if strings.Contains(errBufString, "-28") {
+					return true
+				}
 
 				t.Log("\nstdout:")
 				t.Log(outBuf.String())
@@ -205,7 +209,7 @@ func (m *Manager) RunBabylondResource(
 				"--btc-confirmation-depth=3 --additional-sender-account --btc-network=regtest "+
 				"--min-staking-time-blocks=200 --min-staking-amount-sat=10000 "+
 				"--epoch-interval=%d --slashing-pk-script=%s --btc-base-header=%s "+
-				"--covenant-quorum=%d --covenant-pks=%s --max-finality-providers-in-script=2 && chmod -R 777 /home && "+
+				"--covenant-quorum=%d --covenant-pks=%s && chmod -R 777 /home && "+
 				"export BABYLON_BLS_PASSWORD=password && babylond start --home=/home/node0/babylond",
 			epochInterval, slashingPkScript, baseHeaderHex, quorumSize, strings.Join(covenantPksStr, ",")),
 	}

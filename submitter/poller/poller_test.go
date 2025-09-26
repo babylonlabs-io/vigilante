@@ -6,8 +6,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/babylonlabs-io/babylon/v3/testutil/datagen"
-	checkpointingtypes "github.com/babylonlabs-io/babylon/v3/x/checkpointing/types"
+	"github.com/babylonlabs-io/babylon/v4/testutil/datagen"
+	checkpointingtypes "github.com/babylonlabs-io/babylon/v4/x/checkpointing/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
