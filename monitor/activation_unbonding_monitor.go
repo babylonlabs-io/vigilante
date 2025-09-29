@@ -127,6 +127,7 @@ func (m *ActivationUnbondingMonitor) CheckActivationTiming() error {
 	}
 
 	m.cleanupTrackedDelegations()
+
 	return nil
 }
 
@@ -137,7 +138,7 @@ func (m *ActivationUnbondingMonitor) handleKDeepDel(stakingTxHash chainhash.Hash
 		activationTimeout := time.Duration(m.Cfg.ActivationTimeoutMinutes) * time.Minute
 
 		if timeSinceKDeep > activationTimeout && !tracker.HasAlerted {
-			//to do: trigger alert
+			// to do: trigger alert
 			tracker.HasAlerted = true
 		}
 
@@ -166,6 +167,7 @@ func (m *ActivationUnbondingMonitor) processDelegations(verifiedDels []Delegatio
 			kDeep, err := m.CheckKDeepConfirmation(&del)
 			if err != nil {
 				m.logger.Warnf("Error checking K-deep for %s: %v", stakingTxHash, err)
+
 				return
 			}
 
@@ -173,9 +175,7 @@ func (m *ActivationUnbondingMonitor) processDelegations(verifiedDels []Delegatio
 			if kDeep {
 				m.handleKDeepDel(stakingTxHash)
 			} else {
-				if _, exists := m.activationTracker[stakingTxHash]; exists {
-					delete(m.activationTracker, stakingTxHash)
-				}
+				delete(m.activationTracker, stakingTxHash)
 			}
 			m.mu.Unlock()
 
@@ -190,6 +190,7 @@ func (m *ActivationUnbondingMonitor) cleanupTrackedDelegations() {
 		del, err := m.GetDelegationByHash(hash.String())
 		if err != nil {
 			m.logger.Warnf("Error getting delegation %s: %v", hash, err)
+
 			continue
 		}
 
