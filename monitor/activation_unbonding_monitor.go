@@ -6,32 +6,33 @@ import (
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/lightningnetwork/lnd/chainntnfs"
 	"go.uber.org/zap"
 	"sync"
 	"time"
 )
 
 type ActivationTracking struct {
-	StakingHash    chainhash.Hash
-	FirstSeenKDeep time.Time
-	LastChecked    time.Time
-	HasAlerted     bool
+	StakingHash chainhash.Hash
+	KDeepAt     time.Time
+	LastChecked time.Time
+	HasAlerted  bool
 }
 
 type ActivationUnbondingMonitor struct {
-	babylonClient     BabylonBTCStakingClient
+	babylonClient     BabylonAdaptorClient
 	btcClient         btcclient.BTCClient
-	cfg               *config.BTCStakingTrackerConfig
+	Cfg               *config.MonitorConfig
 	activationTracker map[chainhash.Hash]*ActivationTracking
 	logger            *zap.SugaredLogger
 	mu                sync.RWMutex
 }
 
-func NewActivationUnbondingMonitor(babylonClient BabylonBTCStakingClient, btcClient btcclient.BTCClient, cfg *config.BTCStakingTrackerConfig, logger *zap.SugaredLogger) *ActivationUnbondingMonitor {
+func NewActivationUnbondingMonitor(babylonClient BabylonAdaptorClient, btcClient btcclient.BTCClient, cfg *config.MonitorConfig, logger *zap.SugaredLogger) *ActivationUnbondingMonitor {
 	return &ActivationUnbondingMonitor{
 		babylonClient:     babylonClient,
 		btcClient:         btcClient,
-		cfg:               cfg,
+		Cfg:               cfg,
 		activationTracker: make(map[chainhash.Hash]*ActivationTracking),
 		logger:            logger,
 	}
@@ -41,30 +42,7 @@ func (m *ActivationUnbondingMonitor) GetDelegationsByStatus(status btcstakingtyp
 	cursor := []byte(nil)
 	var allDelegations []Delegation
 	for {
-		del, nextCursor, err := m.babylonClient.DelegationsByStatus(status, cursor, 100)
-		if err != nil {
-			return nil, err
-		}
-
-		allDelegations = append(allDelegations, del...)
-
-		if nextCursor == nil {
-			break
-		}
-		cursor = nextCursor
-	}
-
-	return allDelegations, nil
-}
-
-func (m *ActivationUnbondingMonitor) GetActiveDelegations() ([]Delegation, error) {
-	cursor := []byte(nil)
-	var allDelegations []Delegation
-	for {
-		del, nextCursor, err := m.babylonClient.DelegationsByStatus(
-			btcstakingtypes.BTCDelegationStatus_ACTIVE,
-			cursor, 100,
-		)
+		del, nextCursor, err := m.babylonClient.DelegationsByStatus(status, cursor, 1000)
 		if err != nil {
 			return nil, err
 		}
@@ -124,46 +102,90 @@ func (m *ActivationUnbondingMonitor) CheckKDeepConfirmation(delegation *Delegati
 }
 
 func (m *ActivationUnbondingMonitor) CheckActivationTiming() error {
-	verifiedDels, err := m.GetVerifiedDelegations()
-	if err != nil {
-		return err
-	}
+	cursor := []byte(nil)
+	batchSize := uint64(1000)
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	for _, verifiedDel := range verifiedDels {
-		stakingTxHash := verifiedDel.StakingTx.TxHash()
-		kDeep, err := m.CheckKDeepConfirmation(&verifiedDel)
+	for {
+		batch, nextCursor, err := m.babylonClient.DelegationsByStatus(
+			btcstakingtypes.BTCDelegationStatus_VERIFIED,
+			cursor,
+			batchSize,
+		)
 		if err != nil {
-			m.logger.Warnf("Error checking K-deep for %s: %v", stakingTxHash, err)
-			continue
+			return err
 		}
 
-		if kDeep {
-			if tracker, exists := m.activationTracker[stakingTxHash]; exists {
-				// need to now start the timing
-				timeSinceKDeep := time.Now().Sub(tracker.FirstSeenKDeep)
+		m.processDelegations(batch)
 
-				if timeSinceKDeep > 30*time.Minute && !tracker.HasAlerted {
-					//to do trigger alert
-					tracker.HasAlerted = true
-				}
-
-				tracker.LastChecked = time.Now()
-			} else {
-				m.activationTracker[stakingTxHash] = &ActivationTracking{
-					FirstSeenKDeep: time.Now(),
-					LastChecked:    time.Now(),
-					HasAlerted:     false}
-			}
-		} else {
-			if _, exists := m.activationTracker[stakingTxHash]; exists {
-				delete(m.activationTracker, stakingTxHash)
-			}
+		if nextCursor == nil {
+			break
 		}
+		cursor = nextCursor
 	}
 
+	m.cleanupTrackedDelegations()
+	return nil
+}
+
+func (m *ActivationUnbondingMonitor) handleKDeepDel(stakingTxHash chainhash.Hash) {
+	if tracker, exists := m.activationTracker[stakingTxHash]; exists {
+		// need to now start the timing
+		timeSinceKDeep := time.Since(tracker.KDeepAt)
+		activationTimeout := time.Duration(m.Cfg.ActivationTimeoutMinutes) * time.Minute
+
+		if timeSinceKDeep > activationTimeout && !tracker.HasAlerted {
+			//to do: trigger alert
+			tracker.HasAlerted = true
+		}
+
+		tracker.LastChecked = time.Now()
+	} else {
+		m.activationTracker[stakingTxHash] = &ActivationTracking{
+			StakingHash: stakingTxHash,
+			KDeepAt:     time.Now(),
+			LastChecked: time.Now(),
+			HasAlerted:  false,
+		}
+	}
+}
+
+func (m *ActivationUnbondingMonitor) processDelegations(verifiedDels []Delegation) {
+	var wg sync.WaitGroup
+	limiter := make(chan struct{}, 50)
+	for _, verifiedDel := range verifiedDels {
+		wg.Add(1)
+		limiter <- struct{}{}
+		go func(del Delegation) {
+			defer wg.Done()
+			defer func() { <-limiter }()
+
+			stakingTxHash := del.StakingTx.TxHash()
+			kDeep, err := m.CheckKDeepConfirmation(&del)
+			if err != nil {
+				m.logger.Warnf("Error checking K-deep for %s: %v", stakingTxHash, err)
+				return
+			}
+
+			m.mu.Lock()
+			if kDeep {
+				m.handleKDeepDel(stakingTxHash)
+			} else {
+				if _, exists := m.activationTracker[stakingTxHash]; exists {
+					delete(m.activationTracker, stakingTxHash)
+				}
+			}
+			m.mu.Unlock()
+
+		}(verifiedDel)
+	}
+
+	wg.Wait()
+}
+
+func (m *ActivationUnbondingMonitor) cleanupTrackedDelegations() {
 	for hash, tracker := range m.activationTracker {
 		del, err := m.GetDelegationByHash(hash.String())
 		if err != nil {
@@ -177,5 +199,4 @@ func (m *ActivationUnbondingMonitor) CheckActivationTiming() error {
 			delete(m.activationTracker, hash)
 		}
 	}
-	return nil
 }
