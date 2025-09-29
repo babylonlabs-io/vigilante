@@ -1,6 +1,9 @@
 package monitor
 
 import (
+	"sync"
+	"time"
+
 	"github.com/avast/retry-go/v4"
 	btcstakingtypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
@@ -8,8 +11,6 @@ import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/lightningnetwork/lnd/chainntnfs"
 	"go.uber.org/zap"
-	"sync"
-	"time"
 )
 
 type ActivationTracking struct {

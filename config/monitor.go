@@ -31,7 +31,7 @@ type MonitorConfig struct {
 	// whether to enable liveness checker
 	EnableLivenessChecker bool `mapstructure:"enable-liveness-checker"`
 	// timeout in minutes for delegation activation after K-deep confirmation
-	ActivationTimeoutMinutes uint64 `mapstructure:"activation-timeout-minutes"`
+	ActivationTimeoutMinutes int64 `mapstructure:"activation-timeout-minutes"`
 	// DatabaseConfig stores lates epoch and height used for faster bootstrap
 	DatabaseConfig *DBConfig `mapstructure:"dbconfig"`
 }
