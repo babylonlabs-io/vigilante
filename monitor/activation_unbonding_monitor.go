@@ -178,7 +178,6 @@ func (m *ActivationUnbondingMonitor) processDelegations(verifiedDels []Delegatio
 				delete(m.activationTracker, stakingTxHash)
 			}
 			m.mu.Unlock()
-
 		}(verifiedDel)
 	}
 
