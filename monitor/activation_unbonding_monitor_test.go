@@ -10,6 +10,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/lightningnetwork/lnd/chainntnfs"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"math/rand"
 	"testing"
 	"time"
@@ -19,11 +20,12 @@ func TestActivationUnbondingMonitor(t *testing.T) {
 	t.Parallel()
 	r := rand.New(rand.NewSource(time.Now().Unix()))
 	ctl := gomock.NewController(t)
-	cfg := config.DefaultBTCStakingTrackerConfig()
+	cfg := config.DefaultMonitorConfig()
 	mockClient := NewMockBabylonAdaptorClient(ctl)
 	mockBtcClient := mocks.NewMockBTCClient(ctl)
+	logger := zap.NewNop().Sugar()
 
-	monitor := NewActivationUnbondingMonitor(mockClient, mockBtcClient, &cfg)
+	monitor := NewActivationUnbondingMonitor(mockClient, mockBtcClient, &cfg, logger)
 
 	expectedActivated := 5
 	delegations := make([]Delegation, 0, expectedActivated)
@@ -39,6 +41,23 @@ func TestActivationUnbondingMonitor(t *testing.T) {
 				String(),
 		})
 	}
+
+	mockClient.EXPECT().DelegationsByStatus(gomock.Any(), gomock.Any(),
+		gomock.Any()).Return(delegations, nil, nil).AnyTimes()
+
+	mockClient.EXPECT().BTCDelegation(gomock.Any()).Return(&delegations[0], nil).AnyTimes()
+	mockBtcClient.EXPECT().TxDetails(gomock.Any(), gomock.Any()).Return(
+		&chainntnfs.TxConfirmation{
+			BlockHeight: 850000,
+			BlockHash:   &chainhash.Hash{},
+			TxIndex:     1,
+		},
+		btcclient.TxInChain,
+		nil,
+	).AnyTimes()
+
+	mockBtcClient.EXPECT().GetBestBlock().Return(uint32(850006), nil).AnyTimes()
+	mockClient.EXPECT().GetConfirmationDepth().Return(uint32(4), nil).AnyTimes()
 
 	mockClient.EXPECT().DelegationsByStatus(gomock.Any(), gomock.Any(),
 		gomock.Any()).Return(delegations, nil, nil).AnyTimes()
@@ -76,11 +95,12 @@ func TestActivationUnbondingMonitor(t *testing.T) {
 func TestActivationUnbondingMonitor_Error(t *testing.T) {
 	t.Parallel()
 	ctl := gomock.NewController(t)
-	cfg := config.DefaultBTCStakingTrackerConfig()
+	cfg := config.DefaultMonitorConfig()
 	mockClient := NewMockBabylonAdaptorClient(ctl)
 	mockBtcClient := mocks.NewMockBTCClient(ctl)
+	logger := zap.NewNop().Sugar()
 
-	monitor := NewActivationUnbondingMonitor(mockClient, mockBtcClient, &cfg)
+	monitor := NewActivationUnbondingMonitor(mockClient, mockBtcClient, &cfg, logger)
 
 	t.Run("Transaction not in chain", func(t *testing.T) {
 		t.Parallel()

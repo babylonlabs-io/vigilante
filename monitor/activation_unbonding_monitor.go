@@ -1,25 +1,44 @@
 package monitor
 
 import (
+	"context"
+	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
+	"sync"
+	"time"
+
 	"github.com/avast/retry-go/v4"
 	btcstakingtypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/config"
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/lightningnetwork/lnd/chainntnfs"
-	"time"
+	"go.uber.org/zap"
 )
 
-type ActivationUnbondingMonitor struct {
-	babylonClient BabylonAdaptorClient
-	btcClient     btcclient.BTCClient
-	cfg           *config.BTCStakingTrackerConfig
+type ActivationTracking struct {
+	StakingHash chainhash.Hash
+	KDeepAt     time.Time
+	LastChecked time.Time
+	HasAlerted  bool
 }
 
-func NewActivationUnbondingMonitor(babylonClient BabylonAdaptorClient, btcClient btcclient.BTCClient, cfg *config.BTCStakingTrackerConfig) *ActivationUnbondingMonitor {
+type ActivationUnbondingMonitor struct {
+	babylonClient     BabylonAdaptorClient
+	btcClient         btcclient.BTCClient
+	cfg               *config.MonitorConfig
+	activationTracker map[chainhash.Hash]*ActivationTracking
+	logger            *zap.SugaredLogger
+	mu                sync.RWMutex
+}
+
+func NewActivationUnbondingMonitor(babylonClient BabylonAdaptorClient, btcClient btcclient.BTCClient, cfg *config.MonitorConfig, logger *zap.SugaredLogger) *ActivationUnbondingMonitor {
 	return &ActivationUnbondingMonitor{
-		babylonClient: babylonClient,
-		btcClient:     btcClient,
-		cfg:           cfg,
+		babylonClient:     babylonClient,
+		btcClient:         btcClient,
+		cfg:               cfg,
+		activationTracker: make(map[chainhash.Hash]*ActivationTracking),
+		logger:            logger,
 	}
 }
 
@@ -27,9 +46,7 @@ func (m *ActivationUnbondingMonitor) GetDelegationsByStatus(status btcstakingtyp
 	cursor := []byte(nil)
 	var allDelegations []Delegation
 	for {
-		del, nextCursor, err := m.babylonClient.DelegationsByStatus(
-			status, cursor, 100,
-		)
+		del, nextCursor, err := m.babylonClient.DelegationsByStatus(status, cursor, 1000)
 		if err != nil {
 			return nil, err
 		}
@@ -69,7 +86,6 @@ func (m *ActivationUnbondingMonitor) CheckKDeepConfirmation(delegation *Delegati
 		return false, err
 	}
 
-	// if false not confirmed yet
 	if status != btcclient.TxInChain {
 		return false, nil
 	}
@@ -87,4 +103,110 @@ func (m *ActivationUnbondingMonitor) CheckKDeepConfirmation(delegation *Delegati
 	confirmations := currentHeight - details.BlockHeight
 
 	return confirmations >= bbnDepth, nil
+}
+
+func (m *ActivationUnbondingMonitor) CheckActivationTiming() error {
+	cursor := []byte(nil)
+	batchSize := uint64(1000)
+
+	for {
+		batch, nextCursor, err := m.babylonClient.DelegationsByStatus(
+			btcstakingtypes.BTCDelegationStatus_VERIFIED,
+			cursor,
+			batchSize,
+		)
+		if err != nil {
+			return err
+		}
+
+		err = m.processDelegations(batch)
+		if err != nil {
+			return err
+		}
+
+		if nextCursor == nil {
+			break
+		}
+		cursor = nextCursor
+	}
+
+	m.mu.Lock()
+	m.cleanupTrackedDelegations()
+	m.mu.Unlock()
+
+	return nil
+}
+
+func (m *ActivationUnbondingMonitor) handleKDeepDel(stakingTxHash chainhash.Hash) {
+	if tracker, exists := m.activationTracker[stakingTxHash]; exists {
+		// need to now start the timing
+		timeSinceKDeep := time.Since(tracker.KDeepAt)
+		activationTimeout := time.Duration(m.cfg.ActivationTimeoutMinutes) * time.Minute
+
+		if timeSinceKDeep > activationTimeout && !tracker.HasAlerted {
+			// to do: trigger alert
+			tracker.HasAlerted = true
+		}
+
+		tracker.LastChecked = time.Now()
+	} else {
+		m.activationTracker[stakingTxHash] = &ActivationTracking{
+			StakingHash: stakingTxHash,
+			KDeepAt:     time.Now(),
+			LastChecked: time.Now(),
+			HasAlerted:  false,
+		}
+	}
+}
+
+func (m *ActivationUnbondingMonitor) processDelegations(verifiedDels []Delegation) error {
+	var wg errgroup.Group
+	sem := semaphore.NewWeighted(1000)
+
+	for _, verifiedDel := range verifiedDels {
+		del := verifiedDel
+		wg.Go(func() error {
+			if err := sem.Acquire(context.Background(), 1); err != nil {
+				return err
+			}
+			defer sem.Release(1)
+
+			stakingTxHash := del.StakingTx.TxHash()
+			kDeep, err := m.CheckKDeepConfirmation(&del)
+			if err != nil {
+				m.logger.Warnf("Error checking K-deep for %s: %v", stakingTxHash, err)
+
+				return err
+			}
+
+			m.mu.Lock()
+			if kDeep {
+				m.handleKDeepDel(stakingTxHash)
+			} else {
+				delete(m.activationTracker, stakingTxHash)
+			}
+			m.mu.Unlock()
+
+			return nil
+		})
+	}
+
+	return wg.Wait()
+}
+
+func (m *ActivationUnbondingMonitor) cleanupTrackedDelegations() {
+	for hash, tracker := range m.activationTracker {
+		del, err := m.GetDelegationByHash(hash.String())
+		if err != nil {
+			m.logger.Warnf("Error getting delegation %s: %v", hash, err)
+
+			continue
+		}
+
+		if del.Status == btcstakingtypes.BTCDelegationStatus_ACTIVE.String() {
+			delete(m.activationTracker, hash)
+		} else if time.Since(tracker.LastChecked) > 24*time.Hour {
+			delete(m.activationTracker, hash)
+		}
+	}
 }
