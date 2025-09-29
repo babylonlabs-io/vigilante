@@ -109,9 +109,6 @@ func (m *ActivationUnbondingMonitor) CheckActivationTiming() error {
 	cursor := []byte(nil)
 	batchSize := uint64(1000)
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	for {
 		batch, nextCursor, err := m.babylonClient.DelegationsByStatus(
 			btcstakingtypes.BTCDelegationStatus_VERIFIED,
@@ -133,7 +130,9 @@ func (m *ActivationUnbondingMonitor) CheckActivationTiming() error {
 		cursor = nextCursor
 	}
 
+	m.mu.Lock()
 	m.cleanupTrackedDelegations()
+	m.mu.Unlock()
 
 	return nil
 }
