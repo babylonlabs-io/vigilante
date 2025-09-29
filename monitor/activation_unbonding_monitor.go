@@ -175,6 +175,7 @@ func (m *ActivationUnbondingMonitor) processDelegations(verifiedDels []Delegatio
 			kDeep, err := m.CheckKDeepConfirmation(&del)
 			if err != nil {
 				m.logger.Warnf("Error checking K-deep for %s: %v", stakingTxHash, err)
+
 				return err
 			}
 
@@ -182,9 +183,7 @@ func (m *ActivationUnbondingMonitor) processDelegations(verifiedDels []Delegatio
 			if kDeep {
 				m.handleKDeepDel(stakingTxHash)
 			} else {
-				if _, exists := m.activationTracker[stakingTxHash]; exists {
-					delete(m.activationTracker, stakingTxHash)
-				}
+				delete(m.activationTracker, stakingTxHash)
 			}
 			m.mu.Unlock()
 
