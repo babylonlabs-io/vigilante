@@ -6,6 +6,7 @@ import (
 	"math"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/babylonlabs-io/vigilante/version"
 
@@ -52,6 +53,9 @@ type Monitor struct {
 	wg      sync.WaitGroup
 	started *atomic.Bool
 	quit    chan struct{}
+
+	activationMonitor *ActivationUnbondingMonitor
+	activationMetrics *metrics.ActivationUnbondingMonitorMetrics
 }
 
 func New(
@@ -63,6 +67,7 @@ func New(
 	btcClient btcclient.BTCClient,
 	btcNotifier notifier.ChainNotifier,
 	monitorMetrics *metrics.MonitorMetrics,
+	babylonClient BabylonAdaptorClient,
 	db kvdb.Backend,
 ) (*Monitor, error) {
 	ms, err := store.NewMonitorStore(db)
@@ -70,7 +75,17 @@ func New(
 		return nil, fmt.Errorf("error setting up store: %w", err)
 	}
 
+	activationMetrics := metrics.NewActivationUnbondingMonitorMetrics()
 	logger := parentLogger.With(zap.String("module", "monitor"))
+
+	activationMonitor := NewActivationUnbondingMonitor(
+		babylonClient,
+		btcClient,
+		cfg,
+		logger,
+		activationMetrics,
+	)
+
 	// create BTC scanner
 	checkpointTagBytes, err := hex.DecodeString(genesisInfo.GetCheckpointTag())
 	if err != nil {
@@ -106,6 +121,8 @@ func New(
 		metrics:             monitorMetrics,
 		quit:                make(chan struct{}),
 		started:             atomic.NewBool(false),
+		activationMonitor:   activationMonitor,
+		activationMetrics:   activationMetrics,
 	}, nil
 }
 
@@ -193,6 +210,23 @@ func (m *Monitor) Start(baseHeight uint32) {
 func (m *Monitor) runBTCScanner(startHeight uint32) {
 	m.BTCScanner.Start(startHeight)
 	m.wg.Done()
+}
+
+func (m *Monitor) runActivationUnbondingMonitor() {
+	defer m.wg.Done()
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			if err := m.activationMonitor.CheckActivationTiming(); err != nil {
+				m.logger.Errorf("Error checking activation timing: %v", err)
+			}
+		case <-m.quit:
+			return
+		}
+	}
 }
 
 func (m *Monitor) handleNewConfirmedHeader(block *types.IndexedBlock) error {
