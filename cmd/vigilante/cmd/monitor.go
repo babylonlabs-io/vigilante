@@ -12,6 +12,7 @@ import (
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/monitor"
 	"github.com/babylonlabs-io/vigilante/types"
+	bbnclient "github.com/babylonlabs-io/babylon/v3/client/client"
 )
 
 const (
@@ -83,6 +84,13 @@ func GetMonitorCmd() *cobra.Command {
 				panic(err)
 			}
 
+			babylonClient, err := bbnclient.New(&cfg.Babylon, nil)
+			if err != nil {
+				panic(fmt.Errorf("failed to create babylon client: %w", err))
+			}
+
+			babylonAdaptorClient := monitor.NewBabylonAdaptorClientAdapter(babylonClient, &cfg.BTCStakingTracker)
+
 			// create monitor
 			vigilanteMonitor, err = monitor.New(
 				&cfg.Monitor,
@@ -93,6 +101,7 @@ func GetMonitorCmd() *cobra.Command {
 				btcClient,
 				btcNotifier,
 				monitorMetrics,
+				babylonAdaptorClient,
 				dbBackend,
 			)
 			if err != nil {
