@@ -1,6 +1,9 @@
 package monitor
 
 import (
+	"context"
+	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 	"sync"
 	"time"
 
@@ -23,7 +26,7 @@ type ActivationTracking struct {
 type ActivationUnbondingMonitor struct {
 	babylonClient     BabylonAdaptorClient
 	btcClient         btcclient.BTCClient
-	Cfg               *config.MonitorConfig
+	cfg               *config.MonitorConfig
 	activationTracker map[chainhash.Hash]*ActivationTracking
 	logger            *zap.SugaredLogger
 	mu                sync.RWMutex
@@ -33,7 +36,7 @@ func NewActivationUnbondingMonitor(babylonClient BabylonAdaptorClient, btcClient
 	return &ActivationUnbondingMonitor{
 		babylonClient:     babylonClient,
 		btcClient:         btcClient,
-		Cfg:               cfg,
+		cfg:               cfg,
 		activationTracker: make(map[chainhash.Hash]*ActivationTracking),
 		logger:            logger,
 	}
@@ -119,7 +122,10 @@ func (m *ActivationUnbondingMonitor) CheckActivationTiming() error {
 			return err
 		}
 
-		m.processDelegations(batch)
+		err = m.processDelegations(batch)
+		if err != nil {
+			return err
+		}
 
 		if nextCursor == nil {
 			break
@@ -136,7 +142,7 @@ func (m *ActivationUnbondingMonitor) handleKDeepDel(stakingTxHash chainhash.Hash
 	if tracker, exists := m.activationTracker[stakingTxHash]; exists {
 		// need to now start the timing
 		timeSinceKDeep := time.Since(tracker.KDeepAt)
-		activationTimeout := time.Duration(m.Cfg.ActivationTimeoutMinutes) * time.Minute
+		activationTimeout := time.Duration(m.cfg.ActivationTimeoutMinutes) * time.Minute
 
 		if timeSinceKDeep > activationTimeout && !tracker.HasAlerted {
 			// to do: trigger alert
@@ -154,35 +160,40 @@ func (m *ActivationUnbondingMonitor) handleKDeepDel(stakingTxHash chainhash.Hash
 	}
 }
 
-func (m *ActivationUnbondingMonitor) processDelegations(verifiedDels []Delegation) {
-	var wg sync.WaitGroup
-	limiter := make(chan struct{}, 50)
+func (m *ActivationUnbondingMonitor) processDelegations(verifiedDels []Delegation) error {
+	var wg errgroup.Group
+	sem := semaphore.NewWeighted(1000)
+
 	for _, verifiedDel := range verifiedDels {
-		wg.Add(1)
-		limiter <- struct{}{}
-		go func(del Delegation) {
-			defer wg.Done()
-			defer func() { <-limiter }()
+		del := verifiedDel
+		wg.Go(func() error {
+			if err := sem.Acquire(context.Background(), 1); err != nil {
+				return err
+			}
+			defer sem.Release(1)
 
 			stakingTxHash := del.StakingTx.TxHash()
 			kDeep, err := m.CheckKDeepConfirmation(&del)
 			if err != nil {
 				m.logger.Warnf("Error checking K-deep for %s: %v", stakingTxHash, err)
-
-				return
+				return err
 			}
 
 			m.mu.Lock()
 			if kDeep {
 				m.handleKDeepDel(stakingTxHash)
 			} else {
-				delete(m.activationTracker, stakingTxHash)
+				if _, exists := m.activationTracker[stakingTxHash]; exists {
+					delete(m.activationTracker, stakingTxHash)
+				}
 			}
 			m.mu.Unlock()
-		}(verifiedDel)
+
+			return nil
+		})
 	}
 
-	wg.Wait()
+	return wg.Wait()
 }
 
 func (m *ActivationUnbondingMonitor) cleanupTrackedDelegations() {
