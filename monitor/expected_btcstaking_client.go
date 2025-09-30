@@ -27,10 +27,10 @@ type BabylonAdaptorClient interface {
 
 type BabylonAdaptorClientAdapter struct {
 	babylonClient *bbnclient.Client
-	cfg           *config.BTCStakingTrackerConfig
+	cfg           *config.MonitorConfig
 }
 
-func NewBabylonAdaptorClientAdapter(babylonClient *bbnclient.Client, cfg *config.BTCStakingTrackerConfig) *BabylonAdaptorClientAdapter {
+func NewBabylonAdaptorClientAdapter(babylonClient *bbnclient.Client, cfg *config.MonitorConfig) *BabylonAdaptorClientAdapter {
 	return &BabylonAdaptorClientAdapter{
 		babylonClient: babylonClient,
 		cfg:           cfg,

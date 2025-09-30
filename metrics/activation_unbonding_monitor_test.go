@@ -8,6 +8,7 @@ import (
 )
 
 func TestActivationUnbonding(t *testing.T) {
+	t.Parallel()
 	metrics := NewActivationUnbondingMonitorMetrics()
 
 	// 0 from point of initialisation

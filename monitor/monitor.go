@@ -3,12 +3,10 @@ package monitor
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/babylonlabs-io/vigilante/version"
 	"math"
 	"sort"
 	"sync"
-	"time"
-
-	"github.com/babylonlabs-io/vigilante/version"
 
 	"github.com/babylonlabs-io/vigilante/monitor/store"
 	notifier "github.com/lightningnetwork/lnd/chainntnfs"
@@ -210,23 +208,6 @@ func (m *Monitor) Start(baseHeight uint32) {
 func (m *Monitor) runBTCScanner(startHeight uint32) {
 	m.BTCScanner.Start(startHeight)
 	m.wg.Done()
-}
-
-func (m *Monitor) runActivationUnbondingMonitor() {
-	defer m.wg.Done()
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			if err := m.activationMonitor.CheckActivationTiming(); err != nil {
-				m.logger.Errorf("Error checking activation timing: %v", err)
-			}
-		case <-m.quit:
-			return
-		}
-	}
 }
 
 func (m *Monitor) handleNewConfirmedHeader(block *types.IndexedBlock) error {
