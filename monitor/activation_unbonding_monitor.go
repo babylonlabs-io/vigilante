@@ -37,7 +37,7 @@ type ActivationUnbondingMonitor struct {
 func NewActivationUnbondingMonitor(babylonClient BabylonAdaptorClient,
 	btcClient btcclient.BTCClient, cfg *config.MonitorConfig,
 	logger *zap.Logger, monitorMetrics *metrics.
-ActivationUnbondingMonitorMetrics) *ActivationUnbondingMonitor {
+		ActivationUnbondingMonitorMetrics) *ActivationUnbondingMonitor {
 	return &ActivationUnbondingMonitor{
 		babylonClient:     babylonClient,
 		btcClient:         btcClient,
@@ -150,7 +150,7 @@ func (m *ActivationUnbondingMonitor) handleKDeepDel(stakingTxHash chainhash.Hash
 		activationTimeout := time.Duration(m.cfg.ActivationTimeoutMinutes) * time.Minute
 
 		if timeSinceKDeep > activationTimeout && !tracker.HasAlerted {
-			//to do: trigger alert
+			// to do: trigger alert
 			tracker.HasAlerted = true
 		}
 
@@ -205,6 +205,7 @@ func (m *ActivationUnbondingMonitor) cleanupTrackedDelegations() {
 		del, err := m.GetDelegationByHash(hash.String())
 		if err != nil {
 			m.logger.Warn("Error getting delegation", zap.String("hash", hash.String()), zap.Error(err))
+
 			continue
 		}
 
