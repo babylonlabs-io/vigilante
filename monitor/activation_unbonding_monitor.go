@@ -10,6 +10,7 @@ import (
 	"github.com/avast/retry-go/v4"
 	btcstakingtypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
+	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/stakingeventwatcher"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
@@ -24,11 +25,20 @@ type ActivationTracking struct {
 	HasAlerted  bool
 }
 
+type UnbondingTracking struct {
+	StakingHash      chainhash.Hash
+	SpendingDetected time.Time
+	LastChecked      time.Time
+	HasAlerted       bool
+}
+
 type ActivationUnbondingMonitor struct {
 	babylonClient     BabylonAdaptorClient
 	btcClient         btcclient.BTCClient
 	cfg               *config.MonitorConfig
+	indexer           stakingeventwatcher.SpendChecker
 	activationTracker map[chainhash.Hash]*ActivationTracking
+	unbondingTracker  map[chainhash.Hash]*UnbondingTracking
 	logger            *zap.Logger
 	mu                sync.RWMutex
 	metrics           *metrics.ActivationUnbondingMonitorMetrics
@@ -37,14 +47,18 @@ type ActivationUnbondingMonitor struct {
 }
 
 func NewActivationUnbondingMonitor(babylonClient BabylonAdaptorClient,
-	btcClient btcclient.BTCClient, cfg *config.MonitorConfig,
+	btcClient btcclient.BTCClient,
+	indexer stakingeventwatcher.SpendChecker,
+	cfg *config.MonitorConfig,
 	logger *zap.Logger, monitorMetrics *metrics.
-ActivationUnbondingMonitorMetrics) *ActivationUnbondingMonitor {
+		ActivationUnbondingMonitorMetrics) *ActivationUnbondingMonitor {
 	return &ActivationUnbondingMonitor{
 		babylonClient:     babylonClient,
 		btcClient:         btcClient,
 		cfg:               cfg,
+		indexer:           indexer,
 		activationTracker: make(map[chainhash.Hash]*ActivationTracking),
+		unbondingTracker:  make(map[chainhash.Hash]*UnbondingTracking),
 		logger:            logger,
 		metrics:           monitorMetrics,
 		quit:              make(chan struct{}),
@@ -260,4 +274,137 @@ func (m *ActivationUnbondingMonitor) cleanupTrackedDelegations() {
 			m.metrics.TrackedActivationGauge.Add(-1)
 		}
 	}
+}
+
+func (m *ActivationUnbondingMonitor) CheckUnbondingTiming() error {
+	cursor := []byte(nil)
+	batchSize := uint64(1000)
+
+	for {
+		delegations, nextCursor, err := m.babylonClient.DelegationsByStatus(
+			btcstakingtypes.BTCDelegationStatus_ANY,
+			cursor,
+			batchSize,
+		)
+		if err != nil {
+			return err
+		}
+
+		var unbondingCandidates []Delegation
+		for _, delegation := range delegations {
+			if delegation.Status == btcstakingtypes.BTCDelegationStatus_ACTIVE.String() ||
+				delegation.Status == btcstakingtypes.BTCDelegationStatus_VERIFIED.String() {
+				unbondingCandidates = append(unbondingCandidates, delegation)
+			}
+		}
+
+		if err := m.processUnbondingDels(unbondingCandidates); err != nil {
+			return err
+		}
+
+		if nextCursor == nil {
+			break
+		}
+		cursor = nextCursor
+	}
+
+	m.mu.Lock()
+	m.cleanupUnbondingTracker()
+	m.mu.Unlock()
+
+	return nil
+}
+
+func (m *ActivationUnbondingMonitor) processUnbondingDels(delegations []Delegation) error {
+	var wg errgroup.Group
+	sem := semaphore.NewWeighted(1000)
+
+	for _, delegation := range delegations {
+		del := delegation
+		wg.Go(func() error {
+			if err := sem.Acquire(context.Background(), 1); err != nil {
+				return err
+			}
+			defer sem.Release(1)
+
+			stakingHash := del.StakingTx.TxHash()
+
+			isSpent, err := m.checkIfSpent(&del)
+			if err != nil {
+				m.logger.Warn("error whilst checking spent",
+					zap.String("stakingHash", stakingHash.String()),
+					zap.Error(err))
+				return nil
+			}
+
+			m.mu.Lock()
+			if isSpent {
+				m.handleSpentDelegation(stakingHash)
+			}
+			m.mu.Unlock()
+
+			return nil
+		})
+	}
+
+	return wg.Wait()
+}
+
+func (m *ActivationUnbondingMonitor) checkIfSpent(del *Delegation) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	response, err := m.indexer.GetOutspend(ctx, del.StakingTx.TxHash().String(), del.StakingOutputIdx)
+	if err != nil {
+		return false, err
+	}
+
+	return response.Spent, nil
+}
+
+func (m *ActivationUnbondingMonitor) handleSpentDelegation(stakingHash chainhash.Hash) {
+	if tracker, exists := m.unbondingTracker[stakingHash]; exists {
+		timeSinceSpending := time.Since(tracker.SpendingDetected)
+
+		if timeSinceSpending > 1*time.Hour && !tracker.HasAlerted {
+			m.logger.Warn("delegation has been spent",
+				zap.String("stakingHash", stakingHash.String()),
+				zap.Duration("timeSinceSpending", timeSinceSpending))
+			m.metrics.UnbondingTimeoutsCounter.Inc()
+			tracker.HasAlerted = true
+		}
+		tracker.LastChecked = time.Now()
+	} else {
+		m.unbondingTracker[stakingHash] = &UnbondingTracking{
+			StakingHash:      stakingHash,
+			SpendingDetected: time.Now(),
+			LastChecked:      time.Now(),
+			HasAlerted:       false,
+		}
+		m.logger.Info("Started tracking unbonding",
+			zap.String("stakingHash", stakingHash.String()))
+	}
+}
+
+func (m *ActivationUnbondingMonitor) cleanupUnbondingTracker() {
+	for hash, tracker := range m.unbondingTracker {
+		del, err := m.GetDelegationByHash(hash.String())
+		if err != nil {
+			m.logger.Warn("Error getting delegation",
+				zap.String("hash", hash.String()),
+				zap.Error(err))
+			continue
+		}
+
+		if del.Status == btcstakingtypes.BTCDelegationStatus_UNBONDED.String() {
+			timeTaken := time.Since(tracker.SpendingDetected)
+			m.logger.Info("Unbonding completed",
+				zap.String("hash", hash.String()),
+				zap.Duration("timeTaken", timeTaken))
+			m.metrics.UnbondingDelayHistogram.Observe(timeTaken.Seconds()) // Add here
+			delete(m.unbondingTracker, hash)
+		}
+	}
+
+	m.metrics.TrackedUnbondingGauge.Set(float64(len(m.unbondingTracker)))
 }
