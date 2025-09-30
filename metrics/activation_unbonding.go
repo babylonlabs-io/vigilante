@@ -9,7 +9,7 @@ type ActivationUnbondingMonitorMetrics struct {
 	Registry                  *prometheus.Registry
 	ActivationDelayHistogram  prometheus.Histogram
 	ActivationTimeoutsCounter prometheus.Counter
-	TrackedActivationGauge    prometheus.Counter
+	TrackedActivationGauge    prometheus.Gauge
 }
 
 func NewActivationUnbondingMonitorMetrics() *ActivationUnbondingMonitorMetrics {
