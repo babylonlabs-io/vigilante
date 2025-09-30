@@ -13,6 +13,7 @@ const (
 	defaultMaxLiveBtcHeights            = 100
 	defaultActivationTimeoutSeconds     = 1800
 	defaultTimingCheckIntervalSeconds   = 30
+	defaultUnbondingTimeoutMinutes      = 60
 )
 
 // MonitorConfig defines the Monitor's basic configuration
@@ -33,6 +34,8 @@ type MonitorConfig struct {
 	EnableLivenessChecker bool `mapstructure:"enable-liveness-checker"`
 	// timeout in seconds for delegation activation after K-deep confirmation
 	ActivationTimeoutSeconds int64 `mapstructure:"activation-timeout-seconds"`
+	// timeout in minutes for unbonding detection after spending
+	UnbondingTimeoutMinutes uint64 `mapstructure:"unbonding-timeout-minutes"`
 	// DatabaseConfig stores lates epoch and height used for faster bootstrap
 	DatabaseConfig *DBConfig `mapstructure:"dbconfig"`
 	// how frequently the monitor runs CheckActivationTiming()
@@ -64,6 +67,7 @@ func DefaultMonitorConfig() MonitorConfig {
 		EnableLivenessChecker:        true,
 		ActivationTimeoutSeconds:     defaultActivationTimeoutSeconds,
 		TimingCheckIntervalSeconds:   defaultTimingCheckIntervalSeconds,
+		UnbondingTimeoutMinutes:      defaultUnbondingTimeoutMinutes,
 		DatabaseConfig:               DefaultDBConfig(),
 	}
 }
