@@ -150,7 +150,11 @@ func (m *ActivationUnbondingMonitor) handleKDeepDel(stakingTxHash chainhash.Hash
 		activationTimeout := time.Duration(m.cfg.ActivationTimeoutMinutes) * time.Minute
 
 		if timeSinceKDeep > activationTimeout && !tracker.HasAlerted {
-			// to do: trigger alert
+			m.logger.Error("Delegation activation timeout detected",
+				zap.String("delegationID", stakingTxHash.String()),
+				zap.Duration("timeSinceKDeep", timeSinceKDeep),
+				zap.Duration("timeout", activationTimeout))
+			m.metrics.ActivationTimeoutsCounter.WithLabelValues(stakingTxHash.String()).Inc()
 			tracker.HasAlerted = true
 		}
 
@@ -162,6 +166,7 @@ func (m *ActivationUnbondingMonitor) handleKDeepDel(stakingTxHash chainhash.Hash
 			LastChecked: time.Now(),
 			HasAlerted:  false,
 		}
+		m.metrics.TrackedActivationGauge.Inc()
 	}
 }
 

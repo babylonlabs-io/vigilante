@@ -30,9 +30,10 @@ type ActivationMonitorTestSuite struct {
 	logger            *zap.Logger
 }
 
-func NewActivationMonitorTestSuite(t *testing.T) *ActivationMonitorTestSuite {
+func NewActivationMonitorTestSuite(t *testing.T, timeoutMinutes int64) *ActivationMonitorTestSuite {
 	ctl := gomock.NewController(t)
 	cfg := config.DefaultMonitorConfig()
+	cfg.ActivationTimeoutMinutes = timeoutMinutes
 	mockBClient := NewMockBabylonAdaptorClient(ctl)
 	mockBtcClient := mocks.NewMockBTCClient(ctl)
 	logger := zap.NewNop()
@@ -74,8 +75,12 @@ func (s *ActivationMonitorTestSuite) CreateDelegations(count int,
 		})
 	}
 
-	s.mockBClient.EXPECT().DelegationsByStatus(gomock.Any(), gomock.Any(), gomock.Any()).Return(dels, nil, nil).AnyTimes()
-	s.mockBClient.EXPECT().BTCDelegation(gomock.Any()).Return(&dels[0], nil).AnyTimes()
+	for _, del := range dels {
+		s.mockBClient.EXPECT().DelegationsByStatus(gomock.Any(), gomock.Any(), gomock.Any()).Return(dels, nil, nil).AnyTimes()
+		s.mockBClient.EXPECT().BTCDelegation(gomock.Any()).Return(&del,
+			nil).AnyTimes()
+	}
+
 	s.mockBTCClient.EXPECT().TxDetails(gomock.Any(), gomock.Any()).Return(
 		&chainntnfs.TxConfirmation{
 			BlockHeight: 850000,
@@ -94,13 +99,13 @@ func (s *ActivationMonitorTestSuite) CreateDelegations(count int,
 
 func TestActivationFlow(t *testing.T) {
 	t.Parallel()
-	s := NewActivationMonitorTestSuite(t)
+	s := NewActivationMonitorTestSuite(t, 30)
 	defer s.TearDown()
 
 	_ = s.CreateDelegations(5, btcstakingtypes.BTCDelegationStatus_ACTIVE)
 
 	// 0 from point of initialisation
-	require.Equal(t, 0.0, promtestutil.ToFloat64(s.metrics.ActivationTimeoutsCounter))
+	require.Equal(t, 0, promtestutil.CollectAndCount(s.metrics.ActivationTimeoutsCounter))
 	require.Equal(t, 0.0, promtestutil.ToFloat64(s.metrics.TrackedActivationGauge))
 	metric := &dto.Metric{}
 	err := s.metrics.ActivationDelayHistogram.Write(metric)
@@ -121,20 +126,20 @@ func TestActivationFlow(t *testing.T) {
 
 	// should be 5 for the 5 delegations
 	require.Equal(t, uint64(5), hist2.GetSampleCount())
-	require.Equal(t, -5.0, promtestutil.ToFloat64(s.metrics.TrackedActivationGauge))
 	// should not be changed
-	require.Equal(t, 0.0, promtestutil.ToFloat64(s.metrics.ActivationTimeoutsCounter))
+	require.Equal(t, 0.0, promtestutil.ToFloat64(s.metrics.TrackedActivationGauge))
+	require.Equal(t, 0, promtestutil.CollectAndCount(s.metrics.ActivationTimeoutsCounter))
 }
 
 func TestVerifiedFlow(t *testing.T) {
 	t.Parallel()
-	s := NewActivationMonitorTestSuite(t)
+	s := NewActivationMonitorTestSuite(t, 30)
 	defer s.TearDown()
 
 	_ = s.CreateDelegations(5, btcstakingtypes.BTCDelegationStatus_VERIFIED)
 
 	// 0 from point of initialisation
-	require.Equal(t, 0.0, promtestutil.ToFloat64(s.metrics.ActivationTimeoutsCounter))
+	require.Equal(t, 0, promtestutil.CollectAndCount(s.metrics.ActivationTimeoutsCounter))
 	require.Equal(t, 0.0, promtestutil.ToFloat64(s.metrics.TrackedActivationGauge))
 	metric := &dto.Metric{}
 	err := s.metrics.ActivationDelayHistogram.Write(metric)
@@ -153,10 +158,29 @@ func TestVerifiedFlow(t *testing.T) {
 	require.NoError(t, err)
 	hist2 := metric2.GetHistogram()
 
-	// should not be changed as no active
 	require.Equal(t, uint64(0), hist2.GetSampleCount())
-	require.Equal(t, 0.0, promtestutil.ToFloat64(s.metrics.TrackedActivationGauge))
-	require.Equal(t, 0.0, promtestutil.ToFloat64(s.metrics.ActivationTimeoutsCounter))
+	require.Equal(t, 5.0, promtestutil.ToFloat64(s.metrics.TrackedActivationGauge))
+	require.Equal(t, 0, promtestutil.CollectAndCount(s.metrics.ActivationTimeoutsCounter))
+}
+
+func TestActivationTimeout(t *testing.T) {
+	t.Parallel()
+	s := NewActivationMonitorTestSuite(t, 1)
+	defer s.TearDown()
+
+	_ = s.CreateDelegations(5, btcstakingtypes.BTCDelegationStatus_VERIFIED)
+
+	err := s.activationMonitor.CheckActivationTiming()
+	require.NoError(t, err)
+
+	for _, tracker := range s.activationMonitor.activationTracker {
+		tracker.KDeepAt = time.Now().Add(-2 * time.Minute)
+	}
+
+	err = s.activationMonitor.CheckActivationTiming()
+	require.NoError(t, err)
+
+	require.Equal(t, 5, promtestutil.CollectAndCount(s.metrics.ActivationTimeoutsCounter))
 }
 
 func (s *ActivationMonitorTestSuite) TearDown() {
