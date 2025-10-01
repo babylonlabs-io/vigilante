@@ -94,6 +94,7 @@ func (s *ActivationMonitorTestSuite) CreateDelegations(count int,
 }
 
 func TestActivationFlow(t *testing.T) {
+	t.Parallel()
 	s := NewActivationMonitorTestSuite(t)
 	defer s.TearDown()
 
@@ -113,7 +114,7 @@ func TestActivationFlow(t *testing.T) {
 	err = s.activationMonitor.CheckActivationTiming()
 	require.NoError(t, err)
 
-	//refresh hist
+	// refresh hist
 	metric2 := &dto.Metric{}
 	err = s.metrics.ActivationDelayHistogram.Write(metric2)
 	require.NoError(t, err)
@@ -127,6 +128,7 @@ func TestActivationFlow(t *testing.T) {
 }
 
 func TestVerifiedFlow(t *testing.T) {
+	t.Parallel()
 	s := NewActivationMonitorTestSuite(t)
 	defer s.TearDown()
 
