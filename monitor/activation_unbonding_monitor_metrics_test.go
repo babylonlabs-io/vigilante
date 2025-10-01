@@ -30,10 +30,10 @@ type ActivationMonitorTestSuite struct {
 	logger            *zap.Logger
 }
 
-func NewActivationMonitorTestSuite(t *testing.T, timeoutMinutes int64) *ActivationMonitorTestSuite {
+func NewActivationMonitorTestSuite(t *testing.T, timeoutSeconds int64) *ActivationMonitorTestSuite {
 	ctl := gomock.NewController(t)
 	cfg := config.DefaultMonitorConfig()
-	cfg.ActivationTimeoutMinutes = timeoutMinutes
+	cfg.ActivationTimeoutSeconds = timeoutSeconds
 	mockBClient := NewMockBabylonAdaptorClient(ctl)
 	mockBtcClient := mocks.NewMockBTCClient(ctl)
 	logger := zap.NewNop()
@@ -59,8 +59,7 @@ func NewActivationMonitorTestSuite(t *testing.T, timeoutMinutes int64) *Activati
 	}
 }
 
-func (s *ActivationMonitorTestSuite) CreateDelegations(count int,
-	status btcstakingtypes.BTCDelegationStatus) []Delegation {
+func (s *ActivationMonitorTestSuite) CreateDelegations(count int, status btcstakingtypes.BTCDelegationStatus, delay time.Duration) []Delegation {
 	r := rand.New(rand.NewSource(time.Now().Unix()))
 	dels := make([]Delegation, 0, count)
 	for i := 0; i < count; i++ {
@@ -73,14 +72,20 @@ func (s *ActivationMonitorTestSuite) CreateDelegations(count int,
 			HasProof:              false,
 			Status:                status.String(),
 		})
+
+		if delay > 0 {
+			s.mockBClient.EXPECT().BTCDelegation(gomock.Any()).DoAndReturn(
+				func(stakingTxHash string) (*Delegation, error) {
+					time.Sleep(delay)
+					return &dels[i], nil
+				},
+			).AnyTimes()
+		} else {
+			s.mockBClient.EXPECT().BTCDelegation(gomock.Any()).Return(&dels[i], nil).AnyTimes()
+		}
 	}
 
-	for _, del := range dels {
-		s.mockBClient.EXPECT().DelegationsByStatus(gomock.Any(), gomock.Any(), gomock.Any()).Return(dels, nil, nil).AnyTimes()
-		s.mockBClient.EXPECT().BTCDelegation(gomock.Any()).Return(&del,
-			nil).AnyTimes()
-	}
-
+	s.mockBClient.EXPECT().DelegationsByStatus(gomock.Any(), gomock.Any(), gomock.Any()).Return(dels, nil, nil).AnyTimes()
 	s.mockBTCClient.EXPECT().TxDetails(gomock.Any(), gomock.Any()).Return(
 		&chainntnfs.TxConfirmation{
 			BlockHeight: 850000,
@@ -102,7 +107,7 @@ func TestActivationFlow(t *testing.T) {
 	s := NewActivationMonitorTestSuite(t, 30)
 	defer s.TearDown()
 
-	_ = s.CreateDelegations(5, btcstakingtypes.BTCDelegationStatus_ACTIVE)
+	_ = s.CreateDelegations(5, btcstakingtypes.BTCDelegationStatus_ACTIVE, 0)
 
 	// 0 from point of initialisation
 	require.Equal(t, 0, promtestutil.CollectAndCount(s.metrics.ActivationTimeoutsCounter))
@@ -136,7 +141,7 @@ func TestVerifiedFlow(t *testing.T) {
 	s := NewActivationMonitorTestSuite(t, 30)
 	defer s.TearDown()
 
-	_ = s.CreateDelegations(5, btcstakingtypes.BTCDelegationStatus_VERIFIED)
+	_ = s.CreateDelegations(5, btcstakingtypes.BTCDelegationStatus_VERIFIED, 0)
 
 	// 0 from point of initialisation
 	require.Equal(t, 0, promtestutil.CollectAndCount(s.metrics.ActivationTimeoutsCounter))
@@ -163,19 +168,42 @@ func TestVerifiedFlow(t *testing.T) {
 	require.Equal(t, 0, promtestutil.CollectAndCount(s.metrics.ActivationTimeoutsCounter))
 }
 
+func TestVerifiedThenActivated(t *testing.T) {
+	t.Parallel()
+	s := NewActivationMonitorTestSuite(t, 30)
+	defer s.TearDown()
+
+	dels := s.CreateDelegations(5, btcstakingtypes.BTCDelegationStatus_VERIFIED, 0)
+	err := s.activationMonitor.CheckActivationTiming()
+	require.NoError(t, err)
+	require.Equal(t, 5.0, promtestutil.ToFloat64(s.metrics.TrackedActivationGauge))
+
+	for i := range dels {
+		dels[i].Status = btcstakingtypes.BTCDelegationStatus_ACTIVE.String()
+	}
+	err = s.activationMonitor.CheckActivationTiming()
+	require.NoError(t, err)
+	require.Equal(t, 0.0, promtestutil.ToFloat64(s.metrics.TrackedActivationGauge))
+	require.Equal(t, 0, promtestutil.CollectAndCount(s.metrics.ActivationTimeoutsCounter))
+
+	metric := &dto.Metric{}
+	err = s.metrics.ActivationDelayHistogram.Write(metric)
+	require.NoError(t, err)
+	hist := metric.GetHistogram()
+	require.Equal(t, uint64(5), hist.GetSampleCount())
+}
+
 func TestActivationTimeout(t *testing.T) {
 	t.Parallel()
 	s := NewActivationMonitorTestSuite(t, 1)
 	defer s.TearDown()
 
-	_ = s.CreateDelegations(5, btcstakingtypes.BTCDelegationStatus_VERIFIED)
+	_ = s.CreateDelegations(5, btcstakingtypes.BTCDelegationStatus_VERIFIED, 0)
 
 	err := s.activationMonitor.CheckActivationTiming()
 	require.NoError(t, err)
 
-	for _, tracker := range s.activationMonitor.activationTracker {
-		tracker.KDeepAt = time.Now().Add(-2 * time.Minute)
-	}
+	time.Sleep(2 * time.Second)
 
 	err = s.activationMonitor.CheckActivationTiming()
 	require.NoError(t, err)
