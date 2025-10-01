@@ -11,7 +11,7 @@ const (
 	defaultBtcConfirmationDepth         = 6
 	defaultLivenessCheckIntervalSeconds = 10
 	defaultMaxLiveBtcHeights            = 100
-	defaultActivationTimeoutMinutes     = 30
+	defaultActivationTimeoutSeconds     = 1800
 )
 
 // MonitorConfig defines the Monitor's basic configuration
@@ -30,8 +30,8 @@ type MonitorConfig struct {
 	BtcConfirmationDepth uint32 `mapstructure:"btc-confirmation-depth"`
 	// whether to enable liveness checker
 	EnableLivenessChecker bool `mapstructure:"enable-liveness-checker"`
-	// timeout in minutes for delegation activation after K-deep confirmation
-	ActivationTimeoutMinutes int64 `mapstructure:"activation-timeout-minutes"`
+	// timeout in seconds for delegation activation after K-deep confirmation
+	ActivationTimeoutSeconds int64 `mapstructure:"activation-timeout-minutes"`
 	// DatabaseConfig stores lates epoch and height used for faster bootstrap
 	DatabaseConfig *DBConfig `mapstructure:"dbconfig"`
 }
@@ -59,7 +59,7 @@ func DefaultMonitorConfig() MonitorConfig {
 		BtcConfirmationDepth:         defaultBtcConfirmationDepth,
 		MaxLiveBtcHeights:            defaultMaxLiveBtcHeights,
 		EnableLivenessChecker:        true,
-		ActivationTimeoutMinutes:     defaultActivationTimeoutMinutes,
+		ActivationTimeoutSeconds:     defaultActivationTimeoutSeconds,
 		DatabaseConfig:               DefaultDBConfig(),
 	}
 }
