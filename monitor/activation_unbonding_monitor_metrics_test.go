@@ -31,7 +31,6 @@ type ActivationMonitorTestSuite struct {
 }
 
 func NewActivationMonitorTestSuite(t *testing.T) *ActivationMonitorTestSuite {
-	t.Parallel()
 	ctl := gomock.NewController(t)
 	cfg := config.DefaultMonitorConfig()
 	mockBClient := NewMockBabylonAdaptorClient(ctl)
@@ -148,7 +147,7 @@ func TestVerifiedFlow(t *testing.T) {
 	err = s.activationMonitor.CheckActivationTiming()
 	require.NoError(t, err)
 
-	//refresh hist
+	// refresh hist
 	metric2 := &dto.Metric{}
 	err = s.metrics.ActivationDelayHistogram.Write(metric2)
 	require.NoError(t, err)
