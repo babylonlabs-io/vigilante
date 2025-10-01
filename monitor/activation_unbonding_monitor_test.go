@@ -44,9 +44,7 @@ func TestActivationUnbondingMonitor(t *testing.T) {
 		})
 	}
 
-	mockClient.EXPECT().DelegationsByStatus(gomock.Any(), gomock.Any(),
-		gomock.Any()).Return(delegations, nil, nil).AnyTimes()
-
+	mockClient.EXPECT().DelegationsByStatus(gomock.Any(), gomock.Any(), gomock.Any()).Return(delegations, nil, nil).AnyTimes()
 	mockClient.EXPECT().BTCDelegation(gomock.Any()).Return(&delegations[0], nil).AnyTimes()
 	mockBtcClient.EXPECT().TxDetails(gomock.Any(), gomock.Any()).Return(
 		&chainntnfs.TxConfirmation{

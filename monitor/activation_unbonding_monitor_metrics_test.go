@@ -75,8 +75,9 @@ func (s *ActivationMonitorTestSuite) CreateDelegations(count int, status btcstak
 
 		if delay > 0 {
 			s.mockBClient.EXPECT().BTCDelegation(gomock.Any()).DoAndReturn(
-				func(stakingTxHash string) (*Delegation, error) {
+				func(_ string) (*Delegation, error) {
 					time.Sleep(delay)
+
 					return &dels[i], nil
 				},
 			).AnyTimes()
