@@ -4,6 +4,8 @@ import (
 	"github.com/babylonlabs-io/babylon/v3/testutil/datagen"
 	btcstakingtypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
+	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/indexer"
+	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/stakingeventwatcher"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/testutil/mocks"
@@ -24,6 +26,7 @@ type ActivationMonitorTestSuite struct {
 	ctrl              *gomock.Controller
 	mockBClient       *MockBabylonAdaptorClient
 	mockBTCClient     *mocks.MockBTCClient
+	mockIndexer       *stakingeventwatcher.MockSpendChecker
 	activationMonitor *ActivationUnbondingMonitor
 	metrics           *metrics.ActivationUnbondingMonitorMetrics
 	cfg               config.MonitorConfig
@@ -36,12 +39,14 @@ func NewActivationMonitorTestSuite(t *testing.T, timeoutSeconds int64) *Activati
 	cfg.ActivationTimeoutSeconds = timeoutSeconds
 	mockBClient := NewMockBabylonAdaptorClient(ctl)
 	mockBtcClient := mocks.NewMockBTCClient(ctl)
+	mockIndexer := stakingeventwatcher.NewMockSpendChecker(ctl)
 	logger := zap.NewNop()
 	activationMetrics := metrics.NewActivationUnbondingMonitorMetrics()
 
 	activationMonitor := NewActivationUnbondingMonitor(
 		mockBClient,
 		mockBtcClient,
+		mockIndexer,
 		&cfg,
 		logger,
 		activationMetrics,
@@ -52,6 +57,7 @@ func NewActivationMonitorTestSuite(t *testing.T, timeoutSeconds int64) *Activati
 		ctrl:              ctl,
 		mockBClient:       mockBClient,
 		mockBTCClient:     mockBtcClient,
+		mockIndexer:       mockIndexer,
 		activationMonitor: activationMonitor,
 		metrics:           activationMetrics,
 		cfg:               cfg,
@@ -210,6 +216,43 @@ func TestActivationTimeout(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, 5, promtestutil.CollectAndCount(s.metrics.ActivationTimeoutsCounter))
+}
+
+func TestUnbondingTimeout(t *testing.T) {
+	t.Parallel()
+	s := NewActivationMonitorTestSuite(t, 30)
+	defer s.TearDown()
+	//short intentionally as to not wait for 60 mins activation
+	s.cfg.UnbondingTimeoutMinutes = 0
+	s.activationMonitor.cfg.UnbondingTimeoutMinutes = 0
+
+	dels := s.CreateDelegations(5, btcstakingtypes.BTCDelegationStatus_ACTIVE, 0)
+
+	for _, del := range dels {
+		s.mockIndexer.EXPECT().GetOutspend(gomock.Any(), del.StakingTx.TxHash().String(), del.StakingOutputIdx).
+			Return(&indexer.OutspendResponse{
+				Spent: true,
+				TxID:  "0000000000000000000000000000000000000000000000000000000000000001",
+				Status: struct {
+					Confirmed   bool   `json:"confirmed"`
+					BlockHeight int    `json:"block_height"`
+					BlockHash   string `json:"block_hash"`
+					BlockTime   int64  `json:"block_time"`
+				}{
+					Confirmed:   true,
+					BlockHeight: 850002,
+				},
+			}, nil).AnyTimes()
+	}
+
+	err := s.activationMonitor.CheckUnbondingTiming()
+	require.NoError(t, err)
+
+	// should have 5 alerts
+	require.Eventually(t, func() bool {
+		s.activationMonitor.CheckUnbondingTiming()
+		return promtestutil.CollectAndCount(s.metrics.UnbondingTimeoutsCounter) == 5
+	}, 5*time.Second, 100*time.Millisecond)
 }
 
 func (s *ActivationMonitorTestSuite) TearDown() {

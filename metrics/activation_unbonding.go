@@ -13,7 +13,7 @@ type ActivationUnbondingMonitorMetrics struct {
 	TrackedActivationGauge    prometheus.Gauge
 
 	UnbondingDelayHistogram  prometheus.Histogram
-	UnbondingTimeoutsCounter prometheus.Counter
+	UnbondingTimeoutsCounter *prometheus.CounterVec
 	TrackedUnbondingGauge    prometheus.Gauge
 
 	CheckRunsTotal   prometheus.Counter
@@ -44,10 +44,10 @@ func NewActivationUnbondingMonitorMetrics() *ActivationUnbondingMonitorMetrics {
 			Help:    "Time delay between spending detection and Babylon recognition",
 			Buckets: []float64{60, 300, 600, 1800, 3600, 7200},
 		}),
-		UnbondingTimeoutsCounter: registerer.NewCounter(prometheus.CounterOpts{
+		UnbondingTimeoutsCounter: registerer.NewCounterVec(prometheus.CounterOpts{
 			Name: "vigilante_unbonding_timeouts_total",
 			Help: "Number of unbonding timeouts detected",
-		}),
+		}, []string{"delegation_id"}),
 		TrackedUnbondingGauge: registerer.NewGauge(prometheus.GaugeOpts{
 			Name: "vigilante_unbonding_tracked_delegations",
 			Help: "Number of delegations being tracked for unbonding timing",

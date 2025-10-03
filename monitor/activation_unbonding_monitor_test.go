@@ -4,6 +4,7 @@ import (
 	"github.com/babylonlabs-io/babylon/v3/testutil/datagen"
 	btcstakingtypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
+	indexer2 "github.com/babylonlabs-io/vigilante/btcstaking-tracker/indexer"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/testutil/mocks"
@@ -22,12 +23,13 @@ func TestActivationUnbondingMonitor(t *testing.T) {
 	r := rand.New(rand.NewSource(time.Now().Unix()))
 	ctl := gomock.NewController(t)
 	cfg := config.DefaultMonitorConfig()
+	defaultCfg := config.DefaultConfig()
 	mockClient := NewMockBabylonAdaptorClient(ctl)
 	mockBtcClient := mocks.NewMockBTCClient(ctl)
 	logger := zap.NewNop()
 	monitorMetrics := metrics.NewActivationUnbondingMonitorMetrics()
-
-	monitor := NewActivationUnbondingMonitor(mockClient, mockBtcClient, &cfg, logger, monitorMetrics)
+	indexer := indexer2.NewHTTPIndexerClient(defaultCfg.BTCStakingTracker.IndexerAddr, 10*time.Second, *logger)
+	monitor := NewActivationUnbondingMonitor(mockClient, mockBtcClient, indexer, &cfg, logger, monitorMetrics)
 
 	expectedActivated := 5
 	delegations := make([]Delegation, 0, expectedActivated)
@@ -100,8 +102,9 @@ func TestActivationUnbondingMonitor_Error(t *testing.T) {
 	mockBtcClient := mocks.NewMockBTCClient(ctl)
 	logger := zap.NewNop()
 	monitorMetrics := metrics.NewActivationUnbondingMonitorMetrics()
-
-	monitor := NewActivationUnbondingMonitor(mockClient, mockBtcClient, &cfg, logger, monitorMetrics)
+	defaultCfg := config.DefaultConfig()
+	indexer := indexer2.NewHTTPIndexerClient(defaultCfg.BTCStakingTracker.IndexerAddr, 10*time.Second, *logger)
+	monitor := NewActivationUnbondingMonitor(mockClient, mockBtcClient, indexer, &cfg, logger, monitorMetrics)
 
 	t.Run("Transaction not in chain", func(t *testing.T) {
 		t.Parallel()

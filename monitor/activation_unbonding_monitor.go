@@ -27,7 +27,8 @@ type ActivationTracking struct {
 
 type UnbondingTracking struct {
 	StakingHash      chainhash.Hash
-	SpendingDetected time.Time
+	SpendingTxHash   chainhash.Hash
+	SpendingKDeepAt  time.Time
 	LastChecked      time.Time
 	HasAlerted       bool
 }
@@ -299,7 +300,7 @@ func (m *ActivationUnbondingMonitor) processUnbondingDels(delegations []Delegati
 
 			stakingHash := del.StakingTx.TxHash()
 
-			isSpent, err := m.checkIfSpent(&del)
+			isSpentKDeep, spendingTxHash, err := m.checkIfSpent(&del)
 			if err != nil {
 				m.logger.Warn("error whilst checking spent",
 					zap.String("stakingHash", stakingHash.String()),
@@ -308,8 +309,10 @@ func (m *ActivationUnbondingMonitor) processUnbondingDels(delegations []Delegati
 			}
 
 			m.mu.Lock()
-			if isSpent {
-				m.handleSpentDelegation(stakingHash)
+			if isSpentKDeep && spendingTxHash != nil {
+				m.handleSpentDelegation(stakingHash, *spendingTxHash)
+			} else {
+				delete(m.unbondingTracker, stakingHash)
 			}
 			m.mu.Unlock()
 
@@ -320,39 +323,73 @@ func (m *ActivationUnbondingMonitor) processUnbondingDels(delegations []Delegati
 	return wg.Wait()
 }
 
-func (m *ActivationUnbondingMonitor) checkIfSpent(del *Delegation) (bool, error) {
+func (m *ActivationUnbondingMonitor) checkIfSpent(del *Delegation) (bool, *chainhash.Hash, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	response, err := m.indexer.GetOutspend(ctx, del.StakingTx.TxHash().String(), del.StakingOutputIdx)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 
-	return response.Spent, nil
+	if !response.Spent {
+		return false, nil, nil
+	}
+
+	spendingTxHash, err := chainhash.NewHashFromStr(response.TxID)
+	if err != nil {
+		return false, nil, err
+	}
+
+	if !response.Status.Confirmed {
+		return false, nil, nil
+	}
+
+	currentHeight, err := m.btcClient.GetBestBlock()
+	if err != nil {
+		return false, nil, err
+	}
+
+	bbnDepth, err := m.babylonClient.GetConfirmationDepth()
+	if err != nil {
+		return false, nil, err
+	}
+
+	confirmations := currentHeight - uint32(response.Status.BlockHeight)
+	if confirmations < bbnDepth {
+		return false, nil, nil
+	}
+
+	return true, spendingTxHash, nil
 }
 
-func (m *ActivationUnbondingMonitor) handleSpentDelegation(stakingHash chainhash.Hash) {
+func (m *ActivationUnbondingMonitor) handleSpentDelegation(stakingHash chainhash.Hash, spendingTxHash chainhash.Hash) {
 	if tracker, exists := m.unbondingTracker[stakingHash]; exists {
-		timeSinceSpending := time.Since(tracker.SpendingDetected)
+		timeSinceSpendingKDeep := time.Since(tracker.SpendingKDeepAt)
+		unbondingTimeout := time.Duration(m.cfg.UnbondingTimeoutMinutes) * time.Minute
 
-		if timeSinceSpending > 1*time.Hour && !tracker.HasAlerted {
-			m.logger.Warn("delegation has been spent",
+		if timeSinceSpendingKDeep > unbondingTimeout && !tracker.HasAlerted {
+			m.logger.Warn("Delegation unbonding timeout detected",
 				zap.String("stakingHash", stakingHash.String()),
-				zap.Duration("timeSinceSpending", timeSinceSpending))
-			m.metrics.UnbondingTimeoutsCounter.Inc()
+				zap.String("spendingTxHash", spendingTxHash.String()),
+				zap.Duration("timeSinceSpendingKDeep", timeSinceSpendingKDeep),
+				zap.Duration("timeout", unbondingTimeout))
+			m.metrics.UnbondingTimeoutsCounter.WithLabelValues(stakingHash.String()).Inc()
 			tracker.HasAlerted = true
 		}
 		tracker.LastChecked = time.Now()
 	} else {
 		m.unbondingTracker[stakingHash] = &UnbondingTracking{
-			StakingHash:      stakingHash,
-			SpendingDetected: time.Now(),
-			LastChecked:      time.Now(),
-			HasAlerted:       false,
+			StakingHash:     stakingHash,
+			SpendingTxHash:  spendingTxHash,
+			SpendingKDeepAt: time.Now(),
+			LastChecked:     time.Now(),
+			HasAlerted:      false,
 		}
 		m.logger.Info("Started tracking unbonding",
-			zap.String("stakingHash", stakingHash.String()))
+			zap.String("stakingHash", stakingHash.String()),
+			zap.String("spendingTxHash", spendingTxHash.String()))
+		m.metrics.TrackedUnbondingGauge.Inc()
 	}
 }
 
@@ -367,16 +404,19 @@ func (m *ActivationUnbondingMonitor) cleanupUnbondingTracker() {
 		}
 
 		if del.Status == btcstakingtypes.BTCDelegationStatus_UNBONDED.String() {
-			timeTaken := time.Since(tracker.SpendingDetected)
+			unbondingDelay := time.Since(tracker.SpendingKDeepAt)
+			m.metrics.UnbondingDelayHistogram.Observe(unbondingDelay.Seconds())
 			m.logger.Info("Unbonding completed",
 				zap.String("hash", hash.String()),
-				zap.Duration("timeTaken", timeTaken))
-			m.metrics.UnbondingDelayHistogram.Observe(timeTaken.Seconds()) // Add here
+				zap.Duration("unbondingDelay", unbondingDelay))
+
 			delete(m.unbondingTracker, hash)
+			m.metrics.TrackedUnbondingGauge.Add(-1)
+		} else if time.Since(tracker.LastChecked) > 24*time.Hour {
+			delete(m.unbondingTracker, hash)
+			m.metrics.TrackedUnbondingGauge.Add(-1)
 		}
 	}
-
-	m.metrics.TrackedUnbondingGauge.Set(float64(len(m.unbondingTracker)))
 }
 
 func (m *ActivationUnbondingMonitor) Start() error {
