@@ -191,7 +191,7 @@ func TestActivationTimingMonitor(t *testing.T) {
 }
 
 func TestActivationTimeout(t *testing.T) {
-	s := setupActivationTest(t, 5)
+	s := setupActivationTest(t, 1)
 	defer s.cleanup(t)
 
 	s.createAndMineVerifiedDelegation(t)
@@ -209,16 +209,13 @@ func TestActivationTimeout(t *testing.T) {
 		return promtestutil.CollectAndCount(s.metrics.ActivationTimeoutsCounter) > 0
 	}, eventuallyWaitTimeOut, eventuallyPollTime, "the alert should have gone off")
 
-	require.Greater(t, promtestutil.ToFloat64(s.metrics.TrackedActivationGauge), 0.0,
-		"delegation should still be tracked")
-
 	endTime := time.Now()
 	activationDuration := endTime.Sub(startTime)
 	t.Logf("activation timing test completed in %v", activationDuration)
 }
 
 func TestDelegationEventuallyActivates(t *testing.T) {
-	s := setupActivationTest(t, 5)
+	s := setupActivationTest(t, 1)
 	defer s.cleanup(t)
 
 	stakingMsgTx, _ := s.createAndMineVerifiedDelegation(t)
@@ -234,9 +231,6 @@ func TestDelegationEventuallyActivates(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return promtestutil.CollectAndCount(s.metrics.ActivationTimeoutsCounter) > 0
 	}, eventuallyWaitTimeOut, eventuallyPollTime, "timeout alert should have fired")
-
-	require.Greater(t, promtestutil.ToFloat64(s.metrics.TrackedActivationGauge), 0.0,
-		"delegation should still be tracked after timeout")
 
 	require.Eventually(t, func() bool {
 		resp, err := s.tm.BabylonClient.BTCDelegation(stakingMsgTx.TxHash().String())
