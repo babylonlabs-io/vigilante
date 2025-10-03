@@ -305,6 +305,7 @@ func (m *ActivationUnbondingMonitor) processUnbondingDels(delegations []Delegati
 				m.logger.Warn("error whilst checking spent",
 					zap.String("stakingHash", stakingHash.String()),
 					zap.Error(err))
+
 				return nil
 			}
 
@@ -355,6 +356,9 @@ func (m *ActivationUnbondingMonitor) checkIfSpent(del *Delegation) (bool, *chain
 		return false, nil, err
 	}
 
+	if response.Status.BlockHeight < 0 {
+		return false, nil, nil
+	}
 	confirmations := currentHeight - uint32(response.Status.BlockHeight)
 	if confirmations < bbnDepth {
 		return false, nil, nil
@@ -366,7 +370,7 @@ func (m *ActivationUnbondingMonitor) checkIfSpent(del *Delegation) (bool, *chain
 func (m *ActivationUnbondingMonitor) handleSpentDelegation(stakingHash chainhash.Hash, spendingTxHash chainhash.Hash) {
 	if tracker, exists := m.unbondingTracker[stakingHash]; exists {
 		timeSinceSpendingKDeep := time.Since(tracker.SpendingKDeepAt)
-		unbondingTimeout := time.Duration(m.cfg.UnbondingTimeoutMinutes) * time.Minute
+		unbondingTimeout := time.Duration(int64(m.cfg.UnbondingTimeoutMinutes)) * time.Minute
 
 		if timeSinceSpendingKDeep > unbondingTimeout && !tracker.HasAlerted {
 			m.logger.Warn("Delegation unbonding timeout detected",
@@ -400,6 +404,7 @@ func (m *ActivationUnbondingMonitor) cleanupUnbondingTracker() {
 			m.logger.Warn("Error getting delegation",
 				zap.String("hash", hash.String()),
 				zap.Error(err))
+
 			continue
 		}
 
@@ -432,6 +437,7 @@ func (m *ActivationUnbondingMonitor) Stop() error {
 	m.logger.Info("Stopping activation/unbonding monitor")
 	close(m.quit)
 	m.wg.Wait()
+
 	return nil
 }
 

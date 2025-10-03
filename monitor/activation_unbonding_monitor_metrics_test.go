@@ -222,7 +222,7 @@ func TestUnbondingTimeout(t *testing.T) {
 	t.Parallel()
 	s := NewActivationMonitorTestSuite(t, 30)
 	defer s.TearDown()
-	//short intentionally as to not wait for 60 mins activation
+	// short intentionally as to not wait for 60 mins activation
 	s.cfg.UnbondingTimeoutMinutes = 0
 	s.activationMonitor.cfg.UnbondingTimeoutMinutes = 0
 
@@ -251,6 +251,7 @@ func TestUnbondingTimeout(t *testing.T) {
 	// should have 5 alerts
 	require.Eventually(t, func() bool {
 		s.activationMonitor.CheckUnbondingTiming()
+
 		return promtestutil.CollectAndCount(s.metrics.UnbondingTimeoutsCounter) == 5
 	}, 5*time.Second, 100*time.Millisecond)
 }

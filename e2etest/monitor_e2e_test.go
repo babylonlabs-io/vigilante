@@ -9,6 +9,7 @@ import (
 
 	bbnclient "github.com/babylonlabs-io/babylon/v3/client/client"
 	"github.com/babylonlabs-io/vigilante/btcclient"
+	indexer2 "github.com/babylonlabs-io/vigilante/btcstaking-tracker/indexer"
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/monitor"
 	"github.com/babylonlabs-io/vigilante/reporter"
@@ -53,6 +54,7 @@ func TestMonitorBootstrap(t *testing.T) {
 	subAddr, _ := sdk.AccAddressFromBech32(submitterAddrStr)
 
 	adapter := monitor.NewBabylonAdaptorClientAdapter(tm.BabylonClient, &tm.Config.Monitor)
+	indexerClient := indexer2.NewHTTPIndexerClient(tm.Config.BTCStakingTracker.IndexerAddr, 10*time.Second, *logger)
 
 	// create submitter
 	vigilantSubmitter, err := submitter.New(
@@ -99,6 +101,7 @@ func TestMonitorBootstrap(t *testing.T) {
 		genesisInfo,
 		tm.BabylonClient,
 		tm.BTCClient,
+		indexerClient,
 		backend,
 		monitorMetrics,
 		adapter,
@@ -140,6 +143,7 @@ func TestMonitorBootstrap(t *testing.T) {
 		genesisInfo,
 		babylonClient,
 		tm.BTCClient,
+		indexerClient,
 		backend,
 		monitorMetrics,
 		adapter,
