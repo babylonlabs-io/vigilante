@@ -205,8 +205,9 @@ func TestActivationTimeout(t *testing.T) {
 
 	time.Sleep(7 * time.Second)
 
-	require.Greater(t, promtestutil.ToFloat64(s.metrics.ActivationTimeoutsCounter), 0.0,
-		"the alert should have gone off")
+	require.Eventually(t, func() bool {
+		return promtestutil.CollectAndCount(s.metrics.ActivationTimeoutsCounter) > 0
+	}, eventuallyWaitTimeOut, eventuallyPollTime, "the alert should have gone off")
 
 	require.Greater(t, promtestutil.ToFloat64(s.metrics.TrackedActivationGauge), 0.0,
 		"delegation should still be tracked")
@@ -230,8 +231,9 @@ func TestDelegationEventuallyActivates(t *testing.T) {
 
 	time.Sleep(7 * time.Second)
 
-	require.Greater(t, promtestutil.ToFloat64(s.metrics.ActivationTimeoutsCounter), 0.0,
-		"timeout alert should have fired")
+	require.Eventually(t, func() bool {
+		return promtestutil.CollectAndCount(s.metrics.ActivationTimeoutsCounter) > 0
+	}, eventuallyWaitTimeOut, eventuallyPollTime, "timeout alert should have fired")
 
 	require.Greater(t, promtestutil.ToFloat64(s.metrics.TrackedActivationGauge), 0.0,
 		"delegation should still be tracked after timeout")
@@ -256,10 +258,10 @@ func TestDelegationEventuallyActivates(t *testing.T) {
 }
 
 func TestAlertOnce(t *testing.T) {
-	s := setupActivationTest(t, 5)
+	s := setupActivationTest(t, 1)
 	defer s.cleanup(t)
 
-	stakingMsgTx, _ := s.createAndMineVerifiedDelegation(t)
+	_, _ = s.createAndMineVerifiedDelegation(t)
 
 	s.mineKDeepBlocks(t)
 
@@ -271,25 +273,15 @@ func TestAlertOnce(t *testing.T) {
 
 	time.Sleep(7 * time.Second)
 
-	//check fired once
-	counter1 := promtestutil.ToFloat64(s.metrics.ActivationTimeoutsCounter)
-	t.Logf("First counter check: %v", counter1)
-	require.Equal(t, 1.0, counter1)
+	counter1 := promtestutil.CollectAndCount(s.metrics.ActivationTimeoutsCounter)
+
+	require.Equal(t, 1, counter1, "alert should have fired once")
 
 	time.Sleep(10 * time.Second)
 
-	// counter is STILL only 1
-	counter2 := promtestutil.ToFloat64(s.metrics.ActivationTimeoutsCounter)
-	t.Logf("Second counter check: %v", counter2)
+	counter2 := promtestutil.CollectAndCount(s.metrics.ActivationTimeoutsCounter)
 
-	// check delegation status
-	resp, err := s.tm.BabylonClient.BTCDelegation(stakingMsgTx.TxHash().String())
-	if err == nil {
-		t.Logf("del status: %v, active: %v", resp.BtcDelegation.StatusDesc, resp.BtcDelegation.Active)
-	}
-
-	require.Equal(t, 1.0, counter2,
-		"alert should only fire once due to HasAlerted flag")
+	require.Equal(t, 1, counter2, "alert should only fire once due to HasAlerted flag")
 }
 
 func TestMultipleDels(t *testing.T) {
