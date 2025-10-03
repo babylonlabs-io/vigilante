@@ -4,6 +4,7 @@ import (
 	bbnclient "github.com/babylonlabs-io/babylon/v3/client/client"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	bst "github.com/babylonlabs-io/vigilante/btcstaking-tracker"
+	indexer2 "github.com/babylonlabs-io/vigilante/btcstaking-tracker/indexer"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/monitor"
@@ -50,6 +51,8 @@ func setupActivationTest(t *testing.T, timeoutSeconds int64) *activationTestSetu
 	require.NoError(t, err)
 
 	babyAdapter := monitor.NewBabylonAdaptorClientAdapter(bbnClient, &tm.Config.Monitor)
+	logger := zap.NewNop()
+	indexer := indexer2.NewHTTPIndexerClient(tm.Config.BTCStakingTracker.IndexerAddr, 10*time.Second, *logger)
 
 	monitorCfg := config.DefaultMonitorConfig()
 	monitorCfg.ActivationTimeoutSeconds = timeoutSeconds
@@ -77,6 +80,7 @@ func setupActivationTest(t *testing.T, timeoutSeconds int64) *activationTestSetu
 	activationMonitor := monitor.NewActivationUnbondingMonitor(
 		babyAdapter,
 		tm.BTCClient,
+		indexer,
 		&monitorCfg,
 		zap.NewNop(),
 		activationMetrics,
