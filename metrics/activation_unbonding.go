@@ -16,7 +16,6 @@ type ActivationUnbondingMonitorMetrics struct {
 	UnbondingTimeoutsCounter *prometheus.CounterVec
 	TrackedUnbondingGauge    prometheus.Gauge
 
-	CheckRunsTotal   prometheus.Counter
 	CheckErrorsTotal prometheus.Counter
 }
 
@@ -51,10 +50,6 @@ func NewActivationUnbondingMonitorMetrics() *ActivationUnbondingMonitorMetrics {
 		TrackedUnbondingGauge: registerer.NewGauge(prometheus.GaugeOpts{
 			Name: "vigilante_unbonding_tracked_delegations",
 			Help: "Number of delegations being tracked for unbonding timing",
-		}),
-		CheckRunsTotal: registerer.NewCounter(prometheus.CounterOpts{
-			Name: "vigilante_timing_check_runs_total",
-			Help: "Total number of timing check executions",
 		}),
 		CheckErrorsTotal: registerer.NewCounter(prometheus.CounterOpts{
 			Name: "vigilante_timing_check_errors_total",

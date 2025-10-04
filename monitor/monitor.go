@@ -7,7 +7,6 @@ import (
 	"math"
 	"sort"
 	"sync"
-	"time"
 
 	"github.com/babylonlabs-io/vigilante/monitor/store"
 	"github.com/babylonlabs-io/vigilante/version"
@@ -151,6 +150,10 @@ func (m *Monitor) Start(baseHeight uint32) {
 		m.logger.Fatalf("failed to start Babylon querier: %v", err)
 	}
 
+	if err := m.activationMonitor.Start(); err != nil {
+		m.logger.Fatalf("failed to start activation unbonding monitor: %v", err)
+	}
+
 	// update epoch from db if it exists otherwise skip
 	epochNumber, exists, err := m.store.LatestEpoch()
 	if err != nil {
@@ -185,10 +188,6 @@ func (m *Monitor) Start(baseHeight uint32) {
 		go m.runLivenessChecker()
 	}
 
-	// starting activation unbonding monitor
-	m.wg.Add(1)
-	go m.runActivationUnbondingMonitor()
-
 	for m.started.Load() {
 		select {
 		case <-m.quit:
@@ -217,23 +216,6 @@ func (m *Monitor) Start(baseHeight uint32) {
 func (m *Monitor) runBTCScanner(startHeight uint32) {
 	m.BTCScanner.Start(startHeight)
 	m.wg.Done()
-}
-
-func (m *Monitor) runActivationUnbondingMonitor() {
-	defer m.wg.Done()
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			if err := m.activationMonitor.CheckActivationTiming(); err != nil {
-				m.logger.Errorf("Error checking activation timing: %v", err)
-			}
-		case <-m.quit:
-			return
-		}
-	}
 }
 
 func (m *Monitor) handleNewConfirmedHeader(block *types.IndexedBlock) error {
@@ -377,6 +359,11 @@ func GetSortedValSet(valSet checkpointingtypes.ValidatorWithBlsKeySet) checkpoin
 func (m *Monitor) Stop() {
 	close(m.quit)
 	m.BTCScanner.Stop()
+
+	if err := m.activationMonitor.Stop(); err != nil {
+		m.logger.Errorf("failed to stop activation unbonding monitor: %v", err)
+	}
+
 	// in e2e the test manager will share access to BBN querier and shut down
 	// it earlier than monitor, so we need to check if it's running here
 	if m.BBNQuerier.IsRunning() {

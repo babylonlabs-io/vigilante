@@ -1,10 +1,14 @@
 package e2etest
 
 import (
+	"sync"
+	"testing"
+	"time"
+
 	bbnclient "github.com/babylonlabs-io/babylon/v3/client/client"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	bst "github.com/babylonlabs-io/vigilante/btcstaking-tracker"
-	indexer2 "github.com/babylonlabs-io/vigilante/btcstaking-tracker/indexer"
+	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/indexer"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/monitor"
@@ -16,21 +20,22 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"sync"
-	"testing"
-	"time"
 )
+
+var sdkConfigMu sync.Mutex
 
 type activationTestSetup struct {
 	tm                *TestManager
 	activationMonitor *monitor.ActivationUnbondingMonitor
 	metrics           *metrics.ActivationUnbondingMonitorMetrics
-	done              chan struct{}
 	btcNode           *btcclient.NodeBackend
 	bsTracker         *bst.BTCStakingTracker
 }
 
 func setupActivationTest(t *testing.T, timeoutSeconds int64) *activationTestSetup {
+	sdkConfigMu.Lock()
+	defer sdkConfigMu.Unlock()
+
 	numMatureOutputs := uint32(300)
 
 	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(defaultEpochInterval))
@@ -52,7 +57,7 @@ func setupActivationTest(t *testing.T, timeoutSeconds int64) *activationTestSetu
 
 	babyAdapter := monitor.NewBabylonAdaptorClientAdapter(bbnClient, &tm.Config.Monitor)
 	logger := zap.NewNop()
-	indexer := indexer2.NewHTTPIndexerClient(tm.Config.BTCStakingTracker.IndexerAddr, 10*time.Second, *logger)
+	indexerClient := indexer.NewHTTPIndexerClient(tm.Config.BTCStakingTracker.IndexerAddr, 10*time.Second, *logger)
 
 	monitorCfg := config.DefaultMonitorConfig()
 	monitorCfg.ActivationTimeoutSeconds = timeoutSeconds
@@ -80,51 +85,38 @@ func setupActivationTest(t *testing.T, timeoutSeconds int64) *activationTestSetu
 	activationMonitor := monitor.NewActivationUnbondingMonitor(
 		babyAdapter,
 		tm.BTCClient,
-		indexer,
+		indexerClient,
 		&monitorCfg,
 		zap.NewNop(),
 		activationMetrics,
 	)
 
-	done := make(chan struct{})
-
-	go func() {
-		ticker := time.NewTicker(time.Duration(monitorCfg.TimingCheckIntervalSeconds) * time.Second)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				if err := activationMonitor.CheckActivationTiming(); err != nil {
-					t.Logf("Error checking activation timing: %v", err)
-				}
-			case <-done:
-				return
-			}
-		}
-	}()
+	err = activationMonitor.Start()
+	require.NoError(t, err)
 
 	return &activationTestSetup{
 		tm:                tm,
 		activationMonitor: activationMonitor,
 		metrics:           activationMetrics,
-		done:              done,
 		btcNode:           btcNode,
 		bsTracker:         bsTracker,
 	}
 }
 
 func (s *activationTestSetup) cleanup(t *testing.T) {
-	close(s.done)
+	err := s.activationMonitor.Stop()
+	require.NoError(t, err)
 	s.bsTracker.Stop()
 	s.btcNode.Stop()
 	s.tm.Stop(t)
 }
 
 func (s *activationTestSetup) createAndMineVerifiedDelegation(t *testing.T) (*wire.MsgTx, chainhash.Hash) {
+	sdkConfigMu.Lock()
 	_, fpSK := s.tm.CreateFinalityProvider(t)
-
 	stakingMsgTx, _, _, _ := s.tm.CreateBTCDelegationWithoutIncl(t, fpSK)
+	sdkConfigMu.Unlock()
+
 	stakingMsgTxHash := stakingMsgTx.TxHash()
 
 	_, err := s.tm.BTCClient.SendRawTransaction(stakingMsgTx, true)
@@ -148,20 +140,13 @@ func (s *activationTestSetup) createAndMineVerifiedDelegation(t *testing.T) (*wi
 }
 
 func (s *activationTestSetup) mineKDeepBlocks(t *testing.T) {
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		time.Sleep(3 * time.Second)
-		btccParamsResp, err := s.tm.BabylonClient.BTCCheckpointParams()
-		require.NoError(t, err)
-		for i := 0; i < int(btccParamsResp.Params.BtcConfirmationDepth); i++ {
-			s.tm.mineBlock(t)
-			time.Sleep(100 * time.Millisecond)
-		}
-		s.tm.CatchUpBTCLightClient(t)
-	}()
-	wg.Wait()
+	btccParamsResp, err := s.tm.BabylonClient.BTCCheckpointParams()
+	require.NoError(t, err)
+	for i := 0; i < int(btccParamsResp.Params.BtcConfirmationDepth); i++ {
+		s.tm.mineBlock(t)
+		time.Sleep(100 * time.Millisecond)
+	}
+	s.tm.CatchUpBTCLightClient(t)
 }
 
 func TestActivationTimingMonitor(t *testing.T) {
@@ -195,6 +180,7 @@ func TestActivationTimingMonitor(t *testing.T) {
 }
 
 func TestActivationTimeout(t *testing.T) {
+	t.Parallel()
 	s := setupActivationTest(t, 1)
 	defer s.cleanup(t)
 
@@ -207,8 +193,6 @@ func TestActivationTimeout(t *testing.T) {
 		return promtestutil.ToFloat64(s.metrics.TrackedActivationGauge) > 0
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
-	time.Sleep(7 * time.Second)
-
 	require.Eventually(t, func() bool {
 		return promtestutil.CollectAndCount(s.metrics.ActivationTimeoutsCounter) > 0
 	}, eventuallyWaitTimeOut, eventuallyPollTime, "the alert should have gone off")
@@ -219,6 +203,7 @@ func TestActivationTimeout(t *testing.T) {
 }
 
 func TestDelegationEventuallyActivates(t *testing.T) {
+	t.Parallel()
 	s := setupActivationTest(t, 1)
 	defer s.cleanup(t)
 
@@ -229,8 +214,6 @@ func TestDelegationEventuallyActivates(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return promtestutil.ToFloat64(s.metrics.TrackedActivationGauge) > 0
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
-
-	time.Sleep(7 * time.Second)
 
 	require.Eventually(t, func() bool {
 		return promtestutil.CollectAndCount(s.metrics.ActivationTimeoutsCounter) > 0
@@ -256,6 +239,7 @@ func TestDelegationEventuallyActivates(t *testing.T) {
 }
 
 func TestAlertOnce(t *testing.T) {
+	t.Parallel()
 	s := setupActivationTest(t, 1)
 	defer s.cleanup(t)
 
@@ -269,20 +253,19 @@ func TestAlertOnce(t *testing.T) {
 		return gauge > 0
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
-	time.Sleep(7 * time.Second)
+	require.Eventually(t, func() bool {
+		counter := promtestutil.CollectAndCount(s.metrics.ActivationTimeoutsCounter)
+		return counter == 1
+	}, eventuallyWaitTimeOut, eventuallyPollTime, "alert should have fired once")
 
-	counter1 := promtestutil.CollectAndCount(s.metrics.ActivationTimeoutsCounter)
-
-	require.Equal(t, 1, counter1, "alert should have fired once")
-
-	time.Sleep(10 * time.Second)
-
-	counter2 := promtestutil.CollectAndCount(s.metrics.ActivationTimeoutsCounter)
-
-	require.Equal(t, 1, counter2, "alert should only fire once due to HasAlerted flag")
+	require.Never(t, func() bool {
+		counter := promtestutil.CollectAndCount(s.metrics.ActivationTimeoutsCounter)
+		return counter > 1
+	}, 10*time.Second, eventuallyPollTime, "alert should only fire once due to HasAlerted flag")
 }
 
 func TestMultipleDels(t *testing.T) {
+	t.Parallel()
 	s := setupActivationTest(t, 300)
 	defer s.cleanup(t)
 

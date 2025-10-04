@@ -435,7 +435,9 @@ func TestSlasher_MultiStaking(t *testing.T) {
 	require.NoError(t, err)
 
 	contractAddr := tm.DeployCwContract(t)
+	r, unlock := getRand()
 	consumer := datagen.GenRandomRollupRegister(r, contractAddr)
+	unlock()
 	tm.RegisterBSN(t, consumer, contractAddr)
 
 	// set up a finality provider
@@ -571,7 +573,9 @@ func TestSlasher_Loaded_MultiStaking(t *testing.T) {
 	require.NoError(t, err)
 
 	contractAddr := tm.DeployCwContract(t)
+	r, unlock := getRand()
 	consumer := datagen.GenRandomRollupRegister(r, contractAddr)
+	unlock()
 	tm.RegisterBSN(t, consumer, contractAddr)
 
 	// set up a finality provider

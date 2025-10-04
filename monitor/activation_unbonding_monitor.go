@@ -18,6 +18,10 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	maxConcurrentRequests = 1000
+)
+
 type ActivationTracking struct {
 	StakingHash chainhash.Hash
 	KDeepAt     time.Time
@@ -191,7 +195,7 @@ func (m *ActivationUnbondingMonitor) handleKDeepDel(stakingTxHash chainhash.Hash
 
 func (m *ActivationUnbondingMonitor) processDelegations(verifiedDels []Delegation) error {
 	var wg errgroup.Group
-	sem := semaphore.NewWeighted(1000)
+	sem := semaphore.NewWeighted(maxConcurrentRequests)
 
 	for _, verifiedDel := range verifiedDels {
 		del := verifiedDel
@@ -253,7 +257,7 @@ func (m *ActivationUnbondingMonitor) CheckUnbondingTiming() error {
 
 	for {
 		delegations, nextCursor, err := m.babylonClient.DelegationsByStatus(
-			btcstakingtypes.BTCDelegationStatus_ANY,
+			btcstakingtypes.BTCDelegationStatus_ACTIVE,
 			cursor,
 			batchSize,
 		)
@@ -261,15 +265,7 @@ func (m *ActivationUnbondingMonitor) CheckUnbondingTiming() error {
 			return err
 		}
 
-		var unbondingCandidates []Delegation
-		for _, delegation := range delegations {
-			if delegation.Status == btcstakingtypes.BTCDelegationStatus_ACTIVE.String() ||
-				delegation.Status == btcstakingtypes.BTCDelegationStatus_VERIFIED.String() {
-				unbondingCandidates = append(unbondingCandidates, delegation)
-			}
-		}
-
-		if err := m.processUnbondingDels(unbondingCandidates); err != nil {
+		if err := m.processUnbondingDels(delegations); err != nil {
 			return err
 		}
 
@@ -288,7 +284,7 @@ func (m *ActivationUnbondingMonitor) CheckUnbondingTiming() error {
 
 func (m *ActivationUnbondingMonitor) processUnbondingDels(delegations []Delegation) error {
 	var wg errgroup.Group
-	sem := semaphore.NewWeighted(1000)
+	sem := semaphore.NewWeighted(maxConcurrentRequests)
 
 	for _, delegation := range delegations {
 		del := delegation
@@ -359,8 +355,13 @@ func (m *ActivationUnbondingMonitor) checkIfSpent(del *Delegation) (bool, *chain
 	if response.Status.BlockHeight < 0 {
 		return false, nil, nil
 	}
-	confirmations := currentHeight - uint32(response.Status.BlockHeight)
-	if confirmations < bbnDepth {
+
+	if response.Status.BlockHeight > int(currentHeight) {
+		return false, nil, nil
+	}
+
+	confirmations := int(currentHeight) - response.Status.BlockHeight
+	if confirmations < int(bbnDepth) {
 		return false, nil, nil
 	}
 
@@ -370,7 +371,7 @@ func (m *ActivationUnbondingMonitor) checkIfSpent(del *Delegation) (bool, *chain
 func (m *ActivationUnbondingMonitor) handleSpentDelegation(stakingHash chainhash.Hash, spendingTxHash chainhash.Hash) {
 	if tracker, exists := m.unbondingTracker[stakingHash]; exists {
 		timeSinceSpendingKDeep := time.Since(tracker.SpendingKDeepAt)
-		unbondingTimeout := time.Duration(int64(m.cfg.UnbondingTimeoutMinutes)) * time.Minute
+		unbondingTimeout := time.Duration(m.cfg.UnbondingTimeoutMinutes) * time.Minute
 
 		if timeSinceSpendingKDeep > unbondingTimeout && !tracker.HasAlerted {
 			m.logger.Warn("Delegation unbonding timeout detected",
@@ -450,15 +451,27 @@ func (m *ActivationUnbondingMonitor) runMonitorLoop() {
 	for {
 		select {
 		case <-ticker.C:
-			if err := m.CheckActivationTiming(); err != nil {
-				m.logger.Error("Error checking activation timing", zap.Error(err))
-				m.metrics.CheckErrorsTotal.Inc()
-			}
+			var checkWg sync.WaitGroup
 
-			if err := m.CheckUnbondingTiming(); err != nil {
-				m.logger.Error("Error checking unbonding timing", zap.Error(err))
-				m.metrics.CheckErrorsTotal.Inc()
-			}
+			checkWg.Add(1)
+			go func() {
+				defer checkWg.Done()
+				if err := m.CheckActivationTiming(); err != nil {
+					m.logger.Error("Error checking activation timing", zap.Error(err))
+					m.metrics.CheckErrorsTotal.Inc()
+				}
+			}()
+
+			checkWg.Add(1)
+			go func() {
+				defer checkWg.Done()
+				if err := m.CheckUnbondingTiming(); err != nil {
+					m.logger.Error("Error checking unbonding timing", zap.Error(err))
+					m.metrics.CheckErrorsTotal.Inc()
+				}
+			}()
+
+			checkWg.Wait()
 
 		case <-m.quit:
 			return
