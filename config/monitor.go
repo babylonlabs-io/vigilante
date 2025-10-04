@@ -35,7 +35,7 @@ type MonitorConfig struct {
 	// timeout in seconds for delegation activation after K-deep confirmation
 	ActivationTimeoutSeconds int64 `mapstructure:"activation-timeout-seconds"`
 	// timeout in minutes for unbonding detection after spending
-	UnbondingTimeoutMinutes uint64 `mapstructure:"unbonding-timeout-minutes"`
+	UnbondingTimeoutMinutes int64 `mapstructure:"unbonding-timeout-minutes"`
 	// DatabaseConfig stores lates epoch and height used for faster bootstrap
 	DatabaseConfig *DBConfig `mapstructure:"dbconfig"`
 	// how frequently the monitor runs CheckActivationTiming()
