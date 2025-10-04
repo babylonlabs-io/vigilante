@@ -370,7 +370,7 @@ func (m *ActivationUnbondingMonitor) checkIfSpent(del *Delegation) (bool, *chain
 func (m *ActivationUnbondingMonitor) handleSpentDelegation(stakingHash chainhash.Hash, spendingTxHash chainhash.Hash) {
 	if tracker, exists := m.unbondingTracker[stakingHash]; exists {
 		timeSinceSpendingKDeep := time.Since(tracker.SpendingKDeepAt)
-		unbondingTimeout := time.Duration(int64(m.cfg.UnbondingTimeoutMinutes)) * time.Minute
+		unbondingTimeout := time.Duration(m.cfg.UnbondingTimeoutMinutes) * time.Minute
 
 		if timeSinceSpendingKDeep > unbondingTimeout && !tracker.HasAlerted {
 			m.logger.Warn("Delegation unbonding timeout detected",
