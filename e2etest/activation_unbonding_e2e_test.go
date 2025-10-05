@@ -1,10 +1,14 @@
 package e2etest
 
 import (
+	"sync"
+	"testing"
+	"time"
+
 	bbnclient "github.com/babylonlabs-io/babylon/v3/client/client"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	bst "github.com/babylonlabs-io/vigilante/btcstaking-tracker"
-	indexer2 "github.com/babylonlabs-io/vigilante/btcstaking-tracker/indexer"
+	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/indexer"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/monitor"
@@ -16,9 +20,6 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"sync"
-	"testing"
-	"time"
 )
 
 type activationTestSetup struct {
@@ -52,7 +53,7 @@ func setupActivationTest(t *testing.T, timeoutSeconds int64) *activationTestSetu
 
 	babyAdapter := monitor.NewBabylonAdaptorClientAdapter(bbnClient, &tm.Config.Monitor)
 	logger := zap.NewNop()
-	indexer := indexer2.NewHTTPIndexerClient(tm.Config.BTCStakingTracker.IndexerAddr, 10*time.Second, *logger)
+	indexerClient := indexer.NewHTTPIndexerClient(tm.Config.BTCStakingTracker.IndexerAddr, 10*time.Second, *logger)
 
 	monitorCfg := config.DefaultMonitorConfig()
 	monitorCfg.ActivationTimeoutSeconds = timeoutSeconds
@@ -80,7 +81,7 @@ func setupActivationTest(t *testing.T, timeoutSeconds int64) *activationTestSetu
 	activationMonitor := monitor.NewActivationUnbondingMonitor(
 		babyAdapter,
 		tm.BTCClient,
-		indexer,
+		indexerClient,
 		&monitorCfg,
 		zap.NewNop(),
 		activationMetrics,
