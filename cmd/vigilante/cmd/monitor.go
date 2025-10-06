@@ -7,7 +7,7 @@ import (
 	bbnqc "github.com/babylonlabs-io/babylon/v4/client/query"
 	"github.com/spf13/cobra"
 
-	bbnclient "github.com/babylonlabs-io/babylon/v3/client/client"
+	bbnclient "github.com/babylonlabs-io/babylon/v4/client/client"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"
