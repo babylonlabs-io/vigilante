@@ -356,17 +356,12 @@ func (m *ActivationUnbondingMonitor) checkIfSpent(del *Delegation) (bool, *chain
 		return false, nil, nil
 	}
 
-	if response.Status.BlockHeight > int(^uint32(0)) {
+	if response.Status.BlockHeight > int(currentHeight) {
 		return false, nil, nil
 	}
 
-	blockHeight := uint32(response.Status.BlockHeight)
-	if blockHeight > currentHeight {
-		return false, nil, nil
-	}
-
-	confirmations := currentHeight - blockHeight
-	if confirmations < bbnDepth {
+	confirmations := int(currentHeight) - response.Status.BlockHeight
+	if confirmations < int(bbnDepth) {
 		return false, nil, nil
 	}
 
