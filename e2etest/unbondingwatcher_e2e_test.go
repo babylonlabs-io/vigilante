@@ -500,7 +500,12 @@ func TestUnbondingLoaded(t *testing.T) {
 	}()
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var miningWg sync.WaitGroup
+	miningWg.Add(1)
 	go func(ctx context.Context) {
+		defer miningWg.Done()
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
 
@@ -543,6 +548,7 @@ func TestUnbondingLoaded(t *testing.T) {
 	}, 135*time.Minute, 700*time.Millisecond)
 
 	cancel()
+	miningWg.Wait()
 
 	t.Logf("avg time to detect unbonding: %v", avgTimeToDetectUnbonding(stakers))
 	t.Logf("time to create staking txs: %v", timeCreateStakingTx)
