@@ -2,9 +2,9 @@ package monitor
 
 import (
 	"fmt"
-	bbnclient "github.com/babylonlabs-io/babylon/v3/client/client"
-	bbn "github.com/babylonlabs-io/babylon/v3/types"
-	btcstakingtypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
+	bbnclient "github.com/babylonlabs-io/babylon/v4/client/client"
+	bbn "github.com/babylonlabs-io/babylon/v4/types"
+	btcstakingtypes "github.com/babylonlabs-io/babylon/v4/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/cosmos/cosmos-sdk/types/query"

@@ -7,7 +7,7 @@ package monitor
 import (
 	reflect "reflect"
 
-	types "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
+	types "github.com/babylonlabs-io/babylon/v4/x/btcstaking/types"
 	gomock "github.com/golang/mock/gomock"
 )
 

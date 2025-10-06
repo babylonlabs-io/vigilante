@@ -31,6 +31,9 @@ func setupActivationTest(t *testing.T, timeoutSeconds int64) *activationTestSetu
 	numMatureOutputs := uint32(300)
 
 	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(defaultEpochInterval))
+
+	err := tm.BabylonClient.Start()
+	require.NoError(t, err)
 	tm.CatchUpBTCLightClient(t)
 
 	emptyHintCache := btcclient.EmptyHintCache{}
@@ -66,7 +69,7 @@ func setupActivationTest(t *testing.T, timeoutSeconds int64) *activationTestSetu
 		stakingTrackerMetrics,
 		testutil.MakeTestBackend(t),
 	)
-	bsTracker.Start()
+	go bsTracker.Start()
 
 	activationMetrics := metrics.NewActivationUnbondingMonitorMetrics()
 	activationMonitor := monitor.NewActivationUnbondingMonitor(
@@ -254,9 +257,30 @@ func TestMultipleDels(t *testing.T) {
 	s := setupActivationTest(t, 300)
 	defer s.cleanup(t)
 
+	_, fpSK := s.tm.CreateFinalityProvider(t)
+
 	var stakingTxs []*wire.MsgTx
 	for i := 0; i < 3; i++ {
-		stakingMsgTx, _ := s.createAndMineVerifiedDelegation(t)
+		stakingMsgTx, _, _, _ := s.tm.CreateBTCDelegationWithoutIncl(t, fpSK)
+		stakingMsgTxHash := stakingMsgTx.TxHash()
+
+		_, err := s.tm.BTCClient.SendRawTransaction(stakingMsgTx, true)
+		require.NoError(t, err)
+
+		require.Eventually(t, func() bool {
+			txns, err := s.tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{&stakingMsgTxHash})
+			require.NoError(t, err)
+			return len(txns) == 1
+		}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+		mBlock := s.tm.mineBlock(t)
+		require.Equal(t, 2, len(mBlock.Transactions))
+
+		require.Eventually(t, func() bool {
+			_, err := s.tm.BTCClient.GetRawTransaction(&stakingMsgTxHash)
+			return err == nil
+		}, eventuallyWaitTimeOut, eventuallyPollTime)
+
 		stakingTxs = append(stakingTxs, stakingMsgTx)
 	}
 

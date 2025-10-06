@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/rand"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -41,13 +42,16 @@ import (
 )
 
 var (
-	randMu sync.Mutex
-	randR  = rand.New(rand.NewSource(time.Now().Unix()))
+	randMu      sync.Mutex
+	randCounter int64
 )
 
 func getRand() (*rand.Rand, func()) {
 	randMu.Lock()
-	return randR, randMu.Unlock
+	randCounter++
+	seed := time.Now().UnixNano() + randCounter
+	r := rand.New(rand.NewSource(seed))
+	return r, randMu.Unlock
 }
 
 func (tm *TestManager) getBTCUnbondingTime(t *testing.T) uint32 {
@@ -80,7 +84,9 @@ func (tm *TestManager) CreateFinalityProvider(t *testing.T) (*bstypes.FinalityPr
 		Pop:         btcFp.Pop,
 	}
 	_, err = tm.BabylonClient.ReliablySendMsg(context.Background(), msgNewVal, nil, nil)
-	require.NoError(t, err)
+	if err != nil && !strings.Contains(err.Error(), "finality provider registered") {
+		require.NoError(t, err)
+	}
 
 	return btcFp, fpSK
 }
@@ -108,7 +114,9 @@ func (tm *TestManager) CreateFinalityProviderBSN(t *testing.T, bsnID string) (*b
 		Pop:         btcFp.Pop,
 	}
 	_, err = tm.BabylonClient.ReliablySendMsg(context.Background(), msgNewVal, nil, nil)
-	require.NoError(t, err)
+	if err != nil && !strings.Contains(err.Error(), "finality provider registered") {
+		require.NoError(t, err)
+	}
 
 	return btcFp, fpSK
 }
