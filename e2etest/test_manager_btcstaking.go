@@ -7,6 +7,7 @@ import (
 	"fmt"
 	types2 "github.com/babylonlabs-io/babylon/v3/x/btcstkconsumer/types"
 	"math/rand"
+	"sync"
 	"testing"
 	"time"
 
@@ -43,8 +44,14 @@ import (
 )
 
 var (
-	r = rand.New(rand.NewSource(time.Now().Unix()))
+	randMu sync.Mutex
+	randR  = rand.New(rand.NewSource(time.Now().Unix()))
 )
+
+func getRand() (*rand.Rand, func()) {
+	randMu.Lock()
+	return randR, randMu.Unlock
+}
 
 func (tm *TestManager) getBTCUnbondingTime(t *testing.T) uint32 {
 	bsParams, err := tm.BabylonClient.BTCStakingParams()
@@ -57,6 +64,9 @@ func (tm *TestManager) CreateFinalityProvider(t *testing.T) (*bstypes.FinalityPr
 	var err error
 	signerAddr := tm.BabylonClient.MustGetAddr()
 	addr := sdk.MustAccAddressFromBech32(signerAddr)
+
+	r, unlock := getRand()
+	defer unlock()
 
 	fpSK, _, err := datagen.GenRandomBTCKeyPair(r)
 	require.NoError(t, err)
@@ -83,6 +93,9 @@ func (tm *TestManager) CreateFinalityProviderBSN(t *testing.T, bsnID string) (*b
 	var err error
 	signerAddr := tm.BabylonClient.MustGetAddr()
 	addr := sdk.MustAccAddressFromBech32(signerAddr)
+
+	r, unlock := getRand()
+	defer unlock()
 
 	fpSK, _, err := datagen.GenRandomBTCKeyPair(r)
 	require.NoError(t, err)
@@ -370,6 +383,9 @@ func (tm *TestManager) createStakingAndSlashingTx(
 	stakingValue int64,
 	stakingTimeBlocks uint32,
 ) (*wire.MsgTx, *datagen.TestStakingSlashingInfo, *chainhash.Hash) {
+	r, unlock := getRand()
+	defer unlock()
+
 	// generate staking tx and slashing tx
 	// generate legitimate BTC del
 	stakingSlashingInfo := datagen.GenBTCStakingSlashingInfoWithOutPoint(
@@ -420,6 +436,9 @@ func (tm *TestManager) createStakeExpStakingAndSlashingTx(
 	prevDelStakingOutputIdx uint32,
 	fundingTx *wire.MsgTx,
 ) (*wire.MsgTx, *datagen.TestStakingSlashingInfo, *chainhash.Hash) {
+	r, unlock := getRand()
+	defer unlock()
+
 	// generate staking tx and slashing tx
 	fpPK := fpSK.PubKey()
 
@@ -465,6 +484,9 @@ func (tm *TestManager) createUnbondingData(
 	stakingTimeBlocks uint32,
 	unbondingTime uint16,
 ) (*datagen.TestUnbondingSlashingInfo, *btcstaking.SpendInfo, []byte, *bbn.BIP340Signature) {
+	r, unlock := getRand()
+	defer unlock()
+
 	fee := int64(1000)
 	unbondingValue := stakingSlashingInfo.StakingInfo.StakingOutput.Value - fee
 	unbondingSlashingInfo := datagen.GenBTCUnbondingSlashingInfo(
@@ -761,6 +783,9 @@ func (tm *TestManager) Undelegate(
 }
 
 func (tm *TestManager) VoteAndEquivocate(t *testing.T, fpSK *btcec.PrivateKey) {
+	r, unlock := getRand()
+	defer unlock()
+
 	signerAddr := tm.BabylonClient.MustGetAddr()
 
 	// get the finality provider
@@ -974,6 +999,9 @@ func (tm *TestManager) getLastCommittedHeight(btcPk *btcec.PublicKey) (uint64, e
 }
 
 func (tm *TestManager) finalizeUntilEpoch(t *testing.T, epoch uint64) {
+	r, unlock := getRand()
+	defer unlock()
+
 	bbnClient := tm.BabylonClient
 
 	// wait until the checkpoint of this epoch is sealed
@@ -986,8 +1014,6 @@ func (tm *TestManager) finalizeUntilEpoch(t *testing.T, epoch uint64) {
 	}, eventuallyWaitTimeOut, 1*time.Second)
 
 	t.Logf("start finalizing epochs until %d", epoch)
-	// Random source for the generation of BTC data
-	r := rand.New(rand.NewSource(time.Now().Unix()))
 
 	// get all checkpoints of these epochs
 	pagination := &sdkquerytypes.PageRequest{
