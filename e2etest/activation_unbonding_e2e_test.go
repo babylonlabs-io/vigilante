@@ -1,11 +1,9 @@
 package e2etest
 
 import (
-	"sync"
 	"testing"
 	"time"
 
-	bbnclient "github.com/babylonlabs-io/babylon/v3/client/client"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	bst "github.com/babylonlabs-io/vigilante/btcstaking-tracker"
 	"github.com/babylonlabs-io/vigilante/config"
@@ -21,8 +19,6 @@ import (
 	"go.uber.org/zap"
 )
 
-var sdkConfigMu sync.Mutex
-
 type activationTestSetup struct {
 	tm                *TestManager
 	activationMonitor *monitor.ActivationUnbondingMonitor
@@ -32,18 +28,12 @@ type activationTestSetup struct {
 }
 
 func setupActivationTest(t *testing.T, timeoutSeconds int64) *activationTestSetup {
-	sdkConfigMu.Lock()
-	defer sdkConfigMu.Unlock()
-
 	numMatureOutputs := uint32(300)
 
 	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(defaultEpochInterval))
 	tm.CatchUpBTCLightClient(t)
 
 	emptyHintCache := btcclient.EmptyHintCache{}
-
-	bbnClient, err := bbnclient.New(&tm.Config.Babylon, nil)
-	require.NoError(t, err)
 
 	btcNode, err := btcclient.NewNodeBackend(
 		btcclient.ToBitcoindConfig(tm.Config.BTC),
@@ -54,7 +44,7 @@ func setupActivationTest(t *testing.T, timeoutSeconds int64) *activationTestSetu
 	err = btcNode.Start()
 	require.NoError(t, err)
 
-	babyAdapter := monitor.NewBabylonAdaptorClientAdapter(bbnClient, &tm.Config.Monitor)
+	babyAdapter := monitor.NewBabylonAdaptorClientAdapter(tm.BabylonClient, &tm.Config.Monitor)
 
 	monitorCfg := config.DefaultMonitorConfig()
 	monitorCfg.ActivationTimeoutSeconds = timeoutSeconds
@@ -108,10 +98,8 @@ func (s *activationTestSetup) cleanup(t *testing.T) {
 }
 
 func (s *activationTestSetup) createAndMineVerifiedDelegation(t *testing.T) (*wire.MsgTx, chainhash.Hash) {
-	sdkConfigMu.Lock()
 	_, fpSK := s.tm.CreateFinalityProvider(t)
 	stakingMsgTx, _, _, _ := s.tm.CreateBTCDelegationWithoutIncl(t, fpSK)
-	sdkConfigMu.Unlock()
 
 	stakingMsgTxHash := stakingMsgTx.TxHash()
 
@@ -146,6 +134,7 @@ func (s *activationTestSetup) mineKDeepBlocks(t *testing.T) {
 }
 
 func TestActivationTimingMonitor(t *testing.T) {
+	t.Parallel()
 	s := setupActivationTest(t, 300)
 	defer s.cleanup(t)
 
