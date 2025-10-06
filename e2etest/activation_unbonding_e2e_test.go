@@ -32,9 +32,6 @@ type activationTestSetup struct {
 }
 
 func setupActivationTest(t *testing.T, timeoutSeconds int64) *activationTestSetup {
-	sdkConfigMu.Lock()
-	defer sdkConfigMu.Unlock()
-
 	numMatureOutputs := uint32(300)
 
 	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(defaultEpochInterval))
