@@ -9,6 +9,7 @@ import (
 
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	bst "github.com/babylonlabs-io/vigilante/btcstaking-tracker"
+	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/indexer"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/monitor"
@@ -63,6 +64,12 @@ func TestActivationMonitor(t *testing.T) {
 
 	babylonAdapter := monitor.NewBabylonAdaptorClientAdapter(tm.BabylonClient, &tm.Config.Monitor)
 
+	indexerClient := indexer.NewHTTPIndexerClient(
+		tm.Config.BTCStakingTracker.IndexerAddr,
+		30*time.Second,
+		*zap.NewNop(),
+	)
+
 	monitorCfg := config.DefaultMonitorConfig()
 	monitorCfg.ActivationTimeoutSeconds = 300
 
@@ -70,6 +77,7 @@ func TestActivationMonitor(t *testing.T) {
 	activationMonitor := monitor.NewActivationUnbondingMonitor(
 		babylonAdapter,
 		tm.BTCClient,
+		indexerClient,
 		&monitorCfg,
 		zap.NewNop(),
 		activationMetrics,
@@ -186,6 +194,12 @@ func TestActivationTimeout(t *testing.T) {
 
 	babylonAdapter := monitor.NewBabylonAdaptorClientAdapter(tm.BabylonClient, &tm.Config.Monitor)
 
+	indexerClient := indexer.NewHTTPIndexerClient(
+		tm.Config.BTCStakingTracker.IndexerAddr,
+		30*time.Second,
+		*zap.NewNop(),
+	)
+
 	monitorCfg := config.DefaultMonitorConfig()
 	monitorCfg.ActivationTimeoutSeconds = 1
 
@@ -193,6 +207,7 @@ func TestActivationTimeout(t *testing.T) {
 	activationMonitor := monitor.NewActivationUnbondingMonitor(
 		babylonAdapter,
 		tm.BTCClient,
+		indexerClient,
 		&monitorCfg,
 		zap.NewNop(),
 		activationMetrics,
@@ -314,6 +329,12 @@ func TestMultipleDelegationsActivation(t *testing.T) {
 
 	babylonAdapter := monitor.NewBabylonAdaptorClientAdapter(tm.BabylonClient, &tm.Config.Monitor)
 
+	indexerClient := indexer.NewHTTPIndexerClient(
+		tm.Config.BTCStakingTracker.IndexerAddr,
+		30*time.Second,
+		*zap.NewNop(),
+	)
+
 	monitorCfg := config.DefaultMonitorConfig()
 	monitorCfg.ActivationTimeoutSeconds = 300
 
@@ -321,6 +342,7 @@ func TestMultipleDelegationsActivation(t *testing.T) {
 	activationMonitor := monitor.NewActivationUnbondingMonitor(
 		babylonAdapter,
 		tm.BTCClient,
+		indexerClient,
 		&monitorCfg,
 		zap.NewNop(),
 		activationMetrics,
