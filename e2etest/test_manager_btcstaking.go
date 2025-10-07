@@ -7,7 +7,6 @@ import (
 	"fmt"
 	types2 "github.com/babylonlabs-io/babylon/v3/x/btcstkconsumer/types"
 	"math/rand"
-	"sync"
 	"testing"
 	"time"
 
@@ -43,11 +42,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var (
-	r  = rand.New(rand.NewSource(time.Now().Unix()))
-	rMu sync.Mutex
-)
-
 func (tm *TestManager) getBTCUnbondingTime(t *testing.T) uint32 {
 	bsParams, err := tm.BabylonClient.BTCStakingParams()
 	require.NoError(t, err)
@@ -60,14 +54,12 @@ func (tm *TestManager) CreateFinalityProvider(t *testing.T) (*bstypes.FinalityPr
 	signerAddr := tm.BabylonClient.MustGetAddr()
 	addr := sdk.MustAccAddressFromBech32(signerAddr)
 
-	rMu.Lock()
-	fpSK, _, err := datagen.GenRandomBTCKeyPair(r)
+	fpSK, _, err := datagen.GenRandomBTCKeyPair(tm.Rand)
 	require.NoError(t, err)
 	fpSignCtx := signingcontext.FpPopContextV0(tm.Config.Babylon.ChainID, appparams.AccBTCStaking.String())
-	btcFp, err := datagen.GenCustomFinalityProvider(r, fpSK, fpSignCtx, addr, "")
+	btcFp, err := datagen.GenCustomFinalityProvider(tm.Rand, fpSK, fpSignCtx, addr, "")
 	require.NoError(t, err)
-	moniker := datagen.GenRandomHexStr(r, 10)
-	rMu.Unlock()
+	moniker := datagen.GenRandomHexStr(tm.Rand, 10)
 
 	zero := sdkmath.LegacyZeroDec()
 	commission := bstypes.NewCommissionRates(zero, zero, zero)
@@ -89,14 +81,14 @@ func (tm *TestManager) CreateFinalityProviderBSN(t *testing.T, bsnID string) (*b
 	signerAddr := tm.BabylonClient.MustGetAddr()
 	addr := sdk.MustAccAddressFromBech32(signerAddr)
 
-	rMu.Lock()
-	fpSK, _, err := datagen.GenRandomBTCKeyPair(r)
+	
+	fpSK, _, err := datagen.GenRandomBTCKeyPair(tm.Rand)
 	require.NoError(t, err)
 	fpSignCtx := signingcontext.FpPopContextV0(tm.Config.Babylon.ChainID, appparams.AccBTCStaking.String())
-	btcFp, err := datagen.GenCustomFinalityProvider(r, fpSK, fpSignCtx, addr, bsnID)
+	btcFp, err := datagen.GenCustomFinalityProvider(tm.Rand, fpSK, fpSignCtx, addr, bsnID)
 	require.NoError(t, err)
-	moniker := datagen.GenRandomHexStr(r, 10)
-	rMu.Unlock()
+	moniker := datagen.GenRandomHexStr(tm.Rand, 10)
+	
 
 	zero := sdkmath.LegacyZeroDec()
 	commission := bstypes.NewCommissionRates(zero, zero, zero)
@@ -380,9 +372,9 @@ func (tm *TestManager) createStakingAndSlashingTx(
 ) (*wire.MsgTx, *datagen.TestStakingSlashingInfo, *chainhash.Hash) {
 	// generate staking tx and slashing tx
 	// generate legitimate BTC del
-	rMu.Lock()
+	
 	stakingSlashingInfo := datagen.GenBTCStakingSlashingInfoWithOutPoint(
-		r,
+		tm.Rand,
 		t,
 		regtestParams,
 		topUTXO.GetOutPoint(),
@@ -396,7 +388,7 @@ func (tm *TestManager) createStakingAndSlashingTx(
 		bsParams.Params.SlashingRate,
 		uint16(tm.getBTCUnbondingTime(t)),
 	)
-	rMu.Unlock()
+	
 	// sign staking tx and overwrite the staking tx to the signed version
 	// NOTE: the tx hash has changed here since stakingMsgTx is pre-segwit
 	stakingMsgTx, signed, err := tm.BTCClient.SignRawTransactionWithWallet(stakingSlashingInfo.StakingTx)
@@ -444,9 +436,9 @@ func (tm *TestManager) createStakeExpStakingAndSlashingTx(
 	outPoints := []*wire.OutPoint{prevStakingOutPoint, fundingOutPoint}
 
 	// generate legitimate BTC del
-	rMu.Lock()
+	
 	stakingSlashingInfo := datagen.GenBTCStakingSlashingInfoWithInputs(
-		r,
+		tm.Rand,
 		t,
 		regtestParams,
 		outPoints,
@@ -460,7 +452,7 @@ func (tm *TestManager) createStakeExpStakingAndSlashingTx(
 		bsParams.Params.SlashingRate,
 		uint16(tm.getBTCUnbondingTime(t)),
 	)
-	rMu.Unlock()
+	
 
 	stakingTxHash := stakingSlashingInfo.StakingTx.TxHash()
 	return stakingSlashingInfo.StakingTx, stakingSlashingInfo, &stakingTxHash
@@ -479,9 +471,9 @@ func (tm *TestManager) createUnbondingData(
 ) (*datagen.TestUnbondingSlashingInfo, *btcstaking.SpendInfo, []byte, *bbn.BIP340Signature) {
 	fee := int64(1000)
 	unbondingValue := stakingSlashingInfo.StakingInfo.StakingOutput.Value - fee
-	rMu.Lock()
+	
 	unbondingSlashingInfo := datagen.GenBTCUnbondingSlashingInfo(
-		r,
+		tm.Rand,
 		t,
 		regtestParams,
 		tm.WalletPrivKey,
@@ -495,7 +487,7 @@ func (tm *TestManager) createUnbondingData(
 		bsParams.Params.SlashingRate,
 		unbondingTime,
 	)
-	rMu.Unlock()
+	
 	unbondingTxBytes, err := bbn.SerializeBTCTx(unbondingSlashingInfo.UnbondingTx)
 	require.NoError(t, err)
 
@@ -793,9 +785,9 @@ func (tm *TestManager) VoteAndEquivocate(t *testing.T, fpSK *btcec.PrivateKey) {
 		commit a number of public randomness since activatedHeight
 	*/
 	signCtx := signingcontext.FpRandCommitContextV0(tm.Config.Babylon.ChainID, appparams.AccFinality.String())
-	rMu.Lock()
-	srList, msgCommitPubRandList, err := datagen.GenRandomMsgCommitPubRandList(r, fpSK, signCtx, activatedHeight, 100)
-	rMu.Unlock()
+	
+	srList, msgCommitPubRandList, err := datagen.GenRandomMsgCommitPubRandList(tm.Rand, fpSK, signCtx, activatedHeight, 100)
+	
 	require.NoError(t, err)
 	msgCommitPubRandList.Signer = signerAddr
 	_, err = tm.BabylonClient.ReliablySendMsg(context.Background(), msgCommitPubRandList, nil, nil)
@@ -847,9 +839,9 @@ func (tm *TestManager) VoteAndEquivocate(t *testing.T, fpSK *btcec.PrivateKey) {
 	/*
 		equivocate
 	*/
-	rMu.Lock()
-	invalidAppHash := datagen.GenRandomByteArray(r, 32)
-	rMu.Unlock()
+	
+	invalidAppHash := datagen.GenRandomByteArray(tm.Rand, 32)
+	
 	invalidMsgToSign := []byte(fpFinVoteContext)
 	invalidMsgToSign = append(invalidMsgToSign, sdk.Uint64ToBigEndian(activatedHeight)...)
 	invalidMsgToSign = append(invalidMsgToSign, invalidAppHash...)
@@ -1005,7 +997,7 @@ func (tm *TestManager) finalizeUntilEpoch(t *testing.T, epoch uint64) {
 
 	t.Logf("start finalizing epochs until %d", epoch)
 	// Random source for the generation of BTC data
-	r := rand.New(rand.NewSource(time.Now().Unix()))
+	r := tm.Rand
 
 	// get all checkpoints of these epochs
 	pagination := &sdkquerytypes.PageRequest{
