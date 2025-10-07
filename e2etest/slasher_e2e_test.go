@@ -642,8 +642,10 @@ func TestSlasher_Loaded_MultiStaking(t *testing.T) {
 	wg.Wait()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	var miningWg sync.WaitGroup
+	miningWg.Add(1)
 	go func(ctx context.Context) {
+		defer miningWg.Done()
 		ticker := time.NewTicker(1 * time.Second)
 		defer ticker.Stop()
 
@@ -656,6 +658,10 @@ func TestSlasher_Loaded_MultiStaking(t *testing.T) {
 			}
 		}
 	}(ctx)
+	defer func() {
+		cancel()
+		miningWg.Wait()
+	}()
 
 	tm.CatchUpBTCLightClient(t)
 
@@ -700,10 +706,9 @@ func TestSlasher_Loaded_MultiStaking(t *testing.T) {
 					stakingTrackerMetrics,
 					dbBackend,
 				)
-				go func() {
-					err := bsTracker.Bootstrap(0)
-					require.NoError(t, err)
-				}()
+				err = bsTracker.Bootstrap(0)
+				require.NoError(t, err)
+				bsTracker.Start()
 			}
 
 			if len(txns) == 1 {
