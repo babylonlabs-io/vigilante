@@ -54,6 +54,7 @@ ActivationUnbondingMonitorMetrics) *ActivationUnbondingMonitor {
 func (m *ActivationUnbondingMonitor) Start() error {
 	m.wg.Add(1)
 	go m.monitoringLoop()
+
 	return nil
 }
 
