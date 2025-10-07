@@ -32,6 +32,8 @@ type ActivationUnbondingMonitor struct {
 	logger            *zap.Logger
 	mu                sync.RWMutex
 	metrics           *metrics.ActivationUnbondingMonitorMetrics
+	quit              chan struct{}
+	wg                sync.WaitGroup
 }
 
 func NewActivationUnbondingMonitor(babylonClient BabylonAdaptorClient,
@@ -45,6 +47,37 @@ ActivationUnbondingMonitorMetrics) *ActivationUnbondingMonitor {
 		activationTracker: make(map[chainhash.Hash]*ActivationTracking),
 		logger:            logger,
 		metrics:           monitorMetrics,
+		quit:              make(chan struct{}),
+	}
+}
+
+func (m *ActivationUnbondingMonitor) Start() error {
+	m.wg.Add(1)
+	go m.monitoringLoop()
+
+	return nil
+}
+
+func (m *ActivationUnbondingMonitor) Stop() {
+	close(m.quit)
+	m.wg.Wait()
+}
+
+func (m *ActivationUnbondingMonitor) monitoringLoop() {
+	defer m.wg.Done()
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-m.quit:
+			return
+		case <-ticker.C:
+			if err := m.CheckActivationTiming(); err != nil {
+				m.logger.Error("Error checking activation timing", zap.Error(err))
+			}
+		}
 	}
 }
 

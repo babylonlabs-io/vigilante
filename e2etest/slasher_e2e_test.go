@@ -435,7 +435,7 @@ func TestSlasher_MultiStaking(t *testing.T) {
 	require.NoError(t, err)
 
 	contractAddr := tm.DeployCwContract(t)
-	consumer := datagen.GenRandomRollupRegister(r, contractAddr)
+	consumer := datagen.GenRandomRollupRegister(tm.Rand, contractAddr)
 	tm.RegisterBSN(t, consumer, contractAddr)
 
 	// set up a finality provider
@@ -571,7 +571,7 @@ func TestSlasher_Loaded_MultiStaking(t *testing.T) {
 	require.NoError(t, err)
 
 	contractAddr := tm.DeployCwContract(t)
-	consumer := datagen.GenRandomRollupRegister(r, contractAddr)
+	consumer := datagen.GenRandomRollupRegister(tm.Rand, contractAddr)
 	tm.RegisterBSN(t, consumer, contractAddr)
 
 	// set up a finality provider
@@ -642,8 +642,10 @@ func TestSlasher_Loaded_MultiStaking(t *testing.T) {
 	wg.Wait()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	var miningWg sync.WaitGroup
+	miningWg.Add(1)
 	go func(ctx context.Context) {
+		defer miningWg.Done()
 		ticker := time.NewTicker(1 * time.Second)
 		defer ticker.Stop()
 
@@ -656,6 +658,10 @@ func TestSlasher_Loaded_MultiStaking(t *testing.T) {
 			}
 		}
 	}(ctx)
+	defer func() {
+		cancel()
+		miningWg.Wait()
+	}()
 
 	tm.CatchUpBTCLightClient(t)
 
@@ -700,10 +706,9 @@ func TestSlasher_Loaded_MultiStaking(t *testing.T) {
 					stakingTrackerMetrics,
 					dbBackend,
 				)
-				go func() {
-					err := bsTracker.Bootstrap(0)
-					require.NoError(t, err)
-				}()
+				err = bsTracker.Bootstrap(0)
+				require.NoError(t, err)
+				bsTracker.Start()
 			}
 
 			if len(txns) == 1 {
