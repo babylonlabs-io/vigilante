@@ -8,7 +8,6 @@ import (
 	"fmt"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	sdkquerytypes "github.com/cosmos/cosmos-sdk/types/query"
-	"hash/fnv"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -244,9 +243,7 @@ func StartManager(t *testing.T, options ...TestManagerOption) *TestManager {
 		return true
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
-	h := fnv.New64a()
-	h.Write([]byte(t.Name()))
-	seed := int64(h.Sum64())
+	seed := time.Now().UnixNano()
 
 	return &TestManager{
 		TestRpcClient:    testRpcClient,
