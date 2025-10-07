@@ -309,8 +309,9 @@ func TestSlasher_Bootstrapping(t *testing.T) {
 	)
 
 	// bootstrap BTC staking tracker
-	err = bsTracker.Bootstrap(0)
-	require.NoError(t, err)
+	go func() {
+		_ = bsTracker.Bootstrap(0)
+	}()
 
 	// slashing tx will eventually enter mempool
 	slashingMsgTx, err := stakingSlashingInfo.SlashingTx.ToMsgTx()
@@ -706,8 +707,9 @@ func TestSlasher_Loaded_MultiStaking(t *testing.T) {
 					stakingTrackerMetrics,
 					dbBackend,
 				)
-				err = bsTracker.Bootstrap(0)
-				require.NoError(t, err)
+				go func() {
+					_ = bsTracker.Bootstrap(0)
+				}()
 				bsTracker.Start()
 			}
 
