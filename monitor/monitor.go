@@ -3,13 +3,14 @@ package monitor
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/babylonlabs-io/vigilante/version"
+	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/stakingeventwatcher"
 	"math"
 	"sort"
 	"sync"
 	"time"
 
 	"github.com/babylonlabs-io/vigilante/monitor/store"
+	"github.com/babylonlabs-io/vigilante/version"
 	notifier "github.com/lightningnetwork/lnd/chainntnfs"
 	"github.com/lightningnetwork/lnd/kvdb"
 
@@ -64,6 +65,7 @@ func New(
 	genesisInfo *types.GenesisInfo,
 	bbnQueryClient BabylonQueryClient,
 	btcClient btcclient.BTCClient,
+	indexer stakingeventwatcher.SpendChecker,
 	btcNotifier notifier.ChainNotifier,
 	monitorMetrics *metrics.MonitorMetrics,
 	babylonClient BabylonAdaptorClient,
@@ -75,11 +77,13 @@ func New(
 	}
 
 	activationMetrics := metrics.NewActivationUnbondingMonitorMetrics()
+
 	logger := parentLogger.With(zap.String("module", "monitor"))
 
 	activationMonitor := NewActivationUnbondingMonitor(
 		babylonClient,
 		btcClient,
+		indexer,
 		cfg,
 		logger,
 		activationMetrics,

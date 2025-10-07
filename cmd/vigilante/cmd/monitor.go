@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"time"
 
 	bbnqccfg "github.com/babylonlabs-io/babylon/v3/client/config"
 	bbnqc "github.com/babylonlabs-io/babylon/v3/client/query"
@@ -9,6 +10,7 @@ import (
 
 	bbnclient "github.com/babylonlabs-io/babylon/v3/client/client"
 	"github.com/babylonlabs-io/vigilante/btcclient"
+	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/indexer"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/monitor"
@@ -91,6 +93,9 @@ func GetMonitorCmd() *cobra.Command {
 
 			babylonAdaptorClient := monitor.NewBabylonAdaptorClientAdapter(babylonClient, &cfg.Monitor)
 
+			// create indexer
+			indexerClient := indexer.NewHTTPIndexerClient(cfg.BTCStakingTracker.IndexerAddr, 10*time.Second, *rootLogger)
+
 			// create monitor
 			vigilanteMonitor, err = monitor.New(
 				&cfg.Monitor,
@@ -99,6 +104,7 @@ func GetMonitorCmd() *cobra.Command {
 				genesisInfo,
 				bbnQueryClient,
 				btcClient,
+				indexerClient,
 				btcNotifier,
 				monitorMetrics,
 				babylonAdaptorClient,

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	sdkquerytypes "github.com/cosmos/cosmos-sdk/types/query"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"slices"
@@ -101,6 +102,7 @@ type TestManager struct {
 	WalletPrivKey    *btcec.PrivateKey
 	manger           *container.Manager
 	CovenantPrivKeys []*btcec.PrivateKey
+	Rand             *rand.Rand
 }
 
 func initBTCClientWithSubscriber(t *testing.T, cfg *config.Config) *btcclient.Client {
@@ -241,6 +243,8 @@ func StartManager(t *testing.T, options ...TestManagerOption) *TestManager {
 		return true
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
+	seed := time.Now().UnixNano()
+
 	return &TestManager{
 		TestRpcClient:    testRpcClient,
 		BabylonClient:    babylonClient,
@@ -251,6 +255,7 @@ func StartManager(t *testing.T, options ...TestManagerOption) *TestManager {
 		WalletPrivKey:    walletPrivKey,
 		manger:           manager,
 		CovenantPrivKeys: covenants,
+		Rand:             rand.New(rand.NewSource(seed)),
 	}
 }
 

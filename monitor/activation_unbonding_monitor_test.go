@@ -4,6 +4,7 @@ import (
 	"github.com/babylonlabs-io/babylon/v3/testutil/datagen"
 	btcstakingtypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
+	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/stakingeventwatcher"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/testutil/mocks"
@@ -24,10 +25,11 @@ func TestActivationUnbondingMonitor(t *testing.T) {
 	cfg := config.DefaultMonitorConfig()
 	mockClient := NewMockBabylonAdaptorClient(ctl)
 	mockBtcClient := mocks.NewMockBTCClient(ctl)
+	mockIndexer := stakingeventwatcher.NewMockSpendChecker(ctl)
 	logger := zap.NewNop()
 	monitorMetrics := metrics.NewActivationUnbondingMonitorMetrics()
 
-	monitor := NewActivationUnbondingMonitor(mockClient, mockBtcClient, &cfg, logger, monitorMetrics)
+	monitor := NewActivationUnbondingMonitor(mockClient, mockBtcClient, mockIndexer, &cfg, logger, monitorMetrics)
 
 	expectedActivated := 5
 	delegations := make([]Delegation, 0, expectedActivated)
@@ -94,17 +96,19 @@ func TestActivationUnbondingMonitor(t *testing.T) {
 
 func TestActivationUnbondingMonitor_Error(t *testing.T) {
 	t.Parallel()
-	ctl := gomock.NewController(t)
-	cfg := config.DefaultMonitorConfig()
-	mockClient := NewMockBabylonAdaptorClient(ctl)
-	mockBtcClient := mocks.NewMockBTCClient(ctl)
-	logger := zap.NewNop()
-	monitorMetrics := metrics.NewActivationUnbondingMonitorMetrics()
-
-	monitor := NewActivationUnbondingMonitor(mockClient, mockBtcClient, &cfg, logger, monitorMetrics)
 
 	t.Run("Transaction not in chain", func(t *testing.T) {
 		t.Parallel()
+		ctl := gomock.NewController(t)
+		cfg := config.DefaultMonitorConfig()
+		mockClient := NewMockBabylonAdaptorClient(ctl)
+		mockBtcClient := mocks.NewMockBTCClient(ctl)
+		mockIndexer := stakingeventwatcher.NewMockSpendChecker(ctl)
+		logger := zap.NewNop()
+		monitorMetrics := metrics.NewActivationUnbondingMonitorMetrics()
+
+		monitor := NewActivationUnbondingMonitor(mockClient, mockBtcClient, mockIndexer, &cfg, logger, monitorMetrics)
+
 		stk := datagen.GenRandomTx(rand.New(rand.NewSource(2)))
 		delegation := Delegation{
 			StakingTx:        stk,
@@ -121,6 +125,16 @@ func TestActivationUnbondingMonitor_Error(t *testing.T) {
 
 	t.Run("Insufficient confirmations", func(t *testing.T) {
 		t.Parallel()
+		ctl := gomock.NewController(t)
+		cfg := config.DefaultMonitorConfig()
+		mockClient := NewMockBabylonAdaptorClient(ctl)
+		mockBtcClient := mocks.NewMockBTCClient(ctl)
+		mockIndexer := stakingeventwatcher.NewMockSpendChecker(ctl)
+		logger := zap.NewNop()
+		monitorMetrics := metrics.NewActivationUnbondingMonitorMetrics()
+
+		monitor := NewActivationUnbondingMonitor(mockClient, mockBtcClient, mockIndexer, &cfg, logger, monitorMetrics)
+
 		stk := datagen.GenRandomTx(rand.New(rand.NewSource(3)))
 		delegation := Delegation{
 			StakingTx:        stk,
