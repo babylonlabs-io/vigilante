@@ -7,6 +7,7 @@ import (
 	bbnqc "github.com/babylonlabs-io/babylon/v3/client/query"
 	"github.com/spf13/cobra"
 
+	bbnclient "github.com/babylonlabs-io/babylon/v3/client/client"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"
@@ -83,6 +84,13 @@ func GetMonitorCmd() *cobra.Command {
 				panic(err)
 			}
 
+			babylonClient, err := bbnclient.New(&cfg.Babylon, nil)
+			if err != nil {
+				panic(fmt.Errorf("failed to create babylon client: %w", err))
+			}
+
+			babylonAdaptorClient := monitor.NewBabylonAdaptorClientAdapter(babylonClient, &cfg.Monitor)
+
 			// create monitor
 			vigilanteMonitor, err = monitor.New(
 				&cfg.Monitor,
@@ -93,6 +101,7 @@ func GetMonitorCmd() *cobra.Command {
 				btcClient,
 				btcNotifier,
 				monitorMetrics,
+				babylonAdaptorClient,
 				dbBackend,
 			)
 			if err != nil {

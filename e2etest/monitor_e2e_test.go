@@ -52,6 +52,8 @@ func TestMonitorBootstrap(t *testing.T) {
 	tm.Config.Submitter.PollingIntervalSeconds = 1
 	subAddr, _ := sdk.AccAddressFromBech32(submitterAddrStr)
 
+	adapter := monitor.NewBabylonAdaptorClientAdapter(tm.BabylonClient, &tm.Config.Monitor)
+
 	// create submitter
 	vigilantSubmitter, err := submitter.New(
 		&tm.Config.Submitter,
@@ -99,6 +101,7 @@ func TestMonitorBootstrap(t *testing.T) {
 		tm.BTCClient,
 		backend,
 		monitorMetrics,
+		adapter,
 		dbBackend,
 	)
 	require.NoError(t, err)
@@ -139,6 +142,7 @@ func TestMonitorBootstrap(t *testing.T) {
 		tm.BTCClient,
 		backend,
 		monitorMetrics,
+		adapter,
 		dbBackend,
 	)
 	require.NoError(t, err)

@@ -5,6 +5,7 @@ import (
 	btcstakingtypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/config"
+	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/testutil/mocks"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/golang/mock/gomock"
@@ -23,9 +24,10 @@ func TestActivationUnbondingMonitor(t *testing.T) {
 	cfg := config.DefaultMonitorConfig()
 	mockClient := NewMockBabylonAdaptorClient(ctl)
 	mockBtcClient := mocks.NewMockBTCClient(ctl)
-	logger := zap.NewNop().Sugar()
+	logger := zap.NewNop()
+	monitorMetrics := metrics.NewActivationUnbondingMonitorMetrics()
 
-	monitor := NewActivationUnbondingMonitor(mockClient, mockBtcClient, &cfg, logger)
+	monitor := NewActivationUnbondingMonitor(mockClient, mockBtcClient, &cfg, logger, monitorMetrics)
 
 	expectedActivated := 5
 	delegations := make([]Delegation, 0, expectedActivated)
@@ -42,9 +44,7 @@ func TestActivationUnbondingMonitor(t *testing.T) {
 		})
 	}
 
-	mockClient.EXPECT().DelegationsByStatus(gomock.Any(), gomock.Any(),
-		gomock.Any()).Return(delegations, nil, nil).AnyTimes()
-
+	mockClient.EXPECT().DelegationsByStatus(gomock.Any(), gomock.Any(), gomock.Any()).Return(delegations, nil, nil).AnyTimes()
 	mockClient.EXPECT().BTCDelegation(gomock.Any()).Return(&delegations[0], nil).AnyTimes()
 	mockBtcClient.EXPECT().TxDetails(gomock.Any(), gomock.Any()).Return(
 		&chainntnfs.TxConfirmation{
@@ -98,9 +98,10 @@ func TestActivationUnbondingMonitor_Error(t *testing.T) {
 	cfg := config.DefaultMonitorConfig()
 	mockClient := NewMockBabylonAdaptorClient(ctl)
 	mockBtcClient := mocks.NewMockBTCClient(ctl)
-	logger := zap.NewNop().Sugar()
+	logger := zap.NewNop()
+	monitorMetrics := metrics.NewActivationUnbondingMonitorMetrics()
 
-	monitor := NewActivationUnbondingMonitor(mockClient, mockBtcClient, &cfg, logger)
+	monitor := NewActivationUnbondingMonitor(mockClient, mockBtcClient, &cfg, logger, monitorMetrics)
 
 	t.Run("Transaction not in chain", func(t *testing.T) {
 		t.Parallel()
