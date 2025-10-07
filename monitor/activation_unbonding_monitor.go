@@ -334,6 +334,7 @@ func (m *ActivationUnbondingMonitor) processUnbondingDels(delegations []Delegati
 				m.logger.Warn("error whilst checking spent",
 					zap.String("stakingHash", stakingHash.String()),
 					zap.Error(err))
+
 				return nil
 			}
 
@@ -393,6 +394,7 @@ func (m *ActivationUnbondingMonitor) cleanupUnbondingTracker() {
 			m.logger.Warn("Error getting delegation",
 				zap.String("hash", hash.String()),
 				zap.Error(err))
+
 			continue
 		}
 

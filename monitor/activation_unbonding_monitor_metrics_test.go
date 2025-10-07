@@ -4,6 +4,7 @@ import (
 	"github.com/babylonlabs-io/babylon/v3/testutil/datagen"
 	btcstakingtypes "github.com/babylonlabs-io/babylon/v3/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
+	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/stakingeventwatcher"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/testutil/mocks"
@@ -36,12 +37,14 @@ func NewActivationMonitorTestSuite(t *testing.T, timeoutSeconds int64) *Activati
 	cfg.ActivationTimeoutSeconds = timeoutSeconds
 	mockBClient := NewMockBabylonAdaptorClient(ctl)
 	mockBtcClient := mocks.NewMockBTCClient(ctl)
+	mockIndexer := stakingeventwatcher.NewMockSpendChecker(ctl)
 	logger := zap.NewNop()
 	activationMetrics := metrics.NewActivationUnbondingMonitorMetrics()
 
 	activationMonitor := NewActivationUnbondingMonitor(
 		mockBClient,
 		mockBtcClient,
+		mockIndexer,
 		&cfg,
 		logger,
 		activationMetrics,

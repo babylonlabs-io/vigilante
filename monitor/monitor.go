@@ -39,7 +39,6 @@ type Monitor struct {
 	BTCScanner btcscanner.Scanner
 	// BBNQuerier queries epoch info from Babylon
 	BBNQuerier BabylonQueryClient
-	indexer    stakingeventwatcher.SpendChecker
 
 	// curEpoch contains information of the current epoch for verification
 	curEpoch *types.EpochInfo
