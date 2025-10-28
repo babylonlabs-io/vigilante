@@ -64,10 +64,10 @@ func newUnbondingWatcherMetrics(registry *prometheus.Registry) *UnbondingWatcher
 			Name:      "unbonding_watcher_tracked_active_delegations",
 			Help:      "The number of active delegations tracked by unbonding watcher",
 		}),
-		DetectedUnbondedStakeExpansionCounter: registerer.NewGauge(prometheus.GaugeOpts{
+		DetectedUnbondedStakeExpansionCounter: registerer.NewCounter(prometheus.CounterOpts{
 			Namespace: "vigilante",
 			Name:      "unbonding_watcher_detected_unbonded_stake_expansion",
-			Help:      "The number of spend staking transaction that are expanding their stake",
+			Help:      "The total number of spend staking transactions that are expanding their stake",
 		}),
 		DetectedUnbondingTransactionsCounter: registerer.NewCounter(prometheus.CounterOpts{
 			Namespace: "vigilante",
