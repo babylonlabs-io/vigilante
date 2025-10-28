@@ -37,6 +37,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Bug Fixes
+
+* [#474](https://github.com/babylonlabs-io/vigilante/pull/474) fix: deal with 0 output tx
+
 ## v0.24.0-rc.4
 
 ### Improvements
