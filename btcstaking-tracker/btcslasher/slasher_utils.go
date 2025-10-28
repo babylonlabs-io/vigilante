@@ -257,12 +257,6 @@ func (bs *BTCSlasher) sendSlashingTx(
 		return nil, fmt.Errorf("failed to get BTC staking parameter at version %d", del.ParamsVersion)
 	}
 
-	// Validate staking output index is within bounds
-	if int(del.StakingOutputIdx) >= len(slashingMsgTxWithWitness.TxOut) {
-		return nil, fmt.Errorf("staking output index %d out of bounds for slashing tx %s with %d outputs",
-			del.StakingOutputIdx, txHash.String(), len(slashingMsgTxWithWitness.TxOut))
-	}
-
 	ckptParams := checkPointParams.Params
 	pkScript := slashingMsgTxWithWitness.TxOut[del.StakingOutputIdx].PkScript
 	if err := bs.waitForTxKDeep(ctx, txHash, pkScript, ckptParams.BtcConfirmationDepth); err != nil {
