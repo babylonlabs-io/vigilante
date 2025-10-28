@@ -100,11 +100,18 @@ func (bca *BabylonClientAdapter) DelegationsByStatus(status btcstakingtypes.BTCD
 			return nil, nil, err
 		}
 
+		// Handle unbonding transactions with 0 outputs (valid on Bitcoin, though unusual)
+		// This can happen when funds are burned to fees via timelock path
+		var unbondingOutput *wire.TxOut
+		if len(unbondingTx.TxOut) > 0 {
+			unbondingOutput = unbondingTx.TxOut[0]
+		}
+
 		delegations[i] = Delegation{
 			StakingTx:             stakingTx,
 			StakingOutputIdx:      delegation.StakingOutputIdx,
 			DelegationStartHeight: delegation.StartHeight,
-			UnbondingOutput:       unbondingTx.TxOut[0],
+			UnbondingOutput:       unbondingOutput,
 			HasProof:              delegation.StartHeight > 0,
 			Status:                delegation.StatusDesc,
 		}
@@ -366,11 +373,18 @@ func (bca *BabylonClientAdapter) BTCDelegation(stakingTxHash string) (*Delegatio
 		return nil, err
 	}
 
+	// Handle unbonding transactions with 0 outputs (valid on Bitcoin, though unusual)
+	// This can happen when funds are burned to fees via timelock path
+	var unbondingOutput *wire.TxOut
+	if len(unbondingTx.TxOut) > 0 {
+		unbondingOutput = unbondingTx.TxOut[0]
+	}
+
 	return &Delegation{
 		StakingTx:             stakingTx,
 		StakingOutputIdx:      delegation.StakingOutputIdx,
 		DelegationStartHeight: delegation.StartHeight,
-		UnbondingOutput:       unbondingTx.TxOut[0],
+		UnbondingOutput:       unbondingOutput,
 		HasProof:              delegation.StartHeight > 0,
 		Status:                delegation.StatusDesc,
 		IsStakeExpansion:      delegation.StkExp != nil,

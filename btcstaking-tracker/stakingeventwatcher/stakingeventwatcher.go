@@ -356,6 +356,10 @@ func tryParseStakerSignatureFromSpentTx(tx *wire.MsgTx, td *TrackedDelegation) (
 		return nil, fmt.Errorf("unbonding tx must have exactly one output. Priovided tx has %d outputs", len(tx.TxOut))
 	}
 
+	if td.UnbondingOutput == nil {
+		return nil, fmt.Errorf("tracked delegation has nil unbonding output, cannot verify unbonding tx")
+	}
+
 	if tx.TxOut[0].Value != td.UnbondingOutput.Value || !bytes.Equal(tx.TxOut[0].PkScript, td.UnbondingOutput.PkScript) {
 		return nil, fmt.Errorf("unbonding tx must have output which matches unbonding output of retrieved from Babylon")
 	}
@@ -588,7 +592,7 @@ func (sew *StakingEventWatcher) checkSpend() error {
 func (sew *StakingEventWatcher) buildSpendingTxProof(spendingTx *wire.MsgTx) (*btcstakingtypes.InclusionProof, error) {
 	txHash := spendingTx.TxHash()
 	if len(spendingTx.TxOut) == 0 {
-		panic(fmt.Errorf("stake spending tx has no outputs %s", spendingTx.TxHash().String())) // this is a software error
+		return nil, fmt.Errorf("stake spending tx has no outputs %s", spendingTx.TxHash().String())
 	}
 	details, status, err := sew.btcClient.TxDetails(&txHash, spendingTx.TxOut[0].PkScript)
 	if err != nil {
@@ -707,6 +711,13 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 			continue
 		}
 		txHash := del.StakingTx.TxHash()
+
+		// Validate staking output index is within bounds
+		if int(del.StakingOutputIdx) >= len(del.StakingTx.TxOut) {
+			sew.logger.Errorf("staking output index %d out of bounds for tx %v with %d outputs, skipping delegation",
+				del.StakingOutputIdx, txHash, len(del.StakingTx.TxOut))
+			continue
+		}
 
 		details, status, err := sew.btcClient.TxDetails(&txHash, del.StakingTx.TxOut[del.StakingOutputIdx].PkScript)
 		if err != nil {
