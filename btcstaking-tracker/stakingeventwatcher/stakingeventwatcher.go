@@ -5,11 +5,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/btcsuite/btcd/btcjson"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/btcsuite/btcd/btcjson"
 
 	"github.com/babylonlabs-io/babylon/v4/client/babylonclient"
 	bbn "github.com/babylonlabs-io/babylon/v4/types"
@@ -353,7 +354,7 @@ func getStakingTxInputIdx(tx *wire.MsgTx, td *TrackedDelegation) (int, error) {
 // If provided tx is not unbonding tx it returns error.
 func tryParseStakerSignatureFromSpentTx(tx *wire.MsgTx, td *TrackedDelegation) (*schnorr.Signature, error) {
 	if len(tx.TxOut) != 1 {
-		return nil, fmt.Errorf("unbonding tx must have exactly one output. Priovided tx has %d outputs", len(tx.TxOut))
+		return nil, fmt.Errorf("unbonding tx must have exactly one output. Provided tx has %d outputs", len(tx.TxOut))
 	}
 
 	if td.UnbondingOutput == nil {
