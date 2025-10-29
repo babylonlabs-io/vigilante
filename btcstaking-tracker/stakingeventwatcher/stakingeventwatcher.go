@@ -716,7 +716,8 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 		// Validate staking output index is within bounds
 		if int(del.StakingOutputIdx) >= len(del.StakingTx.TxOut) {
 			sew.logger.Errorf("staking output index %d out of bounds for tx %v with %d outputs, skipping delegation",
-				del.StakingOutputIdx, txHash, len(del.StakingTx.TxOut))
+				del.StakingOutputIdx, txHash.String(), len(del.StakingTx.TxOut))
+
 			continue
 		}
 
