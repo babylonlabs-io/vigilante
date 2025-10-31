@@ -235,8 +235,10 @@ func TestHandleReorgAfterRestart(t *testing.T) {
 	vigilantReporter.Stop()
 	vigilantReporter.WaitForShutdown()
 
-	// // we will start from block before tip and submit 2 new block this should trigger rollback
-	tm.GenerateAndSubmitBlockNBlockStartingFromDepth(t, 2, 1)
+	// Trigger reorg: invalidate 1 block and mine 3 new ones
+	// Mining 3 instead of 2 ensures the new chain has strictly better work than the old chain
+	// This is required for Babylon's fork choice rule which rejects chains with equal work
+	tm.GenerateAndSubmitBlockNBlockStartingFromDepth(t, 3, 1)
 
 	btcClient := initBTCClientWithSubscriber(t, tm.Config) //current tm.btcClient already has an active zmq subscription, would panic
 	defer btcClient.Stop()
