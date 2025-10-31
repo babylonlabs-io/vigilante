@@ -306,22 +306,20 @@ func (e *EthereumBackend) waitForSafeBlock(ctx context.Context, tx *types.Transa
 		case <-ctx.Done():
 			return fmt.Errorf("timeout waiting for safe confirmation")
 		case <-ticker.C:
-			// Use "safe" block tag (requires recent go-ethereum)
-			// For older versions, we wait for ~15 confirmations
-			safeBlock, err := e.client.HeaderByNumber(ctx, big.NewInt(-4)) // -4 corresponds to "safe" block
+			// Get the "safe" block using raw RPC call with block tag
+			// This requires go-ethereum v1.10.0+ and a PoS Ethereum node
+			safeBlockNumber, err := e.getSafeBlockNumber(ctx)
 			if err != nil {
 				e.logger.Warnw("Failed to get safe block", "error", err)
-
 				continue
 			}
 
-			if safeBlock.Number.Uint64() >= txBlockNumber {
+			if safeBlockNumber >= txBlockNumber {
 				e.logger.Debugw("Transaction confirmed in safe block",
 					"tx_hash", tx.Hash().Hex(),
 					"tx_block", txBlockNumber,
-					"safe_block", safeBlock.Number.Uint64(),
+					"safe_block", safeBlockNumber,
 				)
-
 				return nil
 			}
 		}
@@ -355,26 +353,64 @@ func (e *EthereumBackend) waitForFinalizedBlock(ctx context.Context, tx *types.T
 		case <-ctx.Done():
 			return fmt.Errorf("timeout waiting for finalized confirmation")
 		case <-ticker.C:
-			// Use "finalized" block tag
-			// For older versions, we wait for ~32 confirmations (2 epochs)
-			finalizedBlock, err := e.client.HeaderByNumber(ctx, big.NewInt(-5)) // -5 corresponds to "finalized" block
+			// Get the "finalized" block using raw RPC call with block tag
+			// This requires go-ethereum v1.10.0+ and a PoS Ethereum node
+			finalizedBlockNumber, err := e.getFinalizedBlockNumber(ctx)
 			if err != nil {
 				e.logger.Warnw("Failed to get finalized block", "error", err)
-
 				continue
 			}
 
-			if finalizedBlock.Number.Uint64() >= txBlockNumber {
+			if finalizedBlockNumber >= txBlockNumber {
 				e.logger.Debugw("Transaction finalized",
 					"tx_hash", tx.Hash().Hex(),
 					"tx_block", txBlockNumber,
-					"finalized_block", finalizedBlock.Number.Uint64(),
+					"finalized_block", finalizedBlockNumber,
 				)
-
 				return nil
 			}
 		}
 	}
+}
+
+// getSafeBlockNumber gets the block number of the "safe" block using raw RPC
+func (e *EthereumBackend) getSafeBlockNumber(ctx context.Context) (uint64, error) {
+	type rpcBlock struct {
+		Number string `json:"number"`
+	}
+
+	var result rpcBlock
+	err := e.client.Client().CallContext(ctx, &result, "eth_getBlockByNumber", "safe", false)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get safe block: %w", err)
+	}
+
+	// Parse hex string to uint64
+	blockNumber := new(big.Int)
+	if _, ok := blockNumber.SetString(result.Number[2:], 16); !ok {
+		return 0, fmt.Errorf("failed to parse safe block number: %s", result.Number)
+	}
+	return blockNumber.Uint64(), nil
+}
+
+// getFinalizedBlockNumber gets the block number of the "finalized" block using raw RPC
+func (e *EthereumBackend) getFinalizedBlockNumber(ctx context.Context) (uint64, error) {
+	type rpcBlock struct {
+		Number string `json:"number"`
+	}
+
+	var result rpcBlock
+	err := e.client.Client().CallContext(ctx, &result, "eth_getBlockByNumber", "finalized", false)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get finalized block: %w", err)
+	}
+
+	// Parse hex string to uint64
+	blockNumber := new(big.Int)
+	if _, ok := blockNumber.SetString(result.Number[2:], 16); !ok {
+		return 0, fmt.Errorf("failed to parse finalized block number: %s", result.Number)
+	}
+	return blockNumber.Uint64(), nil
 }
 
 // Stop closes the Ethereum client connection
