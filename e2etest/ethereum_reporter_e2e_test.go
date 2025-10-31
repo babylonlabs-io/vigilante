@@ -348,10 +348,12 @@ func ethereumChainMatchesBtc(t *testing.T, tm *TestManager, anvilHandler *AnvilT
 
 	if ethTipHashHex != btcHashHex {
 		t.Logf("hash mismatch: eth=%s, btc(reversed)=%s, btc(original)=%s", ethTipHashHex, btcHashHex, btcTipHash.String())
+
 		return false
 	}
 
 	t.Logf("✓ Ethereum contract in sync: height=%d, hash=%s", ethTipHeight.Uint64(), btcTipHash.String())
+
 	return true
 }
 

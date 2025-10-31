@@ -3,6 +3,7 @@ package reporter
 import (
 	"context"
 	"fmt"
+
 	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/lightningnetwork/lnd/chainntnfs"
@@ -127,6 +128,7 @@ func (r *Reporter) handleReorg(newHeight uint32, newHeader *wire.BlockHeader) er
 	// For Babylon, this is the main mechanism (Babylon handles reorgs internally)
 	// For Ethereum, we've already submitted the fork above, now just resync
 	r.btcCache.RemoveAll()
+
 	return fmt.Errorf("reorg detected, bootstrap required to resync cache")
 }
 
@@ -190,6 +192,7 @@ func (r *Reporter) findCommonAncestor(height uint32, header *wire.BlockHeader) (
 				"height", currentHeight,
 				"hash", currentHash.String(),
 			)
+
 			return currentHeight, nil
 		}
 

@@ -311,6 +311,7 @@ func (e *EthereumBackend) waitForSafeBlock(ctx context.Context, tx *types.Transa
 			safeBlockNumber, err := e.getSafeBlockNumber(ctx)
 			if err != nil {
 				e.logger.Warnw("Failed to get safe block", "error", err)
+
 				continue
 			}
 
@@ -320,6 +321,7 @@ func (e *EthereumBackend) waitForSafeBlock(ctx context.Context, tx *types.Transa
 					"tx_block", txBlockNumber,
 					"safe_block", safeBlockNumber,
 				)
+
 				return nil
 			}
 		}
@@ -358,6 +360,7 @@ func (e *EthereumBackend) waitForFinalizedBlock(ctx context.Context, tx *types.T
 			finalizedBlockNumber, err := e.getFinalizedBlockNumber(ctx)
 			if err != nil {
 				e.logger.Warnw("Failed to get finalized block", "error", err)
+
 				continue
 			}
 
@@ -367,6 +370,7 @@ func (e *EthereumBackend) waitForFinalizedBlock(ctx context.Context, tx *types.T
 					"tx_block", txBlockNumber,
 					"finalized_block", finalizedBlockNumber,
 				)
+
 				return nil
 			}
 		}
@@ -390,6 +394,7 @@ func (e *EthereumBackend) getSafeBlockNumber(ctx context.Context) (uint64, error
 	if _, ok := blockNumber.SetString(result.Number[2:], 16); !ok {
 		return 0, fmt.Errorf("failed to parse safe block number: %s", result.Number)
 	}
+
 	return blockNumber.Uint64(), nil
 }
 
@@ -410,6 +415,7 @@ func (e *EthereumBackend) getFinalizedBlockNumber(ctx context.Context) (uint64, 
 	if _, ok := blockNumber.SetString(result.Number[2:], 16); !ok {
 		return 0, fmt.Errorf("failed to parse finalized block number: %s", result.Number)
 	}
+
 	return blockNumber.Uint64(), nil
 }
 
