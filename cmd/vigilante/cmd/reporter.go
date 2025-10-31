@@ -66,9 +66,21 @@ func GetReporterCmd() *cobra.Command {
 				panic(err)
 			}
 
-			// create backend (currently only Babylon is supported)
-			// In the future, this will be selected based on config
-			backend := reporter.NewBabylonBackend(babylonClient)
+			// create backend based on configuration
+			var backend reporter.Backend
+			switch cfg.Reporter.BackendType {
+			case "babylon":
+				backend = reporter.NewBabylonBackend(babylonClient)
+				rootLogger.Info("Using Babylon backend for BTC header submission")
+			case "ethereum":
+				backend, err = reporter.NewEthereumBackend(&cfg.Ethereum, rootLogger)
+				if err != nil {
+					panic(fmt.Errorf("failed to create Ethereum backend: %w", err))
+				}
+				rootLogger.Info("Using Ethereum backend for BTC header submission")
+			default:
+				panic(fmt.Errorf("unsupported backend type: %s", cfg.Reporter.BackendType))
+			}
 
 			// create reporter
 			vigilantReporter, err = reporter.New(

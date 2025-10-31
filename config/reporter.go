@@ -16,6 +16,7 @@ type ReporterConfig struct {
 	NetParams       string `mapstructure:"netparams"`          // should be mainnet|testnet|simnet|signet
 	BTCCacheSize    uint32 `mapstructure:"btc_cache_size"`     // size of the BTC cache
 	MaxHeadersInMsg uint32 `mapstructure:"max_headers_in_msg"` // maximum number of headers in a MsgInsertHeaders message
+	BackendType     string `mapstructure:"backend_type"`       // backend type: babylon or ethereum
 }
 
 func (cfg *ReporterConfig) Validate() error {
@@ -29,6 +30,16 @@ func (cfg *ReporterConfig) Validate() error {
 		return fmt.Errorf("max_headers_in_msg has to be at least %d", maxHeadersInMsg)
 	}
 
+	// Validate backend type
+	switch cfg.BackendType {
+	case "babylon", "ethereum":
+		// valid backend types
+	case "":
+		cfg.BackendType = "babylon" // default to babylon for backwards compatibility
+	default:
+		return fmt.Errorf("invalid backend_type: %s (must be babylon or ethereum)", cfg.BackendType)
+	}
+
 	return nil
 }
 
@@ -37,5 +48,6 @@ func DefaultReporterConfig() ReporterConfig {
 		NetParams:       types.BtcSimnet.String(),
 		BTCCacheSize:    minBTCCacheSize,
 		MaxHeadersInMsg: maxHeadersInMsg,
+		BackendType:     "babylon", // default to babylon backend
 	}
 }

@@ -76,6 +76,28 @@ proto-gen:
 
 .PHONY: proto-gen
 
+###############################################################################
+###                         Contract Bindings                               ###
+###############################################################################
+
+generate-contracts: ## Regenerate Ethereum contract bindings
+	@echo "Compiling BtcPrism.sol..."
+	@solc --abi --bin --overwrite --base-path . \
+		contracts/btcprism/BtcPrism.sol \
+		-o contracts/btcprism/
+	@echo "Generating Go bindings..."
+	@abigen --abi=contracts/btcprism/BtcPrism.abi \
+		--bin=contracts/btcprism/BtcPrism.bin \
+		--pkg=btcprism \
+		--out=contracts/btcprism/btcprism.go
+	@echo "✅ Contract bindings generated successfully"
+
+clean-contracts: ## Remove generated contract artifacts (keeps .sol files)
+	@rm -f contracts/btcprism/Endian.abi contracts/btcprism/Endian.bin
+	@rm -f contracts/btcprism/IBtcPrism.abi contracts/btcprism/IBtcPrism.bin
+	@echo "✅ Cleaned intermediate contract artifacts"
+
+.PHONY: generate-contracts clean-contracts
 
 ###############################################################################
 ###                                Gosec                                    ###
