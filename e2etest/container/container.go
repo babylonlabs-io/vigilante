@@ -23,6 +23,7 @@ const (
 	bitcoindContainerName = "bitcoind"
 	babylondContainerName = "babylond"
 	electrsContainerName  = "electrs"
+	anvilContainerName    = "anvil"
 )
 
 var (
@@ -299,6 +300,41 @@ func (m *Manager) RunElectrsResource(
 	m.resources[electrsContainerName] = resource
 
 	return resource, nil
+}
+
+// RunAnvilResource starts an Anvil (Ethereum local testnet) docker container
+func (m *Manager) RunAnvilResource(t *testing.T) (*dockertest.Resource, error) {
+	anvilResource, err := m.pool.RunWithOptions(
+		&dockertest.RunOptions{
+			Name:       fmt.Sprintf("%s-%s", anvilContainerName, t.Name()),
+			Repository: m.cfg.AnvilRepository,
+			Tag:        m.cfg.AnvilVersion,
+			Labels: map[string]string{
+				"e2e": "anvil",
+			},
+			ExposedPorts: []string{
+				"8545/tcp",
+			},
+			Entrypoint: []string{"anvil"},
+			Cmd: []string{
+				"--host", "0.0.0.0",
+				"--port", "8545",
+				"--block-time", "1", // 1 second block time for faster tests
+			},
+		},
+		func(config *docker.HostConfig) {
+			config.PortBindings = map[docker.Port][]docker.PortBinding{
+				"8545/tcp": {{HostIP: "", HostPort: strconv.Itoa(testutil.AllocateUniquePort(t))}},
+			}
+			config.PublishAllPorts = false
+		},
+		noRestart,
+	)
+	if err != nil {
+		return nil, err
+	}
+	m.resources[anvilContainerName] = anvilResource
+	return anvilResource, nil
 }
 
 // ClearResources removes all outstanding Docker resources created by the Manager.

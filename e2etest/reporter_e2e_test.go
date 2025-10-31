@@ -1,6 +1,3 @@
-//go:build e2e
-// +build e2e
-
 package e2etest
 
 import (
@@ -24,10 +21,6 @@ import (
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/reporter"
 	"github.com/stretchr/testify/require"
-)
-
-var (
-	longEventuallyWaitTimeOut = 2 * eventuallyWaitTimeOut
 )
 
 func (tm *TestManager) BabylonBTCChainMatchesBtc(t *testing.T) bool {
@@ -62,9 +55,8 @@ func (tm *TestManager) GenerateAndSubmitBlockNBlockStartingFromDepth(t *testing.
 	// invalidate blocks from this height
 	tm.BitcoindHandler.InvalidateBlock(blockHash.String())
 
-	for i := 0; i < N; i++ {
-		tm.BitcoindHandler.GenerateBlocks(N)
-	}
+	// Generate N new blocks on the alternative chain
+	tm.BitcoindHandler.GenerateBlocks(N)
 }
 
 func TestReporter_BoostrapUnderFrequentBTCHeaders(t *testing.T) {

@@ -132,11 +132,37 @@ func (e *EthereumBackend) ContainsBlock(ctx context.Context, hash *chainhash.Has
 
 		if common.BytesToHash(targetHashBytes) == blockHash {
 			e.logger.Debugw("Block found in contract", "hash", hash.String(), "height", height)
+
 			return true, nil
 		}
 	}
 
 	return false, nil
+}
+
+// GetTip returns the Ethereum contract's current tip block height and hash.
+func (e *EthereumBackend) GetTip(ctx context.Context) (uint32, *chainhash.Hash, error) {
+	// Get latest height from contract
+	latestHeight, err := e.contract.GetLatestBlockHeight(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to get latest block height: %w", err)
+	}
+
+	// Get hash at latest height
+	blockHash, err := e.contract.GetBlockHash(&bind.CallOpts{Context: ctx}, latestHeight)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to get block hash at height %d: %w", latestHeight, err)
+	}
+
+	// Convert from Ethereum's big-endian [32]byte to Bitcoin's little-endian chainhash.Hash
+	hashBytes := blockHash[:]
+	reverseBytes(hashBytes)
+	hash, err := chainhash.NewHash(hashBytes)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to parse block hash: %w", err)
+	}
+
+	return uint32(latestHeight.Uint64()), hash, nil
 }
 
 // SubmitHeaders submits a batch of BTC headers to the Ethereum contract
@@ -159,11 +185,41 @@ func (e *EthereumBackend) SubmitHeaders(ctx context.Context, startHeight uint64,
 		"start_height", startHeight,
 		"num_headers", len(headers),
 		"total_bytes", len(concatenated),
+		"first_header_hex", fmt.Sprintf("%x", headers[0][:20]), // First 20 bytes for debug
 	)
+
+	// Check contract state before submitting
+	latestHeight, latestHeightErr := e.contract.GetLatestBlockHeight(&bind.CallOpts{Context: ctx})
+	if latestHeightErr != nil {
+		e.logger.Warnw("Failed to get contract latest height (non-fatal)", "error", latestHeightErr)
+	} else {
+		e.logger.Infow("Contract state before submit",
+			"contract_latest_height", latestHeight.Uint64(),
+			"submitting_start_height", startHeight,
+			"gap", int64(startHeight)-int64(latestHeight.Uint64()),
+		)
+	}
+
+	// Check if we're trying to submit blocks that don't connect
+	if latestHeight != nil && startHeight > latestHeight.Uint64()+1 {
+		e.logger.Warnw("Gap detected: trying to submit blocks that don't connect to contract tip",
+			"contract_tip", latestHeight.Uint64(),
+			"submitting_start", startHeight,
+			"missing_blocks", startHeight-latestHeight.Uint64()-1,
+		)
+	}
 
 	// Submit transaction
 	tx, err := e.contract.Submit(e.auth, big.NewInt(int64(startHeight)), concatenated)
 	if err != nil {
+		e.logger.Errorw("Failed to submit headers to contract",
+			"start_height", startHeight,
+			"num_headers", len(headers),
+			"contract_latest_height", latestHeight,
+			"error_type", fmt.Sprintf("%T", err),
+			"error_full", fmt.Sprintf("%+v", err),
+		)
+
 		return parseContractError(err)
 	}
 
@@ -255,6 +311,7 @@ func (e *EthereumBackend) waitForSafeBlock(ctx context.Context, tx *types.Transa
 			safeBlock, err := e.client.HeaderByNumber(ctx, big.NewInt(-4)) // -4 corresponds to "safe" block
 			if err != nil {
 				e.logger.Warnw("Failed to get safe block", "error", err)
+
 				continue
 			}
 
@@ -264,6 +321,7 @@ func (e *EthereumBackend) waitForSafeBlock(ctx context.Context, tx *types.Transa
 					"tx_block", txBlockNumber,
 					"safe_block", safeBlock.Number.Uint64(),
 				)
+
 				return nil
 			}
 		}
@@ -302,6 +360,7 @@ func (e *EthereumBackend) waitForFinalizedBlock(ctx context.Context, tx *types.T
 			finalizedBlock, err := e.client.HeaderByNumber(ctx, big.NewInt(-5)) // -5 corresponds to "finalized" block
 			if err != nil {
 				e.logger.Warnw("Failed to get finalized block", "error", err)
+
 				continue
 			}
 
@@ -311,6 +370,7 @@ func (e *EthereumBackend) waitForFinalizedBlock(ctx context.Context, tx *types.T
 					"tx_block", txBlockNumber,
 					"finalized_block", finalizedBlock.Number.Uint64(),
 				)
+
 				return nil
 			}
 		}
@@ -321,6 +381,7 @@ func (e *EthereumBackend) waitForFinalizedBlock(ctx context.Context, tx *types.T
 func (e *EthereumBackend) Stop() error {
 	e.client.Close()
 	e.logger.Info("Ethereum backend stopped")
+
 	return nil
 }
 

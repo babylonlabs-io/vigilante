@@ -3,8 +3,6 @@ package reporter
 import (
 	"fmt"
 	"strings"
-
-	"github.com/ethereum/go-ethereum/accounts/abi"
 )
 
 // Contract error types matching IBtcPrism.sol
@@ -30,31 +28,31 @@ func parseContractError(err error) error {
 
 	errMsg := err.Error()
 
-	// Check for specific contract errors
-	// These match the custom errors defined in IBtcPrism.sol
+	// Check for specific contract errors first (custom errors from IBtcPrism.sol)
+	// These are more specific and should be checked before generic messages
 	switch {
 	case strings.Contains(errMsg, "WrongHeaderLength"):
-		return ErrWrongHeaderLength
+		return fmt.Errorf("%w (headers must be 80 bytes each): %s", ErrWrongHeaderLength, errMsg)
 	case strings.Contains(errMsg, "NoBlocksSubmitted"):
-		return ErrNoBlocksSubmitted
+		return fmt.Errorf("%w: %s", ErrNoBlocksSubmitted, errMsg)
 	case strings.Contains(errMsg, "BadParent"):
-		return ErrBadParent
+		return fmt.Errorf("%w (parent block hash doesn't match): %s", ErrBadParent, errMsg)
 	case strings.Contains(errMsg, "NoParent"):
-		return ErrNoParent
+		return fmt.Errorf("%w (starting height not in contract): %s", ErrNoParent, errMsg)
 	case strings.Contains(errMsg, "HashAboveTarget"):
-		return ErrHashAboveTarget
+		return fmt.Errorf("%w (proof of work insufficient): %s", ErrHashAboveTarget, errMsg)
 	case strings.Contains(errMsg, "DifficultyRetargetLT25"):
-		return ErrDifficultyRetargetLT25
+		return fmt.Errorf("%w: %s", ErrDifficultyRetargetLT25, errMsg)
 	case strings.Contains(errMsg, "WrongDifficultyBits"):
-		return ErrWrongDifficultyBits
+		return fmt.Errorf("%w: %s", ErrWrongDifficultyBits, errMsg)
 	case strings.Contains(errMsg, "OldDifficultyPeriod"):
-		return ErrOldDifficultyPeriod
+		return fmt.Errorf("%w: %s", ErrOldDifficultyPeriod, errMsg)
 	case strings.Contains(errMsg, "InsufficientTotalDifficulty"):
-		return ErrInsufficientTotalDifficulty
+		return fmt.Errorf("%w: %s", ErrInsufficientTotalDifficulty, errMsg)
 	case strings.Contains(errMsg, "InsufficientChainLength"):
-		return ErrInsufficientChainLength
+		return fmt.Errorf("%w: %s", ErrInsufficientChainLength, errMsg)
 	case strings.Contains(errMsg, "TooDeepReorg"):
-		return ErrTooDeepReorg
+		return fmt.Errorf("%w (max 1000 blocks): %s", ErrTooDeepReorg, errMsg)
 	}
 
 	// Check for common Ethereum errors
@@ -70,55 +68,55 @@ func parseContractError(err error) error {
 	case strings.Contains(errMsg, "execution reverted"):
 		// Try to extract revert reason if available
 		if reason := extractRevertReason(errMsg); reason != "" {
-			return fmt.Errorf("contract execution reverted: %s", reason)
+			return fmt.Errorf("contract execution reverted: %s (full error: %s)", reason, errMsg)
 		}
-		return fmt.Errorf("contract execution reverted: %w", err)
+
+		return fmt.Errorf("contract execution reverted (no specific reason found): %s", errMsg)
 	}
 
-	// Return original error if no match
-	return fmt.Errorf("ethereum transaction failed: %w", err)
+	// Return original error with full context if no match
+	return fmt.Errorf("ethereum transaction failed: %s (original error: %w)", errMsg, err)
 }
 
 // extractRevertReason attempts to extract the revert reason from error message
 func extractRevertReason(errMsg string) string {
-	// Look for common revert reason patterns
-	patterns := []string{
-		"execution reverted: ",
-		"revert: ",
+	// Look for common revert reason patterns in order of specificity
+	patterns := []struct {
+		prefix string
+		suffix string
+	}{
+		{"execution reverted: ", ""},
+		{"revert ", ""},
+		{"reverted with reason string '", "'"},
+		{"custom error '", "'"},
 	}
 
 	for _, pattern := range patterns {
-		if idx := strings.Index(errMsg, pattern); idx != -1 {
-			reason := errMsg[idx+len(pattern):]
+		if idx := strings.Index(errMsg, pattern.prefix); idx != -1 {
+			start := idx + len(pattern.prefix)
+			reason := errMsg[start:]
+
+			// Find suffix if specified
+			if pattern.suffix != "" {
+				if endIdx := strings.Index(reason, pattern.suffix); endIdx != -1 {
+					reason = reason[:endIdx]
+				}
+			}
+
 			// Clean up the reason
 			reason = strings.TrimSpace(reason)
 			reason = strings.Trim(reason, `"`)
-			return reason
+
+			// Stop at newline or comma if present
+			if nlIdx := strings.IndexAny(reason, "\n,"); nlIdx != -1 {
+				reason = reason[:nlIdx]
+			}
+
+			if reason != "" {
+				return strings.TrimSpace(reason)
+			}
 		}
 	}
 
 	return ""
-}
-
-// unpackError attempts to unpack ABI-encoded error data
-// This is useful for custom errors with parameters
-func unpackError(data []byte, errorABI *abi.Error) (map[string]interface{}, error) {
-	if len(data) < 4 {
-		return nil, fmt.Errorf("error data too short")
-	}
-
-	// Skip the 4-byte function selector
-	values, err := errorABI.Inputs.Unpack(data[4:])
-	if err != nil {
-		return nil, err
-	}
-
-	result := make(map[string]interface{})
-	for i, input := range errorABI.Inputs {
-		if i < len(values) {
-			result[input.Name] = values[i]
-		}
-	}
-
-	return result, nil
 }

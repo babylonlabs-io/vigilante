@@ -15,6 +15,8 @@ type ImageConfig struct {
 	BabylonVersion     string
 	ElectrsRepository  string
 	ElectrsVersion     string
+	AnvilRepository    string
+	AnvilVersion       string
 }
 
 //nolint:deadcode
@@ -24,6 +26,8 @@ const (
 	dockerBabylondRepository = "babylonlabs/babylond"
 	dockerElectrsRepository  = "mempool/electrs"
 	dockerElectrsVersionTag  = "v3.1.0"
+	dockerAnvilRepository    = "ghcr.io/foundry-rs/foundry"
+	dockerAnvilVersionTag    = "latest"
 )
 
 // NewImageConfig returns ImageConfig needed for running e2e test.
@@ -38,5 +42,7 @@ func NewImageConfig(t *testing.T) ImageConfig {
 		BabylonVersion:     babylonVersion,
 		ElectrsRepository:  dockerElectrsRepository,
 		ElectrsVersion:     dockerElectrsVersionTag,
+		AnvilRepository:    dockerAnvilRepository,
+		AnvilVersion:       dockerAnvilVersionTag,
 	}
 }

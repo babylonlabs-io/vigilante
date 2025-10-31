@@ -26,13 +26,29 @@ func NewBabylonBackend(client BabylonClient) Backend {
 }
 
 // ContainsBlock checks if Babylon has stored the given block hash.
-func (b *BabylonBackend) ContainsBlock(ctx context.Context, hash *chainhash.Hash) (bool, error) {
+func (b *BabylonBackend) ContainsBlock(_ context.Context, hash *chainhash.Hash) (bool, error) {
 	res, err := b.client.ContainsBTCBlock(hash)
 	if err != nil {
 		return false, fmt.Errorf("failed to check if Babylon contains block: %w", err)
 	}
 
 	return res.Contains, nil
+}
+
+// GetTip returns Babylon's BTC light client tip height and hash.
+func (b *BabylonBackend) GetTip(_ context.Context) (uint32, *chainhash.Hash, error) {
+	tipRes, err := b.client.BTCHeaderChainTip()
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to get Babylon BTC header chain tip: %w", err)
+	}
+
+	// Parse the hash from hex string
+	hash, err := chainhash.NewHashFromStr(tipRes.Header.HashHex)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to parse tip hash: %w", err)
+	}
+
+	return tipRes.Header.Height, hash, nil
 }
 
 // SubmitHeaders submits a batch of BTC headers to Babylon.

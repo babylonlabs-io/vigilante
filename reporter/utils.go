@@ -90,6 +90,9 @@ func (r *Reporter) submitHeaders(ibs []*types.IndexedBlock) error {
 	}
 
 	startHeight := uint64(ibs[0].Height)
+	endHeight := uint64(ibs[len(ibs)-1].Height)
+
+	r.logger.Infof("Preparing to submit %d headers: heights %d to %d", len(ibs), startHeight, endHeight)
 
 	// Submit to backend with retry logic
 	err := retrywrap.Do(
@@ -99,10 +102,14 @@ func (r *Reporter) submitHeaders(ibs []*types.IndexedBlock) error {
 		retry.Delay(r.retrySleepTime),
 		retry.MaxDelay(r.maxRetrySleepTime),
 		retry.Attempts(r.maxRetryTimes),
+		retry.OnRetry(func(n uint, err error) {
+			r.logger.Warnf("Failed to submit headers: %v. Attempt: %d, Max attempts: %d", err, n+1, r.maxRetryTimes)
+		}),
 	)
 
 	if err != nil {
 		r.metrics.FailedHeadersCounter.Add(float64(len(headers)))
+
 		return fmt.Errorf("failed to submit headers: %w", err)
 	}
 
@@ -123,7 +130,7 @@ func (r *Reporter) submitHeaders(ibs []*types.IndexedBlock) error {
 
 // ProcessHeaders extracts and reports headers from a list of blocks
 // It returns the number of headers that need to be reported (after deduplication)
-func (r *Reporter) ProcessHeaders(signer string, ibs []*types.IndexedBlock) (int, error) {
+func (r *Reporter) ProcessHeaders(_ string, ibs []*types.IndexedBlock) (int, error) {
 	// get chunks of headers to be submitted
 	headerChunks, err := r.getHeadersToSubmit(ibs)
 	if err != nil {

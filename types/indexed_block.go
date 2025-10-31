@@ -17,6 +17,7 @@ func SerializeBlockHeader(header *wire.BlockHeader) ([]byte, error) {
 	if err := header.Serialize(&buf); err != nil {
 		return nil, fmt.Errorf("failed to serialize block header: %w", err)
 	}
+
 	return buf.Bytes(), nil
 }
 
