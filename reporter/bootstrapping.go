@@ -134,25 +134,34 @@ func (r *Reporter) bootstrap() error {
 		return err
 	}
 
-	ibs, err = r.btcCache.GetLastBlocks(consistencyInfo.startSyncHeight)
-	if err != nil {
-		panic(err)
-	}
-
 	signer := r.babylonClient.MustGetAddr()
 
-	r.logger.Infof("BTC height: %d. BTCLightclient height: %d. Start syncing from height %d.",
+	r.logger.Infof("BTC height: %d. Backend height: %d. Start syncing from height %d.",
 		btcLatestBlockHeight, consistencyInfo.bbnLatestBlockHeight, consistencyInfo.startSyncHeight)
 
-	// extracts and submits headers for each block in ibs
-	// Note: As we are retrieving blocks from btc cache from block just after confirmed block which
-	// we already checked for consistency, we can be sure that even if rest of the block headers is different than in Babylon
-	// due to reorg, our fork will be better than the one in Babylon.
-	if _, err = r.ProcessHeaders(signer, ibs); err != nil {
-		// this can happen when there are two contentious vigilantes or if our btc node is behind.
-		r.logger.Errorf("Failed to submit headers: %v", err)
-		// returning error as it is up to the caller to decide what do next
-		return err
+	// Check if there are any new blocks to sync
+	// If backend is already at BTC tip, there's nothing to sync
+	btcCacheTip := r.btcCache.Tip()
+	if btcCacheTip != nil && consistencyInfo.startSyncHeight > btcCacheTip.Height {
+		r.logger.Infof("Backend is already in sync with BTC (both at height %d), no new headers to submit",
+			btcCacheTip.Height)
+	} else {
+		// Get blocks from cache starting from the sync height
+		ibs, err = r.btcCache.GetLastBlocks(consistencyInfo.startSyncHeight)
+		if err != nil {
+			panic(err)
+		}
+
+		// extracts and submits headers for each block in ibs
+		// Note: As we are retrieving blocks from btc cache from block just after confirmed block which
+		// we already checked for consistency, we can be sure that even if rest of the block headers is different than in Babylon
+		// due to reorg, our fork will be better than the one in Babylon.
+		if _, err = r.ProcessHeaders(signer, ibs); err != nil {
+			// this can happen when there are two contentious vigilantes or if our btc node is behind.
+			r.logger.Errorf("Failed to submit headers: %v", err)
+			// returning error as it is up to the caller to decide what do next
+			return err
+		}
 	}
 
 	// trim cache to the latest k+w blocks on BTC (which are same as in BBN)

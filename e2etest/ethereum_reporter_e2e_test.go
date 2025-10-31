@@ -200,8 +200,10 @@ func TestEthereumReporter_HandleReorg(t *testing.T) {
 		return ethereumChainMatchesBtc(t, tm, anvilHandler)
 	}, longEventuallyWaitTimeOut, eventuallyPollTime)
 
-	// Trigger a reorg: invalidate last 2 blocks and mine 3 new ones
-	tm.GenerateAndSubmitBlockNBlockStartingFromDepth(t, 3, 2)
+	// Trigger a reorg: invalidate last 2 blocks and mine 4 new ones
+	// We mine 4 instead of 3 so the new chain has a higher tip than the old chain
+	// This ensures the btcNotifier sends block notifications for the new blocks
+	tm.GenerateAndSubmitBlockNBlockStartingFromDepth(t, 4, 2)
 
 	// Wait for reporter to handle reorg and sync new chain
 	require.Eventually(t, func() bool {
@@ -345,7 +347,7 @@ func ethereumChainMatchesBtc(t *testing.T, tm *TestManager, anvilHandler *AnvilT
 	btcHashHex := fmt.Sprintf("0x%x", btcHashBytes)
 
 	if ethTipHashHex != btcHashHex {
-		t.Logf("hash mismatch: eth=%s, btc=%s", ethTipHashHex, btcTipHash.String())
+		t.Logf("hash mismatch: eth=%s, btc(reversed)=%s, btc(original)=%s", ethTipHashHex, btcHashHex, btcTipHash.String())
 		return false
 	}
 
