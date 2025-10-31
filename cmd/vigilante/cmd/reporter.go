@@ -66,11 +66,16 @@ func GetReporterCmd() *cobra.Command {
 				panic(err)
 			}
 
+			// create backend (currently only Babylon is supported)
+			// In the future, this will be selected based on config
+			backend := reporter.NewBabylonBackend(babylonClient)
+
 			// create reporter
 			vigilantReporter, err = reporter.New(
 				&cfg.Reporter,
 				rootLogger,
 				btcClient,
+				backend,
 				babylonClient,
 				btcNotifier,
 				cfg.Common.RetrySleepTime,

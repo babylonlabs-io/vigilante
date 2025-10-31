@@ -84,10 +84,14 @@ func TestReporter_BoostrapUnderFrequentBTCHeaders(t *testing.T) {
 	btcNotifier, err := btcclient.NewNodeBackend(btcCfg, btcParams, &btcclient.EmptyHintCache{})
 	require.NoError(t, err)
 
+	// create reporter backend
+	reporterBackend := reporter.NewBabylonBackend(tm.BabylonClient)
+
 	vigilantReporter, err := reporter.New(
 		&tm.Config.Reporter,
 		logger,
 		tm.BTCClient,
+		reporterBackend,
 		tm.BabylonClient,
 		btcNotifier,
 		tm.Config.Common.RetrySleepTime,
@@ -149,10 +153,14 @@ func TestRelayHeadersAndHandleRollbacks(t *testing.T) {
 	btcNotifier, err := btcclient.NewNodeBackend(btcCfg, btcParams, &btcclient.EmptyHintCache{})
 	require.NoError(t, err)
 
+	// create reporter backend
+	reporterBackend := reporter.NewBabylonBackend(tm.BabylonClient)
+
 	vigilantReporter, err := reporter.New(
 		&tm.Config.Reporter,
 		logger,
 		tm.BTCClient,
+		reporterBackend,
 		tm.BabylonClient,
 		btcNotifier,
 		tm.Config.Common.RetrySleepTime,
@@ -202,10 +210,14 @@ func TestHandleReorgAfterRestart(t *testing.T) {
 	btcNotifier, err := btcclient.NewNodeBackend(btcCfg, btcParams, &btcclient.EmptyHintCache{})
 	require.NoError(t, err)
 
+	// create reporter backend
+	reporterBackend := reporter.NewBabylonBackend(tm.BabylonClient)
+
 	vigilantReporter, err := reporter.New(
 		&tm.Config.Reporter,
 		logger,
 		tm.BTCClient,
+		reporterBackend,
 		tm.BabylonClient,
 		btcNotifier,
 		tm.Config.Common.RetrySleepTime,
@@ -238,10 +250,12 @@ func TestHandleReorgAfterRestart(t *testing.T) {
 	defer btcClient.Stop()
 
 	// Start new reporter
+	reporterBackendNew := reporter.NewBabylonBackend(tm.BabylonClient)
 	vigilantReporterNew, err := reporter.New(
 		&tm.Config.Reporter,
 		logger,
 		btcClient,
+		reporterBackendNew,
 		tm.BabylonClient,
 		btcNotifier,
 		tm.Config.Common.RetrySleepTime,
@@ -290,10 +304,12 @@ func TestReporter_Censorship(t *testing.T) {
 
 	tm.Config.Common.MaxRetryTimes = 1
 
+	reporterBackendCensorship := reporter.NewBabylonBackend(babylonClient)
 	vigilantReporter, err := reporter.New(
 		&tm.Config.Reporter,
 		logger,
 		tm.BTCClient,
+		reporterBackendCensorship,
 		babylonClient,
 		btcNotifier,
 		tm.Config.Common.RetrySleepTime,
@@ -336,10 +352,12 @@ func TestReporter_DuplicateSubmissions(t *testing.T) {
 	tm.Config.Common.MaxRetryTimes = 1
 	tm.Config.Reporter.BTCCacheSize = 1000
 
+	reporterBackend1 := reporter.NewBabylonBackend(tm.BabylonClient)
 	reporter1, err := reporter.New(
 		&tm.Config.Reporter,
 		zaptest.NewLogger(t).Named("reporter1"),
 		tm.BTCClient,
+		reporterBackend1,
 		tm.BabylonClient,
 		btcNotifier,
 		tm.Config.Common.RetrySleepTime,
@@ -385,10 +403,12 @@ func TestReporter_DuplicateSubmissions(t *testing.T) {
 
 	cfg.Common.MaxRetryTimes = 1
 	reporter2Metrics := metrics.NewReporterMetrics()
+	reporterBackend2 := reporter.NewBabylonBackend(babylonClient)
 	reporter2, err := reporter.New(
 		&cfg.Reporter,
 		zaptest.NewLogger(t).Named("reporter2"),
 		tm.BTCClient,
+		reporterBackend2,
 		babylonClient,
 		btcNotifier,
 		tm.Config.Common.RetrySleepTime,
