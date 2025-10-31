@@ -40,7 +40,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Improvements
 
 * [#473](https://github.com/babylonlabs-io/vigilante/pull/473) chore: use counter
-* [#474](https://github.com/babylonlabs-io/vigilante/pull/474) feat(reporter): reporter supports submission to ETH contract
+* [#476](https://github.com/babylonlabs-io/vigilante/pull/476) feat(reporter): reporter supports submission to ETH contract
 * 
 ## v0.24.0-rc.4
 
