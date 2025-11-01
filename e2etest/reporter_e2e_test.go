@@ -176,8 +176,9 @@ func TestRelayHeadersAndHandleRollbacks(t *testing.T) {
 		return tm.BabylonBTCChainMatchesBtc(t)
 	}, longEventuallyWaitTimeOut, eventuallyPollTime)
 
-	// we will start from block before tip and submit 2 new block this should trigger rollback
-	tm.GenerateAndSubmitBlockNBlockStartingFromDepth(t, 2, 1)
+	// Trigger reorg: invalidate 1 block and mine 3 new ones
+	// Mining 3 instead of 2 ensures the new chain has strictly better work than the old chain
+	tm.GenerateAndSubmitBlockNBlockStartingFromDepth(t, 3, 1)
 
 	// tips should eventually match
 	require.Eventually(t, func() bool {
