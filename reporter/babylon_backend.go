@@ -72,6 +72,7 @@ func (b *BabylonBackend) SubmitHeaders(ctx context.Context, startHeight uint64, 
 		}
 
 		// Create IndexedBlock with just the header (no transactions needed for header submission)
+		// #nosec G115 -- Bitcoin block heights are well below uint32 max, i is bounded by headers length
 		ibs[i] = types.NewIndexedBlock(uint32(startHeight)+uint32(i), &header, nil)
 	}
 

@@ -64,6 +64,7 @@ func NewEthereumBackend(cfg *config.EthereumConfig, parentLogger *zap.Logger) (B
 	}
 
 	// Create transaction signer
+	// #nosec G115 -- Chain IDs are small values (mainnet=1, testnets in thousands), no overflow risk
 	chainID := big.NewInt(int64(cfg.ChainID))
 	auth, err := bind.NewKeyedTransactorWithChainID(privateKey, chainID)
 	if err != nil {
@@ -77,6 +78,7 @@ func NewEthereumBackend(cfg *config.EthereumConfig, parentLogger *zap.Logger) (B
 
 	// Set max gas price if specified
 	if cfg.MaxGasPrice > 0 {
+		// #nosec G115 -- Gas prices in Gwei are reasonable values, no overflow risk
 		maxGasPriceWei := new(big.Int).Mul(
 			big.NewInt(int64(cfg.MaxGasPrice)),
 			big.NewInt(1e9), // Convert Gwei to Wei
@@ -124,6 +126,7 @@ func (e *EthereumBackend) ContainsBlock(ctx context.Context, hash *chainhash.Has
 	reverseBytes(targetHashBytes) // Bitcoin hashes are little-endian, Ethereum expects big-endian
 
 	for i := uint64(0); i < searchDepth; i++ {
+		// #nosec G115 -- i is bounded by searchDepth (max 1000), safe to convert to int64
 		height := new(big.Int).Sub(latestHeight, big.NewInt(int64(i)))
 		blockHash, err := e.contract.GetBlockHash(&bind.CallOpts{Context: ctx}, height)
 		if err != nil {
@@ -162,6 +165,7 @@ func (e *EthereumBackend) GetTip(ctx context.Context) (uint32, *chainhash.Hash, 
 		return 0, nil, fmt.Errorf("failed to parse block hash: %w", err)
 	}
 
+	// #nosec G115 -- Bitcoin block heights are well below uint32 max (4.2B), current height ~800k
 	return uint32(latestHeight.Uint64()), hash, nil
 }
 
@@ -193,6 +197,7 @@ func (e *EthereumBackend) SubmitHeaders(ctx context.Context, startHeight uint64,
 	if latestHeightErr != nil {
 		e.logger.Warnw("Failed to get contract latest height (non-fatal)", "error", latestHeightErr)
 	} else {
+		// #nosec G115 -- Converting block heights for logging gap, values are safe
 		e.logger.Infow("Contract state before submit",
 			"contract_latest_height", latestHeight.Uint64(),
 			"submitting_start_height", startHeight,
@@ -210,6 +215,7 @@ func (e *EthereumBackend) SubmitHeaders(ctx context.Context, startHeight uint64,
 	}
 
 	// Submit transaction
+	// #nosec G115 -- Bitcoin block heights are well below int64 max, safe conversion
 	tx, err := e.contract.Submit(e.auth, big.NewInt(int64(startHeight)), concatenated)
 	if err != nil {
 		e.logger.Errorw("Failed to submit headers to contract",
