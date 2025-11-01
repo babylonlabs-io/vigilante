@@ -110,6 +110,11 @@ func (r *Reporter) submitHeaders(ibs []*types.IndexedBlock) error {
 	if err != nil {
 		r.metrics.FailedHeadersCounter.Add(float64(len(headers)))
 
+		// Detect censorship: if submission timed out waiting for tx broadcast
+		if errors.Is(err, babylonclient.ErrTimeoutAfterWaitingForTxBroadcast) {
+			r.metrics.HeadersCensorshipGauge.Inc()
+		}
+
 		return fmt.Errorf("failed to submit headers: %w", err)
 	}
 
