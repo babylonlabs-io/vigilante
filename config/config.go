@@ -71,7 +71,7 @@ func (cfg *Config) Validate() error {
 	}
 
 	// Validate Ethereum config only if ethereum backend is selected
-	if cfg.Reporter.BackendType == "ethereum" {
+	if cfg.Reporter.BackendType == BackendTypeEthereum {
 		if err := cfg.Ethereum.Validate(); err != nil {
 			return fmt.Errorf("invalid config in ethereum: %w", err)
 		}
