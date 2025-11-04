@@ -12,6 +12,7 @@ import (
 	coserrors "cosmossdk.io/errors"
 	"github.com/avast/retry-go/v4"
 	btcctypes "github.com/babylonlabs-io/babylon/v4/x/btccheckpoint/types"
+	btclctypes "github.com/babylonlabs-io/babylon/v4/x/btclightclient/types"
 	"github.com/babylonlabs-io/vigilante/types"
 )
 
@@ -147,10 +148,53 @@ func (r *Reporter) ProcessHeaders(_ string, ibs []*types.IndexedBlock) (int, err
 	}
 
 	var numSubmitted int
-	// submit each chunk of headers
-	for _, chunk := range headerChunks {
+	// submit each chunk of headers with special handling for Babylon fork errors
+	for i := 0; i < len(headerChunks); i++ {
+		chunk := headerChunks[i]
 		if err := r.submitHeaders(chunk); err != nil {
-			return numSubmitted, fmt.Errorf("failed to submit headers: %w", err)
+			// Special handling for Babylon's ErrForkStartWithKnownHeader
+			// This occurs when headers are already in Babylon (race condition with another reporter)
+			if !errors.Is(err, btclctypes.ErrForkStartWithKnownHeader) {
+				return numSubmitted, fmt.Errorf("failed to submit headers: %w", err)
+			}
+
+			// For Babylon backend: get tip and retry with remaining blocks
+			// This matches the logic from main branch to handle concurrent reporters
+			_, isBabylon := r.backend.(*BabylonBackend)
+			if !isBabylon {
+				// Non-Babylon backends shouldn't return this error, but if they do, treat as failure
+				return numSubmitted, fmt.Errorf("unexpected ErrForkStartWithKnownHeader from non-Babylon backend: %w", err)
+			}
+
+			// Get current Babylon tip to determine which blocks are already processed
+			tipHeight, _, err := r.backend.GetTip(context.Background())
+			if err != nil {
+				return numSubmitted, fmt.Errorf("failed to get backend tip after fork error: %w", err)
+			}
+
+			// Filter out blocks that are already processed (at or below tip)
+			slicedBlocks, shouldRetry := FilterAlreadyProcessedBlocks(ibs, tipHeight)
+			if !shouldRetry {
+				// All blocks are already processed, nothing left to submit
+				r.logger.Info("All blocks already processed after fork error, no retry needed")
+				return numSubmitted, nil
+			}
+
+			// Get new chunks for the remaining blocks
+			newHeaderChunks, err := r.getHeadersToSubmit(slicedBlocks)
+			if err != nil {
+				return numSubmitted, fmt.Errorf("failed to find headers to submit after filtering: %w", err)
+			}
+
+			if len(newHeaderChunks) == 0 {
+				r.logger.Info("No new headers to submit after slicing")
+				return numSubmitted, nil
+			}
+
+			// Replace the remaining chunks with the new set and reset the counter
+			headerChunks = newHeaderChunks
+			i = -1 // Will be incremented to 0 at the start of the next loop
+			continue
 		}
 
 		numSubmitted += len(chunk)

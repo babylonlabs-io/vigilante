@@ -82,9 +82,16 @@ func (b *BabylonBackend) SubmitHeaders(ctx context.Context, startHeight uint64, 
 
 	// Submit to Babylon with expected errors
 	expectedErrors := []*coserrors.Error{btclctypes.ErrForkStartWithKnownHeader}
-	_, err := b.client.ReliablySendMsg(ctx, msg, expectedErrors, nil)
+	res, err := b.client.ReliablySendMsg(ctx, msg, expectedErrors, nil)
 	if err != nil {
 		return fmt.Errorf("failed to submit headers to Babylon: %w", err)
+	}
+
+	// Check if res == nil, which indicates an expected error occurred (ErrForkStartWithKnownHeader)
+	// This means some/all of these headers are already in Babylon (race condition with another reporter)
+	// Return the error so ProcessHeaders can handle it appropriately
+	if res == nil {
+		return btclctypes.ErrForkStartWithKnownHeader
 	}
 
 	return nil
