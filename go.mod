@@ -8,7 +8,7 @@ require (
 	cosmossdk.io/math v1.5.3
 	github.com/CosmWasm/wasmd v0.55.1
 	github.com/avast/retry-go/v4 v4.6.0
-	github.com/babylonlabs-io/babylon/v4 v4.0.0-rc.0
+	github.com/babylonlabs-io/babylon/v4 v4.0.0-rc.3
 	github.com/boljen/go-bitmap v0.0.0-20151001105940-23cd2fb0ce7d
 	github.com/btcsuite/btcd v0.24.3-0.20250318170759-4f4ea81776d6
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4
@@ -17,7 +17,7 @@ require (
 	github.com/btcsuite/btcwallet v0.16.13
 	github.com/btcsuite/btcwallet/walletdb v1.5.1
 	github.com/cockroachdb/errors v1.12.0
-	github.com/cometbft/cometbft v0.38.18
+	github.com/cometbft/cometbft v0.38.19
 	github.com/cosmos/cosmos-sdk v0.53.4
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0
 	github.com/golang/mock v1.6.0
