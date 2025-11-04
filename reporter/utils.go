@@ -177,6 +177,7 @@ func (r *Reporter) ProcessHeaders(_ string, ibs []*types.IndexedBlock) (int, err
 			if !shouldRetry {
 				// All blocks are already processed, nothing left to submit
 				r.logger.Info("All blocks already processed after fork error, no retry needed")
+
 				return numSubmitted, nil
 			}
 
@@ -188,12 +189,14 @@ func (r *Reporter) ProcessHeaders(_ string, ibs []*types.IndexedBlock) (int, err
 
 			if len(newHeaderChunks) == 0 {
 				r.logger.Info("No new headers to submit after slicing")
+
 				return numSubmitted, nil
 			}
 
 			// Replace the remaining chunks with the new set and reset the counter
 			headerChunks = newHeaderChunks
 			i = -1 // Will be incremented to 0 at the start of the next loop
+
 			continue
 		}
 
