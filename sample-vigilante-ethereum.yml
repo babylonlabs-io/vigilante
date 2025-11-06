@@ -22,6 +22,7 @@ btc:
   zmq-block-endpoint: tcp://localhost:29001
   zmq-tx-endpoint: tcp://localhost:29002
 babylon:
+  # Babylon config still required for checkpoint verification
   key: node0
   chain-id: chain-test
   rpc-addr: http://localhost:26657
@@ -37,6 +38,34 @@ babylon:
   output-format: json
   submitter-address: bbn1v6k7k9s8md3k29cu9runasstq5zaa0lpznk27w
   sign-mode: direct
+ethereum:
+  # Ethereum RPC endpoint (e.g., Infura, Alchemy, or local node)
+  rpc-url: "http://localhost:8545"
+
+  # Private key for signing transactions (hex format, with or without 0x prefix)
+  # WARNING: Use keystore in production! This is for testing only.
+  private-key: "0000000000000000000000000000000000000000000000000000000000000001"
+
+  # BtcPrism contract address
+  contract-address: "0x0000000000000000000000000000000000000000"
+
+  # Chain ID (1=Mainnet, 11155111=Sepolia, 31337=Hardhat/Anvil)
+  chain-id: 31337
+
+  # Gas limit (0 for auto-estimation)
+  gas-limit: 0
+
+  # Maximum gas price in Gwei (0 for no limit)
+  max-gas-price: 100
+
+  # Transaction confirmation mode: "receipt" (fast), "safe" (recommended), or "finalized"
+  confirmation-mode: "safe"
+
+  # Timeout for waiting for transaction confirmation
+  confirmation-timeout: 5m
+
+  # Maximum number of blocks to wait for safe/finalized confirmation
+  max-confirmation-blocks: 100
 metrics:
   host: 0.0.0.0
   server-port: 2112
@@ -60,7 +89,7 @@ reporter:
   netparams: simnet
   btc_cache_size: 1000
   max_headers_in_msg: 100
-  backend_type: babylon # backend type: babylon or ethereum
+  backend_type: ethereum # Use ethereum backend for BTC header submission
 monitor:
   checkpoint-buffer-size: 1000
   btc-block-buffer-size: 1000
@@ -86,8 +115,4 @@ btcstaking-tracker:
   btcnetparams: simnet
   max-slashing-concurrency: 20
   indexer-addr: localhost:3000
-  fetch-evidence-interval: 60s
-  fetch-comet-block-interval: 2s
-  reconnect-btc-node-interval: 60s
-  slasherdbconfig: null
-
+  fetch-evidence-interval: 60

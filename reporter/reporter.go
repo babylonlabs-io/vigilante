@@ -26,7 +26,8 @@ type Reporter struct {
 	logger *zap.SugaredLogger
 
 	btcClient     btcclient.BTCClient
-	babylonClient BabylonClient
+	backend       Backend // Abstraction for header submission (Babylon, Ethereum, etc.)
+	babylonClient BabylonClient // Still needed for checkpoint operations
 	btcNotifier   notifier.ChainNotifier
 
 	// retry attributes
@@ -57,6 +58,7 @@ func New(
 	cfg *config.ReporterConfig,
 	parentLogger *zap.Logger,
 	btcClient btcclient.BTCClient,
+	backend Backend,
 	babylonClient BabylonClient,
 	btcNotifier notifier.ChainNotifier,
 	retrySleepTime,
@@ -100,6 +102,7 @@ func New(
 		maxRetrySleepTime:             maxRetrySleepTime,
 		maxRetryTimes:                 maxRetryTimes,
 		btcClient:                     btcClient,
+		backend:                       backend,
 		babylonClient:                 babylonClient,
 		btcNotifier:                   btcNotifier,
 		checkpointCache:               ckptCache,

@@ -1,5 +1,4 @@
 //go:build e2e
-// +build e2e
 
 package e2etest
 
@@ -24,10 +23,6 @@ import (
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/reporter"
 	"github.com/stretchr/testify/require"
-)
-
-var (
-	longEventuallyWaitTimeOut = 2 * eventuallyWaitTimeOut
 )
 
 func (tm *TestManager) BabylonBTCChainMatchesBtc(t *testing.T) bool {
@@ -62,9 +57,8 @@ func (tm *TestManager) GenerateAndSubmitBlockNBlockStartingFromDepth(t *testing.
 	// invalidate blocks from this height
 	tm.BitcoindHandler.InvalidateBlock(blockHash.String())
 
-	for i := 0; i < N; i++ {
-		tm.BitcoindHandler.GenerateBlocks(N)
-	}
+	// Generate N new blocks on the alternative chain
+	tm.BitcoindHandler.GenerateBlocks(N)
 }
 
 func TestReporter_BoostrapUnderFrequentBTCHeaders(t *testing.T) {
@@ -84,10 +78,14 @@ func TestReporter_BoostrapUnderFrequentBTCHeaders(t *testing.T) {
 	btcNotifier, err := btcclient.NewNodeBackend(btcCfg, btcParams, &btcclient.EmptyHintCache{})
 	require.NoError(t, err)
 
+	// create reporter backend
+	reporterBackend := reporter.NewBabylonBackend(tm.BabylonClient)
+
 	vigilantReporter, err := reporter.New(
 		&tm.Config.Reporter,
 		logger,
 		tm.BTCClient,
+		reporterBackend,
 		tm.BabylonClient,
 		btcNotifier,
 		tm.Config.Common.RetrySleepTime,
@@ -149,10 +147,14 @@ func TestRelayHeadersAndHandleRollbacks(t *testing.T) {
 	btcNotifier, err := btcclient.NewNodeBackend(btcCfg, btcParams, &btcclient.EmptyHintCache{})
 	require.NoError(t, err)
 
+	// create reporter backend
+	reporterBackend := reporter.NewBabylonBackend(tm.BabylonClient)
+
 	vigilantReporter, err := reporter.New(
 		&tm.Config.Reporter,
 		logger,
 		tm.BTCClient,
+		reporterBackend,
 		tm.BabylonClient,
 		btcNotifier,
 		tm.Config.Common.RetrySleepTime,
@@ -176,8 +178,9 @@ func TestRelayHeadersAndHandleRollbacks(t *testing.T) {
 		return tm.BabylonBTCChainMatchesBtc(t)
 	}, longEventuallyWaitTimeOut, eventuallyPollTime)
 
-	// we will start from block before tip and submit 2 new block this should trigger rollback
-	tm.GenerateAndSubmitBlockNBlockStartingFromDepth(t, 2, 1)
+	// Trigger reorg: invalidate 1 block and mine 3 new ones
+	// Mining 3 instead of 2 ensures the new chain has strictly better work than the old chain
+	tm.GenerateAndSubmitBlockNBlockStartingFromDepth(t, 3, 1)
 
 	// tips should eventually match
 	require.Eventually(t, func() bool {
@@ -202,10 +205,14 @@ func TestHandleReorgAfterRestart(t *testing.T) {
 	btcNotifier, err := btcclient.NewNodeBackend(btcCfg, btcParams, &btcclient.EmptyHintCache{})
 	require.NoError(t, err)
 
+	// create reporter backend
+	reporterBackend := reporter.NewBabylonBackend(tm.BabylonClient)
+
 	vigilantReporter, err := reporter.New(
 		&tm.Config.Reporter,
 		logger,
 		tm.BTCClient,
+		reporterBackend,
 		tm.BabylonClient,
 		btcNotifier,
 		tm.Config.Common.RetrySleepTime,
@@ -231,17 +238,21 @@ func TestHandleReorgAfterRestart(t *testing.T) {
 	vigilantReporter.Stop()
 	vigilantReporter.WaitForShutdown()
 
-	// // we will start from block before tip and submit 2 new block this should trigger rollback
-	tm.GenerateAndSubmitBlockNBlockStartingFromDepth(t, 2, 1)
+	// Trigger reorg: invalidate 1 block and mine 3 new ones
+	// Mining 3 instead of 2 ensures the new chain has strictly better work than the old chain
+	// This is required for Babylon's fork choice rule which rejects chains with equal work
+	tm.GenerateAndSubmitBlockNBlockStartingFromDepth(t, 3, 1)
 
 	btcClient := initBTCClientWithSubscriber(t, tm.Config) //current tm.btcClient already has an active zmq subscription, would panic
 	defer btcClient.Stop()
 
 	// Start new reporter
+	reporterBackendNew := reporter.NewBabylonBackend(tm.BabylonClient)
 	vigilantReporterNew, err := reporter.New(
 		&tm.Config.Reporter,
 		logger,
 		btcClient,
+		reporterBackendNew,
 		tm.BabylonClient,
 		btcNotifier,
 		tm.Config.Common.RetrySleepTime,
@@ -290,10 +301,12 @@ func TestReporter_Censorship(t *testing.T) {
 
 	tm.Config.Common.MaxRetryTimes = 1
 
+	reporterBackendCensorship := reporter.NewBabylonBackend(babylonClient)
 	vigilantReporter, err := reporter.New(
 		&tm.Config.Reporter,
 		logger,
 		tm.BTCClient,
+		reporterBackendCensorship,
 		babylonClient,
 		btcNotifier,
 		tm.Config.Common.RetrySleepTime,
@@ -336,10 +349,12 @@ func TestReporter_DuplicateSubmissions(t *testing.T) {
 	tm.Config.Common.MaxRetryTimes = 1
 	tm.Config.Reporter.BTCCacheSize = 1000
 
+	reporterBackend1 := reporter.NewBabylonBackend(tm.BabylonClient)
 	reporter1, err := reporter.New(
 		&tm.Config.Reporter,
 		zaptest.NewLogger(t).Named("reporter1"),
 		tm.BTCClient,
+		reporterBackend1,
 		tm.BabylonClient,
 		btcNotifier,
 		tm.Config.Common.RetrySleepTime,
@@ -385,10 +400,12 @@ func TestReporter_DuplicateSubmissions(t *testing.T) {
 
 	cfg.Common.MaxRetryTimes = 1
 	reporter2Metrics := metrics.NewReporterMetrics()
+	reporterBackend2 := reporter.NewBabylonBackend(babylonClient)
 	reporter2, err := reporter.New(
 		&cfg.Reporter,
 		zaptest.NewLogger(t).Named("reporter2"),
 		tm.BTCClient,
+		reporterBackend2,
 		babylonClient,
 		btcNotifier,
 		tm.Config.Common.RetrySleepTime,

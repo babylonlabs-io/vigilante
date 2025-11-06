@@ -72,10 +72,14 @@ func TestMonitorBootstrap(t *testing.T) {
 	vigilantSubmitter.Start()
 	defer vigilantSubmitter.Stop()
 
+	// create reporter backend
+	reporterBackend := reporter.NewBabylonBackend(tm.BabylonClient)
+
 	vigilantReporter, err := reporter.New(
 		&tm.Config.Reporter,
 		logger,
 		tm.BTCClient,
+		reporterBackend,
 		tm.BabylonClient,
 		backend,
 		tm.Config.Common.RetrySleepTime,
