@@ -41,6 +41,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 * [#473](https://github.com/babylonlabs-io/vigilante/pull/473) chore: use counter
 * [#477](https://github.com/babylonlabs-io/vigilante/pull/477) chore: bump babylon to `v4.0.0-rc.3`
+* [#476](https://github.com/babylonlabs-io/vigilante/pull/476) feat(reporter): reporter supports submission to ETH contract
 
 ## v0.24.0-rc.4
 

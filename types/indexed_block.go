@@ -11,6 +11,16 @@ import (
 	"github.com/btcsuite/btcd/wire"
 )
 
+// SerializeBlockHeader serializes a wire.BlockHeader to bytes
+func SerializeBlockHeader(header *wire.BlockHeader) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := header.Serialize(&buf); err != nil {
+		return nil, fmt.Errorf("failed to serialize block header: %w", err)
+	}
+
+	return buf.Bytes(), nil
+}
+
 // IndexedBlock is a BTC block with some extra information compared to wire.MsgBlock, including:
 // - block height
 // - txHash, txHashWitness, txIndex for each Tx

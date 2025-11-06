@@ -37,6 +37,7 @@ type Config struct {
 	Common            CommonConfig            `mapstructure:"common"`
 	BTC               BTCConfig               `mapstructure:"btc"`
 	Babylon           bbncfg.BabylonConfig    `mapstructure:"babylon"`
+	Ethereum          EthereumConfig          `mapstructure:"ethereum"`
 	Metrics           MetricsConfig           `mapstructure:"metrics"`
 	Submitter         SubmitterConfig         `mapstructure:"submitter"`
 	Reporter          ReporterConfig          `mapstructure:"reporter"`
@@ -69,6 +70,13 @@ func (cfg *Config) Validate() error {
 		return fmt.Errorf("invalid config in reporter: %w", err)
 	}
 
+	// Validate Ethereum config only if ethereum backend is selected
+	if cfg.Reporter.BackendType == BackendTypeEthereum {
+		if err := cfg.Ethereum.Validate(); err != nil {
+			return fmt.Errorf("invalid config in ethereum: %w", err)
+		}
+	}
+
 	if err := cfg.Monitor.Validate(); err != nil {
 		return fmt.Errorf("invalid config in monitor: %w", err)
 	}
@@ -97,6 +105,7 @@ func DefaultConfig() *Config {
 		Common:            DefaultCommonConfig(),
 		BTC:               DefaultBTCConfig(),
 		Babylon:           defaultBbnCfg,
+		Ethereum:          DefaultEthereumConfig(),
 		Metrics:           DefaultMetricsConfig(),
 		Submitter:         DefaultSubmitterConfig(),
 		Reporter:          DefaultReporterConfig(),

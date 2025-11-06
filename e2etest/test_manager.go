@@ -6,13 +6,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
-	sdkquerytypes "github.com/cosmos/cosmos-sdk/types/query"
 	"os"
 	"path/filepath"
 	"slices"
 	"testing"
 	"time"
+
+	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
+	sdkquerytypes "github.com/cosmos/cosmos-sdk/types/query"
 
 	"github.com/babylonlabs-io/babylon/v4/client/babylonclient"
 	"github.com/babylonlabs-io/vigilante/e2etest/container"
@@ -35,14 +36,14 @@ import (
 )
 
 var (
-	submitterAddrStr = "bbn1eppc73j56382wjn6nnq3quu5eye4pmm087xfdh" //nolint:unused
-	babylonTag       = []byte{1, 2, 3, 4}                           //nolint:unused
-	babylonTagHex    = hex.EncodeToString(babylonTag)               //nolint:unused
-
-	eventuallyWaitTimeOut = 40 * time.Second
-	eventuallyPollTime    = 1 * time.Second
-	regtestParams         = &chaincfg.RegressionNetParams
-	defaultEpochInterval  = uint(400) //nolint:unused
+	submitterAddrStr          = "bbn1eppc73j56382wjn6nnq3quu5eye4pmm087xfdh" //nolint:unused
+	babylonTag                = []byte{1, 2, 3, 4}                           //nolint:unused
+	babylonTagHex             = hex.EncodeToString(babylonTag)               //nolint:unused
+	longEventuallyWaitTimeOut = 2 * time.Minute
+	eventuallyWaitTimeOut     = 40 * time.Second
+	eventuallyPollTime        = 1 * time.Second
+	regtestParams             = &chaincfg.RegressionNetParams
+	defaultEpochInterval      = uint(400) //nolint:unused
 )
 
 func defaultVigilanteConfig() *config.Config {

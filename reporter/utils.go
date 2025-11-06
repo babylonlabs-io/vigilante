@@ -25,21 +25,22 @@ func chunkBy[T any](items []T, chunkSize int) [][]T {
 	return append(chunks, items)
 }
 
-// getHeaderMsgsToSubmit creates a set of MsgInsertHeaders messages corresponding to headers that
-// should be submitted to Babylon from a given set of indexed blocks
-func (r *Reporter) getHeaderMsgsToSubmit(signer string, ibs []*types.IndexedBlock) ([]*btclctypes.MsgInsertHeaders, error) {
+// getHeadersToSubmit identifies which headers need to be submitted to the backend.
+// It checks each header against the backend to avoid duplicates and returns chunks of headers
+// ready for submission.
+func (r *Reporter) getHeadersToSubmit(ibs []*types.IndexedBlock) ([][]*types.IndexedBlock, error) {
 	var (
 		startPoint  = -1
 		ibsToSubmit []*types.IndexedBlock
 		err         error
 	)
 
-	// find the first header that is not contained in BBN header chain, then submit since this header
-	for i, header := range ibs {
-		blockHash := header.BlockHash()
-		var res *btclctypes.QueryContainsBytesResponse
+	// find the first header that is not contained in the backend, then submit since this header
+	for i, ib := range ibs {
+		blockHash := ib.BlockHash()
+		var contains bool
 		err = retrywrap.Do(func() error {
-			res, err = r.babylonClient.ContainsBTCBlock(&blockHash)
+			contains, err = r.backend.ContainsBlock(context.Background(), &blockHash)
 
 			return err
 		},
@@ -49,7 +50,7 @@ func (r *Reporter) getHeaderMsgsToSubmit(signer string, ibs []*types.IndexedBloc
 		if err != nil {
 			return nil, err
 		}
-		if !res.Contains {
+		if !contains {
 			startPoint = i
 
 			break
@@ -60,144 +61,146 @@ func (r *Reporter) getHeaderMsgsToSubmit(signer string, ibs []*types.IndexedBloc
 	if startPoint == -1 {
 		r.logger.Info("All headers are duplicated, no need to submit")
 
-		return []*btclctypes.MsgInsertHeaders{}, nil
+		return [][]*types.IndexedBlock{}, nil
 	}
 
-	// wrap the headers to MsgInsertHeaders msgs from the subset of indexed blocks
+	// get the headers to submit from the subset of indexed blocks
 	ibsToSubmit = ibs[startPoint:]
 
+	// chunk the headers based on max headers per message
 	blockChunks := chunkBy(ibsToSubmit, int(r.cfg.MaxHeadersInMsg))
 
-	headerMsgsToSubmit := make([]*btclctypes.MsgInsertHeaders, 0, len(blockChunks))
-
-	for _, ibChunk := range blockChunks {
-		msgInsertHeaders := types.NewMsgInsertHeaders(signer, ibChunk)
-		headerMsgsToSubmit = append(headerMsgsToSubmit, msgInsertHeaders)
-	}
-
-	return headerMsgsToSubmit, nil
+	return blockChunks, nil
 }
 
-// submitHeaderMsgs attempts to submit a batch of headers to the Babylon client.
-// It handles specific expected errors like ErrForkStartWithKnownHeader gracefully,
-// and records relevant metrics for both success and failure cases.
-func (r *Reporter) submitHeaderMsgs(msg *btclctypes.MsgInsertHeaders) error {
+// submitHeaders submits a batch of headers to the backend.
+// It extracts raw header bytes from IndexedBlocks and calls backend.SubmitHeaders.
+func (r *Reporter) submitHeaders(ibs []*types.IndexedBlock) error {
+	if len(ibs) == 0 {
+		return fmt.Errorf("no headers to submit")
+	}
+
+	// Extract raw header bytes from IndexedBlocks
+	headers := make([][]byte, len(ibs))
+	for i, ib := range ibs {
+		headerBytes, err := types.SerializeBlockHeader(ib.Header)
+		if err != nil {
+			return fmt.Errorf("failed to serialize header at index %d: %w", i, err)
+		}
+		headers[i] = headerBytes
+	}
+
+	startHeight := uint64(ibs[0].Height)
+	endHeight := uint64(ibs[len(ibs)-1].Height)
+
+	r.logger.Infof("Preparing to submit %d headers: heights %d to %d", len(ibs), startHeight, endHeight)
+
+	// Submit to backend with retry logic
 	err := retrywrap.Do(
 		func() error {
-			res, err := r.babylonClient.ReliablySendMsg(
-				context.Background(),
-				msg,
-				[]*coserrors.Error{btclctypes.ErrForkStartWithKnownHeader}, // expected
-				nil, // abort errors
-			)
-			if err != nil {
-				return fmt.Errorf("could not submit headers: %w", err)
-			}
-
-			if res == nil {
-				// This indicates an expected error occurred (handled internally by ReliablySendMsg)
-				r.logger.Infof(
-					"expected ErrForkStartWithKnownHeader encountered for %d headers",
-					len(msg.Headers),
-				)
-
-				return btclctypes.ErrForkStartWithKnownHeader
-			}
-
-			r.logger.Infof(
-				"successfully submitted %d headers (code: %v)",
-				len(msg.Headers), res.Code,
-			)
-
-			return nil
+			return r.backend.SubmitHeaders(context.Background(), startHeight, headers)
 		},
 		retry.Delay(r.retrySleepTime),
 		retry.MaxDelay(r.maxRetrySleepTime),
 		retry.Attempts(r.maxRetryTimes),
+		retry.OnRetry(func(n uint, err error) {
+			r.logger.Warnf("Failed to submit headers: %v. Attempt: %d, Max attempts: %d", err, n+1, r.maxRetryTimes)
+		}),
 	)
 
 	if err != nil {
-		r.metrics.FailedHeadersCounter.Add(float64(len(msg.Headers)))
+		r.metrics.FailedHeadersCounter.Add(float64(len(headers)))
 
-		switch {
-		case errors.Is(err, babylonclient.ErrTimeoutAfterWaitingForTxBroadcast):
+		// Detect censorship: if submission timed out waiting for tx broadcast
+		if errors.Is(err, babylonclient.ErrTimeoutAfterWaitingForTxBroadcast) {
 			r.metrics.HeadersCensorshipGauge.Inc()
-
-			return fmt.Errorf("tx broadcast timeout: %w", err)
-
-		case errors.Is(err, btclctypes.ErrForkStartWithKnownHeader):
-			// Not a failure, but reported upwards to allow calling code to decide how to handle
-			return err
-
-		default:
-			return fmt.Errorf("failed to submit headers: %w", err)
 		}
+
+		return fmt.Errorf("failed to submit headers: %w", err)
 	}
 
 	// Success path
-	r.metrics.SuccessfulHeadersCounter.Add(float64(len(msg.Headers)))
+	r.metrics.SuccessfulHeadersCounter.Add(float64(len(headers)))
 	r.metrics.SecondsSinceLastHeaderGauge.Set(0)
 
-	for _, header := range msg.Headers {
+	for _, ib := range ibs {
 		r.metrics.NewReportedHeaderGaugeVec.
-			WithLabelValues(header.Hash().String()).
+			WithLabelValues(ib.BlockHash().String()).
 			SetToCurrentTime()
 	}
+
+	r.logger.Infof("Successfully submitted %d headers starting at height %d", len(headers), startHeight)
 
 	return nil
 }
 
 // ProcessHeaders extracts and reports headers from a list of blocks
 // It returns the number of headers that need to be reported (after deduplication)
-func (r *Reporter) ProcessHeaders(signer string, ibs []*types.IndexedBlock) (int, error) {
-	// get a list of MsgInsertHeader msgs with headers to be submitted
-	headerMsgsToSubmit, err := r.getHeaderMsgsToSubmit(signer, ibs)
+func (r *Reporter) ProcessHeaders(_ string, ibs []*types.IndexedBlock) (int, error) {
+	// get chunks of headers to be submitted
+	headerChunks, err := r.getHeadersToSubmit(ibs)
 	if err != nil {
 		return 0, fmt.Errorf("failed to find headers to submit: %w", err)
 	}
 	// skip if no header to submit
-	if len(headerMsgsToSubmit) == 0 {
+	if len(headerChunks) == 0 {
 		return 0, nil
 	}
 
 	var numSubmitted int
-	// submit each chunk of headers
-	for i := 0; i < len(headerMsgsToSubmit); i++ {
-		msgs := headerMsgsToSubmit[i]
-		if err := r.submitHeaderMsgs(msgs); err != nil {
+	// submit each chunk of headers with special handling for Babylon fork errors
+	for i := 0; i < len(headerChunks); i++ {
+		chunk := headerChunks[i]
+		if err := r.submitHeaders(chunk); err != nil {
+			// Special handling for Babylon's ErrForkStartWithKnownHeader
+			// This occurs when headers are already in Babylon (race condition with another reporter)
 			if !errors.Is(err, btclctypes.ErrForkStartWithKnownHeader) {
 				return numSubmitted, fmt.Errorf("failed to submit headers: %w", err)
 			}
 
-			res, err := r.babylonClient.BTCHeaderChainTip()
-			if err != nil {
-				return numSubmitted, fmt.Errorf("failed to get BTC header chain tip: %w", err)
+			// For Babylon backend: get tip and retry with remaining blocks
+			// This matches the logic from main branch to handle concurrent reporters
+			_, isBabylon := r.backend.(*BabylonBackend)
+			if !isBabylon {
+				// Non-Babylon backends shouldn't return this error, but if they do, treat as failure
+				return numSubmitted, fmt.Errorf("unexpected ErrForkStartWithKnownHeader from non-Babylon backend: %w", err)
 			}
 
-			slicedBlocks, shouldRetry := FilterAlreadyProcessedBlocks(ibs, res.Header.Height)
+			// Get current Babylon tip to determine which blocks are already processed
+			tipHeight, _, err := r.backend.GetTip(context.Background())
+			if err != nil {
+				return numSubmitted, fmt.Errorf("failed to get backend tip after fork error: %w", err)
+			}
+
+			// Filter out blocks that are already processed (at or below tip)
+			slicedBlocks, shouldRetry := FilterAlreadyProcessedBlocks(ibs, tipHeight)
 			if !shouldRetry {
+				// All blocks are already processed, nothing left to submit
+				r.logger.Info("All blocks already processed after fork error, no retry needed")
+
 				return numSubmitted, nil
 			}
 
-			newHeaderMsgs, newErr := r.getHeaderMsgsToSubmit(signer, slicedBlocks)
-			if newErr != nil {
-				return numSubmitted, fmt.Errorf("failed to find headers to submit: %w", newErr)
+			// Get new chunks for the remaining blocks
+			newHeaderChunks, err := r.getHeadersToSubmit(slicedBlocks)
+			if err != nil {
+				return numSubmitted, fmt.Errorf("failed to find headers to submit after filtering: %w", err)
 			}
 
-			if len(newHeaderMsgs) == 0 {
+			if len(newHeaderChunks) == 0 {
 				r.logger.Info("No new headers to submit after slicing")
 
 				return numSubmitted, nil
 			}
 
-			// Replace the remaining headers with the new set and reset the counter
-			headerMsgsToSubmit = newHeaderMsgs
+			// Replace the remaining chunks with the new set and reset the counter
+			headerChunks = newHeaderChunks
 			i = -1 // Will be incremented to 0 at the start of the next loop
 
 			continue
 		}
 
-		numSubmitted += len(msgs.Headers)
+		numSubmitted += len(chunk)
 	}
 
 	return numSubmitted, nil

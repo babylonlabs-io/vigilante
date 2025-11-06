@@ -35,10 +35,14 @@ func newMockReporter(t *testing.T, ctrl *gomock.Controller) (
 		&btcctypes.QueryParamsResponse{Params: btccParams}, nil).AnyTimes()
 	mockNotifier := mock.ChainNotifier{}
 
+	// create backend
+	backend := reporter.NewBabylonBackend(mockBabylonClient)
+
 	r, err := reporter.New(
 		&cfg.Reporter,
 		logger,
 		mockBTCClient,
+		backend,
 		mockBabylonClient,
 		&mockNotifier,
 		cfg.Common.RetrySleepTime,
@@ -79,6 +83,9 @@ func FuzzProcessHeaders(f *testing.F) {
 			&btclctypes.QueryContainsBytesResponse{Contains: true}, nil).Times(numBlocksOnChain)
 		mockBabylonClient.EXPECT().ContainsBTCBlock(gomock.Any()).Return(
 			&btclctypes.QueryContainsBytesResponse{Contains: false}, nil).AnyTimes()
+
+		// mock MustGetAddr for header submission
+		mockBabylonClient.EXPECT().MustGetAddr().Return("test-address").AnyTimes()
 
 		// inserting header will always be successful
 		mockBabylonClient.EXPECT().ReliablySendMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&babylonclient.RelayerTxResponse{Code: 0}, nil).AnyTimes()
