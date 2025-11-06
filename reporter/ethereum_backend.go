@@ -2,7 +2,6 @@ package reporter
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"fmt"
 	"math/big"
 	"strings"
@@ -287,6 +286,21 @@ func (e *EthereumBackend) waitForReceipt(ctx context.Context, tx *types.Transact
 
 // waitForSafeBlock waits for transaction to be in a "safe" block (recommended for Ethereum PoS)
 func (e *EthereumBackend) waitForSafeBlock(ctx context.Context, tx *types.Transaction) error {
+	return e.waitForBlockConfirmation(ctx, tx, "safe", e.getSafeBlockNumber)
+}
+
+// waitForFinalizedBlock waits for transaction to be in a "finalized" block (slowest, most secure)
+func (e *EthereumBackend) waitForFinalizedBlock(ctx context.Context, tx *types.Transaction) error {
+	return e.waitForBlockConfirmation(ctx, tx, "finalized", e.getFinalizedBlockNumber)
+}
+
+// waitForBlockConfirmation is a generic helper that waits for a transaction to reach a specific confirmation level
+func (e *EthereumBackend) waitForBlockConfirmation(
+	ctx context.Context,
+	tx *types.Transaction,
+	blockTag string,
+	getBlockNumber func(context.Context) (uint64, error),
+) error {
 	// First wait for receipt
 	if err := e.waitForReceipt(ctx, tx); err != nil {
 		return err
@@ -303,78 +317,30 @@ func (e *EthereumBackend) waitForSafeBlock(ctx context.Context, tx *types.Transa
 
 	txBlockNumber := receipt.BlockNumber.Uint64()
 
-	// Poll for safe block
+	// Poll for confirmed block
 	ticker := time.NewTicker(6 * time.Second) // Ethereum block time ~12s, check every 6s
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("timeout waiting for safe confirmation")
+			return fmt.Errorf("timeout waiting for %s confirmation", blockTag)
 		case <-ticker.C:
-			// Get the "safe" block using raw RPC call with block tag
+			// Get the target block using raw RPC call with block tag
 			// This requires go-ethereum v1.10.0+ and a PoS Ethereum node
-			safeBlockNumber, err := e.getSafeBlockNumber(ctx)
+			confirmedBlockNumber, err := getBlockNumber(ctx)
 			if err != nil {
-				e.logger.Warnw("Failed to get safe block", "error", err)
+				e.logger.Warnw("Failed to get block", "block_tag", blockTag, "error", err)
 
 				continue
 			}
 
-			if safeBlockNumber >= txBlockNumber {
-				e.logger.Debugw("Transaction confirmed in safe block",
+			if confirmedBlockNumber >= txBlockNumber {
+				e.logger.Debugw("Transaction confirmed",
 					"tx_hash", tx.Hash().Hex(),
 					"tx_block", txBlockNumber,
-					"safe_block", safeBlockNumber,
-				)
-
-				return nil
-			}
-		}
-	}
-}
-
-// waitForFinalizedBlock waits for transaction to be in a "finalized" block (slowest, most secure)
-func (e *EthereumBackend) waitForFinalizedBlock(ctx context.Context, tx *types.Transaction) error {
-	// First wait for receipt
-	if err := e.waitForReceipt(ctx, tx); err != nil {
-		return err
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, e.cfg.ConfirmationTimeout)
-	defer cancel()
-
-	// Get transaction receipt to find block number
-	receipt, err := e.client.TransactionReceipt(ctx, tx.Hash())
-	if err != nil {
-		return fmt.Errorf("failed to get receipt: %w", err)
-	}
-
-	txBlockNumber := receipt.BlockNumber.Uint64()
-
-	// Poll for finalized block
-	ticker := time.NewTicker(6 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("timeout waiting for finalized confirmation")
-		case <-ticker.C:
-			// Get the "finalized" block using raw RPC call with block tag
-			// This requires go-ethereum v1.10.0+ and a PoS Ethereum node
-			finalizedBlockNumber, err := e.getFinalizedBlockNumber(ctx)
-			if err != nil {
-				e.logger.Warnw("Failed to get finalized block", "error", err)
-
-				continue
-			}
-
-			if finalizedBlockNumber >= txBlockNumber {
-				e.logger.Debugw("Transaction finalized",
-					"tx_hash", tx.Hash().Hex(),
-					"tx_block", txBlockNumber,
-					"finalized_block", finalizedBlockNumber,
+					"confirmed_block", confirmedBlockNumber,
+					"block_tag", blockTag,
 				)
 
 				return nil
@@ -438,9 +404,4 @@ func reverseBytes(b []byte) {
 	for i, j := 0, len(b)-1; i < j; i, j = i+1, j-1 {
 		b[i], b[j] = b[j], b[i]
 	}
-}
-
-// GetPublicKeyFromPrivate derives the public key from a private key
-func GetPublicKeyFromPrivate(privateKey *ecdsa.PrivateKey) *ecdsa.PublicKey {
-	return &privateKey.PublicKey
 }
