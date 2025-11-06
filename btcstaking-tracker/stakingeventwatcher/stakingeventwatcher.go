@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/btcsuite/btcd/btcjson"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -24,6 +23,7 @@ import (
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/utils"
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
+	"github.com/btcsuite/btcd/btcjson"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
 	notifier "github.com/lightningnetwork/lnd/chainntnfs"
@@ -660,7 +660,7 @@ func (sew *StakingEventWatcher) handleUnbondedDelegations() {
 			)
 
 			if err != nil {
-				sew.logger.Errorf("error adding delegation to unbondingTracker: %v", err)
+				sew.logger.Errorf("error adding delegation to unbondingTracker for staking tx %s: %v", activeDel.stakingTxHash, err)
 
 				continue
 			}
@@ -733,13 +733,13 @@ func (sew *StakingEventWatcher) checkBtcForStakingTx() {
 
 		proof, err := ib.GenSPVProof(int(details.TxIndex))
 		if err != nil {
-			sew.logger.Warnf("error making spv proof %s", err)
+			sew.logger.Warnf("error making spv proof for tx %s: %v", txHash, err)
 
 			continue
 		}
 
 		if err := sew.activationLimiter.Acquire(context.Background(), 1); err != nil {
-			sew.logger.Warnf("error acquiring a activation semaphore %s", err)
+			sew.logger.Warnf("error acquiring activation semaphore for tx %s: %v", txHash, err)
 
 			continue
 		}
