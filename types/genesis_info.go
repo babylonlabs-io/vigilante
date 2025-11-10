@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/cosmos/cosmos-sdk/x/staking/types"
+	"go.uber.org/zap"
 
 	"github.com/babylonlabs-io/babylon/v4/app"
 	btccheckpointtypes "github.com/babylonlabs-io/babylon/v4/x/btccheckpoint/types"
@@ -40,7 +41,7 @@ func NewGenesisInfo(
 }
 
 // GetGenesisInfoFromFile reads genesis info from the provided genesis file
-func GetGenesisInfoFromFile(filePath string) (*GenesisInfo, error) {
+func GetGenesisInfoFromFile(filePath string, logger *zap.Logger) (*GenesisInfo, error) {
 	var (
 		baseBTCHeight uint32
 		epochInterval uint64
@@ -139,10 +140,7 @@ func GetGenesisInfoFromFile(filePath string) (*GenesisInfo, error) {
 	err = epochingParams.Validate()
 	if err != nil {
 		// Log warning but continue for backward compatibility with older genesis files
-		_, err := fmt.Printf("WARNING: epoching params validation failed (backward compatible genesis): %v\n", err)
-		if err != nil {
-			return nil, fmt.Errorf("failed to log warning: %w", err)
-		}
+		logger.Warn("Epoching params validation failed (backward compatible genesis)", zap.Error(err))
 	}
 	epochInterval = epochingParams.EpochInterval
 
