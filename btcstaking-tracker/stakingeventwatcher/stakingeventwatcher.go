@@ -368,14 +368,15 @@ func tryParseStakerSignatureFromSpentTx(tx *wire.MsgTx, td *TrackedDelegation) (
 
 	stakingTxInput := tx.TxIn[stakingTxInputIdx]
 	witnessLen := len(stakingTxInput.Witness)
-	// minimal witness size for staking tx input is 4:
-	// covenant_signature, staker_signature, script, control_block
+	// minimal witness size for staking tx input is at least 4:
+	// covenant_signatures, staker_signatures, script, control_block
 	// If that is not the case, something weird is going on and we should investigate.
 	if witnessLen < 4 {
 		panic(fmt.Errorf("staking tx input witness has less than 4 elements for unbonding tx %s", tx.TxHash()))
 	}
 
-	// staker signature is 3rd element from the end
+	// staker signatures started from 3rd element from the end
+	// TODO: there are more than one stakerSignature if it's multisig btc delegation, so we need to handle this case properly
 	stakerSignature := stakingTxInput.Witness[witnessLen-3]
 
 	return schnorr.ParseSignature(stakerSignature)
