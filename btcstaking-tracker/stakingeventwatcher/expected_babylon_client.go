@@ -39,6 +39,8 @@ type Delegation struct {
 	HasProof              bool
 	Status                string
 	IsStakeExpansion      bool
+	IsMultisig            bool
+	StakerCount           uint32
 }
 
 type BabylonParams struct {
@@ -90,6 +92,12 @@ func (bca *BabylonClientAdapter) DelegationsByStatus(status btcstakingtypes.BTCD
 	delegations := make([]Delegation, len(resp.BtcDelegations))
 
 	for i, delegation := range resp.BtcDelegations {
+		var (
+			isMultisig  bool
+			stakerCount uint32
+		)
+		stakerCount = 1
+
 		stakingTx, _, err := bbn.NewBTCTxFromHex(delegation.StakingTxHex)
 		if err != nil {
 			return nil, nil, err
@@ -100,6 +108,11 @@ func (bca *BabylonClientAdapter) DelegationsByStatus(status btcstakingtypes.BTCD
 			return nil, nil, err
 		}
 
+		if delegation.MultisigInfo != nil {
+			isMultisig = true
+			stakerCount = uint32(len(delegation.MultisigInfo.StakerBtcPkList) + 1)
+		}
+
 		delegations[i] = Delegation{
 			StakingTx:             stakingTx,
 			StakingOutputIdx:      delegation.StakingOutputIdx,
@@ -107,6 +120,8 @@ func (bca *BabylonClientAdapter) DelegationsByStatus(status btcstakingtypes.BTCD
 			UnbondingOutput:       unbondingTx.TxOut[0],
 			HasProof:              delegation.StartHeight > 0,
 			Status:                delegation.StatusDesc,
+			IsMultisig:            isMultisig,
+			StakerCount:           stakerCount,
 		}
 	}
 
@@ -348,6 +363,12 @@ func (bca *BabylonClientAdapter) DelegationsModifiedInBlock(
 
 // BTCDelegation method for BabylonClientAdapter to get BTC delegation
 func (bca *BabylonClientAdapter) BTCDelegation(stakingTxHash string) (*Delegation, error) {
+	var (
+		isMultisig  bool
+		stakerCount uint32
+	)
+	stakerCount = 1
+
 	resp, err := bca.babylonClient.BTCDelegation(stakingTxHash)
 
 	if err != nil {
@@ -366,6 +387,11 @@ func (bca *BabylonClientAdapter) BTCDelegation(stakingTxHash string) (*Delegatio
 		return nil, err
 	}
 
+	if delegation.MultisigInfo != nil {
+		isMultisig = true
+		stakerCount = uint32(len(delegation.MultisigInfo.StakerBtcPkList) + 1)
+	}
+
 	return &Delegation{
 		StakingTx:             stakingTx,
 		StakingOutputIdx:      delegation.StakingOutputIdx,
@@ -374,5 +400,7 @@ func (bca *BabylonClientAdapter) BTCDelegation(stakingTxHash string) (*Delegatio
 		HasProof:              delegation.StartHeight > 0,
 		Status:                delegation.StatusDesc,
 		IsStakeExpansion:      delegation.StkExp != nil,
+		IsMultisig:            isMultisig,
+		StakerCount:           stakerCount,
 	}, nil
 }

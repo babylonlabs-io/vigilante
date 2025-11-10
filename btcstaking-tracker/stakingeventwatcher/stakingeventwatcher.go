@@ -59,6 +59,8 @@ type newDelegation struct {
 	stakingOutputIdx      uint32
 	delegationStartHeight uint32
 	unbondingOutput       *wire.TxOut
+	isMultisig            bool
+	stakerCount           uint32
 }
 
 type delegationInactive struct {
@@ -349,9 +351,9 @@ func getStakingTxInputIdx(tx *wire.MsgTx, td *TrackedDelegation) (int, error) {
 	return -1, fmt.Errorf("transaction does not point to staking output. expected hash:%s, expected outoputidx: %d", stakingTxHash, td.StakingOutputIdx)
 }
 
-// tryParseStakerSignatureFromSpentTx tries to parse staker signature from unbonding tx.
-// If provided tx is not unbonding tx it returns error.
-func tryParseStakerSignatureFromSpentTx(tx *wire.MsgTx, td *TrackedDelegation) (*schnorr.Signature, error) {
+// tryParseStakerSignatureFromSpentTx tries to parse staker signatures from unbonding tx.
+// If provided tx is not an unbonding tx, it returns an error.
+func tryParseStakerSignatureFromSpentTx(tx *wire.MsgTx, td *TrackedDelegation) ([]*schnorr.Signature, error) {
 	if len(tx.TxOut) != 1 {
 		return nil, fmt.Errorf("unbonding tx must have exactly one output. Priovided tx has %d outputs", len(tx.TxOut))
 	}
@@ -377,9 +379,29 @@ func tryParseStakerSignatureFromSpentTx(tx *wire.MsgTx, td *TrackedDelegation) (
 
 	// staker signatures started from 3rd element from the end
 	// TODO: there are more than one stakerSignature if it's multisig btc delegation, so we need to handle this case properly
-	stakerSignature := stakingTxInput.Witness[witnessLen-3]
+	var (
+		schnorrSigs []*schnorr.Signature
+	)
 
-	return schnorr.ParseSignature(stakerSignature)
+	if td.IsMultisig {
+		stakerSignatures := stakingTxInput.Witness[witnessLen-3-int(td.StakerCount)+1 : witnessLen-3+1]
+		for _, sig := range stakerSignatures {
+			schnorrSig, err := schnorr.ParseSignature(sig)
+			if err != nil {
+				return nil, err
+			}
+			schnorrSigs = append(schnorrSigs, schnorrSig)
+		}
+	} else {
+		stakerSignature := stakingTxInput.Witness[witnessLen-3]
+		schnorrSig, err := schnorr.ParseSignature(stakerSignature)
+		if err != nil {
+			return nil, err
+		}
+		schnorrSigs = append(schnorrSigs, schnorrSig)
+	}
+
+	return schnorrSigs, nil
 }
 
 func (sew *StakingEventWatcher) reportUnbondingToBabylon(
@@ -657,6 +679,8 @@ func (sew *StakingEventWatcher) handleUnbondedDelegations() {
 				activeDel.stakingOutputIdx,
 				activeDel.unbondingOutput,
 				activeDel.delegationStartHeight,
+				activeDel.isMultisig,
+				activeDel.stakerCount,
 				true,
 			)
 
@@ -1079,6 +1103,8 @@ func (sew *StakingEventWatcher) addToUnbondingFunc(delegation Delegation) {
 		stakingOutputIdx:      delegation.StakingOutputIdx,
 		delegationStartHeight: delegation.DelegationStartHeight,
 		unbondingOutput:       delegation.UnbondingOutput,
+		isMultisig:            delegation.IsMultisig,
+		stakerCount:           delegation.StakerCount,
 	}
 
 	// if we already have this delegation, we still want to check if it has changed,
@@ -1111,6 +1137,8 @@ func (sew *StakingEventWatcher) addToPendingFunc(delegation Delegation) {
 			delegation.StakingOutputIdx,
 			delegation.UnbondingOutput,
 			delegation.DelegationStartHeight,
+			delegation.IsMultisig,
+			delegation.StakerCount,
 			false,
 		)
 		sew.logger.Debugf("Received new verified delegation to watch: %s", stkTxHash)

@@ -498,12 +498,17 @@ func buildDelPK2SigMap(
 	// construct del pk to sig map
 	delPK2Sig := make(map[string]*bbn.BIP340Signature)
 	for _, pk := range multisigPKList {
+		found := false
 		for _, si := range multisigSlashingSigs {
 			if pk.MarshalHex() == si.Pk.MarshalHex() {
 				delPK2Sig[pk.MarshalHex()] = si.Sig
+				found = true
+				break
 			}
 		}
-		delPK2Sig[pk.MarshalHex()] = nil
+		if !found {
+			delPK2Sig[pk.MarshalHex()] = nil
+		}
 	}
 
 	// append main delegator pk and signature
