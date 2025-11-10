@@ -495,18 +495,18 @@ func buildDelPK2SigMap(
 	mainPK *bbn.BIP340PubKey,
 	mainSlashingSig string,
 ) (map[string]*bbn.BIP340Signature, error) {
-	// construct del pk to sig map
+	// construct a del pk -> sig map in advance from SignatureInfo for faster lookup
+	sigMap := make(map[string]*bbn.BIP340Signature)
+	for _, si := range multisigSlashingSigs {
+		sigMap[si.Pk.MarshalHex()] = si.Sig
+	}
+
+	// construct a del pk -> sig map
 	delPK2Sig := make(map[string]*bbn.BIP340Signature)
 	for _, pk := range multisigPKList {
-		found := false
-		for _, si := range multisigSlashingSigs {
-			if pk.MarshalHex() == si.Pk.MarshalHex() {
-				delPK2Sig[pk.MarshalHex()] = si.Sig
-				found = true
-				break
-			}
-		}
-		if !found {
+		if sig, ok := sigMap[pk.MarshalHex()]; ok {
+			delPK2Sig[pk.MarshalHex()] = sig
+		} else {
 			delPK2Sig[pk.MarshalHex()] = nil
 		}
 	}
