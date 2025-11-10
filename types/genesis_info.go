@@ -138,7 +138,11 @@ func GetGenesisInfoFromFile(filePath string) (*GenesisInfo, error) {
 	}
 	err = epochingParams.Validate()
 	if err != nil {
-		return nil, fmt.Errorf("invalid epoching params %w", err)
+		// Log warning but continue for backward compatibility with older genesis files
+		_, err := fmt.Printf("WARNING: epoching params validation failed (backward compatible genesis): %v\n", err)
+		if err != nil {
+			return nil, fmt.Errorf("failed to log warning: %w", err)
+		}
 	}
 	epochInterval = epochingParams.EpochInterval
 
