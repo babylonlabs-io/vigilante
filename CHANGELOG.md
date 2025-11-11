@@ -37,6 +37,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Improvements
+
+* [#490](https://github.com/babylonlabs-io/vigilante/pull/490) chore: skip genesis val
+
 ## v0.24.0
 
 ### Improvements
