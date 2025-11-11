@@ -46,7 +46,7 @@ func TestMonitorBootstrap(t *testing.T) {
 
 	monitorMetrics := metrics.NewMonitorMetrics()
 	genesisPath := fmt.Sprintf("%s/config/genesis.json", tm.Config.Babylon.KeyDirectory)
-	genesisInfo, err := types.GetGenesisInfoFromFile(genesisPath)
+	genesisInfo, err := types.GetGenesisInfoFromFile(genesisPath, zap.NewNop())
 	require.NoError(t, err)
 
 	tm.Config.Submitter.PollingIntervalSeconds = 1
