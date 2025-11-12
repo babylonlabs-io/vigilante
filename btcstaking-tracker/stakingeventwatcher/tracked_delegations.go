@@ -16,7 +16,7 @@ type TrackedDelegation struct {
 	UnbondingOutput       *wire.TxOut
 	DelegationStartHeight uint32
 	InProgress            bool
-	IsMultisig            bool
+	IsBtcMultisig         bool
 	StakerCount           uint32
 }
 
@@ -89,7 +89,7 @@ func (td *TrackedDelegation) Clone() *TrackedDelegation {
 		UnbondingOutput:       unbondingOutput,
 		DelegationStartHeight: td.DelegationStartHeight,
 		InProgress:            td.InProgress,
-		IsMultisig:            td.IsMultisig,
+		IsBtcMultisig:         td.IsBtcMultisig,
 		StakerCount:           td.StakerCount,
 	}
 }
@@ -148,7 +148,7 @@ func (td *TrackedDelegations) AddDelegation(
 	stakingOutputIdx uint32,
 	unbondingOutput *wire.TxOut,
 	delegationStartHeight uint32,
-	isMultisig bool,
+	isBtcMultisig bool,
 	stakerCount uint32,
 	shouldUpdate bool,
 ) (*TrackedDelegation, error) {
@@ -157,7 +157,7 @@ func (td *TrackedDelegations) AddDelegation(
 		StakingOutputIdx:      stakingOutputIdx,
 		UnbondingOutput:       unbondingOutput,
 		DelegationStartHeight: delegationStartHeight,
-		IsMultisig:            isMultisig,
+		IsBtcMultisig:         isBtcMultisig,
 		StakerCount:           stakerCount,
 	}
 

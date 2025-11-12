@@ -40,7 +40,7 @@ type SlashingConfig struct {
 	TxHex          string
 	SlashingTxHex  string
 	SlashingSigHex string
-	DelPK2Sig      map[string]*bbn.BIP340Signature // multisig delegator pk -> signatures, including `SlashingSigHex` in BIP340Signature
+	DelPK2Sig      map[string]*bbn.BIP340Signature // multisig delegator pk -> signature, including `SlashingSigHex` of the main delegator
 	CovenantSigs   []*bstypes.CovenantAdaptorSignatures
 	OutputIdx      uint32
 	InfoBuilder    func() (StakingInfoProvider, error)
@@ -340,7 +340,7 @@ func buildSlashingTxWithWitness(
 			)
 		}
 	} else {
-		// get ordered delegator signatures
+		// get ordered delegator signatures since this is a multisig btc delegation
 		delOrderedSigs, err := bstypes.GetOrderedDelegatorSignatures(config.DelPK2Sig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get ordered delegator signatures: %w", err)

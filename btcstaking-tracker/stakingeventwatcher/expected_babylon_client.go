@@ -39,7 +39,7 @@ type Delegation struct {
 	HasProof              bool
 	Status                string
 	IsStakeExpansion      bool
-	IsMultisig            bool
+	IsBtcMultisig         bool
 	StakerCount           uint32
 }
 
@@ -93,8 +93,8 @@ func (bca *BabylonClientAdapter) DelegationsByStatus(status btcstakingtypes.BTCD
 
 	for i, delegation := range resp.BtcDelegations {
 		var (
-			isMultisig  bool
-			stakerCount uint32
+			isBtcMultisig bool
+			stakerCount   uint32
 		)
 		stakerCount = 1
 
@@ -109,7 +109,7 @@ func (bca *BabylonClientAdapter) DelegationsByStatus(status btcstakingtypes.BTCD
 		}
 
 		if delegation.MultisigInfo != nil {
-			isMultisig = true
+			isBtcMultisig = true
 			stakerCount = uint32(len(delegation.MultisigInfo.StakerBtcPkList) + 1)
 		}
 
@@ -120,7 +120,7 @@ func (bca *BabylonClientAdapter) DelegationsByStatus(status btcstakingtypes.BTCD
 			UnbondingOutput:       unbondingTx.TxOut[0],
 			HasProof:              delegation.StartHeight > 0,
 			Status:                delegation.StatusDesc,
-			IsMultisig:            isMultisig,
+			IsBtcMultisig:         isBtcMultisig,
 			StakerCount:           stakerCount,
 		}
 	}
@@ -364,8 +364,8 @@ func (bca *BabylonClientAdapter) DelegationsModifiedInBlock(
 // BTCDelegation method for BabylonClientAdapter to get BTC delegation
 func (bca *BabylonClientAdapter) BTCDelegation(stakingTxHash string) (*Delegation, error) {
 	var (
-		isMultisig  bool
-		stakerCount uint32
+		isBtcMultisig bool
+		stakerCount   uint32
 	)
 	stakerCount = 1
 
@@ -388,7 +388,7 @@ func (bca *BabylonClientAdapter) BTCDelegation(stakingTxHash string) (*Delegatio
 	}
 
 	if delegation.MultisigInfo != nil {
-		isMultisig = true
+		isBtcMultisig = true
 		stakerCount = uint32(len(delegation.MultisigInfo.StakerBtcPkList) + 1)
 	}
 
@@ -400,7 +400,7 @@ func (bca *BabylonClientAdapter) BTCDelegation(stakingTxHash string) (*Delegatio
 		HasProof:              delegation.StartHeight > 0,
 		Status:                delegation.StatusDesc,
 		IsStakeExpansion:      delegation.StkExp != nil,
-		IsMultisig:            isMultisig,
+		IsBtcMultisig:         isBtcMultisig,
 		StakerCount:           stakerCount,
 	}, nil
 }

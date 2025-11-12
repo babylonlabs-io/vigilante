@@ -59,7 +59,7 @@ type newDelegation struct {
 	stakingOutputIdx      uint32
 	delegationStartHeight uint32
 	unbondingOutput       *wire.TxOut
-	isMultisig            bool
+	isBtcMultisig         bool
 	stakerCount           uint32
 }
 
@@ -383,7 +383,7 @@ func tryParseStakerSignatureFromSpentTx(tx *wire.MsgTx, td *TrackedDelegation) (
 		schnorrSigs []*schnorr.Signature
 	)
 
-	if td.IsMultisig {
+	if td.IsBtcMultisig {
 		stakerSignatures := stakingTxInput.Witness[witnessLen-3-int(td.StakerCount)+1 : witnessLen-3+1]
 		for _, sig := range stakerSignatures {
 			schnorrSig, err := schnorr.ParseSignature(sig)
@@ -679,7 +679,7 @@ func (sew *StakingEventWatcher) handleUnbondedDelegations() {
 				activeDel.stakingOutputIdx,
 				activeDel.unbondingOutput,
 				activeDel.delegationStartHeight,
-				activeDel.isMultisig,
+				activeDel.isBtcMultisig,
 				activeDel.stakerCount,
 				true,
 			)
@@ -1103,7 +1103,7 @@ func (sew *StakingEventWatcher) addToUnbondingFunc(delegation Delegation) {
 		stakingOutputIdx:      delegation.StakingOutputIdx,
 		delegationStartHeight: delegation.DelegationStartHeight,
 		unbondingOutput:       delegation.UnbondingOutput,
-		isMultisig:            delegation.IsMultisig,
+		isBtcMultisig:         delegation.IsBtcMultisig,
 		stakerCount:           delegation.StakerCount,
 	}
 
@@ -1137,7 +1137,7 @@ func (sew *StakingEventWatcher) addToPendingFunc(delegation Delegation) {
 			delegation.StakingOutputIdx,
 			delegation.UnbondingOutput,
 			delegation.DelegationStartHeight,
-			delegation.IsMultisig,
+			delegation.IsBtcMultisig,
 			delegation.StakerCount,
 			false,
 		)
