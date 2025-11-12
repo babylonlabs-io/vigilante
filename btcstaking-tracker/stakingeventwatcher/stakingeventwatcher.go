@@ -377,15 +377,21 @@ func tryParseStakerSignatureFromSpentTx(tx *wire.MsgTx, td *TrackedDelegation) (
 		panic(fmt.Errorf("staking tx input witness has less than 4 elements for unbonding tx %s", tx.TxHash()))
 	}
 
-	// staker signatures started from 3rd element from the end
-	// TODO: there are more than one stakerSignature if it's multisig btc delegation, so we need to handle this case properly
+	// staker signatures started from the 3rd element from the end
 	var (
 		schnorrSigs []*schnorr.Signature
 	)
 
+	// if it's a multisig btc delegation, parse signature on every non-nil stakerSignatures
 	if td.IsBtcMultisig {
 		stakerSignatures := stakingTxInput.Witness[witnessLen-3-int(td.StakerCount)+1 : witnessLen-3+1]
 		for _, sig := range stakerSignatures {
+			// skip nil sig from parsing. since M-of-N multisig witness contains the
+			// exact size of staker pk list, some of them could be nil and that's a normal case
+			if len(sig) == 0 {
+				continue
+			}
+
 			schnorrSig, err := schnorr.ParseSignature(sig)
 			if err != nil {
 				return nil, err
