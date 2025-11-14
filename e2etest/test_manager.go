@@ -63,6 +63,8 @@ type TestManagerConfig struct {
 	NumMatureOutputsInWallet uint32
 	EpochInterval            uint
 	NumCovenants             uint
+	NumMultisigStakers       uint32
+	NumMultisigStakerQuorum  uint32
 }
 
 func defaultTestManagerConfig() *TestManagerConfig {
@@ -88,6 +90,13 @@ func WithEpochInterval(interval uint) TestManagerOption {
 func WithNumCovenants(numCovenants uint) TestManagerOption {
 	return func(config *TestManagerConfig) {
 		config.NumCovenants = numCovenants
+	}
+}
+
+func WithMultisigStaker(stakerCount, stakerQuorum uint32) TestManagerOption {
+	return func(config *TestManagerConfig) {
+		config.NumMultisigStakers = stakerCount
+		config.NumMultisigStakerQuorum = stakerQuorum
 	}
 }
 
@@ -209,8 +218,8 @@ func StartManager(t *testing.T, options ...TestManagerOption) *TestManager {
 	}
 
 	// multisig staker information
-	multisigStakers := generatePrivKeys(t, 2)
-	multisigStakerQuorum := uint32(2)
+	multisigStakers := generatePrivKeys(t, uint(tmCfg.NumMultisigStakers-1))
+	multisigStakerQuorum := tmCfg.NumMultisigStakerQuorum
 
 	var babylond *dockertest.Resource
 	require.Eventually(t, func() bool {

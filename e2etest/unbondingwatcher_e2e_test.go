@@ -900,7 +900,12 @@ func TestMultisigStakeExpansionFlow(t *testing.T) {
 	// segwit is activated at height 300. It's necessary for staking/slashing tx
 	numMatureOutputs := uint32(300)
 
-	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(defaultEpochInterval))
+	tm := StartManager(
+		t,
+		WithNumMatureOutputs(numMatureOutputs),
+		WithEpochInterval(defaultEpochInterval),
+		WithMultisigStaker(3, 2),
+	)
 	defer tm.Stop(t)
 	// Insert all existing BTC headers to babylon node
 	tm.CatchUpBTCLightClient(t)

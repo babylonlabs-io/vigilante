@@ -3,6 +3,7 @@ package stakingeventwatcher
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -110,7 +111,11 @@ func (bca *BabylonClientAdapter) DelegationsByStatus(status btcstakingtypes.BTCD
 
 		if delegation.MultisigInfo != nil {
 			isBtcMultisig = true
-			stakerCount = uint32(len(delegation.MultisigInfo.StakerBtcPkList) + 1)
+			extra := len(delegation.MultisigInfo.StakerBtcPkList)
+			if extra > math.MaxUint32-1 {
+				return nil, nil, fmt.Errorf("staker count exceeds uint32 max value")
+			}
+			stakerCount = uint32(extra + 1)
 		}
 
 		delegations[i] = Delegation{
@@ -389,7 +394,11 @@ func (bca *BabylonClientAdapter) BTCDelegation(stakingTxHash string) (*Delegatio
 
 	if delegation.MultisigInfo != nil {
 		isBtcMultisig = true
-		stakerCount = uint32(len(delegation.MultisigInfo.StakerBtcPkList) + 1)
+		extra := len(delegation.MultisigInfo.StakerBtcPkList)
+		if extra > math.MaxUint32-1 {
+			return nil, fmt.Errorf("staker count exceeds uint32 max value")
+		}
+		stakerCount = uint32(extra + 1)
 	}
 
 	return &Delegation{
