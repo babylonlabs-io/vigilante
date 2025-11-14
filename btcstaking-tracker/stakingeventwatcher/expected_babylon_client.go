@@ -115,7 +115,7 @@ func (bca *BabylonClientAdapter) DelegationsByStatus(status btcstakingtypes.BTCD
 			if extra > math.MaxUint32-1 {
 				return nil, nil, fmt.Errorf("staker count exceeds uint32 max value")
 			}
-			stakerCount = uint32(extra + 1)
+			stakerCount = uint32(extra + 1) // #nosec G115 -- staker count is bounded by protocol limits
 		}
 
 		delegations[i] = Delegation{
@@ -398,7 +398,7 @@ func (bca *BabylonClientAdapter) BTCDelegation(stakingTxHash string) (*Delegatio
 		if extra > math.MaxUint32-1 {
 			return nil, fmt.Errorf("staker count exceeds uint32 max value")
 		}
-		stakerCount = uint32(extra + 1)
+		stakerCount = uint32(extra + 1) // #nosec G115 -- staker count is bounded by protocol limits
 	}
 
 	return &Delegation{
