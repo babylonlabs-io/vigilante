@@ -977,7 +977,8 @@ func (tm *TestManager) Undelegate(
 	stakingSlashingInfo *datagen.TestStakingSlashingInfo,
 	unbondingSlashingInfo *datagen.TestUnbondingSlashingInfo,
 	delSK *btcec.PrivateKey,
-	catchUpLightClientFunc func()) (*datagen.TestUnbondingSlashingInfo, *schnorr.Signature) {
+	catchUpLightClientFunc func(),
+) (*datagen.TestUnbondingSlashingInfo, *schnorr.Signature) {
 	signerAddr := tm.BabylonClient.MustGetAddr()
 
 	// TODO: This generates unbonding tx signature, move it to undelegate
@@ -1060,6 +1061,119 @@ func (tm *TestManager) Undelegate(
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
 	return unbondingSlashingInfo, unbondingTxSchnorrSig
+}
+
+func (tm *TestManager) UndelegateMultisigBTCDel(
+	t *testing.T,
+	stakingSlashingInfo *datagen.TestStakingSlashingInfo,
+	unbondingSlashingInfo *datagen.TestUnbondingSlashingInfo,
+	delSKs []*btcec.PrivateKey,
+	catchUpLightClientFunc func(),
+) (*datagen.TestUnbondingSlashingInfo, []*schnorr.Signature) {
+	signerAddr := tm.BabylonClient.MustGetAddr()
+
+	unbondingPathSpendInfo, err := stakingSlashingInfo.StakingInfo.UnbondingPathSpendInfo()
+	require.NoError(t, err)
+
+	// the only input to unbonding tx is the staking tx
+	stakingOutIdx, err := outIdx(unbondingSlashingInfo.UnbondingTx, unbondingSlashingInfo.UnbondingInfo.UnbondingOutput)
+	require.NoError(t, err)
+
+	// get reverse lexicographical order multisig delegator signatures on unbonding tx
+	delPK2Sig := make(map[string]*bbn.BIP340Signature, len(delSKs))
+	for _, delSK := range delSKs {
+		delPKHex := bbn.NewBIP340PubKeyFromBTCPK(delSK.PubKey()).MarshalHex()
+		unbondingTxSchnorrSig, err := btcstaking.SignTxWithOneScriptSpendInputStrict(
+			unbondingSlashingInfo.UnbondingTx,
+			stakingSlashingInfo.StakingTx,
+			stakingOutIdx,
+			unbondingPathSpendInfo.GetPkScriptPath(),
+			delSK,
+		)
+		require.NoError(t, err)
+		unbondingTxSig := bbn.NewBIP340SignatureFromBTCSig(unbondingTxSchnorrSig)
+		delPK2Sig[delPKHex] = unbondingTxSig
+	}
+
+	sortedDelBIP340Sigs, err := bstypes.GetOrderedDelegatorSignatures(delPK2Sig)
+	require.NoError(t, err)
+
+	// valid signatures would be equal as the number of multisig staker quorum
+	// rest of them would be nil, since OP_NUMEQUALVERIFY requires exact same amount of
+	// valid signatures to staker quorum.
+	sortedDelSchnorrSigs := make([]*schnorr.Signature, len(delSKs))
+	numDelSigs := uint32(0)
+	for i, sig := range sortedDelBIP340Sigs {
+		sortedDelSchnorrSigs[i] = sig.MustToBTCSig()
+		numDelSigs++
+		if numDelSigs == tm.MultisigStakerQuorum {
+			break
+		}
+	}
+
+	resp, err := tm.BabylonClient.BTCDelegation(stakingSlashingInfo.StakingTx.TxHash().String())
+	require.NoError(t, err)
+	covenantSigs := resp.BtcDelegation.UndelegationResponse.CovenantUnbondingSigList
+	witness, err := unbondingPathSpendInfo.CreateMultisigUnbondingPathWitness(
+		[]*schnorr.Signature{covenantSigs[0].Sig.MustToBTCSig()},
+		sortedDelSchnorrSigs,
+	)
+	require.NoError(t, err)
+	unbondingSlashingInfo.UnbondingTx.TxIn[0].Witness = witness
+
+	serializedUnbondingTx, err := bbn.SerializeBTCTx(unbondingSlashingInfo.UnbondingTx)
+	require.NoError(t, err)
+
+	// send unbonding tx to Bitcoin node's mempool
+	unbondingTxHash, err := tm.BTCClient.SendRawTransaction(unbondingSlashingInfo.UnbondingTx, true)
+	require.NoError(t, err)
+	require.Eventually(t, func() bool {
+		_, err := tm.BTCClient.GetRawTransaction(unbondingTxHash)
+		return err == nil
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+	t.Logf("submitted unbonding tx with hash %s", unbondingTxHash.String())
+
+	// mine a block with this tx, and insert it to Bitcoin
+	require.Eventually(t, func() bool {
+		txns, err := tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{unbondingTxHash})
+		require.NoError(t, err)
+		return len(txns) == 1
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	mBlock := tm.mineBlock(t)
+	require.Equal(t, 2, len(mBlock.Transactions))
+
+	catchUpLightClientFunc()
+
+	fundingTxns := tm.getFundingTxs(t, unbondingSlashingInfo.UnbondingTx)
+	require.NoError(t, err)
+
+	unbondingTxInfo := getTxInfo(t, mBlock)
+	msgUndel := &bstypes.MsgBTCUndelegate{
+		Signer:              signerAddr,
+		StakingTxHash:       stakingSlashingInfo.StakingTx.TxHash().String(),
+		StakeSpendingTx:     serializedUnbondingTx,
+		FundingTransactions: fundingTxns,
+		StakeSpendingTxInclusionProof: &bstypes.InclusionProof{
+			Key:   unbondingTxInfo.Key,
+			Proof: unbondingTxInfo.Proof,
+		},
+	}
+	_, err = tm.BabylonClient.ReliablySendMsg(context.Background(), msgUndel, nil, nil)
+	require.NoError(t, err)
+	t.Logf("submitted MsgBTCUndelegate")
+
+	// wait until unbonding tx is on Bitcoin
+	require.Eventually(t, func() bool {
+		resp, err := tm.BTCClient.GetRawTransactionVerbose(unbondingTxHash)
+		if err != nil {
+			t.Logf("err of GetRawTransactionVerbose: %v", err)
+			return false
+		}
+		return len(resp.BlockHash) > 0
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	return unbondingSlashingInfo, sortedDelSchnorrSigs
 }
 
 func (tm *TestManager) VoteAndEquivocate(t *testing.T, fpSK *btcec.PrivateKey) {
