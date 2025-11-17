@@ -1,6 +1,6 @@
 {
   "genesis_time": "2024-12-06T05:26:51Z",
-  "chain_id": "bbn-test-5",
+  "chain_id": "bbn-test-6",
   "initial_height": "1",
   "consensus_params": {
     "block": {
