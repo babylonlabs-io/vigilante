@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/babylonlabs-io/babylon/v4/client/babylonclient"
+	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/retrywrap"
 	"github.com/cockroachdb/errors"
 
@@ -354,6 +355,9 @@ func (r *Reporter) matchAndSubmitCheckpoints(signer string) int {
 // ProcessCheckpoints tries to extract checkpoint segments from a list of blocks, find matched checkpoint segments, and report matched checkpoints
 // It returns the number of extracted checkpoint segments, and the number of matched checkpoints
 func (r *Reporter) ProcessCheckpoints(signer string, ibs []*types.IndexedBlock) (int, int) {
+	if r.cfg.BackendType == config.BackendTypeEthereum {
+		return 0, 0
+	}
 	var numCkptSegs int
 
 	// extract ckpt segments from the blocks
