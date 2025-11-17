@@ -107,6 +107,9 @@ func (bca *BabylonClientAdapter) DelegationsByStatus(status btcstakingtypes.BTCD
 		}
 
 		stakerPkCount, isBtcMultisig, err := safeRetrieveStakerPkCountAndIsBtcMultisig(delegation.MultisigInfo)
+		if err != nil {
+			return nil, nil, err
+		}
 
 		delegations[i] = Delegation{
 			StakingTx:             stakingTx,
@@ -377,6 +380,9 @@ func (bca *BabylonClientAdapter) BTCDelegation(stakingTxHash string) (*Delegatio
 	}
 
 	stakerPkCount, isBtcMultisig, err := safeRetrieveStakerPkCountAndIsBtcMultisig(delegation.MultisigInfo)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Delegation{
 		StakingTx:             stakingTx,
