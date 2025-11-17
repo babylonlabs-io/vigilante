@@ -85,7 +85,7 @@ func DefaultEthereumConfig() EthereumConfig {
 		GasLimit:              0, // auto-estimate
 		MaxGasPrice:           0, // no limit
 		ConfirmationMode:      "safe",
-		ConfirmationTimeout:   5 * time.Minute,
+		ConfirmationTimeout:   15 * time.Minute,
 		MaxConfirmationBlocks: 100,
 	}
 }
