@@ -72,6 +72,8 @@ func defaultTestManagerConfig() *TestManagerConfig {
 		NumMatureOutputsInWallet: 300,
 		EpochInterval:            defaultEpochInterval,
 		NumCovenants:             1,
+		NumMultisigStakers:       1,
+		NumMultisigStakerQuorum:  1,
 	}
 }
 
