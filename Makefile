@@ -47,7 +47,7 @@ test:
 	go test -race ./...
 
 test-e2e:
-	go test -mod=readonly -failfast -timeout=15m -v $(PACKAGES_E2E) -count=1 --parallel 12 --tags=e2e
+	go test -mod=readonly -failfast -timeout=15m -v $(PACKAGES_E2E) -count=1 --parallel 3 --tags=e2e
 
 build-docker:
 	$(DOCKER) build --tag babylonlabs-io/vigilante -f Dockerfile \
