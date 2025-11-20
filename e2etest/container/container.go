@@ -49,9 +49,8 @@ func NewManager(t *testing.T) (docker *Manager, err error) {
 		resources: make(map[string]*dockertest.Resource),
 	}
 
-	// TODO: for local test purpose, after testing, remove this or add another manager start function
-	docker.cfg.BabylonVersion = dockerBabylondLocalVersion
-	docker.cfg.BabylonRepository = dockerBabylondLocalRepository
+	// TODO: once we have a certain version tag on the multisig babylon binary, we can remove this line
+	docker.cfg.BabylonVersion = dockerBabylondMultisigVersion
 
 	docker.pool, err = dockertest.NewPool("")
 	if err != nil {

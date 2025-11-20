@@ -22,8 +22,7 @@ const (
 	dockerBitcoindRepository      = "lncm/bitcoind"
 	dockerBitcoindVersionTag      = "v28.0"
 	dockerBabylondRepository      = "babylonlabs/babylond"
-	dockerBabylondLocalRepository = "babylonlabs-io/babylond"
-	dockerBabylondLocalVersion    = "latest"
+	dockerBabylondMultisigVersion = "c8ef72fa5bc713f175306b750757ce03af0ffb52"
 	dockerElectrsRepository       = "mempool/electrs"
 	dockerElectrsVersionTag       = "v3.1.0"
 )

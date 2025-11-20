@@ -8,7 +8,7 @@ require (
 	cosmossdk.io/math v1.5.3
 	github.com/CosmWasm/wasmd v0.55.1
 	github.com/avast/retry-go/v4 v4.6.0
-	github.com/babylonlabs-io/babylon/v4 v4.0.0-snapshot.250925.0.20251113114053-7ae4709949b1
+	github.com/babylonlabs-io/babylon/v4 v4.0.0-snapshot.250925.0.20251117013457-c8ef72fa5bc7
 	github.com/boljen/go-bitmap v0.0.0-20151001105940-23cd2fb0ce7d
 	github.com/btcsuite/btcd v0.24.3-0.20250318170759-4f4ea81776d6
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4
