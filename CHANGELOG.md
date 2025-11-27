@@ -43,6 +43,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 * [#477](https://github.com/babylonlabs-io/vigilante/pull/477) chore: bump babylon to `v4.0.0-rc.3`
 * [#482](https://github.com/babylonlabs-io/vigilante/pull/482) chore: add tx hash to logs
 * [#483](https://github.com/babylonlabs-io/vigilante/pull/483) chore: bump babylon to `v4.0.0`
+* [#495](https://github.com/babylonlabs-io/vigilante/pull/495) feat: btc staker M-of-N multisig support
 
 ## v0.24.0-rc.4
 
