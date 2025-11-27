@@ -14,6 +14,7 @@ import (
 	"github.com/btcsuite/btcd/btcec/v2"
 
 	bbnclient "github.com/babylonlabs-io/babylon/v4/client/client"
+	bbn "github.com/babylonlabs-io/babylon/v4/types"
 	btcstakingtypes "github.com/babylonlabs-io/babylon/v4/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/btcjson"
@@ -819,6 +820,217 @@ func TestStakeExpansionFlow(t *testing.T) {
 	witness, err := originalStakingUnbondingPathSpendInfo.CreateUnbondingPathWitness(
 		[]*schnorr.Signature{covenantSigs[0].Sig.MustToBTCSig()},
 		stakerSig,
+	)
+	require.NoError(t, err)
+	expansionStakingMsgTx.TxIn[0].Witness = witness
+
+	// Sign the funding input with wallet
+	signedTx, complete, err := tm.BTCClient.SignRawTransactionWithWallet(expansionStakingMsgTx)
+	require.NoError(t, err)
+	require.True(t, complete, "Transaction signing incomplete")
+
+	// Step 5: send expansion staking tx to Bitcoin node's mempool
+	_, err = tm.BTCClient.SendRawTransaction(signedTx, true)
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		txns, err := tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{&expansionStakingTxHash})
+		require.NoError(t, err)
+		return len(txns) == 1
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	// Step 6: Mine the expansion transaction
+	mBlock := tm.mineBlock(t)
+	require.Equal(t, 2, len(mBlock.Transactions))
+
+	// wait until expansion staking tx is on Bitcoin
+	require.Eventually(t, func() bool {
+		_, err := tm.BTCClient.GetRawTransaction(&expansionStakingTxHash)
+		return err == nil
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	// Step 7: Wait for k-deep confirmation and let vigilante detect the stake expansion
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// Insert k empty blocks to Bitcoin to achieve required depth
+		btccParamsResp, err := tm.BabylonClient.BTCCheckpointParams()
+		if err != nil {
+			fmt.Println("Error fetching BTCCheckpointParams:", err)
+			return
+		}
+		for i := 0; i < int(btccParamsResp.Params.BtcConfirmationDepth); i++ {
+			tm.mineBlock(t)
+		}
+		tm.CatchUpBTCLightClient(t)
+	}()
+
+	wg.Wait()
+
+	// Step 8: Verify that the vigilante detected the stake expansion
+	require.Eventually(t, func() bool {
+		return promtestutil.ToFloat64(stakingTrackerMetrics.DetectedUnbondedStakeExpansionCounter) >= 1
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	// Step 9: Verify the expansion delegation becomes active
+	require.Eventually(t, func() bool {
+		resp, err := tm.BabylonClient.BTCDelegation(expansionStakingTxHash.String())
+		require.NoError(t, err)
+		return resp.BtcDelegation.Active
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	// Verify the original delegation is unbonded
+	require.Eventually(t, func() bool {
+		resp, err := tm.BabylonClient.BTCDelegation(originalStakingTxHash.String())
+		require.NoError(t, err)
+
+		tm.mineBlock(t)
+
+		return resp.BtcDelegation.StatusDesc == btcstakingtypes.BTCDelegationStatus_UNBONDED.String()
+	}, eventuallyWaitTimeOut, 3*eventuallyPollTime)
+
+	t.Logf("Stake expansion flow completed successfully: original tx %s expanded to %s",
+		originalStakingTxHash.String(), expansionStakingTxHash.String())
+}
+
+// TestMultisigStakeExpansionFlow tests the complete stake expansion flow.
+func TestMultisigStakeExpansionFlow(t *testing.T) {
+	t.Parallel()
+	// segwit is activated at height 300. It's necessary for staking/slashing tx
+	numMatureOutputs := uint32(300)
+
+	tm := StartManager(
+		t,
+		WithNumMatureOutputs(numMatureOutputs),
+		WithEpochInterval(defaultEpochInterval),
+		WithMultisigStaker(3, 2),
+	)
+	defer tm.Stop(t)
+	// Insert all existing BTC headers to babylon node
+	tm.CatchUpBTCLightClient(t)
+
+	btcNotifier, err := btcclient.NewNodeBackend(
+		btcclient.ToBitcoindConfig(tm.Config.BTC),
+		&chaincfg.RegressionNetParams,
+		&btcclient.EmptyHintCache{},
+	)
+	require.NoError(t, err)
+
+	err = btcNotifier.Start()
+	require.NoError(t, err)
+
+	commonCfg := config.DefaultCommonConfig()
+	bstCfg := config.DefaultBTCStakingTrackerConfig()
+	bstCfg.CheckDelegationsInterval = 1 * time.Second
+	bstCfg.IndexerAddr = tm.Config.BTCStakingTracker.IndexerAddr
+	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
+
+	bsTracker := bst.NewBTCStakingTracker(
+		tm.BTCClient,
+		btcNotifier,
+		tm.BabylonClient,
+		&bstCfg,
+		&commonCfg,
+		zap.NewNop(),
+		stakingTrackerMetrics,
+		testutil.MakeTestBackend(t),
+	)
+	bsTracker.Start()
+	defer bsTracker.Stop()
+
+	// set up a finality provider
+	_, fpSK := tm.CreateFinalityProvider(t)
+
+	// Step 1: Create initial multisig BTC delegation (the one that will be expanded)
+	originalStakingSlashingInfo, _, delSKs := tm.CreateMultisigBTCDelegation(t, fpSK)
+	originalStakingTxHash := originalStakingSlashingInfo.StakingTx.TxHash()
+
+	// Verify original delegation is active
+	var originalDel *btcstakingtypes.BTCDelegationResponse
+	require.Eventually(t, func() bool {
+		resp, err := tm.BabylonClient.BTCDelegation(originalStakingTxHash.String())
+		require.NoError(t, err)
+		originalDel = resp.BtcDelegation
+		return resp.BtcDelegation.Active
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	// Step 2: Create multisig stake expansion delegation (simulating MsgBtcStakeExpand)
+	// This creates a new delegation that references the original staking transaction
+	expansionStakingMsgTx, fundingMsgTx, expansionStakingSlashingInfo, expansionUnbondingSlashingInfo, _ := tm.CreateMultisigBTCStakeExpansion(t, fpSK, originalDel.TotalSat, originalStakingTxHash.String(), originalDel.StakingOutputIdx)
+	expansionStakingTxHash := expansionStakingMsgTx.TxHash()
+
+	// Step 3: Add covenant signatures for the expansion delegation
+	signerAddr := tm.BabylonClient.MustGetAddr()
+	expansionStakingMsgTxHash := expansionStakingMsgTx.TxHash()
+
+	slashingSpendPath, err := expansionStakingSlashingInfo.StakingInfo.SlashingPathSpendInfo()
+	require.NoError(t, err)
+
+	unbondingSlashingPathSpendInfo, err := expansionUnbondingSlashingInfo.UnbondingInfo.SlashingPathSpendInfo()
+	require.NoError(t, err)
+
+	tm.addCovenantSigStkExp(
+		t,
+		signerAddr,
+		expansionStakingMsgTx,
+		&expansionStakingMsgTxHash,
+		fpSK,
+		slashingSpendPath,
+		expansionStakingSlashingInfo,
+		expansionUnbondingSlashingInfo,
+		unbondingSlashingPathSpendInfo,
+		0,
+		originalStakingSlashingInfo,
+		fundingMsgTx.TxOut[0],
+	)
+
+	// Step 4: Add witness to the stake expansion transaction before sending to Bitcoin
+	// Get the original and funding outputs for witness generation
+	originalStakingUnbondingPathSpendInfo, err := originalStakingSlashingInfo.StakingInfo.UnbondingPathSpendInfo()
+
+	// sign with the delegator keys, stakerSigs in order of delSKs
+	var stakerSigs []*schnorr.Signature
+	for _, sk := range delSKs {
+		stakerSig, err := btcstaking.SignTxForFirstScriptSpendWithTwoInputsFromScript(
+			expansionStakingMsgTx,
+			originalStakingSlashingInfo.StakingInfo.StakingOutput,
+			fundingMsgTx.TxOut[0],
+			sk,
+			originalStakingUnbondingPathSpendInfo.GetPkScriptPath(),
+		)
+		require.NoError(t, err)
+		stakerSigs = append(stakerSigs, stakerSig)
+	}
+
+	// get staker sigs ordered in reverse lexicographical
+	delPK2Sig := make(map[string]*bbn.BIP340Signature)
+	for i, sk := range delSKs {
+		delPKHex := bbn.NewBIP340PubKeyFromBTCPK(sk.PubKey()).MarshalHex()
+		delPK2Sig[delPKHex] = bbn.NewBIP340SignatureFromBTCSig(stakerSigs[i])
+	}
+	sortedStakerSigs, err := btcstakingtypes.GetOrderedDelegatorSignatures(delPK2Sig)
+	require.NoError(t, err)
+
+	// convert BIP340Signature into schnorr signature
+	delSigs := make([]*schnorr.Signature, len(sortedStakerSigs))
+	numDelSigs := uint32(0)
+	for i, delSig := range sortedStakerSigs {
+		delSigs[i] = delSig.MustToBTCSig()
+		numDelSigs++
+		if numDelSigs == tm.MultisigStakerQuorum {
+			break
+		}
+	}
+
+	// Get covenant sigs from stake expansion delegation
+	resp, err := tm.BabylonClient.BTCDelegation(expansionStakingTxHash.String())
+	require.NoError(t, err)
+
+	covenantSigs := resp.BtcDelegation.StkExp.PreviousStkCovenantSigs
+	witness, err := originalStakingUnbondingPathSpendInfo.CreateMultisigUnbondingPathWitness(
+		[]*schnorr.Signature{covenantSigs[0].Sig.MustToBTCSig()},
+		delSigs,
 	)
 	require.NoError(t, err)
 	expansionStakingMsgTx.TxIn[0].Witness = witness

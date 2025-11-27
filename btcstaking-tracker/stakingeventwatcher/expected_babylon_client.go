@@ -3,6 +3,7 @@ package stakingeventwatcher
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -39,6 +40,11 @@ type Delegation struct {
 	HasProof              bool
 	Status                string
 	IsStakeExpansion      bool
+	IsBtcMultisig         bool
+	// StakerPkCount is the total number of staker PK of the given BTC delegation
+	// for M-of-N multisig btc delegation, it should be N. and for single-sig btc delegation
+	// it is 1.
+	StakerPkCount uint32
 }
 
 type BabylonParams struct {
@@ -100,6 +106,11 @@ func (bca *BabylonClientAdapter) DelegationsByStatus(status btcstakingtypes.BTCD
 			return nil, nil, err
 		}
 
+		stakerPkCount, isBtcMultisig, err := safeRetrieveStakerPkCountAndIsBtcMultisig(delegation.MultisigInfo)
+		if err != nil {
+			return nil, nil, err
+		}
+
 		delegations[i] = Delegation{
 			StakingTx:             stakingTx,
 			StakingOutputIdx:      delegation.StakingOutputIdx,
@@ -107,6 +118,8 @@ func (bca *BabylonClientAdapter) DelegationsByStatus(status btcstakingtypes.BTCD
 			UnbondingOutput:       unbondingTx.TxOut[0],
 			HasProof:              delegation.StartHeight > 0,
 			Status:                delegation.StatusDesc,
+			IsBtcMultisig:         isBtcMultisig,
+			StakerPkCount:         stakerPkCount,
 		}
 	}
 
@@ -366,6 +379,11 @@ func (bca *BabylonClientAdapter) BTCDelegation(stakingTxHash string) (*Delegatio
 		return nil, err
 	}
 
+	stakerPkCount, isBtcMultisig, err := safeRetrieveStakerPkCountAndIsBtcMultisig(delegation.MultisigInfo)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Delegation{
 		StakingTx:             stakingTx,
 		StakingOutputIdx:      delegation.StakingOutputIdx,
@@ -374,5 +392,28 @@ func (bca *BabylonClientAdapter) BTCDelegation(stakingTxHash string) (*Delegatio
 		HasProof:              delegation.StartHeight > 0,
 		Status:                delegation.StatusDesc,
 		IsStakeExpansion:      delegation.StkExp != nil,
+		IsBtcMultisig:         isBtcMultisig,
+		StakerPkCount:         stakerPkCount,
 	}, nil
+}
+
+func safeRetrieveStakerPkCountAndIsBtcMultisig(multisigInfoResp *btcstakingtypes.AdditionalStakerInfoResponse) (uint32, bool, error) {
+	var (
+		isBtcMultisig bool
+		stakerPkCount uint32
+	)
+
+	// init stakerPkCount to 1 in case of single-sig btc delegation
+	stakerPkCount = 1
+
+	if multisigInfoResp != nil {
+		isBtcMultisig = true
+		extra := len(multisigInfoResp.StakerBtcPkList)
+		if extra > math.MaxUint32-1 {
+			return 0, false, fmt.Errorf("staker count exceeds uint32 max value")
+		}
+		stakerPkCount = uint32(extra + 1) // #nosec G115 -- check extra doesn't exceed MaxUint32 above
+	}
+
+	return stakerPkCount, isBtcMultisig, nil
 }

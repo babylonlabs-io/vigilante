@@ -16,6 +16,11 @@ type TrackedDelegation struct {
 	UnbondingOutput       *wire.TxOut
 	DelegationStartHeight uint32
 	InProgress            bool
+	IsBtcMultisig         bool
+	// StakerPkCount is the total number of staker PK of the given BTC delegation
+	// for M-of-N multisig btc delegation, it should be N. and for single-sig btc delegation
+	// it is 1.
+	StakerPkCount uint32
 }
 
 type TrackedDelegations struct {
@@ -87,6 +92,8 @@ func (td *TrackedDelegation) Clone() *TrackedDelegation {
 		UnbondingOutput:       unbondingOutput,
 		DelegationStartHeight: td.DelegationStartHeight,
 		InProgress:            td.InProgress,
+		IsBtcMultisig:         td.IsBtcMultisig,
+		StakerPkCount:         td.StakerPkCount,
 	}
 }
 
@@ -144,6 +151,8 @@ func (td *TrackedDelegations) AddDelegation(
 	stakingOutputIdx uint32,
 	unbondingOutput *wire.TxOut,
 	delegationStartHeight uint32,
+	isBtcMultisig bool,
+	stakerPkCount uint32,
 	shouldUpdate bool,
 ) (*TrackedDelegation, error) {
 	delegation := &TrackedDelegation{
@@ -151,6 +160,8 @@ func (td *TrackedDelegations) AddDelegation(
 		StakingOutputIdx:      stakingOutputIdx,
 		UnbondingOutput:       unbondingOutput,
 		DelegationStartHeight: delegationStartHeight,
+		IsBtcMultisig:         isBtcMultisig,
+		StakerPkCount:         stakerPkCount,
 	}
 
 	stakingTxHash := stakingTx.TxHash()
