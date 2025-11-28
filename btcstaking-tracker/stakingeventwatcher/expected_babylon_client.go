@@ -409,10 +409,10 @@ func safeRetrieveStakerPkCountAndIsBtcMultisig(multisigInfoResp *btcstakingtypes
 	if multisigInfoResp != nil {
 		isBtcMultisig = true
 		extra := len(multisigInfoResp.StakerBtcPkList)
-		if extra > math.MaxUint32-1 {
+		if extra >= math.MaxUint32 {
 			return 0, false, fmt.Errorf("staker count exceeds uint32 max value")
 		}
-		stakerPkCount = uint32(extra + 1) // #nosec G115 -- check extra doesn't exceed MaxUint32 above
+		stakerPkCount = uint32(extra + 1) // #nosec G115 -- already check extra doesn't exceed or equal MaxUint32 above
 	}
 
 	return stakerPkCount, isBtcMultisig, nil

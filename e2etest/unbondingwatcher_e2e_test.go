@@ -988,6 +988,7 @@ func TestMultisigStakeExpansionFlow(t *testing.T) {
 	// Step 4: Add witness to the stake expansion transaction before sending to Bitcoin
 	// Get the original and funding outputs for witness generation
 	originalStakingUnbondingPathSpendInfo, err := originalStakingSlashingInfo.StakingInfo.UnbondingPathSpendInfo()
+	require.NoError(t, err)
 
 	// sign with the delegator keys, stakerSigs in order of delSKs
 	var stakerSigs []*schnorr.Signature
