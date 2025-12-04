@@ -339,32 +339,34 @@ func buildSlashingTxWithWitness(
 				err,
 			)
 		}
-	} else {
-		// get ordered delegator signatures since this is a multisig btc delegation
-		delOrderedSigs, err := bstypes.GetOrderedDelegatorSignatures(config.DelPK2Sig)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get ordered delegator signatures: %w", err)
-		}
 
-		slashingMsgTxWithWitness, err = slashTx.BuildMultisigSlashingTxWithWitness(
-			fpSK,
-			d.FpBtcPkList,
-			msgTx,
-			config.OutputIdx,
-			delOrderedSigs,
-			d.MultisigInfo.StakerQuorum,
-			covAdaptorSigs,
-			bsParams.CovenantQuorum,
-			slashingSpendInfo,
+		return slashingMsgTxWithWitness, nil
+	}
+
+	// get ordered delegator signatures since this is a multisig btc delegation
+	delOrderedSigs, err := bstypes.GetOrderedDelegatorSignatures(config.DelPK2Sig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get ordered delegator signatures: %w", err)
+	}
+
+	slashingMsgTxWithWitness, err = slashTx.BuildMultisigSlashingTxWithWitness(
+		fpSK,
+		d.FpBtcPkList,
+		msgTx,
+		config.OutputIdx,
+		delOrderedSigs,
+		d.MultisigInfo.StakerQuorum,
+		covAdaptorSigs,
+		bsParams.CovenantQuorum,
+		slashingSpendInfo,
+	)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"failed to build multisig btc del witness for BTC delegation %s under finality provider %s: %w",
+			d.BtcPk.MarshalHex(),
+			bbn.NewBIP340PubKeyFromBTCPK(fpSK.PubKey()).MarshalHex(),
+			err,
 		)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"failed to build multisig btc del witness for BTC delegation %s under finality provider %s: %w",
-				d.BtcPk.MarshalHex(),
-				bbn.NewBIP340PubKeyFromBTCPK(fpSK.PubKey()).MarshalHex(),
-				err,
-			)
-		}
 	}
 
 	return slashingMsgTxWithWitness, nil
@@ -418,54 +420,56 @@ func BuildUnbondingSlashingTxWithWitness(
 				)
 			},
 		}
-	} else {
-		delPK2Sig, err := buildDelPK2SigMap(d.MultisigInfo.StakerBtcPkList, d.MultisigInfo.DelegatorUnbondingSlashingSigs, d.BtcPk, d.UndelegationResponse.DelegatorSlashingSigHex)
-		if err != nil {
-			return nil, err
-		}
 
-		config = SlashingConfig{
-			TxHex:          d.UndelegationResponse.UnbondingTxHex,
-			SlashingTxHex:  d.UndelegationResponse.SlashingTxHex,
-			SlashingSigHex: d.UndelegationResponse.DelegatorSlashingSigHex,
-			DelPK2Sig:      delPK2Sig,
-			CovenantSigs:   d.UndelegationResponse.CovenantSlashingSigs,
-			OutputIdx:      0,
-			InfoBuilder: func() (StakingInfoProvider, error) {
-				unbondingMsgTx, _, err := bbn.NewBTCTxFromHex(d.UndelegationResponse.UnbondingTxHex)
-				if err != nil {
-					return nil, err
-				}
+		return buildSlashingTxWithWitness(d, bsParams, fpSK, config)
+	}
 
-				fpBtcPkList, err := bbn.NewBTCPKsFromBIP340PKs(d.FpBtcPkList)
-				if err != nil {
-					return nil, err
-				}
+	delPK2Sig, err := buildDelPK2SigMap(d.MultisigInfo.StakerBtcPkList, d.MultisigInfo.DelegatorUnbondingSlashingSigs, d.BtcPk, d.UndelegationResponse.DelegatorSlashingSigHex)
+	if err != nil {
+		return nil, err
+	}
 
-				covenantBtcPkList, err := bbn.NewBTCPKsFromBIP340PKs(bsParams.CovenantPks)
-				if err != nil {
-					return nil, err
-				}
+	config = SlashingConfig{
+		TxHex:          d.UndelegationResponse.UnbondingTxHex,
+		SlashingTxHex:  d.UndelegationResponse.SlashingTxHex,
+		SlashingSigHex: d.UndelegationResponse.DelegatorSlashingSigHex,
+		DelPK2Sig:      delPK2Sig,
+		CovenantSigs:   d.UndelegationResponse.CovenantSlashingSigs,
+		OutputIdx:      0,
+		InfoBuilder: func() (StakingInfoProvider, error) {
+			unbondingMsgTx, _, err := bbn.NewBTCTxFromHex(d.UndelegationResponse.UnbondingTxHex)
+			if err != nil {
+				return nil, err
+			}
 
-				delBtcPkList, err := bbn.NewBTCPKsFromBIP340PKs(d.MultisigInfo.StakerBtcPkList)
-				if err != nil {
-					return nil, err
-				}
-				delBtcPkList = append(delBtcPkList, d.BtcPk.MustToBTCPK())
+			fpBtcPkList, err := bbn.NewBTCPKsFromBIP340PKs(d.FpBtcPkList)
+			if err != nil {
+				return nil, err
+			}
 
-				// #nosec G115 -- performed the conversion check above
-				return btcstaking.BuildMultisigUnbondingInfo(
-					delBtcPkList,
-					d.MultisigInfo.StakerQuorum,
-					fpBtcPkList,
-					covenantBtcPkList,
-					bsParams.CovenantQuorum,
-					uint16(d.UnbondingTime),
-					btcutil.Amount(unbondingMsgTx.TxOut[0].Value),
-					btcNet,
-				)
-			},
-		}
+			covenantBtcPkList, err := bbn.NewBTCPKsFromBIP340PKs(bsParams.CovenantPks)
+			if err != nil {
+				return nil, err
+			}
+
+			delBtcPkList, err := bbn.NewBTCPKsFromBIP340PKs(d.MultisigInfo.StakerBtcPkList)
+			if err != nil {
+				return nil, err
+			}
+			delBtcPkList = append(delBtcPkList, d.BtcPk.MustToBTCPK())
+
+			// #nosec G115 -- performed the conversion check above
+			return btcstaking.BuildMultisigUnbondingInfo(
+				delBtcPkList,
+				d.MultisigInfo.StakerQuorum,
+				fpBtcPkList,
+				covenantBtcPkList,
+				bsParams.CovenantQuorum,
+				uint16(d.UnbondingTime),
+				btcutil.Amount(unbondingMsgTx.TxOut[0].Value),
+				btcNet,
+			)
+		},
 	}
 
 	return buildSlashingTxWithWitness(d, bsParams, fpSK, config)
@@ -569,49 +573,51 @@ func BuildSlashingTxWithWitness(
 				)
 			},
 		}
-	} else {
-		delPK2Sig, err := buildDelPK2SigMap(d.MultisigInfo.StakerBtcPkList, d.MultisigInfo.DelegatorSlashingSigs, d.BtcPk, d.DelegatorSlashSigHex)
-		if err != nil {
-			return nil, err
-		}
 
-		config = SlashingConfig{
-			TxHex:          d.StakingTxHex,
-			SlashingTxHex:  d.SlashingTxHex,
-			SlashingSigHex: d.DelegatorSlashSigHex,
-			DelPK2Sig:      delPK2Sig,
-			CovenantSigs:   d.CovenantSigs,
-			OutputIdx:      d.StakingOutputIdx,
-			InfoBuilder: func() (StakingInfoProvider, error) {
-				fpBtcPkList, err := bbn.NewBTCPKsFromBIP340PKs(d.FpBtcPkList)
-				if err != nil {
-					return nil, err
-				}
+		return buildSlashingTxWithWitness(d, bsParams, fpSK, config)
+	}
 
-				covenantBtcPkList, err := bbn.NewBTCPKsFromBIP340PKs(bsParams.CovenantPks)
-				if err != nil {
-					return nil, err
-				}
+	delPK2Sig, err := buildDelPK2SigMap(d.MultisigInfo.StakerBtcPkList, d.MultisigInfo.DelegatorSlashingSigs, d.BtcPk, d.DelegatorSlashSigHex)
+	if err != nil {
+		return nil, err
+	}
 
-				delBtcPkList, err := bbn.NewBTCPKsFromBIP340PKs(d.MultisigInfo.StakerBtcPkList)
-				if err != nil {
-					return nil, err
-				}
-				delBtcPkList = append(delBtcPkList, d.BtcPk.MustToBTCPK())
+	config = SlashingConfig{
+		TxHex:          d.StakingTxHex,
+		SlashingTxHex:  d.SlashingTxHex,
+		SlashingSigHex: d.DelegatorSlashSigHex,
+		DelPK2Sig:      delPK2Sig,
+		CovenantSigs:   d.CovenantSigs,
+		OutputIdx:      d.StakingOutputIdx,
+		InfoBuilder: func() (StakingInfoProvider, error) {
+			fpBtcPkList, err := bbn.NewBTCPKsFromBIP340PKs(d.FpBtcPkList)
+			if err != nil {
+				return nil, err
+			}
 
-				// #nosec G115 -- performed the conversion check above
-				return btcstaking.BuildMultisigStakingInfo(
-					delBtcPkList,
-					d.MultisigInfo.StakerQuorum,
-					fpBtcPkList,
-					covenantBtcPkList,
-					bsParams.CovenantQuorum,
-					uint16(d.EndHeight-d.StartHeight),
-					btcutil.Amount(d.TotalSat),
-					btcNet,
-				)
-			},
-		}
+			covenantBtcPkList, err := bbn.NewBTCPKsFromBIP340PKs(bsParams.CovenantPks)
+			if err != nil {
+				return nil, err
+			}
+
+			delBtcPkList, err := bbn.NewBTCPKsFromBIP340PKs(d.MultisigInfo.StakerBtcPkList)
+			if err != nil {
+				return nil, err
+			}
+			delBtcPkList = append(delBtcPkList, d.BtcPk.MustToBTCPK())
+
+			// #nosec G115 -- performed the conversion check above
+			return btcstaking.BuildMultisigStakingInfo(
+				delBtcPkList,
+				d.MultisigInfo.StakerQuorum,
+				fpBtcPkList,
+				covenantBtcPkList,
+				bsParams.CovenantQuorum,
+				uint16(d.EndHeight-d.StartHeight),
+				btcutil.Amount(d.TotalSat),
+				btcNet,
+			)
+		},
 	}
 
 	return buildSlashingTxWithWitness(d, bsParams, fpSK, config)
