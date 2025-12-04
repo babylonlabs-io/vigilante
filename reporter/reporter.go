@@ -26,8 +26,8 @@ type Reporter struct {
 	logger *zap.SugaredLogger
 
 	btcClient     btcclient.BTCClient
-	backend       Backend // Abstraction for header submission (Babylon, Ethereum, etc.)
-	babylonClient BabylonClient // Still needed for checkpoint operations
+	backend       Backend       // Abstraction for header submission (Babylon, Ethereum, etc.)
+	babylonClient BabylonClient // Optional: only needed for Babylon backend checkpoint operations
 	btcNotifier   notifier.ChainNotifier
 
 	// retry attributes
@@ -59,7 +59,7 @@ func New(
 	parentLogger *zap.Logger,
 	btcClient btcclient.BTCClient,
 	backend Backend,
-	babylonClient BabylonClient,
+	babylonClient BabylonClient, // Can be nil for Ethereum backend
 	btcNotifier notifier.ChainNotifier,
 	retrySleepTime,
 	maxRetrySleepTime time.Duration,
@@ -67,30 +67,51 @@ func New(
 	metrics *metrics.ReporterMetrics,
 ) (*Reporter, error) {
 	logger := parentLogger.With(zap.String("module", "reporter")).Sugar()
-	// retrieve k and w within btccParams
+
 	var (
-		btccParamsRes *btcctypes.QueryParamsResponse
+		k             uint32
+		w             uint32
+		checkpointTag []byte
 		err           error
 	)
-	err = retrywrap.Do(func() error {
-		btccParamsRes, err = babylonClient.BTCCheckpointParams()
 
-		return err
-	},
-		retry.Delay(retrySleepTime),
-		retry.MaxDelay(maxRetrySleepTime),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get BTC Checkpoint parameters: %w", err)
+	// For Ethereum backend, use config parameters instead of querying Babylon
+	if cfg.BackendType == config.BackendTypeEthereum {
+		k = cfg.BTCConfirmationDepth
+		w = cfg.CheckpointFinalizationTimeout
+		checkpointTag, err = hex.DecodeString(cfg.CheckpointTag)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode checkpoint tag from config: %w", err)
+		}
+		logger.Infof("Using config-based BTCCheckpoint parameters for Ethereum backend: (k, w, tag) = (%d, %d, %x)", k, w, checkpointTag)
+		// Set babylonClient to nil to ensure we don't accidentally use it
+		babylonClient = nil
+	} else {
+		// For Babylon backend, query Babylon for checkpoint parameters
+		// Note: We check both nil and the underlying value because passing a nil pointer
+		// to an interface parameter results in a non-nil interface with nil value.
+		if babylonClient == nil {
+			return nil, fmt.Errorf("babylonClient is required for Babylon backend")
+		}
+		var btccParamsRes *btcctypes.QueryParamsResponse
+		err = retrywrap.Do(func() error {
+			btccParamsRes, err = babylonClient.BTCCheckpointParams()
+			return err
+		},
+			retry.Delay(retrySleepTime),
+			retry.MaxDelay(maxRetrySleepTime),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get BTC Checkpoint parameters: %w", err)
+		}
+		k = btccParamsRes.Params.BtcConfirmationDepth
+		w = btccParamsRes.Params.CheckpointFinalizationTimeout
+		checkpointTag, err = hex.DecodeString(btccParamsRes.Params.CheckpointTag)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode checkpoint tag: %w", err)
+		}
+		logger.Infof("BTCCheckpoint parameters from Babylon: (k, w, tag) = (%d, %d, %x)", k, w, checkpointTag)
 	}
-	k := btccParamsRes.Params.BtcConfirmationDepth
-	w := btccParamsRes.Params.CheckpointFinalizationTimeout
-	// get checkpoint tag
-	checkpointTag, err := hex.DecodeString(btccParamsRes.Params.CheckpointTag)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode checkpoint tag: %w", err)
-	}
-	logger.Infof("BTCCheckpoint parameters: (k, w, tag) = (%d, %d, %s)", k, w, checkpointTag)
 
 	// Note that BTC cache is initialised only after bootstrapping
 	ckptCache := types.NewCheckpointCache(checkpointTag, btctxformatter.CurrentVersion)

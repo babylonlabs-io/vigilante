@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/lightningnetwork/lnd/chainntnfs"
@@ -92,7 +93,15 @@ func (r *Reporter) processNewBlock(ib *types.IndexedBlock) error {
 		return nil
 	}
 
-	signer := r.babylonClient.MustGetAddr()
+	// Get signer address (only needed for Babylon backend checkpoint operations)
+	// For Ethereum backend, this is ignored by ProcessHeaders but still needed by ProcessCheckpoints
+	// Note: We use the backend type check instead of nil check because in Go,
+	// an interface containing a nil pointer is not equal to nil.
+	var signer string
+	if r.cfg.BackendType == config.BackendTypeBabylon && r.babylonClient != nil {
+		signer = r.babylonClient.MustGetAddr()
+	}
+
 	// Process headers
 	if _, err := r.ProcessHeaders(signer, headersToProcess); err != nil {
 		r.logger.Warnf("Failed to submit headers: %v", err)
@@ -100,7 +109,7 @@ func (r *Reporter) processNewBlock(ib *types.IndexedBlock) error {
 		return fmt.Errorf("failed to submit headers: %w", err)
 	}
 
-	// Process checkpoints
+	// Process checkpoints (skipped for Ethereum backend)
 	_, _ = r.ProcessCheckpoints(signer, headersToProcess)
 
 	return nil
@@ -157,7 +166,12 @@ func (r *Reporter) handleEthereumReorg(newHeight uint32, newHeader *wire.BlockHe
 	// Submit the competing fork to the Ethereum contract
 	// The contract will detect the fork (since we're submitting from a height < current tip)
 	// and will switch to the new chain if it has higher total difficulty
-	signer := r.babylonClient.MustGetAddr()
+	// Note: We use the backend type check instead of nil check because in Go,
+	// an interface containing a nil pointer is not equal to nil.
+	var signer string
+	if r.cfg.BackendType == config.BackendTypeBabylon && r.babylonClient != nil {
+		signer = r.babylonClient.MustGetAddr()
+	}
 	if _, err := r.ProcessHeaders(signer, blocks); err != nil {
 		return fmt.Errorf("failed to submit reorg blocks starting from height %d: %w", commonAncestorHeight, err)
 	}

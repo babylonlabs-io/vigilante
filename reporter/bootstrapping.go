@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
+	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 )
@@ -134,7 +135,13 @@ func (r *Reporter) bootstrap() error {
 		return err
 	}
 
-	signer := r.babylonClient.MustGetAddr()
+	// Get signer address (only needed for Babylon backend checkpoint operations)
+	// Note: We use the backend type check instead of nil check because in Go,
+	// an interface containing a nil pointer is not equal to nil.
+	var signer string
+	if r.cfg.BackendType == config.BackendTypeBabylon && r.babylonClient != nil {
+		signer = r.babylonClient.MustGetAddr()
+	}
 
 	r.logger.Infof("BTC height: %d. Backend height: %d. Start syncing from height %d.",
 		btcLatestBlockHeight, consistencyInfo.bbnLatestBlockHeight, consistencyInfo.startSyncHeight)
@@ -244,7 +251,7 @@ func (r *Reporter) bootstrapWithRetries() {
 // where T is the height of the latest block in the backend's BTC header chain
 func (r *Reporter) initBTCCache() error {
 	var (
-		err                    error
+		err                      error
 		backendLatestBlockHeight uint32
 		backendBaseHeight        uint32
 		baseHeight               uint32
