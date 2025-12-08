@@ -10,6 +10,7 @@ import (
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/contracts/btcprism"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -103,43 +104,43 @@ func NewEthereumBackend(cfg *config.EthereumConfig, parentLogger *zap.Logger) (B
 }
 
 // ContainsBlock checks if the Ethereum contract has the given BTC block hash
-// This queries the contract to check if the block exists at its expected height
+// This uses the contract's getBlockNumber() function for O(1) lookup via hashToHeight mapping
 func (e *EthereumBackend) ContainsBlock(ctx context.Context, hash *chainhash.Hash) (bool, error) {
-	// The BtcPrism contract stores blocks by height, not hash
-	// We need the BTCCache to provide height information
-	// For now, we query the latest height and search backwards
-
-	latestHeight, err := e.contract.GetLatestBlockHeight(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return false, fmt.Errorf("failed to get latest block height: %w", err)
-	}
-
-	// Search backwards through recent blocks (last 1000 blocks max, as per contract MAX_ALLOWED_REORG)
-	// This is not ideal but works for deduplication
-	searchDepth := uint64(1000)
-	if latestHeight.Uint64() < searchDepth {
-		searchDepth = latestHeight.Uint64()
-	}
-
 	targetHashBytes := hash.CloneBytes()
 	reverseBytes(targetHashBytes) // Bitcoin hashes are little-endian, Ethereum expects big-endian
+	blockHash := common.BytesToHash(targetHashBytes)
 
-	for i := uint64(0); i < searchDepth; i++ {
-		// #nosec G115 -- i is bounded by searchDepth (max 1000), safe to convert to int64
-		height := new(big.Int).Sub(latestHeight, big.NewInt(int64(i)))
-		blockHash, err := e.contract.GetBlockHash(&bind.CallOpts{Context: ctx}, height)
-		if err != nil {
-			return false, fmt.Errorf("failed to get block hash at height %d: %w", height, err)
-		}
+	// Call getBlockNumber(bytes32) view function for O(1) lookup
+	// Function selector: keccak256("getBlockNumber(bytes32)")[0:4]
+	methodID := crypto.Keccak256([]byte("getBlockNumber(bytes32)"))[:4]
+	callData := append(methodID, blockHash.Bytes()...)
 
-		if common.BytesToHash(targetHashBytes) == blockHash {
-			e.logger.Debugw("Block found in contract", "hash", hash.String(), "height", height)
+	// Make the call
+	msg := ethereum.CallMsg{
+		To:   &e.contractAddress,
+		Data: callData,
+	}
+	result, err := e.client.CallContract(ctx, msg, nil)
 
-			return true, nil
-		}
+	if err != nil {
+		return false, fmt.Errorf("failed to call getBlockNumber for hash %s: %w", hash.String(), err)
 	}
 
-	return false, nil
+	if len(result) == 0 {
+		return false, fmt.Errorf("empty result from getBlockNumber for hash %s", hash.String())
+	}
+
+	// Decode the result (uint256)
+	blockHeight := new(big.Int).SetBytes(result)
+
+	// getBlockNumber() returns 0 if the block is not found or has been pruned
+	if blockHeight.Uint64() == 0 {
+		e.logger.Debugw("Block not found in contract", "hash", hash.String())
+		return false, nil
+	}
+
+	e.logger.Debugw("Block found in contract via getBlockNumber", "hash", hash.String(), "height", blockHeight.Uint64())
+	return true, nil
 }
 
 // GetTip returns the Ethereum contract's current tip block height and hash.
