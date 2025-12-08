@@ -51,12 +51,6 @@ func GetReporterCmd() *cobra.Command {
 				panic(fmt.Errorf("failed to open BTC client: %w", err))
 			}
 
-			// create Babylon client. Note that requests from Babylon client are ad hoc
-			babylonClient, err = bbnclient.New(&cfg.Babylon, nil)
-			if err != nil {
-				panic(fmt.Errorf("failed to open Babylon client: %w", err))
-			}
-
 			// register reporter metrics
 			reporterMetrics := metrics.NewReporterMetrics()
 
@@ -70,25 +64,32 @@ func GetReporterCmd() *cobra.Command {
 			var backend reporter.Backend
 			switch cfg.Reporter.BackendType {
 			case config.BackendTypeBabylon:
+				// Babylon backend requires Babylon client
+				babylonClient, err = bbnclient.New(&cfg.Babylon, nil)
+				if err != nil {
+					panic(fmt.Errorf("failed to open Babylon client: %w", err))
+				}
 				backend = reporter.NewBabylonBackend(babylonClient)
 				rootLogger.Info("Using Babylon backend for BTC header submission")
 			case config.BackendTypeEthereum:
+				// Ethereum backend does NOT require Babylon client
 				backend, err = reporter.NewEthereumBackend(&cfg.Ethereum, rootLogger)
 				if err != nil {
 					panic(fmt.Errorf("failed to create Ethereum backend: %w", err))
 				}
-				rootLogger.Info("Using Ethereum backend for BTC header submission")
+				rootLogger.Info("Using Ethereum backend for BTC header submission (no Babylon dependency)")
 			default:
 				panic(fmt.Errorf("unsupported backend type: %s", cfg.Reporter.BackendType))
 			}
 
 			// create reporter
+			// Note: babylonClient can be nil for Ethereum backend
 			vigilantReporter, err = reporter.New(
 				&cfg.Reporter,
 				rootLogger,
 				btcClient,
 				backend,
-				babylonClient,
+				babylonClient, // nil for Ethereum backend
 				btcNotifier,
 				cfg.Common.RetrySleepTime,
 				cfg.Common.MaxRetrySleepTime,
