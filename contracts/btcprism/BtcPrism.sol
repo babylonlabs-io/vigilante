@@ -50,6 +50,12 @@ contract BtcPrism is IBtcPrism {
     bytes32[NUM_BLOCKS] public blockHashes;
 
     /**
+     * @notice Reverse lookup: block hash to block height (O(1) lookup)
+     * @dev Only stores blocks within the last MAX_ALLOWED_REORG range
+     */
+    mapping(bytes32 => uint256) public hashToHeight;
+
+    /**
      * @notice Difficulty targets in each retargeting period.
      */
     mapping(uint256 => uint256) public periodToTarget;
@@ -70,6 +76,7 @@ contract BtcPrism is IBtcPrism {
         require(_blockHeight > 2016); // Is needed for unchecked math.
 
         blockHashes[_blockHeight % NUM_BLOCKS] = _blockHash;
+        hashToHeight[_blockHash] = _blockHeight;
         latestBlockHeight = _blockHeight;
         latestBlockTime = _blockTime;
         periodToTarget[_blockHeight / 2016] = _expectedTarget;
@@ -101,6 +108,29 @@ contract BtcPrism is IBtcPrism {
      */
     function getLatestBlockTime() public view returns (uint256) {
         return latestBlockTime;
+    }
+
+    /**
+     * @notice Reverse lookup: finds the block height for a given block hash (O(1))
+     * @param blockHash The block hash to search for
+     * @return blockNumber The height of the block, or 0 if not found
+     * @dev Uses mapping for constant-time lookup.
+     *      Returns 0 if the block is not found in recent history or too old.
+     */
+    function getBlockNumber(bytes32 blockHash) public view returns (uint256 blockNumber) {
+        blockNumber = hashToHeight[blockHash];
+
+        // Verify block is still within valid range (not pruned)
+        if (blockNumber == 0) {
+            return 0; // Not found
+        }
+
+        // Check if block has been pruned (too old)
+        if (blockNumber < latestBlockHeight - MAX_ALLOWED_REORG) {
+            return 0; // Pruned
+        }
+
+        return blockNumber;
     }
 
     /**
@@ -161,6 +191,10 @@ contract BtcPrism is IBtcPrism {
                 // erase any block hashes above newHeight, now invalidated.
                 // (in case we just accepted a shorter, heavier chain.)
                 for (uint256 i = newHeight + 1; i <= latestBlockHeight; ++i) {
+                    bytes32 invalidHash = blockHashes[i % NUM_BLOCKS];
+                    if (invalidHash != bytes32(0)) {
+                        delete hashToHeight[invalidHash];
+                    }
                     blockHashes[i % NUM_BLOCKS] = 0;
                 }
 
@@ -218,7 +252,9 @@ contract BtcPrism is IBtcPrism {
             // optimistically save the block hash
             // we'll revert if the header turns out to be invalid.
             // this is the most expensive line. 20,000 gas to use a new storage slot
-            blockHashes[blockHeight % NUM_BLOCKS] = bytes32(blockHashNum);
+            bytes32 newBlockHash = bytes32(blockHashNum);
+            blockHashes[blockHeight % NUM_BLOCKS] = newBlockHash;
+            hashToHeight[newBlockHash] = blockHeight;
 
             // verify previous hash
             bytes32 prevHash = bytes32(Endian.reverse256(uint256(bytes32(blockHeader[4:36]))));

@@ -33,6 +33,14 @@ interface IBtcPrism {
     function getLatestBlockTime() external view returns (uint256);
 
     /**
+     * @notice Reverse lookup: returns the block height for a given block hash
+     * @param blockHash The block hash to look up
+     * @return blockNumber The height of the block, or 0 if not found in recent history
+     * @dev Only searches within the last MAX_ALLOWED_REORG blocks
+     */
+    function getBlockNumber(bytes32 blockHash) external view returns (uint256);
+
+    /**
      * @notice Submits a new Bitcoin chain segment (80-byte headers) s
      */
     function submit(uint256 blockHeight, bytes calldata blockHeaders) external;

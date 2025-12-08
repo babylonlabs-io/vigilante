@@ -10,7 +10,6 @@ import (
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/contracts/btcprism"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -110,28 +109,11 @@ func (e *EthereumBackend) ContainsBlock(ctx context.Context, hash *chainhash.Has
 	reverseBytes(targetHashBytes) // Bitcoin hashes are little-endian, Ethereum expects big-endian
 	blockHash := common.BytesToHash(targetHashBytes)
 
-	// Call getBlockNumber(bytes32) view function for O(1) lookup
-	// Function selector: keccak256("getBlockNumber(bytes32)")[0:4]
-	methodID := crypto.Keccak256([]byte("getBlockNumber(bytes32)"))[:4]
-	callData := append(methodID, blockHash.Bytes()...)
-
-	// Make the call
-	msg := ethereum.CallMsg{
-		To:   &e.contractAddress,
-		Data: callData,
-	}
-	result, err := e.client.CallContract(ctx, msg, nil)
-
+	// Use BtcPrism's getBlockNumber(bytes32) for O(1) lookup
+	blockHeight, err := e.contract.GetBlockNumber(&bind.CallOpts{Context: ctx}, [32]byte(blockHash))
 	if err != nil {
 		return false, fmt.Errorf("failed to call getBlockNumber for hash %s: %w", hash.String(), err)
 	}
-
-	if len(result) == 0 {
-		return false, fmt.Errorf("empty result from getBlockNumber for hash %s", hash.String())
-	}
-
-	// Decode the result (uint256)
-	blockHeight := new(big.Int).SetBytes(result)
 
 	// getBlockNumber() returns 0 if the block is not found or has been pruned
 	if blockHeight.Uint64() == 0 {
