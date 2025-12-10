@@ -37,6 +37,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Improvements
+
+* [#508](https://github.com/babylonlabs-io/vigilante/pull/508) chore: update sample-vigilante.yml
+
 ## v0.24.1
 
 ### Improvements
