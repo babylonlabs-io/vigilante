@@ -86,4 +86,7 @@ btcstaking-tracker:
   max-slashing-concurrency: 20
   indexer-addr: localhost:3000
   fetch-evidence-interval: 60
+  fetch-comet-block-interval: 2s
+  reconnect-btc-node-interval: 60s
+  slasherdbconfig: null
 
