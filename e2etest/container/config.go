@@ -19,11 +19,12 @@ type ImageConfig struct {
 
 //nolint:deadcode
 const (
-	dockerBitcoindRepository = "lncm/bitcoind"
-	dockerBitcoindVersionTag = "v28.0"
-	dockerBabylondRepository = "babylonlabs/babylond"
-	dockerElectrsRepository  = "mempool/electrs"
-	dockerElectrsVersionTag  = "v3.1.0"
+	dockerBitcoindRepository      = "lncm/bitcoind"
+	dockerBitcoindVersionTag      = "v28.0"
+	dockerBabylondRepository      = "babylonlabs/babylond"
+	dockerBabylondMultisigVersion = "c8ef72fa5bc713f175306b750757ce03af0ffb52"
+	dockerElectrsRepository       = "mempool/electrs"
+	dockerElectrsVersionTag       = "v3.1.0"
 )
 
 // NewImageConfig returns ImageConfig needed for running e2e test.

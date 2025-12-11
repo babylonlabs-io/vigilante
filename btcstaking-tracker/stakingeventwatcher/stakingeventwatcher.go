@@ -59,6 +59,11 @@ type newDelegation struct {
 	stakingOutputIdx      uint32
 	delegationStartHeight uint32
 	unbondingOutput       *wire.TxOut
+	isBtcMultisig         bool
+	// stakerPkCount is the total number of staker PK of the given BTC delegation
+	// for M-of-N multisig btc delegation, it should be N. and for single-sig btc delegation
+	// it is 1.
+	stakerPkCount uint32
 }
 
 type delegationInactive struct {
@@ -349,9 +354,9 @@ func getStakingTxInputIdx(tx *wire.MsgTx, td *TrackedDelegation) (int, error) {
 	return -1, fmt.Errorf("transaction does not point to staking output. expected hash:%s, expected outoputidx: %d", stakingTxHash, td.StakingOutputIdx)
 }
 
-// tryParseStakerSignatureFromSpentTx tries to parse staker signature from unbonding tx.
-// If provided tx is not unbonding tx it returns error.
-func tryParseStakerSignatureFromSpentTx(tx *wire.MsgTx, td *TrackedDelegation) (*schnorr.Signature, error) {
+// tryParseStakerSignatureFromSpentTx tries to parse staker signatures from unbonding tx.
+// If provided tx is not an unbonding tx, it returns an error.
+func tryParseStakerSignatureFromSpentTx(tx *wire.MsgTx, td *TrackedDelegation) ([]*schnorr.Signature, error) {
 	if len(tx.TxOut) != 1 {
 		return nil, fmt.Errorf("unbonding tx must have exactly one output. Priovided tx has %d outputs", len(tx.TxOut))
 	}
@@ -368,17 +373,47 @@ func tryParseStakerSignatureFromSpentTx(tx *wire.MsgTx, td *TrackedDelegation) (
 
 	stakingTxInput := tx.TxIn[stakingTxInputIdx]
 	witnessLen := len(stakingTxInput.Witness)
-	// minimal witness size for staking tx input is 4:
-	// covenant_signature, staker_signature, script, control_block
+	// minimal witness size for staking tx input is at least 4:
+	// covenant_signatures, staker_signatures, script, control_block
 	// If that is not the case, something weird is going on and we should investigate.
 	if witnessLen < 4 {
 		panic(fmt.Errorf("staking tx input witness has less than 4 elements for unbonding tx %s", tx.TxHash()))
 	}
 
-	// staker signature is 3rd element from the end
-	stakerSignature := stakingTxInput.Witness[witnessLen-3]
+	// staker signatures started from the 3rd element from the end
+	var (
+		schnorrSigs []*schnorr.Signature
+	)
 
-	return schnorr.ParseSignature(stakerSignature)
+	// if it's a multisig btc delegation, parse signature on every non-nil stakerSignatures
+	// index of stakerSignatures started from witnessLen-2-StakerPkCount to witnessLen-2
+	// NOTE: if single sig btc delegation, length of the stakerSignatures is 1, otherwise (M-of-N multisig
+	// btc delegation), the length of stakerSignatures is same with the StakerPkCount (N)
+	if td.IsBtcMultisig {
+		stakerSignatures := stakingTxInput.Witness[witnessLen-2-int(td.StakerPkCount) : witnessLen-2]
+		for _, sig := range stakerSignatures {
+			// skip nil sig from parsing. since M-of-N multisig witness contains the
+			// exact size of staker pk list, some of them could be nil and that's a normal case
+			if len(sig) == 0 {
+				continue
+			}
+
+			schnorrSig, err := schnorr.ParseSignature(sig)
+			if err != nil {
+				return nil, err
+			}
+			schnorrSigs = append(schnorrSigs, schnorrSig)
+		}
+	} else {
+		stakerSignature := stakingTxInput.Witness[witnessLen-3]
+		schnorrSig, err := schnorr.ParseSignature(stakerSignature)
+		if err != nil {
+			return nil, err
+		}
+		schnorrSigs = append(schnorrSigs, schnorrSig)
+	}
+
+	return schnorrSigs, nil
 }
 
 func (sew *StakingEventWatcher) reportUnbondingToBabylon(
@@ -656,6 +691,8 @@ func (sew *StakingEventWatcher) handleUnbondedDelegations() {
 				activeDel.stakingOutputIdx,
 				activeDel.unbondingOutput,
 				activeDel.delegationStartHeight,
+				activeDel.isBtcMultisig,
+				activeDel.stakerPkCount,
 				true,
 			)
 
@@ -1078,6 +1115,8 @@ func (sew *StakingEventWatcher) addToUnbondingFunc(delegation Delegation) {
 		stakingOutputIdx:      delegation.StakingOutputIdx,
 		delegationStartHeight: delegation.DelegationStartHeight,
 		unbondingOutput:       delegation.UnbondingOutput,
+		isBtcMultisig:         delegation.IsBtcMultisig,
+		stakerPkCount:         delegation.StakerPkCount,
 	}
 
 	// if we already have this delegation, we still want to check if it has changed,
@@ -1110,6 +1149,8 @@ func (sew *StakingEventWatcher) addToPendingFunc(delegation Delegation) {
 			delegation.StakingOutputIdx,
 			delegation.UnbondingOutput,
 			delegation.DelegationStartHeight,
+			delegation.IsBtcMultisig,
+			delegation.StakerPkCount,
 			false,
 		)
 		sew.logger.Debugf("Received new verified delegation to watch: %s", stkTxHash)

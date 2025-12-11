@@ -63,6 +63,8 @@ type TestManagerConfig struct {
 	NumMatureOutputsInWallet uint32
 	EpochInterval            uint
 	NumCovenants             uint
+	NumMultisigStakers       uint32
+	NumMultisigStakerQuorum  uint32
 }
 
 func defaultTestManagerConfig() *TestManagerConfig {
@@ -70,6 +72,8 @@ func defaultTestManagerConfig() *TestManagerConfig {
 		NumMatureOutputsInWallet: 300,
 		EpochInterval:            defaultEpochInterval,
 		NumCovenants:             1,
+		NumMultisigStakers:       1,
+		NumMultisigStakerQuorum:  1,
 	}
 }
 
@@ -91,16 +95,25 @@ func WithNumCovenants(numCovenants uint) TestManagerOption {
 	}
 }
 
+func WithMultisigStaker(stakerCount, stakerQuorum uint32) TestManagerOption {
+	return func(config *TestManagerConfig) {
+		config.NumMultisigStakers = stakerCount
+		config.NumMultisigStakerQuorum = stakerQuorum
+	}
+}
+
 type TestManager struct {
-	TestRpcClient    *rpcclient.Client
-	BitcoindHandler  *BitcoindTestHandler
-	Electrs          *ElectrsTestHandler
-	BabylonClient    *bbnclient.Client
-	BTCClient        *btcclient.Client
-	Config           *config.Config
-	WalletPrivKey    *btcec.PrivateKey
-	manger           *container.Manager
-	CovenantPrivKeys []*btcec.PrivateKey
+	TestRpcClient          *rpcclient.Client
+	BitcoindHandler        *BitcoindTestHandler
+	Electrs                *ElectrsTestHandler
+	BabylonClient          *bbnclient.Client
+	BTCClient              *btcclient.Client
+	Config                 *config.Config
+	WalletPrivKey          *btcec.PrivateKey
+	manger                 *container.Manager
+	CovenantPrivKeys       []*btcec.PrivateKey
+	MultisigStakerPrivKeys []*btcec.PrivateKey
+	MultisigStakerQuorum   uint32
 }
 
 func initBTCClientWithSubscriber(t *testing.T, cfg *config.Config) *btcclient.Client {
@@ -200,11 +213,15 @@ func StartManager(t *testing.T, options ...TestManagerOption) *TestManager {
 	tmpDir, err := tempDir(t)
 	require.NoError(t, err)
 
-	covenants := generateCovenants(t, tmCfg.NumCovenants)
+	covenants := generatePrivKeys(t, tmCfg.NumCovenants)
 	covPubKeys := make([]*btcec.PublicKey, len(covenants))
 	for i, pk := range covenants {
 		covPubKeys[i] = pk.PubKey()
 	}
+
+	// multisig staker information
+	multisigStakers := generatePrivKeys(t, uint(tmCfg.NumMultisigStakers-1))
+	multisigStakerQuorum := tmCfg.NumMultisigStakerQuorum
 
 	var babylond *dockertest.Resource
 	require.Eventually(t, func() bool {
@@ -242,15 +259,17 @@ func StartManager(t *testing.T, options ...TestManagerOption) *TestManager {
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 
 	return &TestManager{
-		TestRpcClient:    testRpcClient,
-		BabylonClient:    babylonClient,
-		BitcoindHandler:  btcHandler,
-		Electrs:          electrsHandler,
-		BTCClient:        btcClient,
-		Config:           cfg,
-		WalletPrivKey:    walletPrivKey,
-		manger:           manager,
-		CovenantPrivKeys: covenants,
+		TestRpcClient:          testRpcClient,
+		BabylonClient:          babylonClient,
+		BitcoindHandler:        btcHandler,
+		Electrs:                electrsHandler,
+		BTCClient:              btcClient,
+		Config:                 cfg,
+		WalletPrivKey:          walletPrivKey,
+		manger:                 manager,
+		CovenantPrivKeys:       covenants,
+		MultisigStakerPrivKeys: multisigStakers,
+		MultisigStakerQuorum:   multisigStakerQuorum,
 	}
 }
 
@@ -413,13 +432,23 @@ func (tm *TestManager) DeployCwContract(t *testing.T) string {
 	return address
 }
 
-func generateCovenants(t *testing.T, num uint) []*btcec.PrivateKey {
-	covs := make([]*btcec.PrivateKey, 0, num)
+func generatePrivKeys(t *testing.T, num uint) []*btcec.PrivateKey {
+	privs := make([]*btcec.PrivateKey, 0, num)
 	for i := 0; i < int(num); i++ {
-		covenantPrivKey, err := btcec.NewPrivateKey()
+		privKey, err := btcec.NewPrivateKey()
 		require.NoError(t, err)
-		covs = append(covs, covenantPrivKey)
+		privs = append(privs, privKey)
 	}
 
-	return covs
+	return privs
+}
+
+// stakerPrivKeys return main btc staker's btc private key and other multisig staker's
+// private key if exist
+func (tm *TestManager) stakerPrivKeys() []*btcec.PrivateKey {
+	if len(tm.MultisigStakerPrivKeys) == 0 {
+		return []*btcec.PrivateKey{tm.WalletPrivKey}
+	}
+
+	return append([]*btcec.PrivateKey{tm.WalletPrivKey}, tm.MultisigStakerPrivKeys...)
 }

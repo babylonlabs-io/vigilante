@@ -149,6 +149,90 @@ func TestSlasher_Slasher(t *testing.T) {
 	}, eventuallyWaitTimeOut, eventuallyPollTime)
 }
 
+func TestSlasher_Slasher_MultisigBTCDel(t *testing.T) {
+	t.Parallel()
+	// segwit is activated at height 300. It's needed by staking/slashing tx
+	numMatureOutputs := uint32(300)
+
+	tm := StartManager(
+		t,
+		WithNumMatureOutputs(numMatureOutputs),
+		WithEpochInterval(5),
+		WithMultisigStaker(3, 2),
+	)
+	defer tm.Stop(t)
+	// start WebSocket connection with Babylon for subscriber services
+	err := tm.BabylonClient.Start()
+	require.NoError(t, err)
+	// Insert all existing BTC headers to babylon node
+	tm.CatchUpBTCLightClient(t)
+
+	emptyHintCache := btcclient.EmptyHintCache{}
+
+	backend, err := btcclient.NewNodeBackend(
+		btcclient.ToBitcoindConfig(tm.Config.BTC),
+		&chaincfg.RegressionNetParams,
+		&emptyHintCache,
+	)
+	require.NoError(t, err)
+
+	err = backend.Start()
+	require.NoError(t, err)
+
+	commonCfg := config.DefaultCommonConfig()
+	bstCfg := config.DefaultBTCStakingTrackerConfig()
+	bstCfg.CheckDelegationsInterval = 1 * time.Second
+	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
+	bstCfg.IndexerAddr = tm.Config.BTCStakingTracker.IndexerAddr
+
+	bsTracker := bst.NewBTCStakingTracker(
+		tm.BTCClient,
+		backend,
+		tm.BabylonClient,
+		&bstCfg,
+		&commonCfg,
+		zap.NewNop(),
+		stakingTrackerMetrics,
+		testutil.MakeTestBackend(t),
+	)
+	go bsTracker.Start()
+	defer bsTracker.Stop()
+
+	// wait for bootstrapping
+	time.Sleep(5 * time.Second)
+
+	// set up a finality provider
+	_, fpSK := tm.CreateFinalityProvider(t)
+	// set up a BTC delegation
+	stakingSlashingInfo, _, _ := tm.CreateMultisigBTCDelegation(t, fpSK)
+
+	// commit public randomness, vote and equivocate
+	tm.VoteAndEquivocate(t, fpSK)
+
+	// slashing tx will eventually enter mempool
+	slashingMsgTx, err := stakingSlashingInfo.SlashingTx.ToMsgTx()
+	require.NoError(t, err)
+	slashingMsgTxHash1 := slashingMsgTx.TxHash()
+	slashingMsgTxHash := &slashingMsgTxHash1
+
+	btccParamsResp, err := tm.BabylonClient.BTCCheckpointParams()
+	require.NoError(t, err)
+
+	for i := 0; i <= int(btccParamsResp.Params.BtcConfirmationDepth); i++ {
+		tm.mineBlock(t)
+	}
+
+	// mine a block that includes slashing tx
+	require.Eventually(t, func() bool {
+		txns, err := tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{slashingMsgTxHash})
+		if err != nil {
+			t.Logf("error: %v", err)
+			return false
+		}
+		return len(txns) == 1
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+}
+
 func TestSlasher_SlashingUnbonding(t *testing.T) {
 	t.Parallel()
 	// segwit is activated at height 300. It's needed by staking/slashing tx
@@ -205,6 +289,112 @@ func TestSlasher_SlashingUnbonding(t *testing.T) {
 
 	// undelegate
 	unbondingSlashingInfo, _ := tm.Undelegate(t, stakingSlashingInfo1, unbondingSlashingInfo1, stakerPrivKey1, func() { tm.CatchUpBTCLightClient(t) })
+
+	// commit public randomness, vote and equivocate
+	tm.VoteAndEquivocate(t, fpSK)
+
+	// slashing tx will eventually enter mempool
+	unbondingSlashingMsgTx, err := unbondingSlashingInfo.SlashingTx.ToMsgTx()
+	require.NoError(t, err)
+	unbondingSlashingMsgTxHash1 := unbondingSlashingMsgTx.TxHash()
+	unbondingSlashingMsgTxHash := &unbondingSlashingMsgTxHash1
+
+	btccParamsResp, err := tm.BabylonClient.BTCCheckpointParams()
+	require.NoError(t, err)
+
+	for i := 0; i <= int(btccParamsResp.Params.BtcConfirmationDepth); i++ {
+		tm.mineBlock(t)
+	}
+
+	// slash unbonding tx will eventually enter mempool
+	require.Eventually(t, func() bool {
+		_, err := tm.BTCClient.GetRawTransaction(unbondingSlashingMsgTxHash)
+		return err == nil
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	// mine a block that includes slashing tx
+	require.Eventually(t, func() bool {
+		txns, err := tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{unbondingSlashingMsgTxHash})
+		if err != nil {
+			t.Logf("error: %v", err)
+			return false
+		}
+		return len(txns) == 1
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	tm.mineBlock(t)
+
+	// ensure tx is eventually on Bitcoin
+	require.Eventually(t, func() bool {
+		res, err := tm.BTCClient.GetRawTransactionVerbose(unbondingSlashingMsgTxHash)
+		if err != nil {
+			return false
+		}
+		return len(res.BlockHash) > 0
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+}
+
+func TestSlasher_SlashingUnbonding_MultisigBTCDel(t *testing.T) {
+	t.Parallel()
+	// segwit is activated at height 300. It's needed by staking/slashing tx
+	numMatureOutputs := uint32(300)
+
+	tm := StartManager(
+		t,
+		WithNumMatureOutputs(numMatureOutputs),
+		WithEpochInterval(5),
+		WithMultisigStaker(3, 2),
+	)
+	defer tm.Stop(t)
+	// start WebSocket connection with Babylon for subscriber services
+	err := tm.BabylonClient.Start()
+	require.NoError(t, err)
+	// Insert all existing BTC headers to babylon node
+	tm.CatchUpBTCLightClient(t)
+
+	emptyHintCache := btcclient.EmptyHintCache{}
+
+	backend, err := btcclient.NewNodeBackend(
+		btcclient.ToBitcoindConfig(tm.Config.BTC),
+		&chaincfg.RegressionNetParams,
+		&emptyHintCache,
+	)
+	require.NoError(t, err)
+
+	err = backend.Start()
+	require.NoError(t, err)
+
+	commonCfg := config.DefaultCommonConfig()
+	bstCfg := config.DefaultBTCStakingTrackerConfig()
+	bstCfg.CheckDelegationsInterval = 1 * time.Second
+	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
+	bstCfg.IndexerAddr = tm.Config.BTCStakingTracker.IndexerAddr
+
+	bsTracker := bst.NewBTCStakingTracker(
+		tm.BTCClient,
+		backend,
+		tm.BabylonClient,
+		&bstCfg,
+		&commonCfg,
+		zap.NewNop(),
+		stakingTrackerMetrics,
+		testutil.MakeTestBackend(t),
+	)
+	go bsTracker.Start()
+	defer bsTracker.Stop()
+
+	// wait for bootstrapping
+	time.Sleep(5 * time.Second)
+
+	// set up a finality provider
+	_, fpSK := tm.CreateFinalityProvider(t)
+	// set up a BTC delegation
+	_, _, _ = tm.CreateMultisigBTCDelegation(t, fpSK)
+	// set up a BTC delegation
+	stakingSlashingInfo1, unbondingSlashingInfo1, stakerPrivKeys1 := tm.CreateMultisigBTCDelegation(t, fpSK)
+
+	// undelegate
+	unbondingSlashingInfo, _ := tm.UndelegateMultisigBTCDel(t, stakingSlashingInfo1, unbondingSlashingInfo1, stakerPrivKeys1, func() { tm.CatchUpBTCLightClient(t) })
 
 	// commit public randomness, vote and equivocate
 	tm.VoteAndEquivocate(t, fpSK)
