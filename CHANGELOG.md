@@ -39,6 +39,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Improvements
 
+* [#508](https://github.com/babylonlabs-io/vigilante/pull/508) chore: update sample-vigilante.yml
 * [#506](https://github.com/babylonlabs-io/vigilante/pull/506) chore(deps): bump the go_modules group
 
 ## v0.24.1
