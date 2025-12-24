@@ -131,13 +131,27 @@ func (m *Monitor) Start(baseHeight uint32) {
 		m.logger.Fatalf("failed to start Babylon querier: %v", err)
 	}
 
-	// update epoch from db if it exists otherwise skip
+	// update epoch from db if it exists, otherwise query Babylon for current epoch
 	epochNumber, exists, err := m.store.LatestEpoch()
 	if err != nil {
 		m.logger.Fatalf("getting epoch from db err %s", err)
-	} else if exists {
+	}
+
+	if exists {
+		// Resume from stored epoch
 		if err := m.UpdateEpochInfo(epochNumber + 1); err != nil {
 			panic(fmt.Errorf("error updating epoch %w", err))
+		}
+	} else {
+		// Fresh start: query Babylon for current epoch to sync with network
+		currentEpochResp, err := m.BBNQuerier.CurrentEpoch()
+		if err != nil {
+			m.logger.Warnf("failed to query current epoch from Babylon, using genesis epoch 1: %v", err)
+		} else if currentEpochResp != nil && currentEpochResp.CurrentEpoch > 0 {
+			m.logger.Infof("initializing monitor from Babylon's current epoch: %d", currentEpochResp.CurrentEpoch)
+			if err := m.UpdateEpochInfo(currentEpochResp.CurrentEpoch); err != nil {
+				panic(fmt.Errorf("error updating epoch %w", err))
+			}
 		}
 	}
 

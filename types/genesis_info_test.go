@@ -8,6 +8,7 @@ import (
 
 	"github.com/babylonlabs-io/babylon/v4/testutil/datagen"
 	"github.com/cosmos/cosmos-sdk/client/flags"
+	"go.uber.org/zap"
 
 	"cosmossdk.io/log"
 	"github.com/babylonlabs-io/babylon/v4/app"
@@ -59,7 +60,7 @@ func FuzzGetGenesisInfoFromFile(f *testing.F) {
 		require.NoError(t, err)
 
 		genFile := cfg.GenesisFile()
-		genesisInfo, err := GetGenesisInfoFromFile(genFile)
+		genesisInfo, err := GetGenesisInfoFromFile(genFile, zap.NewNop())
 		require.NoError(t, err)
 		require.Equal(t, uint64(epochInterval), genesisInfo.epochInterval)
 		require.Len(t, genesisInfo.valSet.ValSet, validatorNum)

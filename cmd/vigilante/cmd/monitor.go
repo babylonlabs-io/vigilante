@@ -64,7 +64,7 @@ func GetMonitorCmd() *cobra.Command {
 			if err != nil {
 				panic(fmt.Errorf("failed to open BTC client: %w", err))
 			}
-			genesisInfo, err := types.GetGenesisInfoFromFile(genesisFile)
+			genesisInfo, err := types.GetGenesisInfoFromFile(genesisFile, rootLogger)
 			if err != nil {
 				panic(fmt.Errorf("failed to read genesis file: %w", err))
 			}
