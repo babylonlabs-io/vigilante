@@ -39,6 +39,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Improvements
 
+* [#508](https://github.com/babylonlabs-io/vigilante/pull/508) chore: update sample-vigilante.yml
+* [#506](https://github.com/babylonlabs-io/vigilante/pull/506) chore(deps): bump the go_modules group
+
+## v0.24.1
+
+### Improvements
+
+* [#490](https://github.com/babylonlabs-io/vigilante/pull/490) chore: skip genesis val
+
+## v0.24.0
+
+### Improvements
+
 * [#473](https://github.com/babylonlabs-io/vigilante/pull/473) chore: use counter
 * [#477](https://github.com/babylonlabs-io/vigilante/pull/477) chore: bump babylon to `v4.0.0-rc.3`
 * [#482](https://github.com/babylonlabs-io/vigilante/pull/482) chore: add tx hash to logs
