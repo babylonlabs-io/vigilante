@@ -368,11 +368,12 @@ func tryParseStakerSignatureFromSpentTx(tx *wire.MsgTx, td *TrackedDelegation) (
 
 	stakingTxInput := tx.TxIn[stakingTxInputIdx]
 	witnessLen := len(stakingTxInput.Witness)
-	// minimal witness size for staking tx input is 4:
-	// covenant_signature, staker_signature, script, control_block
-	// If that is not the case, something weird is going on and we should investigate.
+	// Unbonding path witness has at least 4 elements:
+	// covenant_signature(s), staker_signature, script, control_block
+	// Timelock path has only 3 elements (no covenant signature).
+	// If witness has < 4 elements, this is not an unbonding transaction.
 	if witnessLen < 4 {
-		panic(fmt.Errorf("staking tx input witness has less than 4 elements for unbonding tx %s", tx.TxHash()))
+		return nil, fmt.Errorf("spending tx %s has %d witness elements, expected at least 4 for unbonding path", tx.TxHash(), witnessLen)
 	}
 
 	// staker signature is 3rd element from the end
