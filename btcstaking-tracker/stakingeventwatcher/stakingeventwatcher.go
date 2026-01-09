@@ -34,6 +34,12 @@ var (
 	fixedDelyTypeWithJitter  = retry.DelayType(retry.CombineDelay(retry.FixedDelay, retry.RandomDelay))
 	retryForever             = retry.Attempts(0)
 	maxConcurrentActivations = int64(1500)
+
+	// ErrSpendPathNotUnbonding indicates the spending tx uses timelock path (not unbonding).
+	// This happens when staking timelock expires and staker withdraws without unbonding.
+	// When timelock path is used, the delegation has already expired on Babylon side,
+	// so there is no unbonding to report.
+	ErrSpendPathNotUnbonding = errors.New("spending tx is not unbonding path")
 )
 
 func (sew *StakingEventWatcher) quitContext() (context.Context, func()) {
@@ -351,6 +357,8 @@ func getStakingTxInputIdx(tx *wire.MsgTx, td *TrackedDelegation) (int, error) {
 
 // tryParseStakerSignatureFromSpentTx tries to parse staker signature from unbonding tx.
 // If provided tx is not unbonding tx it returns error.
+//
+//nolint:unparam // signature return may be used in future
 func tryParseStakerSignatureFromSpentTx(tx *wire.MsgTx, td *TrackedDelegation) (*schnorr.Signature, error) {
 	if len(tx.TxOut) != 1 {
 		return nil, fmt.Errorf("unbonding tx must have exactly one output. Priovided tx has %d outputs", len(tx.TxOut))
@@ -368,11 +376,13 @@ func tryParseStakerSignatureFromSpentTx(tx *wire.MsgTx, td *TrackedDelegation) (
 
 	stakingTxInput := tx.TxIn[stakingTxInputIdx]
 	witnessLen := len(stakingTxInput.Witness)
-	// minimal witness size for staking tx input is 4:
-	// covenant_signature, staker_signature, script, control_block
-	// If that is not the case, something weird is going on and we should investigate.
+	// Unbonding path witness has at least 4 elements:
+	// covenant_signature(s), staker_signature, script, control_block
+	// Timelock path has only 3 elements (no covenant signature).
+	// If witness has < 4 elements, this is not an unbonding transaction.
 	if witnessLen < 4 {
-		panic(fmt.Errorf("staking tx input witness has less than 4 elements for unbonding tx %s", tx.TxHash()))
+		return nil, fmt.Errorf("%w: spending tx %s has %d witness elements, expected at least 4",
+			ErrSpendPathNotUnbonding, tx.TxHash(), witnessLen)
 	}
 
 	// staker signature is 3rd element from the end
@@ -512,6 +522,22 @@ func (sew *StakingEventWatcher) handleSpend(ctx context.Context, spendingTx *wir
 		sew.metrics.DetectedUnbondingTransactionsCounter.Inc()
 		// We found valid unbonding tx. We need to try to report it to babylon.
 		// We stop reporting if delegation is no longer active or we succeed.
+	}
+
+	// If spending tx is timelock path (not unbonding), skip reporting to Babylon.
+	// Timelock path can only be used after the staking period expires, which means
+	// the delegation has already expired on Babylon side - there is nothing to report.
+	if errors.Is(errParseStkSig, ErrSpendPathNotUnbonding) {
+		sew.logger.Debugf("spending tx %s is timelock path, skipping babylon report for staking tx %s",
+			spendingTxHash, delegationID)
+
+		utils.PushOrQuit[*delegationInactive](
+			sew.unbondingRemovalChan,
+			&delegationInactive{stakingTxHash: delegationID},
+			sew.quit,
+		)
+
+		return
 	}
 
 	sew.logger.Debugf("before check if stake spending tx %s is in chain for staking tx %s", spendingTxHash, delegationID)
