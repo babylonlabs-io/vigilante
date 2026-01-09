@@ -357,6 +357,8 @@ func getStakingTxInputIdx(tx *wire.MsgTx, td *TrackedDelegation) (int, error) {
 
 // tryParseStakerSignatureFromSpentTx tries to parse staker signature from unbonding tx.
 // If provided tx is not unbonding tx it returns error.
+//
+//nolint:unparam // signature return may be used in future
 func tryParseStakerSignatureFromSpentTx(tx *wire.MsgTx, td *TrackedDelegation) (*schnorr.Signature, error) {
 	if len(tx.TxOut) != 1 {
 		return nil, fmt.Errorf("unbonding tx must have exactly one output. Priovided tx has %d outputs", len(tx.TxOut))
