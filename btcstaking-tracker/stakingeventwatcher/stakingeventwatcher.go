@@ -37,6 +37,8 @@ var (
 
 	// ErrSpendPathNotUnbonding indicates the spending tx uses timelock path (not unbonding).
 	// This happens when staking timelock expires and staker withdraws without unbonding.
+	// When timelock path is used, the delegation has already expired on Babylon side,
+	// so there is no unbonding to report.
 	ErrSpendPathNotUnbonding = errors.New("spending tx is not unbonding path")
 )
 
@@ -520,8 +522,9 @@ func (sew *StakingEventWatcher) handleSpend(ctx context.Context, spendingTx *wir
 		// We stop reporting if delegation is no longer active or we succeed.
 	}
 
-	// If spending tx is timelock path (not unbonding), skip reporting to Babylon
-	// but still remove delegation from tracking
+	// If spending tx is timelock path (not unbonding), skip reporting to Babylon.
+	// Timelock path can only be used after the staking period expires, which means
+	// the delegation has already expired on Babylon side - there is nothing to report.
 	if errors.Is(errParseStkSig, ErrSpendPathNotUnbonding) {
 		sew.logger.Debugf("spending tx %s is timelock path, skipping babylon report for staking tx %s",
 			spendingTxHash, delegationID)
