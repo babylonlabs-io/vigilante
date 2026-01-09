@@ -34,6 +34,10 @@ var (
 	fixedDelyTypeWithJitter  = retry.DelayType(retry.CombineDelay(retry.FixedDelay, retry.RandomDelay))
 	retryForever             = retry.Attempts(0)
 	maxConcurrentActivations = int64(1500)
+
+	// ErrSpendPathNotUnbonding indicates the spending tx uses timelock path (not unbonding).
+	// This happens when staking timelock expires and staker withdraws without unbonding.
+	ErrSpendPathNotUnbonding = errors.New("spending tx is not unbonding path")
 )
 
 func (sew *StakingEventWatcher) quitContext() (context.Context, func()) {
@@ -373,7 +377,8 @@ func tryParseStakerSignatureFromSpentTx(tx *wire.MsgTx, td *TrackedDelegation) (
 	// Timelock path has only 3 elements (no covenant signature).
 	// If witness has < 4 elements, this is not an unbonding transaction.
 	if witnessLen < 4 {
-		return nil, fmt.Errorf("spending tx %s has %d witness elements, expected at least 4 for unbonding path", tx.TxHash(), witnessLen)
+		return nil, fmt.Errorf("%w: spending tx %s has %d witness elements, expected at least 4",
+			ErrSpendPathNotUnbonding, tx.TxHash(), witnessLen)
 	}
 
 	// staker signature is 3rd element from the end
@@ -513,6 +518,21 @@ func (sew *StakingEventWatcher) handleSpend(ctx context.Context, spendingTx *wir
 		sew.metrics.DetectedUnbondingTransactionsCounter.Inc()
 		// We found valid unbonding tx. We need to try to report it to babylon.
 		// We stop reporting if delegation is no longer active or we succeed.
+	}
+
+	// If spending tx is timelock path (not unbonding), skip reporting to Babylon
+	// but still remove delegation from tracking
+	if errors.Is(errParseStkSig, ErrSpendPathNotUnbonding) {
+		sew.logger.Debugf("spending tx %s is timelock path, skipping babylon report for staking tx %s",
+			spendingTxHash, delegationID)
+
+		utils.PushOrQuit[*delegationInactive](
+			sew.unbondingRemovalChan,
+			&delegationInactive{stakingTxHash: delegationID},
+			sew.quit,
+		)
+
+		return
 	}
 
 	sew.logger.Debugf("before check if stake spending tx %s is in chain for staking tx %s", spendingTxHash, delegationID)
