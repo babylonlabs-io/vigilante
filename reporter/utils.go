@@ -39,9 +39,10 @@ func (r *Reporter) getHeadersToSubmit(ibs []*types.IndexedBlock) ([][]*types.Ind
 	// find the first header that is not contained in the backend, then submit since this header
 	for i, ib := range ibs {
 		blockHash := ib.BlockHash()
+		blockHeight := ib.Height
 		var contains bool
 		err = retrywrap.Do(func() error {
-			contains, err = r.backend.ContainsBlock(context.Background(), &blockHash)
+			contains, err = r.backend.ContainsBlock(context.Background(), &blockHash, blockHeight)
 
 			return err
 		},
