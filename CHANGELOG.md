@@ -37,6 +37,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Bug Fixes
+
+* [#513](https://github.com/babylonlabs-io/vigilante/pull/513) fix: replace panic with error return for non-unbonding spending paths
+
 ### Improvements
 
 * [#508](https://github.com/babylonlabs-io/vigilante/pull/508) chore: update sample-vigilante.yml
