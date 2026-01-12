@@ -13,9 +13,10 @@ import (
 //   - CosmosBackend: Submits headers to Babylon chain via Cosmos SDK
 //   - EthereumBackend: Submits headers to Ethereum smart contract (BtcPrism.sol)
 type Backend interface {
-	// ContainsBlock checks if the backend has stored the given block hash.
+	// ContainsBlock checks if the backend has stored the given block at the specified height.
+	// The height parameter enables efficient lookups for backends that index by height (e.g., Ethereum).
 	// This is used for deduplication to avoid submitting duplicate headers.
-	ContainsBlock(ctx context.Context, hash *chainhash.Hash) (bool, error)
+	ContainsBlock(ctx context.Context, hash *chainhash.Hash, height uint32) (bool, error)
 
 	// SubmitHeaders submits a batch of BTC headers starting at startHeight.
 	// headers is a slice of 80-byte block headers in raw format.
