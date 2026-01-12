@@ -102,42 +102,48 @@ func NewEthereumBackend(cfg *config.EthereumConfig, parentLogger *zap.Logger) (B
 	}, nil
 }
 
-// ContainsBlock checks if the Ethereum contract has the given BTC block hash
-// This queries the contract to check if the block exists at its expected height
-func (e *EthereumBackend) ContainsBlock(ctx context.Context, hash *chainhash.Hash) (bool, error) {
-	// The BtcPrism contract stores blocks by height, not hash
-	// We need the BTCCache to provide height information
-	// For now, we query the latest height and search backwards
-
+// ContainsBlock checks if the Ethereum contract has the given BTC block hash at the specified height.
+// This uses O(1) height-based lookup instead of searching through blocks.
+func (e *EthereumBackend) ContainsBlock(ctx context.Context, hash *chainhash.Hash, height uint32) (bool, error) {
+	// Get contract's latest height to check if our block could exist
 	latestHeight, err := e.contract.GetLatestBlockHeight(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return false, fmt.Errorf("failed to get latest block height: %w", err)
 	}
 
-	// Search backwards through recent blocks (last 1000 blocks max, as per contract MAX_ALLOWED_REORG)
-	// This is not ideal but works for deduplication
-	searchDepth := uint64(1000)
-	if latestHeight.Uint64() < searchDepth {
-		searchDepth = latestHeight.Uint64()
+	// If the block height is beyond the contract's tip, it's definitely not there
+	if uint64(height) > latestHeight.Uint64() {
+		e.logger.Debugw("Block height beyond contract tip",
+			"block_height", height,
+			"contract_tip", latestHeight.Uint64(),
+		)
+
+		return false, nil
 	}
 
+	// Look up the hash stored at this height in the contract
+	// #nosec G115 -- Bitcoin block heights are well below int64 max
+	storedHash, err := e.contract.GetBlockHash(&bind.CallOpts{Context: ctx}, big.NewInt(int64(height)))
+	if err != nil {
+		return false, fmt.Errorf("failed to get block hash at height %d: %w", height, err)
+	}
+
+	// Convert our Bitcoin hash to Ethereum format for comparison
 	targetHashBytes := hash.CloneBytes()
 	reverseBytes(targetHashBytes) // Bitcoin hashes are little-endian, Ethereum expects big-endian
 
-	for i := uint64(0); i < searchDepth; i++ {
-		// #nosec G115 -- i is bounded by searchDepth (max 1000), safe to convert to int64
-		height := new(big.Int).Sub(latestHeight, big.NewInt(int64(i)))
-		blockHash, err := e.contract.GetBlockHash(&bind.CallOpts{Context: ctx}, height)
-		if err != nil {
-			return false, fmt.Errorf("failed to get block hash at height %d: %w", height, err)
-		}
+	if common.BytesToHash(targetHashBytes) == storedHash {
+		e.logger.Debugw("Block found in contract", "hash", hash.String(), "height", height)
 
-		if common.BytesToHash(targetHashBytes) == blockHash {
-			e.logger.Debugw("Block found in contract", "hash", hash.String(), "height", height)
-
-			return true, nil
-		}
+		return true, nil
 	}
+
+	// Hash at this height doesn't match - could be a fork situation
+	e.logger.Debugw("Block not found at height (hash mismatch)",
+		"height", height,
+		"expected_hash", hash.String(),
+		"stored_hash", common.BytesToHash(storedHash[:]).Hex(),
+	)
 
 	return false, nil
 }

@@ -180,7 +180,7 @@ func (r *Reporter) findCommonAncestor(height uint32, header *wire.BlockHeader) (
 	// Walk backwards through the new chain until we find a block in the backend
 	for {
 		// Check if backend has this block
-		contains, err := r.backend.ContainsBlock(context.Background(), &currentHash)
+		contains, err := r.backend.ContainsBlock(context.Background(), &currentHash, currentHeight)
 		if err != nil {
 			return 0, fmt.Errorf("failed to check if backend contains block %v at height %d: %w",
 				currentHash, currentHeight, err)

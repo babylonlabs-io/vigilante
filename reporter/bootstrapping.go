@@ -373,7 +373,7 @@ func (r *Reporter) checkHeaderConsistency(consistencyCheckHeight uint32) error {
 	// generating a header that can be in two different positions in two different BTC header chains
 	// is as hard as breaking the hash function.
 	// So as long as the block exists in the backend, it has to be at the same position in the backend as well.
-	contains, err := r.backend.ContainsBlock(context.Background(), &consistencyCheckHash)
+	contains, err := r.backend.ContainsBlock(context.Background(), &consistencyCheckHash, consistencyCheckHeight)
 	if err != nil {
 		return err
 	}

@@ -26,7 +26,8 @@ func NewBabylonBackend(client BabylonClient) Backend {
 }
 
 // ContainsBlock checks if Babylon has stored the given block hash.
-func (b *BabylonBackend) ContainsBlock(_ context.Context, hash *chainhash.Hash) (bool, error) {
+// The height parameter is ignored for Babylon as it indexes by hash.
+func (b *BabylonBackend) ContainsBlock(_ context.Context, hash *chainhash.Hash, _ uint32) (bool, error) {
 	res, err := b.client.ContainsBTCBlock(hash)
 	if err != nil {
 		return false, fmt.Errorf("failed to check if Babylon contains block: %w", err)
