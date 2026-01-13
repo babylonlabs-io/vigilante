@@ -405,6 +405,11 @@ func (e *EthereumBackend) Stop() error {
 	return nil
 }
 
+// GetConfig returns the Ethereum configuration
+func (e *EthereumBackend) GetConfig() *config.EthereumConfig {
+	return e.cfg
+}
+
 // reverseBytes reverses a byte slice in place (for endianness conversion)
 func reverseBytes(b []byte) {
 	for i, j := 0, len(b)-1; i < j; i, j = i+1, j-1 {

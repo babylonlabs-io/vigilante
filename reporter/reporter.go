@@ -52,6 +52,10 @@ type Reporter struct {
 	// bootstrapWg is incremented in bootstrap()
 	// bootstrapWg is waited in bootstrapWithRetries()
 	bootstrapWg sync.WaitGroup
+
+	// pendingBlocks channel for async header submission (ETH backend only)
+	// Blocks are queued here and processed by headerSubmissionWorker
+	pendingBlocks chan *types.IndexedBlock
 }
 
 func New(
@@ -110,6 +114,7 @@ func New(
 		checkpointFinalizationTimeout: w,
 		metrics:                       metrics,
 		quit:                          make(chan struct{}),
+		pendingBlocks:                 make(chan *types.IndexedBlock, 100), // Buffer for ~16 hours of BTC blocks
 	}, nil
 }
 
@@ -152,6 +157,12 @@ func (r *Reporter) Start() {
 
 	r.wg.Add(1)
 	go r.blockEventHandler(blockNotifier)
+
+	// Start header submission worker for ETH backend (async batching)
+	if _, ok := r.backend.(*EthereumBackend); ok {
+		r.wg.Add(1)
+		go r.headerSubmissionWorker()
+	}
 
 	go r.checkpointCache.StartCleanupRoutine(r.quit, time.Hour, 24*time.Hour)
 
@@ -199,4 +210,74 @@ func (r *Reporter) ShuttingDown() bool {
 func (r *Reporter) WaitForShutdown() {
 	// TODO: let Babylon client WaitForShutDown
 	r.wg.Wait()
+}
+
+// headerSubmissionWorker processes pending blocks in batches for ETH backend.
+// This decouples block notification from ETH submission to avoid blocking on slow confirmations.
+func (r *Reporter) headerSubmissionWorker() {
+	defer r.wg.Done()
+	quit := r.quitChan()
+
+	// Get config from ETH backend
+	ethBackend, ok := r.backend.(*EthereumBackend)
+	if !ok {
+		r.logger.Error("headerSubmissionWorker called with non-Ethereum backend")
+
+		return
+	}
+	ethCfg := ethBackend.GetConfig()
+	batchSize := int(ethCfg.HeaderBatchSize)
+	batchTimeout := ethCfg.HeaderBatchTimeout
+
+	r.logger.Infof("Header submission worker started (batch_size=%d, batch_timeout=%v)",
+		batchSize, batchTimeout)
+
+	batchTimer := time.NewTimer(batchTimeout)
+	defer batchTimer.Stop()
+
+	var batch []*types.IndexedBlock
+
+	for {
+		select {
+		case block := <-r.pendingBlocks:
+			batch = append(batch, block)
+			// Submit if batch is large enough
+			if len(batch) >= batchSize {
+				r.submitHeaderBatch(batch)
+				batch = nil
+				batchTimer.Reset(batchTimeout)
+			}
+		case <-batchTimer.C:
+			// Submit whatever we have after timeout
+			if len(batch) > 0 {
+				r.submitHeaderBatch(batch)
+				batch = nil
+			}
+			batchTimer.Reset(batchTimeout)
+		case <-quit:
+			// Submit any remaining blocks before shutdown
+			if len(batch) > 0 {
+				r.submitHeaderBatch(batch)
+			}
+			r.logger.Info("Header submission worker stopped")
+
+			return
+		}
+	}
+}
+
+// submitHeaderBatch submits a batch of blocks to the ETH backend.
+func (r *Reporter) submitHeaderBatch(blocks []*types.IndexedBlock) {
+	if len(blocks) == 0 {
+		return
+	}
+
+	r.logger.Infof("Submitting header batch: %d blocks (heights %d to %d)",
+		len(blocks), blocks[0].Height, blocks[len(blocks)-1].Height)
+
+	signer := r.babylonClient.MustGetAddr()
+	if _, err := r.ProcessHeaders(signer, blocks); err != nil {
+		r.logger.Warnf("Failed to submit header batch: %v, triggering bootstrap", err)
+		r.bootstrapWithRetries()
+	}
 }
