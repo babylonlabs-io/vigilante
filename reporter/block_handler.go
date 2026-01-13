@@ -83,14 +83,23 @@ func (r *Reporter) handleNewBlock(height uint32, header *wire.BlockHeader) error
 
 // processNewBlock handles further processing of a newly added block.
 func (r *Reporter) processNewBlock(ib *types.IndexedBlock) error {
+	// For ETH backend, queue block for async batched submission
+	// This avoids blocking on slow ETH confirmations (72-144+ seconds per block in "safe" mode)
+	if _, ok := r.backend.(*EthereumBackend); ok {
+		select {
+		case r.pendingBlocks <- ib:
+			r.logger.Debugf("Queued block %d for async submission", ib.Height)
+
+			return nil
+		default:
+			// Channel full - this shouldn't happen with buffer of 100 (~16 hours of BTC blocks)
+			return fmt.Errorf("pending blocks channel full at height %d, trigger bootstrap", ib.Height)
+		}
+	}
+
+	// For Babylon backend, keep synchronous submission (fast enough, no batching needed)
 	var headersToProcess []*types.IndexedBlock
 	headersToProcess = append(headersToProcess, ib)
-
-	if len(headersToProcess) == 0 {
-		r.logger.Debug("No new headers to submit to Babylon")
-
-		return nil
-	}
 
 	signer := r.babylonClient.MustGetAddr()
 	// Process headers

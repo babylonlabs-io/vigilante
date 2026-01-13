@@ -34,6 +34,12 @@ type EthereumConfig struct {
 
 	// Maximum number of blocks to wait for safe/finalized confirmation
 	MaxConfirmationBlocks uint64 `mapstructure:"max-confirmation-blocks"`
+
+	// HeaderBatchSize is the max number of BTC blocks to batch before submitting to contract (default: 10)
+	HeaderBatchSize uint32 `mapstructure:"header-batch-size"`
+
+	// HeaderBatchTimeout is how long to wait before submitting a partial batch (default: 10s)
+	HeaderBatchTimeout time.Duration `mapstructure:"header-batch-timeout"`
 }
 
 // Validate checks the Ethereum configuration
@@ -72,6 +78,14 @@ func (cfg *EthereumConfig) Validate() error {
 		cfg.MaxConfirmationBlocks = 100 // default
 	}
 
+	if cfg.HeaderBatchSize == 0 {
+		cfg.HeaderBatchSize = 10 // default
+	}
+
+	if cfg.HeaderBatchTimeout == 0 {
+		cfg.HeaderBatchTimeout = 10 * time.Second // default
+	}
+
 	return nil
 }
 
@@ -87,5 +101,7 @@ func DefaultEthereumConfig() EthereumConfig {
 		ConfirmationMode:      "safe",
 		ConfirmationTimeout:   15 * time.Minute,
 		MaxConfirmationBlocks: 100,
+		HeaderBatchSize:       10,
+		HeaderBatchTimeout:    10 * time.Second,
 	}
 }
