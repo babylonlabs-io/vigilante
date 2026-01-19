@@ -89,12 +89,18 @@ func GetReporterCmd() *cobra.Command {
 			}
 
 			// create reporter
+			// Note: Must pass nil explicitly for ETH backend to avoid Go's typed-nil interface gotcha
+			// (a typed nil pointer wrapped in an interface is not nil)
+			var bbnClientForReporter reporter.BabylonClient
+			if babylonClient != nil {
+				bbnClientForReporter = babylonClient
+			}
 			vigilantReporter, err = reporter.New(
 				&cfg.Reporter,
 				rootLogger,
 				btcClient,
 				backend,
-				babylonClient,
+				bbnClientForReporter,
 				btcNotifier,
 				cfg.Common.RetrySleepTime,
 				cfg.Common.MaxRetrySleepTime,
