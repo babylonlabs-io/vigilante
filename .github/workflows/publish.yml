@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - 'release/*'
+      - 'hiep-build'
     tags:
       - '*'
   workflow_dispatch:
