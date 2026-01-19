@@ -86,5 +86,8 @@ btcstaking-tracker:
   btcnetparams: simnet
   max-slashing-concurrency: 20
   indexer-addr: localhost:3000
-  fetch-evidence-interval: 60
+  fetch-evidence-interval: 60s
+  fetch-comet-block-interval: 2s
+  reconnect-btc-node-interval: 60s
+  slasherdbconfig: null
 
