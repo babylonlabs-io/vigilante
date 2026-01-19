@@ -58,9 +58,9 @@ func GetReporterCmd() *cobra.Command {
 				if err != nil {
 					panic(fmt.Errorf("failed to open Babylon client: %w", err))
 				}
-				rootLogger.Info("Using Babylon backend - Babylon client initialized")
+				rootLogger.Info("Using Babylon backend")
 			} else {
-				rootLogger.Info("Using Ethereum backend - no Babylon dependency")
+				rootLogger.Info("Using Ethereum backend")
 			}
 
 			// register reporter metrics
