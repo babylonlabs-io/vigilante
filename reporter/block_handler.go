@@ -166,8 +166,8 @@ func (r *Reporter) handleEthereumReorg(newHeight uint32, newHeader *wire.BlockHe
 	// Submit the competing fork to the Ethereum contract
 	// The contract will detect the fork (since we're submitting from a height < current tip)
 	// and will switch to the new chain if it has higher total difficulty
-	signer := r.babylonClient.MustGetAddr()
-	if _, err := r.ProcessHeaders(signer, blocks); err != nil {
+	// ProcessHeaders ignores signer param for ETH backend
+	if _, err := r.ProcessHeaders("", blocks); err != nil {
 		return fmt.Errorf("failed to submit reorg blocks starting from height %d: %w", commonAncestorHeight, err)
 	}
 

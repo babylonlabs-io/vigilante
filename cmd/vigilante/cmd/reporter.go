@@ -5,6 +5,7 @@ import (
 
 	bbnclient "github.com/babylonlabs-io/babylon/v4/client/client"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/config"
@@ -51,10 +52,15 @@ func GetReporterCmd() *cobra.Command {
 				panic(fmt.Errorf("failed to open BTC client: %w", err))
 			}
 
-			// create Babylon client. Note that requests from Babylon client are ad hoc
-			babylonClient, err = bbnclient.New(&cfg.Babylon, nil)
-			if err != nil {
-				panic(fmt.Errorf("failed to open Babylon client: %w", err))
+			// Only create Babylon client if using Babylon backend
+			if cfg.Reporter.BackendType == config.BackendTypeBabylon {
+				babylonClient, err = bbnclient.New(&cfg.Babylon, nil)
+				if err != nil {
+					panic(fmt.Errorf("failed to open Babylon client: %w", err))
+				}
+				rootLogger.Info("Using Babylon backend")
+			} else {
+				rootLogger.Info("Using Ethereum backend")
 			}
 
 			// register reporter metrics
@@ -117,6 +123,17 @@ func GetReporterCmd() *cobra.Command {
 				btcClient.WaitForShutdown()
 				rootLogger.Info("BTC client shutdown")
 			})
+
+			// Only stop Babylon client if it exists
+			if babylonClient != nil {
+				addInterruptHandler(func() {
+					rootLogger.Info("Stopping Babylon client...")
+					if err := babylonClient.Stop(); err != nil {
+						rootLogger.Warn("Error stopping Babylon client", zap.Error(err))
+					}
+					rootLogger.Info("Babylon client shutdown")
+				})
+			}
 
 			<-interruptHandlersDone
 			rootLogger.Info("Shutdown complete")

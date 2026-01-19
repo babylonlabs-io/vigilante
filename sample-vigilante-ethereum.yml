@@ -21,23 +21,9 @@ btc:
   zmq-seq-endpoint: tcp://localhost:29000
   zmq-block-endpoint: tcp://localhost:29001
   zmq-tx-endpoint: tcp://localhost:29002
-babylon:
-  # Babylon config still required for checkpoint verification
-  key: node0
-  chain-id: chain-test
-  rpc-addr: http://localhost:26657
-  grpc-addr: https://localhost:9090
-  account-prefix: bbn
-  keyring-backend: test
-  gas-adjustment: 1.2
-  gas-prices: 2ubbn
-  key-directory: $TESTNET_PATH/node0/babylond
-  debug: true
-  timeout: "20s"
-  block-timeout: "10m"
-  output-format: json
-  submitter-address: bbn1v6k7k9s8md3k29cu9runasstq5zaa0lpznk27w
-  sign-mode: direct
+# NOTE: No babylon section needed for ETH-only reporter mode!
+# The reporter uses config values for BTC checkpoint params instead.
+
 ethereum:
   # Ethereum RPC endpoint (e.g., Infura, Alchemy, or local node)
   rpc-url: "http://localhost:8545"
@@ -90,6 +76,10 @@ reporter:
   btc_cache_size: 1000
   max_headers_in_msg: 100
   backend_type: ethereum # Use ethereum backend for BTC header submission
+  # ETH backend params (defaults: k=6, w=100, tag="01020304")
+  btc_confirmation_depth: 6
+  checkpoint_finalization_timeout: 100
+  checkpoint_tag: "01020304"
 monitor:
   checkpoint-buffer-size: 1000
   btc-block-buffer-size: 1000
