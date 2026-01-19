@@ -134,7 +134,11 @@ func (r *Reporter) bootstrap() error {
 		return err
 	}
 
-	signer := r.babylonClient.MustGetAddr()
+	// Get signer address (only needed for Babylon backend checkpoint processing)
+	var signer string
+	if r.babylonClient != nil {
+		signer = r.babylonClient.MustGetAddr()
+	}
 
 	r.logger.Infof("BTC height: %d. Backend height: %d. Start syncing from height %d.",
 		btcLatestBlockHeight, consistencyInfo.bbnLatestBlockHeight, consistencyInfo.startSyncHeight)
