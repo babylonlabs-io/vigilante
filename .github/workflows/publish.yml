@@ -29,11 +29,11 @@ jobs:
       install-dependencies-command: |
         sudo apt-get update
         sudo apt-get install -y libzmq3-dev
-      permissions:
-        # required for all workflows
-        security-events: write
-        # required to fetch internal or private CodeQL packs
-        packages: read
+    permissions:
+      # required for all workflows
+      security-events: write
+      # required to fetch internal or private CodeQL packs
+      packages: read
 
   docker_pipeline:
     # Always evaluate, but only proceed if:
