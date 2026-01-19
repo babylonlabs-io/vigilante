@@ -31,6 +31,8 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y libzmq3-dev
     permissions:
+      contents: read        # REQUIRED by reusable workflow
+      id-token: write       # REQUIRED for AWS OIDC
       # required for all workflows
       security-events: write
       # required to fetch internal or private CodeQL packs
@@ -50,6 +52,8 @@ jobs:
       publish: true
       docker_scan: true
     permissions:
+      contents: read        # REQUIRED by reusable workflow
+      id-token: write       # REQUIRED for AWS OIDC
       # required for all workflows
       security-events: write
       # required to fetch internal or private CodeQL packs
