@@ -70,17 +70,17 @@ func (r *Reporter) checkConsistency() (*consistencyCheckInfo, error) {
 			consistencyCheckHeight = backendBaseHeight
 		}
 	} else {
-		// For Ethereum backends: use the same k-deep check as Babylon.
-		// This ensures we verify a block that's settled (before any recent reorg fork point).
-		// During a reorg, the contract may have a different chain than the BTC node at the tip,
-		// but they should agree on blocks that are k-deep (before the fork point).
-		if backendTipHeight >= r.btcConfirmationDepth {
-			consistencyCheckHeight = backendTipHeight - r.btcConfirmationDepth
-		} else {
-			// Contract is freshly deployed with fewer than k blocks - check the base
-			consistencyCheckHeight = backendBaseHeight
-		}
-		r.logger.Infof("Using k-deep height (%d) for consistency check (Ethereum contract, tip=%d)", consistencyCheckHeight, backendTipHeight)
+		// For Ethereum backends: skip consistency check entirely.
+		// The ETH contract handles forks internally - it stores multiple competing chains
+		// and switches to the one with more cumulative PoW. After a deep reorg, the BTC node
+		// may be on a completely different chain than what the contract has stored.
+		// The reporter should just submit the new headers and let the contract decide.
+		r.logger.Infof("Skipping consistency check for Ethereum backend (contract handles forks internally, tip=%d)", backendTipHeight)
+		return &consistencyCheckInfo{
+			bbnLatestBlockHeight: backendTipHeight,
+			// Start from base height to ensure we cover any fork point
+			startSyncHeight: backendBaseHeight,
+		}, nil
 	}
 
 	// this checks whether header at already confirmed height is the same in reporter btc cache and in backend
