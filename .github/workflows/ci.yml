@@ -7,7 +7,7 @@ on:
 
 jobs:
   lint_test:
-    uses: babylonlabs-io/.github/.github/workflows/reusable_go_lint_test.yml@5151754256060bf160c411d0784f831f29882106  # v0.13.4
+    uses: babylonlabs-io/.github/.github/workflows/reusable_go_lint_test.yml@22ae8ed7a2ea5c80331758914c4e0ea732eea1ad # v0.15.0
     with:
      go-version: '1.25'
      go-lint-version: 'v2.4.0'
@@ -21,7 +21,7 @@ jobs:
        sudo apt-get install -y libzmq3-dev
 
   docker_pipeline:
-    uses: babylonlabs-io/.github/.github/workflows/reusable_docker_pipeline.yml@5151754256060bf160c411d0784f831f29882106  # v0.13.4
+    uses: babylonlabs-io/.github/.github/workflows/reusable_docker_pipeline.yml@22ae8ed7a2ea5c80331758914c4e0ea732eea1ad # v0.15.0
     secrets: inherit
     with:
      publish: false
