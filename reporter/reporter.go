@@ -21,6 +21,15 @@ import (
 	"go.uber.org/zap"
 )
 
+// confirmationTracker tracks an in-flight header batch submission
+// waiting for ETH confirmation in a background goroutine.
+type confirmationTracker struct {
+	blocks    []*types.IndexedBlock
+	txHash    string
+	startTime time.Time
+	done      chan error
+}
+
 type Reporter struct {
 	cfg    *config.ReporterConfig
 	logger *zap.SugaredLogger
@@ -254,43 +263,57 @@ func (r *Reporter) headerSubmissionWorker() {
 	defer batchTimer.Stop()
 
 	var batch []*types.IndexedBlock
+	var pendingConfirm *confirmationTracker
 
 	for {
 		select {
 		case block := <-r.pendingBlocks:
 			batch = append(batch, block)
-			// Submit if batch is large enough
-			if len(batch) >= batchSize {
-				r.submitHeaderBatch(batch)
+			// Only submit if batch is large enough AND no pending confirmation
+			if len(batch) >= batchSize && pendingConfirm == nil {
+				pendingConfirm = r.submitHeaderBatchAsync(batch)
 				batch = nil
 				batchTimer.Reset(batchTimeout)
 			}
+
 		case <-batchTimer.C:
-			// Submit whatever we have after timeout
-			if len(batch) > 0 {
-				r.submitHeaderBatch(batch)
+			// Submit whatever we have after timeout, only if no pending confirmation
+			if len(batch) > 0 && pendingConfirm == nil {
+				pendingConfirm = r.submitHeaderBatchAsync(batch)
 				batch = nil
 			}
 			batchTimer.Reset(batchTimeout)
-		case <-quit:
-			// Submit any remaining blocks before shutdown
-			if len(batch) > 0 {
-				r.submitHeaderBatch(batch)
-			}
-			r.logger.Info("Header submission worker stopped")
 
+		case err := <-r.confirmationChan(pendingConfirm):
+			// Confirmation result received from background goroutine
+			if err != nil {
+				r.logger.Warnf("Header batch failed (heights %d to %d): %v, triggering bootstrap",
+					pendingConfirm.blocks[0].Height, pendingConfirm.blocks[len(pendingConfirm.blocks)-1].Height, err)
+				r.bootstrapWithRetries()
+				// Clear any pending batch since bootstrap will resync
+				batch = nil
+			} else {
+				r.logger.Infof("Header batch confirmed (heights %d to %d) in %v",
+					pendingConfirm.blocks[0].Height, pendingConfirm.blocks[len(pendingConfirm.blocks)-1].Height,
+					time.Since(pendingConfirm.startTime))
+			}
+			pendingConfirm = nil
+
+		case <-quit:
+			r.drainAndShutdown(batch, pendingConfirm)
 			return
 		}
 	}
 }
 
-// submitHeaderBatch submits a batch of blocks to the ETH backend.
+// submitHeaderBatch submits a batch of blocks to the ETH backend synchronously.
+// Used during shutdown to ensure remaining blocks are submitted.
 func (r *Reporter) submitHeaderBatch(blocks []*types.IndexedBlock) {
 	if len(blocks) == 0 {
 		return
 	}
 
-	r.logger.Infof("Submitting header batch: %d blocks (heights %d to %d)",
+	r.logger.Infof("Submitting header batch (sync): %d blocks (heights %d to %d)",
 		len(blocks), blocks[0].Height, blocks[len(blocks)-1].Height)
 
 	// ProcessHeaders ignores signer param for ETH backend
@@ -298,4 +321,64 @@ func (r *Reporter) submitHeaderBatch(blocks []*types.IndexedBlock) {
 		r.logger.Warnf("Failed to submit header batch: %v, triggering bootstrap", err)
 		r.bootstrapWithRetries()
 	}
+}
+
+// submitHeaderBatchAsync submits a batch of blocks asynchronously, returning a tracker
+// that can be used to wait for the confirmation result.
+func (r *Reporter) submitHeaderBatchAsync(blocks []*types.IndexedBlock) *confirmationTracker {
+	if len(blocks) == 0 {
+		return nil
+	}
+
+	tracker := &confirmationTracker{
+		blocks:    blocks,
+		startTime: time.Now(),
+		done:      make(chan error, 1),
+	}
+
+	r.logger.Infof("Submitting header batch (async): %d blocks (heights %d to %d)",
+		len(blocks), blocks[0].Height, blocks[len(blocks)-1].Height)
+
+	go func() {
+		// ProcessHeaders ignores signer param for ETH backend
+		_, err := r.ProcessHeaders("", blocks)
+		tracker.done <- err
+	}()
+
+	return tracker
+}
+
+// confirmationChan returns the done channel from the tracker, or nil if tracker is nil.
+// A nil channel blocks forever in select, effectively disabling that case.
+func (r *Reporter) confirmationChan(tracker *confirmationTracker) <-chan error {
+	if tracker == nil {
+		return nil
+	}
+	return tracker.done
+}
+
+// drainAndShutdown handles graceful shutdown of the header submission worker.
+// It waits for any pending confirmation and submits remaining batched blocks.
+func (r *Reporter) drainAndShutdown(batch []*types.IndexedBlock, pending *confirmationTracker) {
+	if pending != nil {
+		r.logger.Info("Waiting for pending header confirmation before shutdown...")
+		select {
+		case err := <-pending.done:
+			if err != nil {
+				r.logger.Warnf("Pending header batch failed during shutdown: %v", err)
+			} else {
+				r.logger.Infof("Pending header batch confirmed (heights %d to %d)",
+					pending.blocks[0].Height, pending.blocks[len(pending.blocks)-1].Height)
+			}
+		case <-time.After(30 * time.Second):
+			r.logger.Warn("Timeout waiting for pending header batch confirmation")
+		}
+	}
+
+	if len(batch) > 0 {
+		r.logger.Infof("Submitting remaining %d blocks before shutdown", len(batch))
+		r.submitHeaderBatch(batch)
+	}
+
+	r.logger.Info("Header submission worker stopped")
 }
