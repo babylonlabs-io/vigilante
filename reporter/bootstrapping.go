@@ -79,6 +79,7 @@ func (r *Reporter) checkConsistency() (*consistencyCheckInfo, error) {
 			return nil, fmt.Errorf("failed to find common ancestor for ETH backend: %w", err)
 		}
 		r.logger.Infof("Found common ancestor at height %d for Ethereum backend (contract tip=%d)", commonAncestor, backendTipHeight)
+
 		return &consistencyCheckInfo{
 			bbnLatestBlockHeight: backendTipHeight,
 			startSyncHeight:      commonAncestor + 1,
@@ -120,10 +121,12 @@ func (r *Reporter) findEthCommonAncestor(contractTipHeight uint32) (uint32, erro
 			btcBlock, _, err := r.btcClient.GetBlockByHeight(height)
 			if err != nil {
 				r.logger.Debugf("Failed to get BTC block at height %d: %v", height, err)
+
 				continue
 			}
 			if btcBlock == nil {
 				r.logger.Debugf("BTC node doesn't have block at height %d", height)
+
 				continue
 			}
 			// Use the BTC node's block hash
@@ -131,10 +134,12 @@ func (r *Reporter) findEthCommonAncestor(contractTipHeight uint32) (uint32, erro
 			contains, err := r.backend.ContainsBlock(ctx, &btcHash, height)
 			if err != nil {
 				r.logger.Warnf("Failed to check if contract contains block at height %d: %v", height, err)
+
 				continue
 			}
 			if contains {
 				r.logger.Infof("Found common ancestor at height %d (from BTC node query)", height)
+
 				return height, nil
 			}
 		} else {
@@ -143,10 +148,12 @@ func (r *Reporter) findEthCommonAncestor(contractTipHeight uint32) (uint32, erro
 			contains, err := r.backend.ContainsBlock(ctx, &cachedHash, height)
 			if err != nil {
 				r.logger.Warnf("Failed to check if contract contains block at height %d: %v", height, err)
+
 				continue
 			}
 			if contains {
 				r.logger.Debugf("Found common ancestor at height %d (from cache)", height)
+
 				return height, nil
 			}
 		}
@@ -316,7 +323,7 @@ func (r *Reporter) bootstrapWithRetries() {
 // where T is the height of the latest block in the backend's BTC header chain
 func (r *Reporter) initBTCCache() error {
 	var (
-		err                    error
+		err                      error
 		backendLatestBlockHeight uint32
 		backendBaseHeight        uint32
 		baseHeight               uint32
