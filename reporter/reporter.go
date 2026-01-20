@@ -25,7 +25,6 @@ import (
 // waiting for ETH confirmation in a background goroutine.
 type confirmationTracker struct {
 	blocks    []*types.IndexedBlock
-	txHash    string
 	startTime time.Time
 	done      chan error
 }
@@ -301,6 +300,7 @@ func (r *Reporter) headerSubmissionWorker() {
 
 		case <-quit:
 			r.drainAndShutdown(batch, pendingConfirm)
+
 			return
 		}
 	}
@@ -354,6 +354,7 @@ func (r *Reporter) confirmationChan(tracker *confirmationTracker) <-chan error {
 	if tracker == nil {
 		return nil
 	}
+
 	return tracker.done
 }
 
