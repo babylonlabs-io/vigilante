@@ -10,5 +10,5 @@ permissions:
 
 jobs:
   release:
-    uses: babylonlabs-io/.github/.github/workflows/reusable_go_releaser.yml@5151754256060bf160c411d0784f831f29882106  # v0.13.4
+    uses: babylonlabs-io/.github/.github/workflows/reusable_go_releaser.yml@22ae8ed7a2ea5c80331758914c4e0ea732eea1ad # v0.15.0
     secrets: inherit
