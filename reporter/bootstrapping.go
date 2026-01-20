@@ -70,16 +70,18 @@ func (r *Reporter) checkConsistency() (*consistencyCheckInfo, error) {
 			consistencyCheckHeight = backendBaseHeight
 		}
 	} else {
-		// For Ethereum backends: skip consistency check entirely.
-		// The ETH contract handles forks internally - it stores multiple competing chains
-		// and switches to the one with more cumulative PoW. After a deep reorg, the BTC node
-		// may be on a completely different chain than what the contract has stored.
-		// The reporter should just submit the new headers and let the contract decide.
-		r.logger.Infof("Skipping consistency check for Ethereum backend (contract handles forks internally, tip=%d)", backendTipHeight)
+		// For Ethereum backends: find a common ancestor between the contract and BTC node.
+		// After a reorg, the contract may be on a different fork than the BTC node.
+		// We need to find a block that exists in BOTH chains with the same hash,
+		// then start submitting from there + 1.
+		commonAncestor, err := r.findEthCommonAncestor(backendTipHeight)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find common ancestor for ETH backend: %w", err)
+		}
+		r.logger.Infof("Found common ancestor at height %d for Ethereum backend (contract tip=%d)", commonAncestor, backendTipHeight)
 		return &consistencyCheckInfo{
 			bbnLatestBlockHeight: backendTipHeight,
-			// Start from base height to ensure we cover any fork point
-			startSyncHeight: backendBaseHeight,
+			startSyncHeight:      commonAncestor + 1,
 		}, nil
 	}
 
@@ -93,6 +95,66 @@ func (r *Reporter) checkConsistency() (*consistencyCheckInfo, error) {
 		// we are starting from the block after already confirmed block
 		startSyncHeight: consistencyCheckHeight + 1,
 	}, nil
+}
+
+// findEthCommonAncestor finds a common ancestor block between the Ethereum contract and BTC node.
+// This is needed because after a reorg, the contract may be on a different fork than the BTC node.
+// We walk backward from the contract tip until we find a block that exists in both chains with the same hash.
+// Returns the height of the common ancestor block.
+func (r *Reporter) findEthCommonAncestor(contractTipHeight uint32) (uint32, error) {
+	ctx := context.Background()
+
+	// Maximum blocks to search backward (limited by contract's circular buffer of 2000 blocks)
+	// and practical reorg limits
+	const maxSearchDepth = 1000
+
+	r.logger.Debugf("Searching for common ancestor starting from contract tip %d", contractTipHeight)
+
+	for depth := uint32(0); depth < maxSearchDepth && contractTipHeight >= depth; depth++ {
+		height := contractTipHeight - depth
+
+		// First, check if the block exists in the BTC cache
+		cachedBlock := r.btcCache.FindBlock(height)
+		if cachedBlock == nil {
+			// Block not in cache - we need to query the BTC node directly
+			btcBlock, _, err := r.btcClient.GetBlockByHeight(height)
+			if err != nil {
+				r.logger.Debugf("Failed to get BTC block at height %d: %v", height, err)
+				continue
+			}
+			if btcBlock == nil {
+				r.logger.Debugf("BTC node doesn't have block at height %d", height)
+				continue
+			}
+			// Use the BTC node's block hash
+			btcHash := btcBlock.BlockHash()
+			contains, err := r.backend.ContainsBlock(ctx, &btcHash, height)
+			if err != nil {
+				r.logger.Warnf("Failed to check if contract contains block at height %d: %v", height, err)
+				continue
+			}
+			if contains {
+				r.logger.Infof("Found common ancestor at height %d (from BTC node query)", height)
+				return height, nil
+			}
+		} else {
+			// Block is in cache - check if it matches the contract
+			cachedHash := cachedBlock.BlockHash()
+			contains, err := r.backend.ContainsBlock(ctx, &cachedHash, height)
+			if err != nil {
+				r.logger.Warnf("Failed to check if contract contains block at height %d: %v", height, err)
+				continue
+			}
+			if contains {
+				r.logger.Debugf("Found common ancestor at height %d (from cache)", height)
+				return height, nil
+			}
+		}
+
+		r.logger.Debugf("No match at height %d, continuing search...", height)
+	}
+
+	return 0, fmt.Errorf("could not find common ancestor within %d blocks of contract tip %d", maxSearchDepth, contractTipHeight)
 }
 
 func (r *Reporter) bootstrap() error {
