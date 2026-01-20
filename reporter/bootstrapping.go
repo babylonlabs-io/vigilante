@@ -70,11 +70,17 @@ func (r *Reporter) checkConsistency() (*consistencyCheckInfo, error) {
 			consistencyCheckHeight = backendBaseHeight
 		}
 	} else {
-		// For Ethereum backends: the contract may be freshly deployed with only genesis.
-		// We should verify the tip itself (genesis block) to ensure our cache matches.
-		// Once headers are submitted and tip > genesis + k, we can do proper k-deep checks.
-		consistencyCheckHeight = backendTipHeight
-		r.logger.Infof("Using backend tip (%d) for consistency check (Ethereum contract)", backendTipHeight)
+		// For Ethereum backends: use the same k-deep check as Babylon.
+		// This ensures we verify a block that's settled (before any recent reorg fork point).
+		// During a reorg, the contract may have a different chain than the BTC node at the tip,
+		// but they should agree on blocks that are k-deep (before the fork point).
+		if backendTipHeight >= r.btcConfirmationDepth {
+			consistencyCheckHeight = backendTipHeight - r.btcConfirmationDepth
+		} else {
+			// Contract is freshly deployed with fewer than k blocks - check the base
+			consistencyCheckHeight = backendBaseHeight
+		}
+		r.logger.Infof("Using k-deep height (%d) for consistency check (Ethereum contract, tip=%d)", consistencyCheckHeight, backendTipHeight)
 	}
 
 	// this checks whether header at already confirmed height is the same in reporter btc cache and in backend
