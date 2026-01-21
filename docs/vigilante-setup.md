@@ -35,7 +35,7 @@ Ensure your system meets the following minimum requirements:
 ### 1.2 Software Requirements
 
 * A connection to a Babylon node. To run your own node, refer to the
-[Babylon Node Setup Guide](https://github.com/babylonlabs-io/networks/blob/main/bbn-test-5/babylon-node/README.md).
+[Babylon Node Setup Guide](https://github.com/babylonlabs-io/networks/blob/main/bbn-test-6/babylon-node/README.md).
 * A connection to a Bitcoin node. To run your own node, refer to the
 [Bitcoin Node Setup Guide](./bitcoind-setup.md).
 
@@ -118,7 +118,7 @@ btc:
 
 babylon:
   key: key
-  chain-id: bbn-test-5
+  chain-id: bbn-test-6
   rpc-addr: http://localhost:26657
   grpc-addr: https://localhost:9090
   account-prefix: bbn
@@ -236,12 +236,12 @@ Operators must create an Babylon keyring before starting
 the `Vigilante Reporter` and `Vigilante BTC Staking Tracker` daemon.
 
 We will be using the Babylon Binary for the key generation. To install the binary,
-please refer to the [Babylon Binary Installation](https://github.com/babylonlabs-io/networks/blob/main/bbn-test-5/babylon-node/README.md#1-install-babylon-binary).
+please refer to the [Babylon Binary Installation](https://github.com/babylonlabs-io/networks/blob/main/bbn-test-6/babylon-node/README.md#1-install-babylon-binary).
 
 ### 4.1 Initialize Babylon home dir
 
 ```shell
-babylond init <moniker> --chain-id bbn-test-5 --home <path>
+babylond init <moniker> --chain-id bbn-test-6 --home <path>
 ```
 
 Parameters:
