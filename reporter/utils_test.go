@@ -87,6 +87,14 @@ func FuzzProcessHeaders(f *testing.F) {
 		// mock MustGetAddr for header submission
 		mockBabylonClient.EXPECT().MustGetAddr().Return("test-address").AnyTimes()
 
+		// mock BTCHeaderChainTip for GetTip check before retry
+		// Return height 0 so submissions proceed (tip < endHeight)
+		mockBabylonClient.EXPECT().BTCHeaderChainTip().Return(
+			&btclctypes.QueryTipResponse{
+				Header: &btclctypes.BTCHeaderInfoResponse{Height: 0, HashHex: "0000000000000000000000000000000000000000000000000000000000000000"}},
+			nil,
+		).AnyTimes()
+
 		// inserting header will always be successful
 		mockBabylonClient.EXPECT().ReliablySendMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&babylonclient.RelayerTxResponse{Code: 0}, nil).AnyTimes()
 
