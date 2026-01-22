@@ -100,6 +100,16 @@ func (r *Reporter) submitHeaders(ibs []*types.IndexedBlock) error {
 	// Submit to backend with retry logic
 	err := retrywrap.Do(
 		func() error {
+			// Before submitting, check if headers are already confirmed on-chain.
+			// This handles the case where a previous attempt succeeded but timed out waiting for confirmation.
+			tipHeight, _, tipErr := r.backend.GetTip(context.Background())
+			if tipErr == nil && uint64(tipHeight) >= endHeight {
+				r.logger.Infof("Headers already confirmed on-chain (tip=%d >= endHeight=%d), skipping submission",
+					tipHeight, endHeight)
+
+				return nil // Success - headers already submitted
+			}
+
 			return r.backend.SubmitHeaders(context.Background(), startHeight, headers)
 		},
 		retry.Delay(r.retrySleepTime),
