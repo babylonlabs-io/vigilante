@@ -227,10 +227,17 @@ func (e *EthereumBackend) SubmitHeaders(ctx context.Context, startHeight uint64,
 
 	// Check if we're trying to submit blocks that don't connect
 	if latestHeight != nil && startHeight > latestHeight.Uint64()+1 {
-		e.logger.Warnw("Gap detected: trying to submit blocks that don't connect to contract tip",
+		e.logger.Warnw("Gap detected: cannot submit blocks that don't connect to contract tip",
 			"contract_tip", latestHeight.Uint64(),
 			"submitting_start", startHeight,
 			"missing_blocks", startHeight-latestHeight.Uint64()-1,
+		)
+
+		return fmt.Errorf("%w: contract_tip=%d, submitting_start=%d, missing=%d",
+			ErrGapInHeaderChain,
+			latestHeight.Uint64(),
+			startHeight,
+			startHeight-latestHeight.Uint64()-1,
 		)
 	}
 

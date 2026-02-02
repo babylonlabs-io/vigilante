@@ -19,6 +19,7 @@ var (
 	ErrInsufficientChainLength     = fmt.Errorf("insufficient chain length")
 	ErrTooDeepReorg                = fmt.Errorf("reorg too deep (max 1000 blocks)")
 	ErrBlockNotYetSubmitted        = fmt.Errorf("block not yet submitted")
+	ErrGapInHeaderChain            = fmt.Errorf("gap in header chain: blocks don't connect to contract tip")
 )
 
 // isBlockNotYetSubmittedError checks if an error is the contract's "Block not yet submitted" revert.
