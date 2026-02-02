@@ -18,6 +18,7 @@ var (
 	ErrInsufficientTotalDifficulty = fmt.Errorf("insufficient total difficulty")
 	ErrInsufficientChainLength     = fmt.Errorf("insufficient chain length")
 	ErrTooDeepReorg                = fmt.Errorf("reorg too deep (max 1000 blocks)")
+	ErrGapInHeaderChain            = fmt.Errorf("gap in header chain: blocks don't connect to contract tip")
 )
 
 // parseContractError attempts to parse contract revert errors into friendly messages

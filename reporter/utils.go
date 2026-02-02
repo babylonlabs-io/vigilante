@@ -110,7 +110,12 @@ func (r *Reporter) submitHeaders(ibs []*types.IndexedBlock) error {
 				return nil // Success - headers already submitted
 			}
 
-			return r.backend.SubmitHeaders(context.Background(), startHeight, headers)
+			err := r.backend.SubmitHeaders(context.Background(), startHeight, headers)
+			// Gap error is unrecoverable - retrying won't help, needs bootstrap
+			if errors.Is(err, ErrGapInHeaderChain) {
+				return retry.Unrecoverable(err)
+			}
+			return err
 		},
 		retry.Delay(r.retrySleepTime),
 		retry.MaxDelay(r.maxRetrySleepTime),
