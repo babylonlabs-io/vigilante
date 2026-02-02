@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/contracts/btcprism"
 	"github.com/babylonlabs-io/vigilante/e2etest/container"
+	"github.com/babylonlabs-io/vigilante/ethkeystore"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -31,6 +33,7 @@ type AnvilTestHandler struct {
 	client       *ethclient.Client
 	contractAddr common.Address
 	rpcURL       string
+	keystoreDir  string
 }
 
 func NewAnvilHandler(t *testing.T, manager *container.Manager) *AnvilTestHandler {
@@ -47,9 +50,32 @@ func (h *AnvilTestHandler) Start(t *testing.T) (*dockertest.Resource, error) {
 		return nil, err
 	}
 
+	// Create temporary keystore directory for testing
+	keystoreDir, err := os.MkdirTemp("", "vigilante-test-keystore-*")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp keystore dir: %w", err)
+	}
+	h.keystoreDir = keystoreDir
+
+	// Import the anvil test private key into the keystore
+	ks, err := ethkeystore.LoadKeystore(keystoreDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load keystore: %w", err)
+	}
+
+	// Use empty password for testing
+	_, err = ethkeystore.ImportPrivateKey(ks, anvilPrivateKey, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to import test key: %w", err)
+	}
+
 	h.t.Cleanup(func() {
 		if h.client != nil {
 			h.client.Close()
+		}
+		// Clean up keystore directory
+		if h.keystoreDir != "" {
+			os.RemoveAll(h.keystoreDir)
 		}
 	})
 
@@ -136,9 +162,14 @@ func (h *AnvilTestHandler) GetContractAddress() common.Address {
 
 // GetEthereumConfig returns a config.EthereumConfig for testing
 func (h *AnvilTestHandler) GetEthereumConfig() *config.EthereumConfig {
+	// Set password env var for testing (empty password)
+	os.Setenv(ethkeystore.PasswordEnvVar, "")
+
 	return &config.EthereumConfig{
 		RPCURL:                h.rpcURL,
-		PrivateKey:            anvilPrivateKey,
+		KeystoreDir:           h.keystoreDir,
+		AccountAddress:        anvilAddress,
+		PasswordFile:          "", // Uses env var
 		ContractAddress:       h.contractAddr.Hex(),
 		ChainID:               anvilChainID,
 		GasLimit:              0, // auto-estimate

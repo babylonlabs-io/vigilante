@@ -4,16 +4,15 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"strings"
 	"time"
 
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/contracts/btcprism"
+	"github.com/babylonlabs-io/vigilante/ethkeystore"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"go.uber.org/zap"
 )
@@ -55,17 +54,38 @@ func NewEthereumBackend(cfg *config.EthereumConfig, parentLogger *zap.Logger) (B
 		return nil, fmt.Errorf("failed to load BtcPrism contract: %w", err)
 	}
 
-	// Parse private key
-	privateKeyStr := strings.TrimPrefix(cfg.PrivateKey, "0x")
-	privateKey, err := crypto.HexToECDSA(privateKeyStr)
+	// Load keystore
+	ks, err := ethkeystore.LoadKeystore(cfg.KeystoreDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse private key: %w", err)
+		return nil, fmt.Errorf("failed to load keystore: %w", err)
 	}
 
-	// Create transaction signer
+	// Find account
+	if !common.IsHexAddress(cfg.AccountAddress) {
+		return nil, fmt.Errorf("invalid account address: %s", cfg.AccountAddress)
+	}
+	accountAddress := common.HexToAddress(cfg.AccountAddress)
+
+	account, err := ethkeystore.FindAccount(ks, accountAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	// Resolve password from env var or file
+	password, err := ethkeystore.ResolvePassword(cfg.PasswordFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get keystore password: %w", err)
+	}
+
+	// Unlock account in keystore
+	if err := ks.Unlock(account, password); err != nil {
+		return nil, fmt.Errorf("failed to unlock account: %w", err)
+	}
+
+	// Create transaction signer using keystore
 	// #nosec G115 -- Chain IDs are small values (mainnet=1, testnets in thousands), no overflow risk
 	chainID := big.NewInt(int64(cfg.ChainID))
-	auth, err := bind.NewKeyedTransactorWithChainID(privateKey, chainID)
+	auth, err := bind.NewKeyStoreTransactorWithChainID(ks, account, chainID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create transactor: %w", err)
 	}
