@@ -13,6 +13,9 @@ import (
 	"golang.org/x/term"
 )
 
+// printFunc is used to allow cmd.Printf to be passed to helper functions
+type printFunc func(format string, a ...interface{})
+
 const (
 	flagKeystoreDir     = "keystore-dir"
 	flagPrivateKey      = "private-key"
@@ -68,9 +71,9 @@ func getKeysEthNewCmd() *cobra.Command {
 				return err
 			}
 
-			fmt.Printf("New account created:\n")
-			fmt.Printf("  Address:  %s\n", account.Address.Hex())
-			fmt.Printf("  Keystore: %s\n", account.URL.Path)
+			cmd.Printf("New account created:\n")
+			cmd.Printf("  Address:  %s\n", account.Address.Hex())
+			cmd.Printf("  Keystore: %s\n", account.URL.Path)
 
 			return nil
 		},
@@ -136,9 +139,9 @@ The private key can be provided via:
 				return err
 			}
 
-			fmt.Printf("Account imported:\n")
-			fmt.Printf("  Address:  %s\n", account.Address.Hex())
-			fmt.Printf("  Keystore: %s\n", account.URL.Path)
+			cmd.Printf("Account imported:\n")
+			cmd.Printf("  Address:  %s\n", account.Address.Hex())
+			cmd.Printf("  Keystore: %s\n", account.URL.Path)
 
 			return nil
 		},
@@ -190,10 +193,10 @@ Default derivation path: m/44'/60'/0'/0/0 (standard Ethereum path)`,
 				return err
 			}
 
-			fmt.Printf("Account imported from mnemonic:\n")
-			fmt.Printf("  Address:         %s\n", account.Address.Hex())
-			fmt.Printf("  Derivation path: %s\n", derivationPath)
-			fmt.Printf("  Keystore:        %s\n", account.URL.Path)
+			cmd.Printf("Account imported from mnemonic:\n")
+			cmd.Printf("  Address:         %s\n", account.Address.Hex())
+			cmd.Printf("  Derivation path: %s\n", derivationPath)
+			cmd.Printf("  Keystore:        %s\n", account.URL.Path)
 
 			return nil
 		},
@@ -224,14 +227,14 @@ func getKeysEthListCmd() *cobra.Command {
 
 			accounts := ethkeystore.ListAccounts(ks)
 			if len(accounts) == 0 {
-				fmt.Printf("No accounts found in %s\n", keystoreDir)
+				cmd.Printf("No accounts found in %s\n", keystoreDir)
 				return nil
 			}
 
-			fmt.Printf("Accounts in %s:\n\n", keystoreDir)
+			cmd.Printf("Accounts in %s:\n\n", keystoreDir)
 			for i, acc := range accounts {
-				fmt.Printf("  %d. %s\n", i+1, acc.Address.Hex())
-				fmt.Printf("     File: %s\n\n", filepath.Base(acc.URL.Path))
+				cmd.Printf("  %d. %s\n", i+1, acc.Address.Hex())
+				cmd.Printf("     File: %s\n\n", filepath.Base(acc.URL.Path))
 			}
 
 			return nil
@@ -281,9 +284,9 @@ Ensure no one is watching your screen and clear your terminal history afterward.
 				return err
 			}
 
-			fmt.Printf("Private key for %s:\n", address.Hex())
-			fmt.Printf("%s\n", privateKey)
-			fmt.Printf("\nWARNING: Store this securely and clear your terminal history!\n")
+			cmd.Printf("Private key for %s:\n", address.Hex())
+			cmd.Printf("%s\n", privateKey)
+			cmd.Printf("\nWARNING: Store this securely and clear your terminal history!\n")
 
 			return nil
 		},

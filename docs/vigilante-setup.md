@@ -38,6 +38,8 @@ Ensure your system meets the following minimum requirements:
 [Babylon Node Setup Guide](https://github.com/babylonlabs-io/networks/blob/main/bbn-test-5/babylon-node/README.md).
 * A connection to a Bitcoin node. To run your own node, refer to the
 [Bitcoin Node Setup Guide](./bitcoind-setup.md).
+* For Ethereum reporter mode: An Ethereum RPC endpoint and keystore.
+See the [Ethereum Keystore Setup Guide](./ethereum-keystore.md).
 
 ## 2. Install Vigilante
 
