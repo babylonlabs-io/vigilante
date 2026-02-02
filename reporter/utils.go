@@ -115,6 +115,7 @@ func (r *Reporter) submitHeaders(ibs []*types.IndexedBlock) error {
 			if errors.Is(err, ErrGapInHeaderChain) {
 				return retry.Unrecoverable(err)
 			}
+
 			return err
 		},
 		retry.Delay(r.retrySleepTime),

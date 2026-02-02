@@ -232,6 +232,7 @@ func (e *EthereumBackend) SubmitHeaders(ctx context.Context, startHeight uint64,
 			"submitting_start", startHeight,
 			"missing_blocks", startHeight-latestHeight.Uint64()-1,
 		)
+
 		return fmt.Errorf("%w: contract_tip=%d, submitting_start=%d, missing=%d",
 			ErrGapInHeaderChain,
 			latestHeight.Uint64(),
