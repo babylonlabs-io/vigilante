@@ -2,6 +2,7 @@ package ethkeystore
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -18,6 +19,8 @@ const (
 )
 
 func TestLoadKeystore(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 
 	ks, err := LoadKeystore(dir)
@@ -30,6 +33,8 @@ func TestLoadKeystore(t *testing.T) {
 }
 
 func TestNewAccount(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 
 	ks, err := LoadKeystore(dir)
@@ -46,6 +51,8 @@ func TestNewAccount(t *testing.T) {
 }
 
 func TestImportPrivateKey(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 
 	ks, err := LoadKeystore(dir)
@@ -63,6 +70,8 @@ func TestImportPrivateKey(t *testing.T) {
 }
 
 func TestImportPrivateKeyWithoutPrefix(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 
 	ks, err := LoadKeystore(dir)
@@ -75,6 +84,8 @@ func TestImportPrivateKeyWithoutPrefix(t *testing.T) {
 }
 
 func TestImportMnemonic(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 
 	ks, err := LoadKeystore(dir)
@@ -90,6 +101,8 @@ func TestImportMnemonic(t *testing.T) {
 }
 
 func TestImportMnemonicCustomPath(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 
 	ks, err := LoadKeystore(dir)
@@ -113,6 +126,8 @@ func TestImportMnemonicCustomPath(t *testing.T) {
 }
 
 func TestUnlockAccount(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 
 	ks, err := LoadKeystore(dir)
@@ -132,6 +147,8 @@ func TestUnlockAccount(t *testing.T) {
 }
 
 func TestExportPrivateKey(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 
 	ks, err := LoadKeystore(dir)
@@ -147,6 +164,8 @@ func TestExportPrivateKey(t *testing.T) {
 }
 
 func TestFindAccount(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 
 	ks, err := LoadKeystore(dir)
@@ -166,11 +185,11 @@ func TestFindAccount(t *testing.T) {
 	require.Error(t, err)
 }
 
+//nolint:paralleltest // subtests use t.Setenv which is incompatible with t.Parallel
 func TestResolvePassword(t *testing.T) {
 	// Test with environment variable
 	t.Run("from_env", func(t *testing.T) {
-		os.Setenv(PasswordEnvVar, testPassword)
-		defer os.Unsetenv(PasswordEnvVar)
+		t.Setenv(PasswordEnvVar, testPassword)
 
 		password, err := ResolvePassword("")
 		require.NoError(t, err)
@@ -179,8 +198,7 @@ func TestResolvePassword(t *testing.T) {
 
 	// Test with empty password (valid for testing)
 	t.Run("from_env_empty", func(t *testing.T) {
-		os.Setenv(PasswordEnvVar, "")
-		defer os.Unsetenv(PasswordEnvVar)
+		t.Setenv(PasswordEnvVar, "")
 
 		password, err := ResolvePassword("")
 		require.NoError(t, err)
@@ -189,32 +207,28 @@ func TestResolvePassword(t *testing.T) {
 
 	// Test with password file
 	t.Run("from_file", func(t *testing.T) {
-		os.Unsetenv(PasswordEnvVar)
-
-		// Create temp password file
-		tmpFile, err := os.CreateTemp("", "password-*")
+		// Create temp password file in test's temp dir
+		tmpDir := t.TempDir()
+		tmpFile := filepath.Join(tmpDir, "password.txt")
+		err := os.WriteFile(tmpFile, []byte(testPassword+"\n"), 0600)
 		require.NoError(t, err)
-		defer os.Remove(tmpFile.Name())
 
-		_, err = tmpFile.WriteString(testPassword + "\n")
-		require.NoError(t, err)
-		tmpFile.Close()
-
-		password, err := ResolvePassword(tmpFile.Name())
+		password, err := ResolvePassword(tmpFile)
 		require.NoError(t, err)
 		require.Equal(t, testPassword, password)
 	})
 
 	// Test with no password source
 	t.Run("no_source", func(t *testing.T) {
-		os.Unsetenv(PasswordEnvVar)
-
+		// Ensure env var is not set
 		_, err := ResolvePassword("")
 		require.Error(t, err)
 	})
 }
 
 func TestListAccounts(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 
 	ks, err := LoadKeystore(dir)

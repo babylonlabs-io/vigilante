@@ -13,8 +13,6 @@ import (
 	"golang.org/x/term"
 )
 
-// printFunc is used to allow cmd.Printf to be passed to helper functions
-type printFunc func(format string, a ...interface{})
 
 const (
 	flagKeystoreDir     = "keystore-dir"
@@ -49,7 +47,7 @@ func getKeysEthNewCmd() *cobra.Command {
 		Use:   "new",
 		Short: "Create a new Ethereum account",
 		Long:  "Generate a new random private key and store it in an encrypted keystore file",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			keystoreDir, _ := cmd.Flags().GetString(flagKeystoreDir)
 			passwordFromEnv, _ := cmd.Flags().GetBool(flagPasswordFromEnv)
 
@@ -96,7 +94,7 @@ func getKeysEthImportCmd() *cobra.Command {
 The private key can be provided via:
   1. --private-key flag (not recommended for security)
   2. stdin: echo "0x..." | vigilante keys eth import --keystore-dir /path`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			keystoreDir, _ := cmd.Flags().GetString(flagKeystoreDir)
 			privateKeyFlag, _ := cmd.Flags().GetString(flagPrivateKey)
 			passwordFromEnv, _ := cmd.Flags().GetBool(flagPasswordFromEnv)
@@ -164,7 +162,7 @@ func getKeysEthImportMnemonicCmd() *cobra.Command {
 
 The mnemonic will be read interactively (not echoed to screen for security).
 Default derivation path: m/44'/60'/0'/0/0 (standard Ethereum path)`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			keystoreDir, _ := cmd.Flags().GetString(flagKeystoreDir)
 			derivationPath, _ := cmd.Flags().GetString(flagDerivationPath)
 			passwordFromEnv, _ := cmd.Flags().GetBool(flagPasswordFromEnv)
@@ -216,7 +214,7 @@ func getKeysEthListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List all accounts in keystore",
 		Long:  "Display all Ethereum addresses and their keystore file paths",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			keystoreDir, _ := cmd.Flags().GetString(flagKeystoreDir)
 
 			// Load keystore
@@ -228,6 +226,7 @@ func getKeysEthListCmd() *cobra.Command {
 			accounts := ethkeystore.ListAccounts(ks)
 			if len(accounts) == 0 {
 				cmd.Printf("No accounts found in %s\n", keystoreDir)
+
 				return nil
 			}
 
@@ -256,7 +255,7 @@ func getKeysEthExportCmd() *cobra.Command {
 
 WARNING: The private key will be displayed in plain text.
 Ensure no one is watching your screen and clear your terminal history afterward.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			keystoreDir, _ := cmd.Flags().GetString(flagKeystoreDir)
 			addressStr, _ := cmd.Flags().GetString(flagAddress)
 			passwordFromEnv, _ := cmd.Flags().GetBool(flagPasswordFromEnv)
@@ -308,6 +307,7 @@ func getPassword(fromEnv bool, confirm bool) (string, error) {
 		if password == "" {
 			return "", fmt.Errorf("%s environment variable not set", ethkeystore.PasswordEnvVar)
 		}
+
 		return password, nil
 	}
 
