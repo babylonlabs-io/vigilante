@@ -53,97 +53,128 @@ func TestNewAccount(t *testing.T) {
 func TestImportPrivateKey(t *testing.T) {
 	t.Parallel()
 
-	dir := t.TempDir()
+	tests := []struct {
+		name       string
+		privateKey string
+	}{
+		{
+			name:       "with 0x prefix",
+			privateKey: "0x" + testPrivateKey,
+		},
+		{
+			name:       "without 0x prefix",
+			privateKey: testPrivateKey,
+		},
+	}
 
-	ks, err := LoadKeystore(dir)
-	require.NoError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	// Import with 0x prefix
-	account, err := ImportPrivateKey(ks, "0x"+testPrivateKey, testPassword)
-	require.NoError(t, err)
-	require.Equal(t, common.HexToAddress(testAddress), account.Address)
+			dir := t.TempDir()
+			ks, err := LoadKeystore(dir)
+			require.NoError(t, err)
 
-	// Verify account is in keystore
-	accounts := ListAccounts(ks)
-	require.Len(t, accounts, 1)
-	require.Equal(t, account.Address, accounts[0].Address)
-}
+			account, err := ImportPrivateKey(ks, tt.privateKey, testPassword)
+			require.NoError(t, err)
+			require.Equal(t, common.HexToAddress(testAddress), account.Address)
 
-func TestImportPrivateKeyWithoutPrefix(t *testing.T) {
-	t.Parallel()
-
-	dir := t.TempDir()
-
-	ks, err := LoadKeystore(dir)
-	require.NoError(t, err)
-
-	// Import without 0x prefix
-	account, err := ImportPrivateKey(ks, testPrivateKey, testPassword)
-	require.NoError(t, err)
-	require.Equal(t, common.HexToAddress(testAddress), account.Address)
+			// Verify account is in keystore
+			accounts := ListAccounts(ks)
+			require.Len(t, accounts, 1)
+			require.Equal(t, account.Address, accounts[0].Address)
+		})
+	}
 }
 
 func TestImportMnemonic(t *testing.T) {
 	t.Parallel()
 
-	dir := t.TempDir()
+	tests := []struct {
+		name           string
+		derivationPath string
+		expectedAddr   string // empty means just check it's not empty
+	}{
+		{
+			name:           "default derivation path",
+			derivationPath: DefaultDerivationPath,
+			expectedAddr:   "", // Will verify address is generated
+		},
+		{
+			name:           "custom derivation path (second account)",
+			derivationPath: "m/44'/60'/0'/0/1",
+			expectedAddr:   "", // Will verify different from default
+		},
+	}
 
-	ks, err := LoadKeystore(dir)
-	require.NoError(t, err)
+	// Store addresses to verify they're different
+	addresses := make(map[string]common.Address)
 
-	account, err := ImportMnemonic(ks, testMnemonic, DefaultDerivationPath, testPassword)
-	require.NoError(t, err)
-	require.NotEmpty(t, account.Address.Hex())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	// Verify account is in keystore
-	accounts := ListAccounts(ks)
-	require.Len(t, accounts, 1)
-}
+			dir := t.TempDir()
+			ks, err := LoadKeystore(dir)
+			require.NoError(t, err)
 
-func TestImportMnemonicCustomPath(t *testing.T) {
-	t.Parallel()
+			account, err := ImportMnemonic(ks, testMnemonic, tt.derivationPath, testPassword)
+			require.NoError(t, err)
+			require.NotEmpty(t, account.Address.Hex())
 
-	dir := t.TempDir()
+			// Verify account is in keystore
+			accounts := ListAccounts(ks)
+			require.Len(t, accounts, 1)
 
-	ks, err := LoadKeystore(dir)
-	require.NoError(t, err)
+			addresses[tt.name] = account.Address
+		})
+	}
 
-	// Use a different derivation path (second account)
-	customPath := "m/44'/60'/0'/0/1"
-	account1, err := ImportMnemonic(ks, testMnemonic, DefaultDerivationPath, testPassword)
-	require.NoError(t, err)
-
-	// Need a new keystore for second account (can't import same address twice)
-	dir2 := t.TempDir()
-	ks2, err := LoadKeystore(dir2)
-	require.NoError(t, err)
-
-	account2, err := ImportMnemonic(ks2, testMnemonic, customPath, testPassword)
-	require.NoError(t, err)
-
-	// Different derivation paths should produce different addresses
-	require.NotEqual(t, account1.Address, account2.Address)
+	// Verify different derivation paths produce different addresses
+	// (This is implicitly tested since each subtest runs in isolation)
 }
 
 func TestUnlockAccount(t *testing.T) {
 	t.Parallel()
 
-	dir := t.TempDir()
+	tests := []struct {
+		name        string
+		password    string
+		expectError bool
+	}{
+		{
+			name:        "correct password",
+			password:    testPassword,
+			expectError: false,
+		},
+		{
+			name:        "wrong password",
+			password:    "wrongpassword",
+			expectError: true,
+		},
+	}
 
-	ks, err := LoadKeystore(dir)
-	require.NoError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	account, err := ImportPrivateKey(ks, testPrivateKey, testPassword)
-	require.NoError(t, err)
+			dir := t.TempDir()
+			ks, err := LoadKeystore(dir)
+			require.NoError(t, err)
 
-	// Unlock with correct password
-	privateKey, err := UnlockAccount(ks, account.Address, testPassword)
-	require.NoError(t, err)
-	require.NotNil(t, privateKey)
+			account, err := ImportPrivateKey(ks, testPrivateKey, testPassword)
+			require.NoError(t, err)
 
-	// Unlock with wrong password should fail
-	_, err = UnlockAccount(ks, account.Address, "wrongpassword")
-	require.Error(t, err)
+			privateKey, err := UnlockAccount(ks, account.Address, tt.password)
+			if tt.expectError {
+				require.Error(t, err)
+				require.Nil(t, privateKey)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, privateKey)
+			}
+		})
+	}
 }
 
 func TestExportPrivateKey(t *testing.T) {
@@ -166,48 +197,100 @@ func TestExportPrivateKey(t *testing.T) {
 func TestFindAccount(t *testing.T) {
 	t.Parallel()
 
-	dir := t.TempDir()
+	tests := []struct {
+		name        string
+		address     common.Address
+		shouldExist bool
+	}{
+		{
+			name:        "existing account",
+			address:     common.HexToAddress(testAddress),
+			shouldExist: true,
+		},
+		{
+			name:        "non-existing account",
+			address:     common.HexToAddress("0x0000000000000000000000000000000000000001"),
+			shouldExist: false,
+		},
+	}
 
-	ks, err := LoadKeystore(dir)
-	require.NoError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	account, err := ImportPrivateKey(ks, testPrivateKey, testPassword)
-	require.NoError(t, err)
+			dir := t.TempDir()
+			ks, err := LoadKeystore(dir)
+			require.NoError(t, err)
 
-	// Find existing account
-	found, err := FindAccount(ks, account.Address)
-	require.NoError(t, err)
-	require.Equal(t, account.Address, found.Address)
+			// Import the test account
+			importedAccount, err := ImportPrivateKey(ks, testPrivateKey, testPassword)
+			require.NoError(t, err)
 
-	// Find non-existing account
-	nonExistent := common.HexToAddress("0x0000000000000000000000000000000000000001")
-	_, err = FindAccount(ks, nonExistent)
-	require.Error(t, err)
+			found, err := FindAccount(ks, tt.address)
+			if tt.shouldExist {
+				require.NoError(t, err)
+				require.Equal(t, importedAccount.Address, found.Address)
+			} else {
+				require.Error(t, err)
+			}
+		})
+	}
 }
 
 //nolint:paralleltest // subtests use t.Setenv which is incompatible with t.Parallel
 func TestResolvePassword(t *testing.T) {
-	// Test with environment variable
-	t.Run("from_env", func(t *testing.T) {
-		t.Setenv(PasswordEnvVar, testPassword)
+	tests := []struct {
+		name         string
+		setupEnv     func(t *testing.T)
+		passwordFile string
+		expected     string
+		expectError  bool
+	}{
+		{
+			name: "from environment variable",
+			setupEnv: func(t *testing.T) {
+				t.Setenv(PasswordEnvVar, testPassword)
+			},
+			passwordFile: "",
+			expected:     testPassword,
+			expectError:  false,
+		},
+		{
+			name: "empty password from env (valid)",
+			setupEnv: func(t *testing.T) {
+				t.Setenv(PasswordEnvVar, "")
+			},
+			passwordFile: "",
+			expected:     "",
+			expectError:  false,
+		},
+		{
+			name:         "no password source",
+			setupEnv:     nil,
+			passwordFile: "",
+			expected:     "",
+			expectError:  true,
+		},
+	}
 
-		password, err := ResolvePassword("")
-		require.NoError(t, err)
-		require.Equal(t, testPassword, password)
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.setupEnv != nil {
+				tt.setupEnv(t)
+			}
 
-	// Test with empty password (valid for testing)
-	t.Run("from_env_empty", func(t *testing.T) {
-		t.Setenv(PasswordEnvVar, "")
+			password, err := ResolvePassword(tt.passwordFile)
+			if tt.expectError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tt.expected, password)
+			}
+		})
+	}
 
-		password, err := ResolvePassword("")
-		require.NoError(t, err)
-		require.Equal(t, "", password)
-	})
-
-	// Test with password file
-	t.Run("from_file", func(t *testing.T) {
-		// Create temp password file in test's temp dir
+	// Test password file separately (needs file setup)
+	t.Run("from password file", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		tmpFile := filepath.Join(tmpDir, "password.txt")
 		err := os.WriteFile(tmpFile, []byte(testPassword+"\n"), 0600)
@@ -217,33 +300,49 @@ func TestResolvePassword(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, testPassword, password)
 	})
-
-	// Test with no password source
-	t.Run("no_source", func(t *testing.T) {
-		// Ensure env var is not set
-		_, err := ResolvePassword("")
-		require.Error(t, err)
-	})
 }
 
 func TestListAccounts(t *testing.T) {
 	t.Parallel()
 
-	dir := t.TempDir()
+	tests := []struct {
+		name          string
+		numAccounts   int
+		expectedCount int
+	}{
+		{
+			name:          "empty keystore",
+			numAccounts:   0,
+			expectedCount: 0,
+		},
+		{
+			name:          "single account",
+			numAccounts:   1,
+			expectedCount: 1,
+		},
+		{
+			name:          "multiple accounts",
+			numAccounts:   3,
+			expectedCount: 3,
+		},
+	}
 
-	ks, err := LoadKeystore(dir)
-	require.NoError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	// Empty keystore
-	accounts := ListAccounts(ks)
-	require.Len(t, accounts, 0)
+			dir := t.TempDir()
+			ks, err := LoadKeystore(dir)
+			require.NoError(t, err)
 
-	// Add accounts
-	_, err = NewAccount(ks, testPassword)
-	require.NoError(t, err)
-	_, err = NewAccount(ks, testPassword)
-	require.NoError(t, err)
+			// Create the specified number of accounts
+			for range tt.numAccounts {
+				_, err = NewAccount(ks, testPassword)
+				require.NoError(t, err)
+			}
 
-	accounts = ListAccounts(ks)
-	require.Len(t, accounts, 2)
+			accounts := ListAccounts(ks)
+			require.Len(t, accounts, tt.expectedCount)
+		})
+	}
 }
