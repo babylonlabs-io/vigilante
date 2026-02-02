@@ -28,9 +28,21 @@ ethereum:
   # Ethereum RPC endpoint (e.g., Infura, Alchemy, or local node)
   rpc-url: "http://localhost:8545"
 
-  # Private key for signing transactions (hex format, with or without 0x prefix)
-  # WARNING: Use keystore in production! This is for testing only.
-  private-key: "0000000000000000000000000000000000000000000000000000000000000001"
+  # Keystore configuration (Web3 Secret Storage format - same as geth/metamask)
+  # Directory containing encrypted keystore JSON files
+  keystore-dir: "/path/to/keystore"
+  # Ethereum address to use for signing transactions (0x...)
+  account-address: "0x0000000000000000000000000000000000000000"
+  # Optional: file containing keystore password (one line, no newline)
+  # If not set, uses VIGILANTE_ETH_KEYSTORE_PASSWORD environment variable
+  password-file: ""
+
+  # Keystore Management Commands:
+  #   vigilante keys eth new --keystore-dir /path/to/keystore
+  #   vigilante keys eth import --keystore-dir /path/to/keystore --private-key 0x...
+  #   vigilante keys eth import-mnemonic --keystore-dir /path/to/keystore
+  #   vigilante keys eth list --keystore-dir /path/to/keystore
+  #   vigilante keys eth export --keystore-dir /path/to/keystore --address 0x...
 
   # BtcPrism contract address
   contract-address: "0x0000000000000000000000000000000000000000"

@@ -10,9 +10,13 @@ type EthereumConfig struct {
 	// RPC endpoint URL
 	RPCURL string `mapstructure:"rpc-url"`
 
-	// Private key in hex format (with or without 0x prefix)
-	// TODO: Replace with keystore support in future PR (for production security)
-	PrivateKey string `mapstructure:"private-key"`
+	// Keystore configuration (Web3 Secret Storage format)
+	// Directory containing encrypted keystore files
+	KeystoreDir string `mapstructure:"keystore-dir"`
+	// ETH address to use for signing (0x...)
+	AccountAddress string `mapstructure:"account-address"`
+	// Optional: file containing keystore password (otherwise use VIGILANTE_ETH_KEYSTORE_PASSWORD env var)
+	PasswordFile string `mapstructure:"password-file"`
 
 	// BtcPrism contract address
 	ContractAddress string `mapstructure:"contract-address"`
@@ -48,8 +52,12 @@ func (cfg *EthereumConfig) Validate() error {
 		return fmt.Errorf("ethereum rpc-url is required")
 	}
 
-	if cfg.PrivateKey == "" {
-		return fmt.Errorf("ethereum private-key is required")
+	if cfg.KeystoreDir == "" {
+		return fmt.Errorf("ethereum keystore-dir is required")
+	}
+
+	if cfg.AccountAddress == "" {
+		return fmt.Errorf("ethereum account-address is required")
 	}
 
 	if cfg.ContractAddress == "" {
@@ -93,7 +101,9 @@ func (cfg *EthereumConfig) Validate() error {
 func DefaultEthereumConfig() EthereumConfig {
 	return EthereumConfig{
 		RPCURL:                "",
-		PrivateKey:            "",
+		KeystoreDir:           "",
+		AccountAddress:        "",
+		PasswordFile:          "",
 		ContractAddress:       "",
 		ChainID:               1, // mainnet
 		GasLimit:              0, // auto-estimate
