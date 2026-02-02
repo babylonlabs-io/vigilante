@@ -125,26 +125,21 @@ func NewEthereumBackend(cfg *config.EthereumConfig, parentLogger *zap.Logger) (B
 // ContainsBlock checks if the Ethereum contract has the given BTC block hash at the specified height.
 // This uses O(1) height-based lookup instead of searching through blocks.
 func (e *EthereumBackend) ContainsBlock(ctx context.Context, hash *chainhash.Hash, height uint32) (bool, error) {
-	// Get contract's latest height to check if our block could exist
-	latestHeight, err := e.contract.GetLatestBlockHeight(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return false, fmt.Errorf("failed to get latest block height: %w", err)
-	}
-
-	// If the block height is beyond the contract's tip, it's definitely not there
-	if uint64(height) > latestHeight.Uint64() {
-		e.logger.Debugw("Block height beyond contract tip",
-			"block_height", height,
-			"contract_tip", latestHeight.Uint64(),
-		)
-
-		return false, nil
-	}
-
-	// Look up the hash stored at this height in the contract
+	// Look up the hash stored at this height in the contract directly.
+	// The contract's getBlockHash reverts with "Block not yet submitted" if height > latestBlockHeight,
+	// so we don't need a separate pre-check - we parse the revert to distinguish missing blocks from errors.
 	// #nosec G115 -- Bitcoin block heights are well below int64 max
 	storedHash, err := e.contract.GetBlockHash(&bind.CallOpts{Context: ctx}, big.NewInt(int64(height)))
 	if err != nil {
+		// Contract reverts with "Block not yet submitted" if height > latestBlockHeight
+		if isBlockNotYetSubmittedError(err) {
+			e.logger.Debugw("Block height beyond contract tip",
+				"block_height", height,
+			)
+
+			return false, nil
+		}
+
 		return false, fmt.Errorf("failed to get block hash at height %d: %w", height, err)
 	}
 

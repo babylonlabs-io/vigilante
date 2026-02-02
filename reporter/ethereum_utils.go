@@ -18,8 +18,19 @@ var (
 	ErrInsufficientTotalDifficulty = fmt.Errorf("insufficient total difficulty")
 	ErrInsufficientChainLength     = fmt.Errorf("insufficient chain length")
 	ErrTooDeepReorg                = fmt.Errorf("reorg too deep (max 1000 blocks)")
+	ErrBlockNotYetSubmitted        = fmt.Errorf("block not yet submitted")
 	ErrGapInHeaderChain            = fmt.Errorf("gap in header chain: blocks don't connect to contract tip")
 )
+
+// isBlockNotYetSubmittedError checks if an error is the contract's "Block not yet submitted" revert.
+// This is used by ContainsBlock to distinguish between "block doesn't exist" and actual errors.
+func isBlockNotYetSubmittedError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	return strings.Contains(err.Error(), "Block not yet submitted")
+}
 
 // parseContractError attempts to parse contract revert errors into friendly messages
 func parseContractError(err error) error {
