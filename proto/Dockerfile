@@ -4,12 +4,15 @@
 # /dev.Dockerfile
 # /make/builder.Dockerfile
 # /tools/Dockerfile
-FROM golang:1.20.5-buster
+FROM golang:1.23-bookworm
 
-RUN apt-get update && apt-get install -y \
-  git \
-  protobuf-compiler='3.6.1*' \
-  clang-format='1:7.0*'
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  git=1:2.39.5-0+deb12u3 \
+  protobuf-compiler=3.21.12-3 \
+  clang-format=1:14.0-55.7~deb12u1 \
+  && rm -rf /var/lib/apt/lists/*
 
 # We don't want any default values for these variables to make sure they're
 # explicitly provided by parsing the go.mod file. Otherwise we might forget to
@@ -21,13 +24,14 @@ ENV PROTOC_GEN_GO_GRPC_VERSION="v1.1.0"
 ENV GOCACHE=/tmp/build/.cache
 ENV GOMODCACHE=/tmp/build/.modcache
 
-RUN cd /tmp \
-  && mkdir -p /tmp/build/.cache \
+WORKDIR /tmp
+
+RUN mkdir -p /tmp/build/.cache \
   && mkdir -p /tmp/build/.modcache \
-  && go install google.golang.org/protobuf/cmd/protoc-gen-go@${PROTOBUF_VERSION} \
-  && go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@${PROTOC_GEN_GO_GRPC_VERSION} \
-  && go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@${GRPC_GATEWAY_VERSION} \
-  && go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@${GRPC_GATEWAY_VERSION} \
+  && go install "google.golang.org/protobuf/cmd/protoc-gen-go@${PROTOBUF_VERSION}" \
+  && go install "google.golang.org/grpc/cmd/protoc-gen-go-grpc@${PROTOC_GEN_GO_GRPC_VERSION}" \
+  && go install "github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@${GRPC_GATEWAY_VERSION}" \
+  && go install "github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@${GRPC_GATEWAY_VERSION}" \
   && go install golang.org/x/tools/cmd/goimports@v0.1.7 \
   && chmod -R 777 /tmp/build/
 
