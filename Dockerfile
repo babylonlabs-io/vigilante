@@ -10,9 +10,9 @@ ARG VERSION
 # Use muslc for static libs
 ARG BUILD_TAGS="muslc"
 # hadolint ignore=DL3018
-RUN apk add --no-cache --update openssh git make build-base linux-headers libc-dev \
+RUN apk add --no-cache openssh git make build-base linux-headers libc-dev \
                                 pkgconfig zeromq-dev musl-dev alpine-sdk libsodium-dev \
-                                libzmq-static libsodium-static gcc && rm -rf /var/cache/apk/*
+                                libzmq-static libsodium-static gcc
 
 # Build
 WORKDIR /go/src/github.com/babylonlabs-io/vigilante
@@ -29,11 +29,11 @@ RUN if [ -n "${VERSION}" ]; then \
 # Cosmwasm - Download correct libwasmvm version
 SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
 RUN WASMVM_VERSION=$(go list -m github.com/CosmWasm/wasmvm/v2 | cut -d ' ' -f 2) && \
-    wget -q https://github.com/CosmWasm/wasmvm/releases/download/$WASMVM_VERSION/libwasmvm_muslc.$(uname -m).a \
+    wget -q https://github.com/CosmWasm/wasmvm/releases/download/"$WASMVM_VERSION"/libwasmvm_muslc."$(uname -m)".a \
         -O /lib/libwasmvm_muslc."$(uname -m)".a && \
     # verify checksum
-    wget -q https://github.com/CosmWasm/wasmvm/releases/download/$WASMVM_VERSION/checksums.txt -O /tmp/checksums.txt && \
-    sha256sum /lib/libwasmvm_muslc."$(uname -m)".a | grep $(cat /tmp/checksums.txt | grep libwasmvm_muslc."$(uname -m)" | cut -d ' ' -f 1)
+    wget -q https://github.com/CosmWasm/wasmvm/releases/download/"$WASMVM_VERSION"/checksums.txt -O /tmp/checksums.txt && \
+    sha256sum /lib/libwasmvm_muslc."$(uname -m)".a | grep "$(cat /tmp/checksums.txt | grep libwasmvm_muslc."$(uname -m)" | cut -d ' ' -f 1)"
 
 RUN CGO_LDFLAGS="$CGO_LDFLAGS -lstdc++ -lm -lsodium" \
     CGO_ENABLED=1 \
@@ -41,11 +41,10 @@ RUN CGO_LDFLAGS="$CGO_LDFLAGS -lstdc++ -lm -lsodium" \
     LINK_STATICALLY=true \
     make build
 
-FROM alpine:3.20 AS run
+FROM alpine:3.21 AS run
 # Create a user
 RUN addgroup --gid 1138 -S vigilante && adduser --uid 1138 -S vigilante -G vigilante
-# hadolint ignore=DL3018
-RUN apk --no-cache add bash curl jq && rm -rf /var/cache/apk/*
+RUN apk add --no-cache bash=5.2.37-r0 curl=8.14.1-r2 jq=1.7.1-r0
 
 # Label should match your github repo
 LABEL org.opencontainers.image.source="https://github.com/babylonlabs-io/vigilante:${VERSION}"
