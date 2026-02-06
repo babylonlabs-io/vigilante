@@ -21,7 +21,11 @@ jobs:
        sudo apt-get install -y libzmq3-dev
 
   docker_pipeline:
-    uses: babylonlabs-io/.github/.github/workflows/reusable_docker_pipeline.yml@22ae8ed7a2ea5c80331758914c4e0ea732eea1ad # v0.15.0
+    permissions:
+      contents: read         # Required by reusable workflow
+      id-token: write        # Required for AWS OIDC
+      security-events: write # Required for Trivy SARIF uploads
+    uses: babylonlabs-io/.github/.github/workflows/reusable_docker_pipeline.yml@d2299e834fcbaca4bf2db043a2939798043d5951 # v0.16.1
     secrets: inherit
     with:
      publish: false
