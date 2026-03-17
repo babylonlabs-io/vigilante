@@ -48,7 +48,7 @@ jobs:
             needs.lint_test.result == 'success'
           )}}
     needs: ["lint_test"]
-    uses: babylonlabs-io/.github/.github/workflows/reusable_docker_pipeline.yml@f2fe73155f10b081ff50d2bfa60cac93aefaa39c # v0.15.0
+    uses: babylonlabs-io/.github/.github/workflows/reusable_docker_pipeline.yml@ec0261b99c53dbd999dadf280116767c10063c65 # v0.15.0
     secrets: inherit
     with:
       publish: true
