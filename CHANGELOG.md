@@ -40,6 +40,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Bug Fixes
 
 * [#513](https://github.com/babylonlabs-io/vigilante/pull/513) fix: replace panic with error return for non-unbonding spending paths
+* [#537](https://github.com/babylonlabs-io/vigilante/pull/537) fix(slasher): use correct tx output index in slashing confirmation
 
 ### Improvements
 
