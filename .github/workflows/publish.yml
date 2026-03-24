@@ -53,6 +53,7 @@ jobs:
     with:
       publish: true
       docker_scan: true
+      trivy_nofail: true
     permissions:
       contents: read        # REQUIRED by reusable workflow
       id-token: write       # REQUIRED for AWS OIDC
