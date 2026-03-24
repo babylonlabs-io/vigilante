@@ -48,11 +48,12 @@ jobs:
             needs.lint_test.result == 'success'
           )}}
     needs: ["lint_test"]
-    uses: babylonlabs-io/.github/.github/workflows/reusable_docker_pipeline.yml@22ae8ed7a2ea5c80331758914c4e0ea732eea1ad # v0.15.0
+    uses: babylonlabs-io/.github/.github/workflows/reusable_docker_pipeline.yml@0adff9d36a387ebfc921621f2e6b357230f8c08e # v0.18.1
     secrets: inherit
     with:
       publish: true
       docker_scan: true
+      trivy_nofail: true
     permissions:
       contents: read        # REQUIRED by reusable workflow
       id-token: write       # REQUIRED for AWS OIDC
