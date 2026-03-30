@@ -43,6 +43,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Improvements
 
+* [#540](https://github.com/babylonlabs-io/vigilante/pull/540) fix: resolve gosec G118 by moving context.WithCancel to call sites, replacing quitContext with quitMonitor helper
 * [#508](https://github.com/babylonlabs-io/vigilante/pull/508) chore: update sample-vigilante.yml
 * [#506](https://github.com/babylonlabs-io/vigilante/pull/506) chore(deps): bump the go_modules group
 
