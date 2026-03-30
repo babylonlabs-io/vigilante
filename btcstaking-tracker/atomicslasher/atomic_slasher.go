@@ -105,19 +105,15 @@ func (as *AtomicSlasher) Stop() error {
 	return stopErr
 }
 
-func (as *AtomicSlasher) quitContext() (context.Context, func()) {
-	ctx, cancel := context.WithCancel(context.Background())
+func (as *AtomicSlasher) quitMonitor(ctx context.Context, cancel context.CancelFunc) {
 	as.wg.Add(1)
 	go func() {
-		defer cancel()
 		defer as.wg.Done()
 
 		select {
 		case <-as.quit:
-
+			cancel()
 		case <-ctx.Done():
 		}
 	}()
-
-	return ctx, cancel
 }

@@ -155,28 +155,25 @@ func (r *Reporter) bootstrap() error {
 	return nil
 }
 
-func (r *Reporter) reporterQuitCtx() (context.Context, func()) {
+func (r *Reporter) reporterQuitMonitor(ctx context.Context, cancel context.CancelFunc) {
 	quit := r.quitChan()
-	ctx, cancel := context.WithCancel(context.Background())
 	r.wg.Add(1)
 	go func() {
-		defer cancel()
 		defer r.wg.Done()
 
 		select {
 		case <-quit:
-
+			cancel()
 		case <-ctx.Done():
 		}
 	}()
-
-	return ctx, cancel
 }
 
 func (r *Reporter) bootstrapWithRetries() {
 	// if we are exiting, we need to cancel this process
-	ctx, cancel := r.reporterQuitCtx()
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	r.reporterQuitMonitor(ctx, cancel)
 	if err := retry.Do(func() error {
 		// we don't want to allow concurrent bootstrap process, if bootstrap is already in progress
 		// we should wait for it to finish

@@ -91,21 +91,17 @@ func New(
 	}, nil
 }
 
-func (bs *BTCSlasher) quitContext() (context.Context, func()) {
-	ctx, cancel := context.WithCancel(context.Background())
+func (bs *BTCSlasher) quitMonitor(ctx context.Context, cancel context.CancelFunc) {
 	bs.wg.Add(1)
 	go func() {
-		defer cancel()
 		defer bs.wg.Done()
 
 		select {
 		case <-bs.quit:
-
+			cancel()
 		case <-ctx.Done():
 		}
 	}()
-
-	return ctx, cancel
 }
 
 func (bs *BTCSlasher) LoadParams() error {
@@ -223,8 +219,9 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedFpBTCSK *btcec.PrivateKey) 
 		bs.wg.Add(1)
 		go func(d *bstypes.BTCDelegationResponse) {
 			defer bs.wg.Done()
-			ctx, cancel := bs.quitContext()
+			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
+			bs.quitMonitor(ctx, cancel)
 
 			// Acquire the semaphore before interacting with the BTC node
 			if err := sem.Acquire(ctx, 1); err != nil {

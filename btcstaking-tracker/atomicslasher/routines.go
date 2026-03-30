@@ -1,6 +1,7 @@
 package atomicslasher
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -118,7 +119,8 @@ func (as *AtomicSlasher) selectiveSlashingReporter() {
 			// get delegation
 			stakingTxHash := slashingTxInfo.StakingTxHash
 			stakingTxHashStr := stakingTxHash.String()
-			ctx, cancel := as.quitContext()
+			ctx, cancel := context.WithCancel(context.Background())
+			as.quitMonitor(ctx, cancel)
 			btcDelResp, err := as.bbnAdapter.BTCDelegation(ctx, stakingTxHashStr)
 			cancel()
 			if err != nil {
@@ -131,7 +133,8 @@ func (as *AtomicSlasher) selectiveSlashingReporter() {
 				continue
 			}
 			// get parameter at the version of this BTC delegation
-			ctx, cancel = as.quitContext()
+			ctx, cancel = context.WithCancel(context.Background())
+			as.quitMonitor(ctx, cancel)
 			paramsVersion := btcDelResp.BtcDelegation.ParamsVersion
 			bsParams, err := as.bbnAdapter.BTCStakingParams(ctx, paramsVersion)
 			cancel()
@@ -162,7 +165,8 @@ func (as *AtomicSlasher) selectiveSlashingReporter() {
 			}
 
 			// skip if the finality provider is already slashed
-			ctx, cancel = as.quitContext()
+			ctx, cancel = context.WithCancel(context.Background())
+			as.quitMonitor(ctx, cancel)
 			isSlashed, err := as.bbnAdapter.IsFPSlashed(ctx, fpPK)
 			if err != nil {
 				as.logger.Error(
@@ -208,7 +212,8 @@ func (as *AtomicSlasher) selectiveSlashingReporter() {
 			}
 
 			// report selective slashing to Babylon
-			ctx, cancel = as.quitContext()
+			ctx, cancel = context.WithCancel(context.Background())
+			as.quitMonitor(ctx, cancel)
 			if err := as.bbnAdapter.ReportSelectiveSlashing(ctx, fpSK); err != nil {
 				// TODO: this implies that all signed covenant members collude with
 				// the finality provider. Decide what to do in this case

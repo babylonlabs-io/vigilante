@@ -57,8 +57,9 @@ func (bs *BTCSlasher) slashBTCDelegation(
 	del *bstypes.BTCDelegationResponse,
 ) {
 	var txHash *chainhash.Hash
-	ctx, cancel := bs.quitContext()
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	bs.quitMonitor(ctx, cancel)
 
 	err := retry.Do(func() error {
 		innerCtx, innerCancel := context.WithCancel(ctx)

@@ -42,21 +42,17 @@ var (
 	ErrSpendPathNotUnbonding = errors.New("spending tx is not unbonding path")
 )
 
-func (sew *StakingEventWatcher) quitContext() (context.Context, func()) {
-	ctx, cancel := context.WithCancel(context.Background())
+func (sew *StakingEventWatcher) quitMonitor(ctx context.Context, cancel context.CancelFunc) {
 	sew.wg.Add(1)
 	go func() {
-		defer cancel()
 		defer sew.wg.Done()
 
 		select {
 		case <-sew.quit:
-
+			cancel()
 		case <-ctx.Done():
 		}
 	}()
-
-	return ctx, cancel
 }
 
 type newDelegation struct {
@@ -588,8 +584,9 @@ func (sew *StakingEventWatcher) checkSpend() error {
 					sew.logger.Warnf("error updating activation Status for staking tx %s: %v", del.StakingTx.TxHash(), err)
 				}
 			}()
-			innerCtx, innerCancel := sew.quitContext()
+			innerCtx, innerCancel := context.WithCancel(context.Background())
 			defer innerCancel()
+			sew.quitMonitor(innerCtx, innerCancel)
 
 			txHash, err := chainhash.NewHashFromStr(response.TxID)
 			if err != nil {
@@ -794,8 +791,9 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 	sew.metrics.NumberOfActivationInProgress.Inc()
 	defer sew.metrics.NumberOfActivationInProgress.Dec()
 
-	ctx, cancel := sew.quitContext()
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	sew.quitMonitor(ctx, cancel)
 
 	defer sew.latency("activateBtcDelegation")()
 	defer func() {
