@@ -1039,13 +1039,15 @@ func maybeResendFromStore(
 	return true, nil
 }
 
-// rehydrateLastSubmittedCheckpointFromStore reloads rl.lastSubmittedCheckpoint
-// from the persisted StoredCheckpoint. It is called on restart when
-// maybeResendFromStore confirms the stored txs are still in the mempool, so
-// that the RBF path in MaybeResubmitSecondCheckpointTx has valid Tx1/Tx2 info
-// instead of a zero-valued struct. Fee is looked up from the mempool entry;
-// if that fails we fall back to the minimum relay fee — RBF will re-derive
-// against the real network state on the first attempt anyway.
+// rehydrateLastSubmittedCheckpointFromStore rebuilds the in-memory
+// lastSubmittedCheckpoint from the persisted StoredCheckpoint after a
+// restart. Without this, a restart while the checkpoint is still in the
+// mempool leaves lastSubmittedCheckpoint zero-valued and the RBF path in
+// MaybeResubmitSecondCheckpointTx operates on nil Tx1/Tx2.
+//
+// Fee isn't persisted, so it's read from the BTC node's mempool entry
+// (falling back to calcMinRelayFee if the tx was just mined). TS is reset
+// to now so the resend interval is honoured after restart.
 func (rl *Relayer) rehydrateLastSubmittedCheckpointFromStore(ckptEpoch uint64) {
 	stored, exists, err := rl.store.LatestCheckpoint()
 	if err != nil || !exists || stored.Epoch != ckptEpoch {
