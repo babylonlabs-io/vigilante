@@ -135,6 +135,15 @@ func (rl *Relayer) SendCheckpointToBTC(ckpt *ckpttypes.RawCheckpointWithMetaResp
 		}
 
 		if hasBeenProcessed {
+			// Restore in-memory state from the store so the subsequent RBF path
+			// in MaybeResubmitSecondCheckpointTx has valid Tx1/Tx2 info. Without
+			// this, a restart while a checkpoint is still in the mempool leaves
+			// lastSubmittedCheckpoint zero-valued and RBF attempts panic (pre
+			// v0.24.0-rc.3) or loop forever on a nil-Tx2 error.
+			if rl.lastSubmittedCheckpoint.Tx2 == nil {
+				rl.rehydrateLastSubmittedCheckpointFromStore(ckptEpoch)
+			}
+
 			return nil
 		}
 	}
@@ -181,6 +190,12 @@ func (rl *Relayer) MaybeResubmitSecondCheckpointTx(ckpt *ckpttypes.RawCheckpoint
 	if ckpt.Status != ckpttypes.Sealed {
 		rl.logger.Errorf("The checkpoint for epoch %v is not sealed", ckptEpoch)
 		rl.metrics.InvalidCheckpointCounter.Inc()
+
+		return nil
+	}
+
+	if rl.lastSubmittedCheckpoint.Tx1 == nil || rl.lastSubmittedCheckpoint.Tx2 == nil {
+		rl.logger.Debugf("lastSubmittedCheckpoint not populated for epoch %v, skipping RBF attempt", ckptEpoch)
 
 		return nil
 	}
@@ -1025,6 +1040,81 @@ func maybeResendFromStore(
 	}
 
 	return true, nil
+}
+
+// rehydrateLastSubmittedCheckpointFromStore reloads rl.lastSubmittedCheckpoint
+// from the persisted StoredCheckpoint. It is called on restart when
+// maybeResendFromStore confirms the stored txs are still in the mempool, so
+// that the RBF path in MaybeResubmitSecondCheckpointTx has valid Tx1/Tx2 info
+// instead of a zero-valued struct. Fee is looked up from the mempool entry;
+// if that fails we fall back to the minimum relay fee — RBF will re-derive
+// against the real network state on the first attempt anyway.
+func (rl *Relayer) rehydrateLastSubmittedCheckpointFromStore(ckptEpoch uint64) {
+	stored, exists, err := rl.store.LatestCheckpoint()
+	if err != nil || !exists || stored.Epoch != ckptEpoch {
+		if err != nil {
+			rl.logger.Warnf("failed to load stored checkpoint for rehydration: %v", err)
+		}
+
+		return
+	}
+
+	tx1Info, err := rl.btcTxInfoFromStoredTx(stored.Tx1)
+	if err != nil {
+		rl.logger.Warnf("failed to rehydrate tx1 for epoch %v: %v", ckptEpoch, err)
+
+		return
+	}
+
+	tx2Info, err := rl.btcTxInfoFromStoredTx(stored.Tx2)
+	if err != nil {
+		rl.logger.Warnf("failed to rehydrate tx2 for epoch %v: %v", ckptEpoch, err)
+
+		return
+	}
+
+	rl.lastSubmittedCheckpoint = &types.CheckpointInfo{
+		Epoch: stored.Epoch,
+		TS:    time.Now(),
+		Tx1:   tx1Info,
+		Tx2:   tx2Info,
+	}
+
+	rl.logger.Infof("Rehydrated lastSubmittedCheckpoint for epoch %v from store", ckptEpoch)
+}
+
+// btcTxInfoFromStoredTx reconstructs a BtcTxInfo from a persisted wire.MsgTx,
+// pulling the fee from the BTC node's mempool entry. Falls back to the minimum
+// relay fee if the mempool entry is unavailable (e.g. the tx was mined
+// between maybeResendFromStore and here).
+func (rl *Relayer) btcTxInfoFromStoredTx(tx *wire.MsgTx) (*types.BtcTxInfo, error) {
+	if tx == nil {
+		return nil, errors.New("stored tx is nil")
+	}
+
+	size, err := calculateTxVirtualSize(tx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compute virtual size: %w", err)
+	}
+
+	txHash := tx.TxHash()
+
+	var fee btcutil.Amount
+	entry, err := rl.GetMempoolEntry(txHash.String())
+	switch {
+	case err == nil && entry != nil:
+		fee = btcutil.Amount(entry.Fee)
+	default:
+		rl.logger.Warnf("mempool entry unavailable for %s, falling back to min relay fee: %v", txHash, err)
+		fee = rl.calcMinRelayFee(size)
+	}
+
+	return &types.BtcTxInfo{
+		TxID: &txHash,
+		Tx:   tx,
+		Size: size,
+		Fee:  fee,
+	}, nil
 }
 
 func (rl *Relayer) getIncrementalRelayFeerate() (btcutil.Amount, error) {
