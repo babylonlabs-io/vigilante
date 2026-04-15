@@ -1045,9 +1045,10 @@ func maybeResendFromStore(
 // mempool leaves lastSubmittedCheckpoint zero-valued and the RBF path in
 // MaybeResubmitSecondCheckpointTx operates on nil Tx1/Tx2.
 //
-// Fee isn't persisted, so it's read from the BTC node's mempool entry
-// (falling back to calcMinRelayFee if the tx was just mined). TS is reset
-// to now so the resend interval is honoured after restart.
+// Fee and TS aren't persisted in the store, so both are pulled from the
+// BTC node's mempool entry (Time for TS, so the resend interval reflects
+// actual mempool age rather than restart time). On lookup failure we fall
+// back to calcMinRelayFee + time.Now().
 func (rl *Relayer) rehydrateLastSubmittedCheckpointFromStore(ckptEpoch uint64) {
 	stored, exists, err := rl.store.LatestCheckpoint()
 	if err != nil || !exists || stored.Epoch != ckptEpoch {
@@ -1058,14 +1059,14 @@ func (rl *Relayer) rehydrateLastSubmittedCheckpointFromStore(ckptEpoch uint64) {
 		return
 	}
 
-	tx1Info, err := rl.btcTxInfoFromStoredTx(stored.Tx1)
+	tx1Info, _, err := rl.btcTxInfoFromStoredTx(stored.Tx1)
 	if err != nil {
 		rl.logger.Warnf("failed to rehydrate tx1 for epoch %v: %v", ckptEpoch, err)
 
 		return
 	}
 
-	tx2Info, err := rl.btcTxInfoFromStoredTx(stored.Tx2)
+	tx2Info, tx2TS, err := rl.btcTxInfoFromStoredTx(stored.Tx2)
 	if err != nil {
 		rl.logger.Warnf("failed to rehydrate tx2 for epoch %v: %v", ckptEpoch, err)
 
@@ -1074,7 +1075,7 @@ func (rl *Relayer) rehydrateLastSubmittedCheckpointFromStore(ckptEpoch uint64) {
 
 	rl.lastSubmittedCheckpoint = &types.CheckpointInfo{
 		Epoch: stored.Epoch,
-		TS:    time.Now(),
+		TS:    tx2TS,
 		Tx1:   tx1Info,
 		Tx2:   tx2Info,
 	}
@@ -1082,30 +1083,39 @@ func (rl *Relayer) rehydrateLastSubmittedCheckpointFromStore(ckptEpoch uint64) {
 	rl.logger.Infof("Rehydrated lastSubmittedCheckpoint for epoch %v from store", ckptEpoch)
 }
 
-// btcTxInfoFromStoredTx reconstructs a BtcTxInfo from a persisted wire.MsgTx,
-// pulling the fee from the BTC node's mempool entry. Falls back to the minimum
-// relay fee if the mempool entry is unavailable (e.g. the tx was mined
-// between maybeResendFromStore and here).
-func (rl *Relayer) btcTxInfoFromStoredTx(tx *wire.MsgTx) (*types.BtcTxInfo, error) {
+// btcTxInfoFromStoredTx reconstructs a BtcTxInfo from a persisted wire.MsgTx
+// and returns the mempool-entry timestamp alongside it. Fee is converted
+// from the mempool entry's BTC-denominated float; TS is taken from the
+// entry's Time field (unix seconds). If the mempool entry is unavailable
+// (e.g. the tx was mined between maybeResendFromStore and here), falls
+// back to the minimum relay fee and the current time.
+func (rl *Relayer) btcTxInfoFromStoredTx(tx *wire.MsgTx) (*types.BtcTxInfo, time.Time, error) {
 	if tx == nil {
-		return nil, errors.New("stored tx is nil")
+		return nil, time.Time{}, errors.New("stored tx is nil")
 	}
 
 	size, err := calculateTxVirtualSize(tx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to compute virtual size: %w", err)
+		return nil, time.Time{}, fmt.Errorf("failed to compute virtual size: %w", err)
 	}
 
 	txHash := tx.TxHash()
 
-	var fee btcutil.Amount
-	entry, err := rl.GetMempoolEntry(txHash.String())
-	switch {
-	case err == nil && entry != nil:
-		fee = btcutil.Amount(entry.Fee)
-	default:
-		rl.logger.Warnf("mempool entry unavailable for %s, falling back to min relay fee: %v", txHash, err)
-		fee = rl.calcMinRelayFee(size)
+	fee := rl.calcMinRelayFee(size)
+	ts := time.Now()
+
+	entry, entryErr := rl.GetMempoolEntry(txHash.String())
+	if entryErr != nil || entry == nil {
+		rl.logger.Warnf("mempool entry unavailable for %s, falling back to min relay fee / now: %v", txHash, entryErr)
+	} else {
+		if feeAmount, convErr := btcutil.NewAmount(entry.Fee); convErr == nil {
+			fee = feeAmount
+		} else {
+			rl.logger.Warnf("could not convert mempool fee %v for %s: %v, falling back to min relay fee", entry.Fee, txHash, convErr)
+		}
+		if entry.Time > 0 {
+			ts = time.Unix(entry.Time, 0)
+		}
 	}
 
 	return &types.BtcTxInfo{
@@ -1113,7 +1123,7 @@ func (rl *Relayer) btcTxInfoFromStoredTx(tx *wire.MsgTx) (*types.BtcTxInfo, erro
 		Tx:   tx,
 		Size: size,
 		Fee:  fee,
-	}, nil
+	}, ts, nil
 }
 
 func (rl *Relayer) getIncrementalRelayFeerate() (btcutil.Amount, error) {

@@ -1810,7 +1810,7 @@ func TestRehydrateLastSubmittedCheckpointFromStore(t *testing.T) {
 	tx2 := testdatagen.GenRandomTx(r)
 	const epoch uint64 = 42
 
-	t.Run("rehydrates from stored checkpoint using mempool fee", func(t *testing.T) {
+	t.Run("rehydrates from stored checkpoint using mempool fee and time", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		t.Cleanup(ctrl.Finish)
 
@@ -1819,10 +1819,12 @@ func TestRehydrateLastSubmittedCheckpointFromStore(t *testing.T) {
 
 		require.NoError(t, rl.store.PutCheckpoint(store.NewStoredCheckpoint(tx1, tx2, epoch)))
 
+		// Fee is BTC-denominated in the RPC response; 0.00001234 BTC = 1234 sat.
+		mempoolTime := time.Now().Add(-5 * time.Minute).Unix()
 		mockWallet.EXPECT().GetMempoolEntry(tx1.TxHash().String()).
-			Return(&btcjson.GetMempoolEntryResult{Fee: 1234}, nil)
+			Return(&btcjson.GetMempoolEntryResult{Fee: 0.00001234, Time: mempoolTime}, nil)
 		mockWallet.EXPECT().GetMempoolEntry(tx2.TxHash().String()).
-			Return(&btcjson.GetMempoolEntryResult{Fee: 5678}, nil)
+			Return(&btcjson.GetMempoolEntryResult{Fee: 0.00005678, Time: mempoolTime}, nil)
 
 		rl.rehydrateLastSubmittedCheckpointFromStore(epoch)
 
@@ -1834,6 +1836,7 @@ func TestRehydrateLastSubmittedCheckpointFromStore(t *testing.T) {
 		require.Equal(t, btcutil.Amount(1234), rl.lastSubmittedCheckpoint.Tx1.Fee)
 		require.Equal(t, btcutil.Amount(5678), rl.lastSubmittedCheckpoint.Tx2.Fee)
 		require.Greater(t, rl.lastSubmittedCheckpoint.Tx2.Size, int64(0))
+		require.Equal(t, mempoolTime, rl.lastSubmittedCheckpoint.TS.Unix())
 	})
 
 	t.Run("falls back to min relay fee when mempool entry missing", func(t *testing.T) {
