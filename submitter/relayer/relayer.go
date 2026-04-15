@@ -136,10 +136,7 @@ func (rl *Relayer) SendCheckpointToBTC(ckpt *ckpttypes.RawCheckpointWithMetaResp
 
 		if hasBeenProcessed {
 			// Restore in-memory state from the store so the subsequent RBF path
-			// in MaybeResubmitSecondCheckpointTx has valid Tx1/Tx2 info. Without
-			// this, a restart while a checkpoint is still in the mempool leaves
-			// lastSubmittedCheckpoint zero-valued and RBF attempts panic (pre
-			// v0.24.0-rc.3) or loop forever on a nil-Tx2 error.
+			// in MaybeResubmitSecondCheckpointTx has valid Tx1/Tx2 info.
 			if rl.lastSubmittedCheckpoint.Tx2 == nil {
 				rl.rehydrateLastSubmittedCheckpointFromStore(ckptEpoch)
 			}
