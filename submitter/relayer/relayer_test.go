@@ -1809,83 +1809,93 @@ func TestRehydrateLastSubmittedCheckpointFromStore(t *testing.T) {
 	tx1 := testdatagen.GenRandomTx(r)
 	tx2 := testdatagen.GenRandomTx(r)
 	const epoch uint64 = 42
+	mempoolTime := time.Now().Add(-5 * time.Minute).Unix()
 
-	t.Run("rehydrates from stored checkpoint using mempool fee and time", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		t.Cleanup(ctrl.Finish)
+	tests := []struct {
+		name       string
+		seedStore  bool
+		queryEpoch uint64
+		mockSetup  func(*mocks.MockBTCWallet)
+		validate   func(*testing.T, *Relayer)
+	}{
+		{
+			name:       "rehydrates from stored checkpoint using mempool fee and time",
+			seedStore:  true,
+			queryEpoch: epoch,
+			mockSetup: func(m *mocks.MockBTCWallet) {
+				// Fee is BTC-denominated in the RPC response; 0.00001234 BTC = 1234 sat.
+				m.EXPECT().GetMempoolEntry(tx1.TxHash().String()).
+					Return(&btcjson.GetMempoolEntryResult{Fee: 0.00001234, Time: mempoolTime}, nil)
+				m.EXPECT().GetMempoolEntry(tx2.TxHash().String()).
+					Return(&btcjson.GetMempoolEntryResult{Fee: 0.00005678, Time: mempoolTime}, nil)
+			},
+			validate: func(t *testing.T, rl *Relayer) {
+				require.Equal(t, epoch, rl.lastSubmittedCheckpoint.Epoch)
+				require.NotNil(t, rl.lastSubmittedCheckpoint.Tx1)
+				require.NotNil(t, rl.lastSubmittedCheckpoint.Tx2)
+				require.Equal(t, tx1.TxHash(), *rl.lastSubmittedCheckpoint.Tx1.TxID)
+				require.Equal(t, tx2.TxHash(), *rl.lastSubmittedCheckpoint.Tx2.TxID)
+				require.Equal(t, btcutil.Amount(1234), rl.lastSubmittedCheckpoint.Tx1.Fee)
+				require.Equal(t, btcutil.Amount(5678), rl.lastSubmittedCheckpoint.Tx2.Fee)
+				require.Greater(t, rl.lastSubmittedCheckpoint.Tx2.Size, int64(0))
+				require.Equal(t, mempoolTime, rl.lastSubmittedCheckpoint.TS.Unix())
+			},
+		},
+		{
+			name:       "falls back to min relay fee when mempool entry missing",
+			seedStore:  true,
+			queryEpoch: epoch,
+			mockSetup: func(m *mocks.MockBTCWallet) {
+				m.EXPECT().GetMempoolEntry(gomock.Any()).
+					Return(nil, errors.New("tx not in mempool")).Times(2)
+			},
+			validate: func(t *testing.T, rl *Relayer) {
+				require.Equal(t, epoch, rl.lastSubmittedCheckpoint.Epoch)
+				require.NotNil(t, rl.lastSubmittedCheckpoint.Tx2)
+				// fallback is calcMinRelayFee which is > 0 for any non-empty tx
+				require.Greater(t, rl.lastSubmittedCheckpoint.Tx2.Fee, btcutil.Amount(0))
+			},
+		},
+		{
+			name:       "no-op when epoch does not match stored",
+			seedStore:  true,
+			queryEpoch: epoch + 1,
+			mockSetup:  func(_ *mocks.MockBTCWallet) {},
+			validate: func(t *testing.T, rl *Relayer) {
+				require.Nil(t, rl.lastSubmittedCheckpoint.Tx1)
+				require.Nil(t, rl.lastSubmittedCheckpoint.Tx2)
+			},
+		},
+		{
+			name:       "no-op when store empty",
+			seedStore:  false,
+			queryEpoch: epoch,
+			mockSetup:  func(_ *mocks.MockBTCWallet) {},
+			validate: func(t *testing.T, rl *Relayer) {
+				require.Nil(t, rl.lastSubmittedCheckpoint.Tx1)
+				require.Nil(t, rl.lastSubmittedCheckpoint.Tx2)
+			},
+		},
+	}
 
-		mockWallet := mocks.NewMockBTCWallet(ctrl)
-		rl := newRehydrationRelayer(t, mockWallet)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			t.Cleanup(ctrl.Finish)
 
-		require.NoError(t, rl.store.PutCheckpoint(store.NewStoredCheckpoint(tx1, tx2, epoch)))
+			mockWallet := mocks.NewMockBTCWallet(ctrl)
+			rl := newRehydrationRelayer(t, mockWallet)
 
-		// Fee is BTC-denominated in the RPC response; 0.00001234 BTC = 1234 sat.
-		mempoolTime := time.Now().Add(-5 * time.Minute).Unix()
-		mockWallet.EXPECT().GetMempoolEntry(tx1.TxHash().String()).
-			Return(&btcjson.GetMempoolEntryResult{Fee: 0.00001234, Time: mempoolTime}, nil)
-		mockWallet.EXPECT().GetMempoolEntry(tx2.TxHash().String()).
-			Return(&btcjson.GetMempoolEntryResult{Fee: 0.00005678, Time: mempoolTime}, nil)
+			if tt.seedStore {
+				require.NoError(t, rl.store.PutCheckpoint(store.NewStoredCheckpoint(tx1, tx2, epoch)))
+			}
+			tt.mockSetup(mockWallet)
 
-		rl.rehydrateLastSubmittedCheckpointFromStore(epoch)
+			rl.rehydrateLastSubmittedCheckpointFromStore(tt.queryEpoch)
 
-		require.Equal(t, epoch, rl.lastSubmittedCheckpoint.Epoch)
-		require.NotNil(t, rl.lastSubmittedCheckpoint.Tx1)
-		require.NotNil(t, rl.lastSubmittedCheckpoint.Tx2)
-		require.Equal(t, tx1.TxHash(), *rl.lastSubmittedCheckpoint.Tx1.TxID)
-		require.Equal(t, tx2.TxHash(), *rl.lastSubmittedCheckpoint.Tx2.TxID)
-		require.Equal(t, btcutil.Amount(1234), rl.lastSubmittedCheckpoint.Tx1.Fee)
-		require.Equal(t, btcutil.Amount(5678), rl.lastSubmittedCheckpoint.Tx2.Fee)
-		require.Greater(t, rl.lastSubmittedCheckpoint.Tx2.Size, int64(0))
-		require.Equal(t, mempoolTime, rl.lastSubmittedCheckpoint.TS.Unix())
-	})
-
-	t.Run("falls back to min relay fee when mempool entry missing", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		t.Cleanup(ctrl.Finish)
-
-		mockWallet := mocks.NewMockBTCWallet(ctrl)
-		rl := newRehydrationRelayer(t, mockWallet)
-
-		require.NoError(t, rl.store.PutCheckpoint(store.NewStoredCheckpoint(tx1, tx2, epoch)))
-
-		mockWallet.EXPECT().GetMempoolEntry(gomock.Any()).
-			Return(nil, errors.New("tx not in mempool")).Times(2)
-
-		rl.rehydrateLastSubmittedCheckpointFromStore(epoch)
-
-		require.Equal(t, epoch, rl.lastSubmittedCheckpoint.Epoch)
-		require.NotNil(t, rl.lastSubmittedCheckpoint.Tx2)
-		// fallback is calcMinRelayFee which is > 0 for any non-empty tx
-		require.Greater(t, rl.lastSubmittedCheckpoint.Tx2.Fee, btcutil.Amount(0))
-	})
-
-	t.Run("no-op when epoch does not match stored", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		t.Cleanup(ctrl.Finish)
-
-		mockWallet := mocks.NewMockBTCWallet(ctrl)
-		rl := newRehydrationRelayer(t, mockWallet)
-		require.NoError(t, rl.store.PutCheckpoint(store.NewStoredCheckpoint(tx1, tx2, epoch)))
-
-		// GetMempoolEntry must NOT be called for a mismatched epoch.
-		rl.rehydrateLastSubmittedCheckpointFromStore(epoch + 1)
-
-		require.Nil(t, rl.lastSubmittedCheckpoint.Tx1)
-		require.Nil(t, rl.lastSubmittedCheckpoint.Tx2)
-	})
-
-	t.Run("no-op when store empty", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		t.Cleanup(ctrl.Finish)
-
-		mockWallet := mocks.NewMockBTCWallet(ctrl)
-		rl := newRehydrationRelayer(t, mockWallet)
-
-		rl.rehydrateLastSubmittedCheckpointFromStore(epoch)
-
-		require.Nil(t, rl.lastSubmittedCheckpoint.Tx1)
-		require.Nil(t, rl.lastSubmittedCheckpoint.Tx2)
-	})
+			tt.validate(t, rl)
+		})
+	}
 }
 
 // nolint:paralleltest
