@@ -136,9 +136,13 @@ func (rl *Relayer) SendCheckpointToBTC(ckpt *ckpttypes.RawCheckpointWithMetaResp
 
 		if hasBeenProcessed {
 			// Restore in-memory state from the store so the subsequent RBF path
-			// in MaybeResubmitSecondCheckpointTx has valid Tx1/Tx2 info.
+			// in MaybeResubmitSecondCheckpointTx has valid Tx1/Tx2 info. On
+			// failure, propagate so the next polling cycle retries instead of
+			// silently disabling RBF until the next restart.
 			if rl.lastSubmittedCheckpoint.Tx2 == nil {
-				rl.rehydrateLastSubmittedCheckpointFromStore(ckptEpoch)
+				if err := rl.rehydrateLastSubmittedCheckpointFromStore(ckptEpoch); err != nil {
+					return fmt.Errorf("failed to rehydrate lastSubmittedCheckpoint: %w", err)
+				}
 			}
 
 			return nil
@@ -192,7 +196,7 @@ func (rl *Relayer) MaybeResubmitSecondCheckpointTx(ckpt *ckpttypes.RawCheckpoint
 	}
 
 	if rl.lastSubmittedCheckpoint.Tx1 == nil || rl.lastSubmittedCheckpoint.Tx2 == nil {
-		rl.logger.Debugf("lastSubmittedCheckpoint not populated for epoch %v, skipping RBF attempt", ckptEpoch)
+		rl.logger.Warnf("lastSubmittedCheckpoint not populated for epoch %v, skipping RBF attempt", ckptEpoch)
 
 		return nil
 	}
@@ -1047,30 +1051,26 @@ func maybeResendFromStore(
 //
 // Fee and TS aren't persisted in the store, so both are pulled from the
 // BTC node's mempool entry (Time for TS, so the resend interval reflects
-// actual mempool age rather than restart time). On lookup failure we fall
-// back to calcMinRelayFee + time.Now().
-func (rl *Relayer) rehydrateLastSubmittedCheckpointFromStore(ckptEpoch uint64) {
+// actual mempool age rather than restart time). Lookup failures are
+// returned so the caller can retry on the next polling cycle rather than
+// proceeding with guessed-low fees that would later fail BIP125 rule 4.
+func (rl *Relayer) rehydrateLastSubmittedCheckpointFromStore(ckptEpoch uint64) error {
 	stored, exists, err := rl.store.LatestCheckpoint()
-	if err != nil || !exists || stored.Epoch != ckptEpoch {
-		if err != nil {
-			rl.logger.Warnf("failed to load stored checkpoint for rehydration: %v", err)
-		}
-
-		return
+	if err != nil {
+		return fmt.Errorf("failed to load stored checkpoint: %w", err)
+	}
+	if !exists || stored.Epoch != ckptEpoch {
+		return nil
 	}
 
 	tx1Info, _, err := rl.btcTxInfoFromStoredTx(stored.Tx1)
 	if err != nil {
-		rl.logger.Warnf("failed to rehydrate tx1 for epoch %v: %v", ckptEpoch, err)
-
-		return
+		return fmt.Errorf("failed to rehydrate tx1 for epoch %v: %w", ckptEpoch, err)
 	}
 
 	tx2Info, tx2TS, err := rl.btcTxInfoFromStoredTx(stored.Tx2)
 	if err != nil {
-		rl.logger.Warnf("failed to rehydrate tx2 for epoch %v: %v", ckptEpoch, err)
-
-		return
+		return fmt.Errorf("failed to rehydrate tx2 for epoch %v: %w", ckptEpoch, err)
 	}
 
 	rl.lastSubmittedCheckpoint = &types.CheckpointInfo{
@@ -1081,14 +1081,16 @@ func (rl *Relayer) rehydrateLastSubmittedCheckpointFromStore(ckptEpoch uint64) {
 	}
 
 	rl.logger.Infof("Rehydrated lastSubmittedCheckpoint for epoch %v from store", ckptEpoch)
+
+	return nil
 }
 
 // btcTxInfoFromStoredTx reconstructs a BtcTxInfo from a persisted wire.MsgTx
 // and returns the mempool-entry timestamp alongside it. Fee is converted
 // from the mempool entry's BTC-denominated float; TS is taken from the
 // entry's Time field (unix seconds). If the mempool entry is unavailable
-// (e.g. the tx was mined between maybeResendFromStore and here), falls
-// back to the minimum relay fee and the current time.
+// (e.g. the tx was mined or evicted), the error is returned so the caller
+// can retry rather than seeding RBF with a fabricated fee.
 func (rl *Relayer) btcTxInfoFromStoredTx(tx *wire.MsgTx) (*types.BtcTxInfo, time.Time, error) {
 	if tx == nil {
 		return nil, time.Time{}, errors.New("stored tx is nil")
@@ -1101,21 +1103,22 @@ func (rl *Relayer) btcTxInfoFromStoredTx(tx *wire.MsgTx) (*types.BtcTxInfo, time
 
 	txHash := tx.TxHash()
 
-	fee := rl.calcMinRelayFee(size)
-	ts := time.Now()
+	entry, err := rl.GetMempoolEntry(txHash.String())
+	if err != nil {
+		return nil, time.Time{}, fmt.Errorf("mempool entry unavailable for %s: %w", txHash, err)
+	}
+	if entry == nil {
+		return nil, time.Time{}, fmt.Errorf("mempool entry nil for %s", txHash)
+	}
 
-	entry, entryErr := rl.GetMempoolEntry(txHash.String())
-	if entryErr != nil || entry == nil {
-		rl.logger.Warnf("mempool entry unavailable for %s, falling back to min relay fee / now: %v", txHash, entryErr)
-	} else {
-		if feeAmount, convErr := btcutil.NewAmount(entry.Fee); convErr == nil {
-			fee = feeAmount
-		} else {
-			rl.logger.Warnf("could not convert mempool fee %v for %s: %v, falling back to min relay fee", entry.Fee, txHash, convErr)
-		}
-		if entry.Time > 0 {
-			ts = time.Unix(entry.Time, 0)
-		}
+	fee, err := btcutil.NewAmount(entry.Fee)
+	if err != nil {
+		return nil, time.Time{}, fmt.Errorf("could not convert mempool fee %v for %s: %w", entry.Fee, txHash, err)
+	}
+
+	ts := time.Now()
+	if entry.Time > 0 {
+		ts = time.Unix(entry.Time, 0)
 	}
 
 	return &types.BtcTxInfo{

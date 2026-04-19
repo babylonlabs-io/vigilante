@@ -1816,6 +1816,7 @@ func TestRehydrateLastSubmittedCheckpointFromStore(t *testing.T) {
 		seedStore  bool
 		queryEpoch uint64
 		mockSetup  func(*mocks.MockBTCWallet)
+		expectErr  bool
 		validate   func(*testing.T, *Relayer)
 	}{
 		{
@@ -1842,18 +1843,17 @@ func TestRehydrateLastSubmittedCheckpointFromStore(t *testing.T) {
 			},
 		},
 		{
-			name:       "falls back to min relay fee when mempool entry missing",
+			name:       "errors when mempool entry missing so caller can retry",
 			seedStore:  true,
 			queryEpoch: epoch,
 			mockSetup: func(m *mocks.MockBTCWallet) {
 				m.EXPECT().GetMempoolEntry(gomock.Any()).
-					Return(nil, errors.New("tx not in mempool")).Times(2)
+					Return(nil, errors.New("tx not in mempool"))
 			},
+			expectErr: true,
 			validate: func(t *testing.T, rl *Relayer) {
-				require.Equal(t, epoch, rl.lastSubmittedCheckpoint.Epoch)
-				require.NotNil(t, rl.lastSubmittedCheckpoint.Tx2)
-				// fallback is calcMinRelayFee which is > 0 for any non-empty tx
-				require.Greater(t, rl.lastSubmittedCheckpoint.Tx2.Fee, btcutil.Amount(0))
+				require.Nil(t, rl.lastSubmittedCheckpoint.Tx1)
+				require.Nil(t, rl.lastSubmittedCheckpoint.Tx2)
 			},
 		},
 		{
@@ -1891,7 +1891,12 @@ func TestRehydrateLastSubmittedCheckpointFromStore(t *testing.T) {
 			}
 			tt.mockSetup(mockWallet)
 
-			rl.rehydrateLastSubmittedCheckpointFromStore(tt.queryEpoch)
+			err := rl.rehydrateLastSubmittedCheckpointFromStore(tt.queryEpoch)
+			if tt.expectErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
 
 			tt.validate(t, rl)
 		})
