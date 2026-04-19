@@ -39,6 +39,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Bug Fixes
 
+* [#541](https://github.com/babylonlabs-io/vigilante/pull/541) fix: rehydrate submitter `lastSubmittedCheckpoint` from store on restart so the RBF path has valid Tx1/Tx2 info instead of panicking / looping on a nil Tx2
 * [#513](https://github.com/babylonlabs-io/vigilante/pull/513) fix: replace panic with error return for non-unbonding spending paths
 
 ### Improvements

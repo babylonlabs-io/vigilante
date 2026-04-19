@@ -8,9 +8,13 @@ import (
 	"time"
 
 	"github.com/babylonlabs-io/babylon/v4/testutil/datagen"
+	ckpttypes "github.com/babylonlabs-io/babylon/v4/x/checkpointing/types"
 	"github.com/babylonlabs-io/vigilante/btcclient"
 	"github.com/babylonlabs-io/vigilante/config"
+	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/submitter/store"
+	"github.com/babylonlabs-io/vigilante/testutil"
+	testdatagen "github.com/babylonlabs-io/vigilante/testutil/datagen"
 	"github.com/babylonlabs-io/vigilante/testutil/mocks"
 	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/btcjson"
@@ -1779,3 +1783,143 @@ func (m *MockCounter) Write(*prometheus.Metric) error {
 func (m *MockCounter) Describe(chan<- *prometheus.Desc) {}
 
 func (m *MockCounter) Collect(chan<- prometheus.Metric) {}
+
+func newRehydrationRelayer(t *testing.T, mockWallet *mocks.MockBTCWallet) *Relayer {
+	t.Helper()
+
+	db := testutil.MakeTestBackend(t)
+	subStore, err := store.NewSubmitterStore(db)
+	require.NoError(t, err)
+
+	logger, _ := zap.NewDevelopment()
+
+	return &Relayer{
+		BTCWallet:               mockWallet,
+		Estimator:               &MockEstimator{},
+		store:                   subStore,
+		config:                  &config.SubmitterConfig{ResendIntervalSeconds: 10},
+		logger:                  logger.Sugar().With("module", "relayer"),
+		lastSubmittedCheckpoint: &types.CheckpointInfo{},
+	}
+}
+
+// nolint:paralleltest
+func TestRehydrateLastSubmittedCheckpointFromStore(t *testing.T) {
+	r := rand.New(rand.NewSource(1))
+	tx1 := testdatagen.GenRandomTx(r)
+	tx2 := testdatagen.GenRandomTx(r)
+	const epoch uint64 = 42
+	mempoolTime := time.Now().Add(-5 * time.Minute).Unix()
+
+	tests := []struct {
+		name       string
+		seedStore  bool
+		queryEpoch uint64
+		mockSetup  func(*mocks.MockBTCWallet)
+		expectErr  bool
+		validate   func(*testing.T, *Relayer)
+	}{
+		{
+			name:       "rehydrates from stored checkpoint using mempool fee and time",
+			seedStore:  true,
+			queryEpoch: epoch,
+			mockSetup: func(m *mocks.MockBTCWallet) {
+				// Fee is BTC-denominated in the RPC response; 0.00001234 BTC = 1234 sat.
+				m.EXPECT().GetMempoolEntry(tx1.TxHash().String()).
+					Return(&btcjson.GetMempoolEntryResult{Fee: 0.00001234, Time: mempoolTime}, nil)
+				m.EXPECT().GetMempoolEntry(tx2.TxHash().String()).
+					Return(&btcjson.GetMempoolEntryResult{Fee: 0.00005678, Time: mempoolTime}, nil)
+			},
+			validate: func(t *testing.T, rl *Relayer) {
+				require.Equal(t, epoch, rl.lastSubmittedCheckpoint.Epoch)
+				require.NotNil(t, rl.lastSubmittedCheckpoint.Tx1)
+				require.NotNil(t, rl.lastSubmittedCheckpoint.Tx2)
+				require.Equal(t, tx1.TxHash(), *rl.lastSubmittedCheckpoint.Tx1.TxID)
+				require.Equal(t, tx2.TxHash(), *rl.lastSubmittedCheckpoint.Tx2.TxID)
+				require.Equal(t, btcutil.Amount(1234), rl.lastSubmittedCheckpoint.Tx1.Fee)
+				require.Equal(t, btcutil.Amount(5678), rl.lastSubmittedCheckpoint.Tx2.Fee)
+				require.Greater(t, rl.lastSubmittedCheckpoint.Tx2.Size, int64(0))
+				require.Equal(t, mempoolTime, rl.lastSubmittedCheckpoint.TS.Unix())
+			},
+		},
+		{
+			name:       "errors when mempool entry missing so caller can retry",
+			seedStore:  true,
+			queryEpoch: epoch,
+			mockSetup: func(m *mocks.MockBTCWallet) {
+				m.EXPECT().GetMempoolEntry(gomock.Any()).
+					Return(nil, errors.New("tx not in mempool"))
+			},
+			expectErr: true,
+			validate: func(t *testing.T, rl *Relayer) {
+				require.Nil(t, rl.lastSubmittedCheckpoint.Tx1)
+				require.Nil(t, rl.lastSubmittedCheckpoint.Tx2)
+			},
+		},
+		{
+			name:       "no-op when epoch does not match stored",
+			seedStore:  true,
+			queryEpoch: epoch + 1,
+			mockSetup:  func(_ *mocks.MockBTCWallet) {},
+			validate: func(t *testing.T, rl *Relayer) {
+				require.Nil(t, rl.lastSubmittedCheckpoint.Tx1)
+				require.Nil(t, rl.lastSubmittedCheckpoint.Tx2)
+			},
+		},
+		{
+			name:       "no-op when store empty",
+			seedStore:  false,
+			queryEpoch: epoch,
+			mockSetup:  func(_ *mocks.MockBTCWallet) {},
+			validate: func(t *testing.T, rl *Relayer) {
+				require.Nil(t, rl.lastSubmittedCheckpoint.Tx1)
+				require.Nil(t, rl.lastSubmittedCheckpoint.Tx2)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			t.Cleanup(ctrl.Finish)
+
+			mockWallet := mocks.NewMockBTCWallet(ctrl)
+			rl := newRehydrationRelayer(t, mockWallet)
+
+			if tt.seedStore {
+				require.NoError(t, rl.store.PutCheckpoint(store.NewStoredCheckpoint(tx1, tx2, epoch)))
+			}
+			tt.mockSetup(mockWallet)
+
+			err := rl.rehydrateLastSubmittedCheckpointFromStore(tt.queryEpoch)
+			if tt.expectErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+
+			tt.validate(t, rl)
+		})
+	}
+}
+
+// nolint:paralleltest
+func TestMaybeResubmitSecondCheckpointTx_EmptyState(t *testing.T) {
+	// When rl.lastSubmittedCheckpoint has not been populated (e.g. right after
+	// restart before any rehydration), MaybeResubmitSecondCheckpointTx must
+	// bail out instead of entering the retry loop with nil Tx1/Tx2.
+	ctrl := gomock.NewController(t)
+	t.Cleanup(ctrl.Finish)
+
+	mockWallet := mocks.NewMockBTCWallet(ctrl)
+	rl := newRehydrationRelayer(t, mockWallet)
+	rl.metrics = metrics.NewSubmitterMetrics().RelayerMetrics
+
+	ckpt := &ckpttypes.RawCheckpointWithMetaResponse{
+		Status: ckpttypes.Sealed,
+		Ckpt:   &ckpttypes.RawCheckpointResponse{EpochNum: 99},
+	}
+
+	err := rl.MaybeResubmitSecondCheckpointTx(ckpt)
+	require.NoError(t, err)
+}
