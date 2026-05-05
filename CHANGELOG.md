@@ -41,12 +41,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 * [#541](https://github.com/babylonlabs-io/vigilante/pull/541) fix: rehydrate submitter `lastSubmittedCheckpoint` from store on restart so the RBF path has valid Tx1/Tx2 info instead of panicking / looping on a nil Tx2
 * [#513](https://github.com/babylonlabs-io/vigilante/pull/513) fix: replace panic with error return for non-unbonding spending paths
-* [GHSA-wcr8-g34v-7565](https://github.com/babylonlabs-io/babylon/security/advisories/GHSA-wcr8-g34v-7565) fix: add possibility to unbond parent of stake expansion child transaction that unbonds before being `ACTIVE`
 
 ### Improvements
 
 * [#508](https://github.com/babylonlabs-io/vigilante/pull/508) chore: update sample-vigilante.yml
 * [#506](https://github.com/babylonlabs-io/vigilante/pull/506) chore(deps): bump the go_modules group
+
+## v0.24.2
+
+### Bug Fixes
+
+* [GHSA-wcr8-g34v-7565](https://github.com/babylonlabs-io/babylon/security/advisories/GHSA-wcr8-g34v-7565) fix: add possibility to unbond parent of stake expansion child transaction that unbonds before being `ACTIVE`
 
 ## v0.24.1
 
