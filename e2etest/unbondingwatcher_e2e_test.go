@@ -895,8 +895,8 @@ func TestStakeExpansionFlow(t *testing.T) {
 }
 
 // TestStakeExpansionParentUnbondAtOneDeepWhenChildUnbondedEarly drives the
-// vigilante-side fix for GHSA-wcr8-g34v-7565 end-to-end on a real bitcoind +
-// babylond pair.
+// vigilante-side stake-expansion-with-unbonded-child fix end-to-end on a
+// real bitcoind + babylond pair.
 //
 // Scenario (mirrors the post-upgrade live-attack regression in babylon's
 // upgrades_v4_3_phantom_test.go):
