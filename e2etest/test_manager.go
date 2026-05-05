@@ -63,6 +63,9 @@ type TestManagerConfig struct {
 	NumMatureOutputsInWallet uint32
 	EpochInterval            uint
 	NumCovenants             uint
+	// BabylonVersion overrides the babylond docker image tag for this test.
+	// Empty means use the default derived from go.mod.
+	BabylonVersion string
 }
 
 func defaultTestManagerConfig() *TestManagerConfig {
@@ -88,6 +91,16 @@ func WithEpochInterval(interval uint) TestManagerOption {
 func WithNumCovenants(numCovenants uint) TestManagerOption {
 	return func(config *TestManagerConfig) {
 		config.NumCovenants = numCovenants
+	}
+}
+
+// WithBabylonVersion runs the babylond container at a specific image tag,
+// independent of the babylon Go module version pinned in go.mod. Use sparingly
+// — the protobuf wire format must remain compatible between the client (Go
+// module) and the server (image tag).
+func WithBabylonVersion(version string) TestManagerOption {
+	return func(config *TestManagerConfig) {
+		config.BabylonVersion = version
 	}
 }
 
@@ -130,6 +143,10 @@ func StartManager(t *testing.T, options ...TestManagerOption) *TestManager {
 	tmCfg := defaultTestManagerConfig()
 	for _, option := range options {
 		option(tmCfg)
+	}
+
+	if tmCfg.BabylonVersion != "" {
+		manager.SetBabylonVersion(tmCfg.BabylonVersion)
 	}
 
 	btcHandler := NewBitcoindHandler(t, manager)
