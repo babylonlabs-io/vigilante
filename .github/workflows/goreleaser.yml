@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - '*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g. v0.24.3)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -14,11 +20,13 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GORELEASER_IMAGE: ghcr.io/goreleaser/goreleaser-cross:v1.27.0
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2 https://github.com/actions/checkout/releases/tag/v6.0.2
         with:
           fetch-depth: 0
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5 https://github.com/actions/setup-go/releases/tag/v5
