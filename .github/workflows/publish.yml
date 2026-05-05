@@ -7,10 +7,20 @@ on:
     tags:
       - '*'
   workflow_dispatch:
+    inputs:
+      skip-lint-test:
+        description: "Skip tests"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
 
 jobs:
   lint_test:
-    uses: babylonlabs-io/.github/.github/workflows/reusable_go_lint_test.yml@v0.13.3
+    uses: babylonlabs-io/.github/.github/workflows/reusable_go_lint_test.yml@98e4de18638b3d0738c9cbf7e7dfc6e34524db54 # v0.19.1 https://github.com/babylonlabs-io/.github/releases/tag/v0.19.1
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs['skip-lint-test'] == true) }}
     with:
       go-version: '1.25'
       go-lint-version: 'v2.4.0'
@@ -22,16 +32,31 @@ jobs:
       install-dependencies-command: |
         sudo apt-get update
         sudo apt-get install -y libzmq3-dev
-
+    permissions:
+      contents: read        # REQUIRED by reusable workflow
+      id-token: write       # REQUIRED for AWS OIDC
+      # required for all workflows
+      security-events: write
+      # required to fetch internal or private CodeQL packs
+      packages: read
 
   docker_pipeline:
+    # Always evaluate, but only proceed if:
+    # - skip is enabled, or lint_test succeeded (normal path)
+    if: ${{ always() && (
+            (github.event_name == 'workflow_dispatch' && inputs['skip-lint-test'] == true) ||
+            needs.lint_test.result == 'success'
+          )}}
     needs: ["lint_test"]
-    uses: babylonlabs-io/.github/.github/workflows/reusable_docker_pipeline.yml@v0.13.3
+    uses: babylonlabs-io/.github/.github/workflows/reusable_docker_pipeline.yml@98e4de18638b3d0738c9cbf7e7dfc6e34524db54 # v0.19.1 https://github.com/babylonlabs-io/.github/releases/tag/v0.19.1
     secrets: inherit
     with:
       publish: true
       docker_scan: true
+      trivy_nofail: true
     permissions:
+      contents: read        # REQUIRED by reusable workflow
+      id-token: write       # REQUIRED for AWS OIDC
       # required for all workflows
       security-events: write
       # required to fetch internal or private CodeQL packs

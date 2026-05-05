@@ -37,7 +37,7 @@ var (
 )
 
 func (sew *StakingEventWatcher) quitContext() (context.Context, func()) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background()) // #nosec G118 -- cancel is deferred in the goroutine below and also returned to the caller
 	sew.wg.Add(1)
 	go func() {
 		defer cancel()
@@ -504,8 +504,10 @@ func (sew *StakingEventWatcher) handleSpend(ctx context.Context, spendingTx *wir
 				// transient query error: keep waiting, do not abort
 				sew.logger.Debugf("transient BTCDelegation query error while checking child %s for stake expansion %s, continuing to wait: %v",
 					spendingTxHash.String(), delegationID, err)
+
 				return false, nil
 			}
+
 			return child != nil && child.IsUnbonded, nil
 		}
 
