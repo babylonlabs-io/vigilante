@@ -465,10 +465,10 @@ func (sew *StakingEventWatcher) handleSpend(ctx context.Context, spendingTx *wir
 
 	// if the spending tx is a stake expansion it should wait to be k-deep
 	stakeExpansion, err := sew.babylonNodeAdapter.BTCDelegation(spendingTxHash.String())
-	isStakeExpansion := err == nil && stakeExpansion != nil
+	isStakeExpansionAndNotUnbonded := err == nil && stakeExpansion != nil && stakeExpansion.IsStakeExpansion && !stakeExpansion.IsUnbonded
 
 	switch {
-	case isStakeExpansion:
+	case isStakeExpansionAndNotUnbonded:
 		sew.metrics.DetectedUnbondedStakeExpansionCounter.Inc()
 		sew.logger.Debugf("found stake expansion tx %s spending the previous staking tx %s", spendingTxHash, delegationID)
 
@@ -503,8 +503,25 @@ func (sew *StakingEventWatcher) handleSpend(ctx context.Context, spendingTx *wir
 
 			return
 		}
-		// wait stk expansion to be k-deep
-		if err := sew.waitForRequiredDepth(ctx, blkHashInclusion, sew.babylonConfirmationTimeBlocks); err != nil {
+
+		// wait stk expansion to be k-deep, but bail out early if the child
+		// stake expansion gets unbonded mid-wait. In that case the parent's
+		// utxo spend should be reported as a normal unbonding (the fall-through
+		// path below), not as an expansion-activation.
+		abortIfChildUnbonded := func() (bool, error) {
+			child, err := sew.babylonNodeAdapter.BTCDelegation(spendingTxHash.String())
+			if err != nil {
+				// transient query error: keep waiting, do not abort
+				sew.logger.Debugf("transient BTCDelegation query error while checking child %s for stake expansion %s, continuing to wait: %v",
+					spendingTxHash.String(), delegationID, err)
+
+				return false, nil
+			}
+
+			return child != nil && child.IsUnbonded, nil
+		}
+
+		if err := sew.waitForRequiredDepth(ctx, blkHashInclusion, sew.babylonConfirmationTimeBlocks, abortIfChildUnbonded); err != nil {
 			sew.logger.Warnf("exceeded waiting for required depth for stake expansion tx: %s, will try later. Err: %v", spendingTxHash.String(), err)
 
 			return
@@ -883,16 +900,33 @@ func (sew *StakingEventWatcher) activateBtcDelegation(
 	)
 }
 
+// waitForRequiredDepth blocks until inclusionBlockHash is at least requiredDepth
+// blocks deep on the babylon BTC light client, retrying on transient errors.
+//
+// Callers can pass abortFns predicates that are evaluated before each depth
+// query; if any returns abort=true, the wait exits early with nil error
+// (treated the same as a successful wait by callers).
 func (sew *StakingEventWatcher) waitForRequiredDepth(
 	ctx context.Context,
 	inclusionBlockHash *chainhash.Hash,
 	requiredDepth uint32,
+	abortFns ...func() (bool, error),
 ) error {
 	defer sew.latency("waitForRequiredDepth")()
 
 	var depth uint32
 
 	return retry.Do(func() error {
+		for _, abortFn := range abortFns {
+			abort, err := abortFn()
+			if err != nil {
+				return err
+			}
+			if abort {
+				return nil
+			}
+		}
+
 		var err error
 		depth, err = sew.babylonNodeAdapter.QueryHeaderDepth(inclusionBlockHash)
 		if err != nil {
