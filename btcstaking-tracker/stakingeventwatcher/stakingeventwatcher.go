@@ -465,7 +465,7 @@ func (sew *StakingEventWatcher) handleSpend(ctx context.Context, spendingTx *wir
 
 	// if the spending tx is a stake expansion it should wait to be k-deep
 	stakeExpansion, err := sew.babylonNodeAdapter.BTCDelegation(spendingTxHash.String())
-	isStakeExpansionAndNotUnbonded := err == nil && stakeExpansion != nil && !stakeExpansion.IsUnbonded
+	isStakeExpansionAndNotUnbonded := err == nil && stakeExpansion != nil && stakeExpansion.IsStakeExpansion && !stakeExpansion.IsUnbonded
 
 	switch {
 	case isStakeExpansionAndNotUnbonded:
