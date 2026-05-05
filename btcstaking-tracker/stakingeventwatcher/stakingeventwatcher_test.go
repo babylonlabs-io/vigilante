@@ -583,7 +583,7 @@ func TestHandleSpend_StkExpUnbondedChildSkipsKDeepWait(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			// Same predicate the watcher computes inline in handleSpend.
-			gotBranch := tc.err == nil && tc.child != nil && !tc.child.IsUnbonded
+			gotBranch := tc.err == nil && tc.child != nil && tc.child.IsStakeExpansion && !tc.child.IsUnbonded
 			require.Equal(t, tc.expectExpBranch, gotBranch)
 		})
 	}
