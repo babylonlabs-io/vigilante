@@ -504,8 +504,10 @@ func (sew *StakingEventWatcher) handleSpend(ctx context.Context, spendingTx *wir
 				// transient query error: keep waiting, do not abort
 				sew.logger.Debugf("transient BTCDelegation query error while checking child %s for stake expansion %s, continuing to wait: %v",
 					spendingTxHash.String(), delegationID, err)
+
 				return false, nil
 			}
+
 			return child != nil && child.IsUnbonded, nil
 		}
 
