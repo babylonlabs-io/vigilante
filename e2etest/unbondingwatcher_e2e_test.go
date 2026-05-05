@@ -14,6 +14,7 @@ import (
 	"github.com/btcsuite/btcd/btcec/v2"
 
 	bbnclient "github.com/babylonlabs-io/babylon/v4/client/client"
+	bbn "github.com/babylonlabs-io/babylon/v4/types"
 	btcstakingtypes "github.com/babylonlabs-io/babylon/v4/x/btcstaking/types"
 	"github.com/babylonlabs-io/vigilante/types"
 	"github.com/btcsuite/btcd/btcjson"
@@ -891,6 +892,262 @@ func TestStakeExpansionFlow(t *testing.T) {
 
 	t.Logf("Stake expansion flow completed successfully: original tx %s expanded to %s",
 		originalStakingTxHash.String(), expansionStakingTxHash.String())
+}
+
+// TestStakeExpansionParentUnbondAtOneDeepWhenChildUnbondedEarly drives the
+// vigilante-side fix for GHSA-wcr8-g34v-7565 end-to-end on a real bitcoind +
+// babylond pair.
+//
+// Scenario (mirrors the post-upgrade live-attack regression in babylon's
+// upgrades_v4_3_phantom_test.go):
+//
+//  1. Parent ACTIVE + child VERIFIED stake-expansion. Covenants signed for both.
+//  2. Broadcast the expansion staking tx to BTC and mine 1 block. Parent's
+//     UTXO is now spent on BTC; the child's staking output exists on BTC. The
+//     parent stays ACTIVE on babylon — no parent-unbond has been reported yet.
+//  3. Broadcast the child's unbonding tx to BTC and mine 1 block, then submit
+//     MsgBTCUndelegate for the CHILD using the unbonding tx as
+//     StakeSpendingTx. Babylon writes DelegatorUnbondingInfo on the child and
+//     marks it UNBONDED — this is the "poison" pattern that creates the
+//     phantom-voting-power state.
+//  4. With babylon now reporting child.IsUnbonded=true, the watcher sees the
+//     parent's UTXO spend and MUST skip the wait-for-k-deep expansion-
+//     activation branch (the gating fix). It builds a 1-deep merkle proof for
+//     the parent's spend and submits MsgBTCUndelegate for the parent.
+//  5. Parent transitions to UNBONDED on babylon — at depth=2 of the expansion
+//     tx, well under k. No additional empty blocks are mined for k-deep.
+//
+// Without the vigilante fix, step 4 would loop indefinitely in
+// waitForRequiredDepth (the watcher would treat the parent's spend as an
+// expansion-activation), and the parent would never be reported as unbonded
+// at sub-k depth. The test is the regression-pin for that hang.
+//
+// Note: this test depends on the running babylond accepting the parent's
+// MsgBTCUndelegate at <k-deep when the child is unbonded (the v4.3 babylon
+// fix). If the babylond image does not yet carry that fix, the parent
+// transition will not happen until k blocks are mined; in that case the
+// final require.Eventually block will time out, signaling that the babylon
+// image needs to be bumped.
+func TestStakeExpansionParentUnbondAtOneDeepWhenChildUnbondedEarly(t *testing.T) {
+	t.Parallel()
+	// segwit is activated at height 300. It's necessary for staking/slashing tx
+	numMatureOutputs := uint32(300)
+
+	tm := StartManager(t, WithNumMatureOutputs(numMatureOutputs), WithEpochInterval(defaultEpochInterval))
+	defer tm.Stop(t)
+	tm.CatchUpBTCLightClient(t)
+
+	btcNotifier, err := btcclient.NewNodeBackend(
+		btcclient.ToBitcoindConfig(tm.Config.BTC),
+		&chaincfg.RegressionNetParams,
+		&btcclient.EmptyHintCache{},
+	)
+	require.NoError(t, err)
+	require.NoError(t, btcNotifier.Start())
+
+	commonCfg := config.DefaultCommonConfig()
+	bstCfg := config.DefaultBTCStakingTrackerConfig()
+	bstCfg.CheckDelegationsInterval = 1 * time.Second
+	bstCfg.IndexerAddr = tm.Config.BTCStakingTracker.IndexerAddr
+	stakingTrackerMetrics := metrics.NewBTCStakingTrackerMetrics()
+
+	bsTracker := bst.NewBTCStakingTracker(
+		tm.BTCClient,
+		btcNotifier,
+		tm.BabylonClient,
+		&bstCfg,
+		&commonCfg,
+		zap.NewNop(),
+		stakingTrackerMetrics,
+		testutil.MakeTestBackend(t),
+	)
+	bsTracker.Start()
+	defer bsTracker.Stop()
+
+	_, fpSK := tm.CreateFinalityProvider(t)
+
+	// ── Step 1: parent staking ──────────────────────────────────────────────
+	parentStakingSlashingInfo, _, delSK := tm.CreateBTCDelegation(t, fpSK)
+	parentStakingTxHash := parentStakingSlashingInfo.StakingTx.TxHash()
+
+	var parentDel *btcstakingtypes.BTCDelegationResponse
+	require.Eventually(t, func() bool {
+		resp, err := tm.BabylonClient.BTCDelegation(parentStakingTxHash.String())
+		require.NoError(t, err)
+		parentDel = resp.BtcDelegation
+		return parentDel.Active
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	// ── Step 2: child stake-expansion (VERIFIED) ────────────────────────────
+	childStakingMsgTx, fundingMsgTx, childStakingSlashingInfo, childUnbondingSlashingInfo, _ :=
+		tm.CreateBTCStakeExpansion(t, fpSK, parentDel.TotalSat, parentStakingTxHash.String(), parentDel.StakingOutputIdx)
+	childStakingTxHash := childStakingMsgTx.TxHash()
+
+	signerAddr := tm.BabylonClient.MustGetAddr()
+	childStakingMsgTxHash := childStakingMsgTx.TxHash()
+	childSlashingSpendPath, err := childStakingSlashingInfo.StakingInfo.SlashingPathSpendInfo()
+	require.NoError(t, err)
+	childUnbondingSlashingPathSpendInfo, err := childUnbondingSlashingInfo.UnbondingInfo.SlashingPathSpendInfo()
+	require.NoError(t, err)
+
+	tm.addCovenantSigStkExp(
+		t,
+		signerAddr,
+		childStakingMsgTx,
+		&childStakingMsgTxHash,
+		fpSK,
+		childSlashingSpendPath,
+		childStakingSlashingInfo,
+		childUnbondingSlashingInfo,
+		childUnbondingSlashingPathSpendInfo,
+		0,
+		parentStakingSlashingInfo,
+		fundingMsgTx.TxOut[0],
+	)
+
+	require.Eventually(t, func() bool {
+		resp, err := tm.BabylonClient.BTCDelegation(childStakingTxHash.String())
+		require.NoError(t, err)
+		return resp.BtcDelegation.StatusDesc == btcstakingtypes.BTCDelegationStatus_VERIFIED.String()
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	// ── Step 3: build expansion staking tx witness and broadcast to BTC ─────
+	parentUnbondingPathSpendInfo, err := parentStakingSlashingInfo.StakingInfo.UnbondingPathSpendInfo()
+	require.NoError(t, err)
+
+	stakerSig, err := btcstaking.SignTxForFirstScriptSpendWithTwoInputsFromScript(
+		childStakingMsgTx,
+		parentStakingSlashingInfo.StakingInfo.StakingOutput,
+		fundingMsgTx.TxOut[0],
+		delSK,
+		parentUnbondingPathSpendInfo.GetPkScriptPath(),
+	)
+	require.NoError(t, err)
+
+	childResp, err := tm.BabylonClient.BTCDelegation(childStakingTxHash.String())
+	require.NoError(t, err)
+	covenantSigs := childResp.BtcDelegation.StkExp.PreviousStkCovenantSigs
+	witness, err := parentUnbondingPathSpendInfo.CreateUnbondingPathWitness(
+		[]*schnorr.Signature{covenantSigs[0].Sig.MustToBTCSig()},
+		stakerSig,
+	)
+	require.NoError(t, err)
+	childStakingMsgTx.TxIn[0].Witness = witness
+
+	signedExpTx, complete, err := tm.BTCClient.SignRawTransactionWithWallet(childStakingMsgTx)
+	require.NoError(t, err)
+	require.True(t, complete, "expansion tx signing incomplete")
+
+	_, err = tm.BTCClient.SendRawTransaction(signedExpTx, true)
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		txns, err := tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{&childStakingTxHash})
+		require.NoError(t, err)
+		return len(txns) == 1
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	expansionBlock := tm.mineBlock(t)
+	require.Equal(t, 2, len(expansionBlock.Transactions),
+		"expansion staking tx must be the only non-coinbase tx in this block")
+	tm.CatchUpBTCLightClient(t)
+
+	// ── Step 4: poison the child — unbond it via MsgBTCUndelegate at depth=1 ─
+	childUnbondingTxSchnorrSig, err := btcstaking.SignTxWithOneScriptSpendInputStrict(
+		childUnbondingSlashingInfo.UnbondingTx,
+		childStakingSlashingInfo.StakingTx,
+		0,
+		func() []byte {
+			sp, err := childStakingSlashingInfo.StakingInfo.UnbondingPathSpendInfo()
+			require.NoError(t, err)
+			return sp.GetPkScriptPath()
+		}(),
+		delSK,
+	)
+	require.NoError(t, err)
+
+	childUnbondingPathSpendInfo, err := childStakingSlashingInfo.StakingInfo.UnbondingPathSpendInfo()
+	require.NoError(t, err)
+	childCovenantUnbondingSigs := childResp.BtcDelegation.UndelegationResponse.CovenantUnbondingSigList
+	childUnbondingWitness, err := childUnbondingPathSpendInfo.CreateUnbondingPathWitness(
+		[]*schnorr.Signature{childCovenantUnbondingSigs[0].Sig.MustToBTCSig()},
+		childUnbondingTxSchnorrSig,
+	)
+	require.NoError(t, err)
+	childUnbondingSlashingInfo.UnbondingTx.TxIn[0].Witness = childUnbondingWitness
+
+	childUnbondingTxHash, err := tm.BTCClient.SendRawTransaction(childUnbondingSlashingInfo.UnbondingTx, true)
+	require.NoError(t, err)
+	require.Eventually(t, func() bool {
+		txns, err := tm.RetrieveTransactionFromMempool(t, []*chainhash.Hash{childUnbondingTxHash})
+		require.NoError(t, err)
+		return len(txns) == 1
+	}, eventuallyWaitTimeOut, eventuallyPollTime)
+
+	childUnbondingBlock := tm.mineBlock(t)
+	require.Equal(t, 2, len(childUnbondingBlock.Transactions))
+	tm.CatchUpBTCLightClient(t)
+
+	serializedChildUnbondingTx, err := bbn.SerializeBTCTx(childUnbondingSlashingInfo.UnbondingTx)
+	require.NoError(t, err)
+
+	childUnbondingFundingTxs := tm.getFundingTxs(t, childUnbondingSlashingInfo.UnbondingTx)
+	childUnbondingTxInfo := getTxInfo(t, childUnbondingBlock)
+
+	poisonChildMsg := &btcstakingtypes.MsgBTCUndelegate{
+		Signer:          signerAddr,
+		StakingTxHash:   childStakingTxHash.String(),
+		StakeSpendingTx: serializedChildUnbondingTx,
+		StakeSpendingTxInclusionProof: &btcstakingtypes.InclusionProof{
+			Key:   childUnbondingTxInfo.Key,
+			Proof: childUnbondingTxInfo.Proof,
+		},
+		FundingTransactions: childUnbondingFundingTxs,
+	}
+	_, err = tm.BabylonClient.ReliablySendMsg(context.Background(), poisonChildMsg, nil, nil)
+	require.NoError(t, err, "poisoning the child stake-expansion via MsgBTCUndelegate must succeed on the running babylon")
+
+	require.Eventually(t, func() bool {
+		resp, err := tm.BabylonClient.BTCDelegation(childStakingTxHash.String())
+		require.NoError(t, err)
+		return resp.BtcDelegation.StatusDesc == btcstakingtypes.BTCDelegationStatus_UNBONDED.String() &&
+			resp.BtcDelegation.UndelegationResponse != nil &&
+			resp.BtcDelegation.UndelegationResponse.DelegatorUnbondingInfoResponse != nil
+	}, eventuallyWaitTimeOut, eventuallyPollTime, "child must be UNBONDED with DelegatorUnbondingInfo set after poison")
+
+	// Sanity: parent stays ACTIVE while child is poisoned. This is the exact
+	// phantom-voting-power state that the vigilante fix must remediate.
+	parentStillActive, err := tm.BabylonClient.BTCDelegation(parentStakingTxHash.String())
+	require.NoError(t, err)
+	require.Equal(t, btcstakingtypes.BTCDelegationStatus_ACTIVE.String(), parentStillActive.BtcDelegation.StatusDesc,
+		"parent must still be ACTIVE — vigilante has not reported its unbond yet")
+
+	// ── Step 5: vigilante drives the 1-deep parent unbond ───────────────────
+	// We do NOT mine k empty blocks. The expansion tx is at depth=2 (the
+	// expansion block + the child-unbonding block). Without the vigilante fix
+	// the watcher would loop in waitForRequiredDepth here. With the fix it
+	// recognizes child.IsUnbonded=true, skips the expansion branch, builds a
+	// 1-deep proof, and submits MsgBTCUndelegate for the parent.
+	//
+	// We do mine occasional blocks to keep babylon's block production lively
+	// (so retries can land), but never enough to push the expansion tx to
+	// k-deep.
+	require.Eventually(t, func() bool {
+		// Tick a single BTC block per iteration so babylon keeps progressing
+		// but the expansion stays well under k.
+		tm.mineBlock(t)
+
+		resp, err := tm.BabylonClient.BTCDelegation(parentStakingTxHash.String())
+		if err != nil {
+			t.Logf("BTCDelegation query error: %v", err)
+			return false
+		}
+		return resp.BtcDelegation.StatusDesc == btcstakingtypes.BTCDelegationStatus_UNBONDED.String()
+	}, 2*eventuallyWaitTimeOut, 2*eventuallyPollTime,
+		"parent must be reported as UNBONDED by vigilante at sub-k depth")
+
+	t.Logf("phantom-pattern remediation succeeded: parent %s reported as UNBONDED at sub-k depth via vigilante; child %s stayed UNBONDED",
+		parentStakingTxHash.String(), childStakingTxHash.String())
 }
 
 func TestUnbondingWatcherCensorship(t *testing.T) {

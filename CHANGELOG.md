@@ -37,6 +37,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+## v0.24.2
+
+### Bug Fixes
+
+* [GHSA-wcr8-g34v-7565](https://github.com/babylonlabs-io/babylon/security/advisories/GHSA-wcr8-g34v-7565) fix: add possibility to unbond parent of stake expansion child transaction that unbonds before being `ACTIVE`
+
 ## v0.24.1
 
 ### Improvements
