@@ -22,3 +22,6 @@ main
 tmp/
 build/
 dist/
+
+# goreleaser local-build artifacts
+*-linux-musl-cross.tgz
