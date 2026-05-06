@@ -929,20 +929,22 @@ func TestStakeExpansionFlow(t *testing.T) {
 // final require.Eventually block will time out, signaling that the babylon
 // image needs to be bumped.
 func TestStakeExpansionParentUnbondAtOneDeepWhenChildUnbondedEarly(t *testing.T) {
+	// babylondGHSAFixVersion is the first babylond release containing the
+	// server-side fix that accepts MsgBTCUndelegate for the parent at sub-k
+	// depth when the child stake-expansion is already unbonded. go.mod still
+	// pins v4.2.x for the Go SDK; we only override the docker image tag so
+	// this test exercises the v4.3 server behavior. Drop the override once
+	// the babylon Go dep is bumped.
+	const babylondGHSAFixVersion = "v4.3.0"
+
 	t.Parallel()
 	// segwit is activated at height 300. It's necessary for staking/slashing tx
 	numMatureOutputs := uint32(300)
 
-	// The end-to-end assertion requires babylond to accept the parent's
-	// MsgBTCUndelegate at sub-k depth when the child stake-expansion is
-	// already unbonded — that server-side change ships in babylon v4.3+.
-	// go.mod still pins v4.2.x for the Go SDK; we only override the docker
-	// image tag so this test exercises the v4.3 server behavior. Drop the
-	// override once the babylon Go dep is bumped.
 	tm := StartManager(t,
 		WithNumMatureOutputs(numMatureOutputs),
 		WithEpochInterval(defaultEpochInterval),
-		WithBabylonVersion("v4.3.0"),
+		WithBabylonVersion(babylondGHSAFixVersion),
 	)
 	defer tm.Stop(t)
 	tm.CatchUpBTCLightClient(t)
