@@ -28,6 +28,14 @@ func (bs *BTCSlasher) Bootstrap(startHeight uint64) error {
 		return err
 	}
 
+	// Replay any pending evidences from a previous run before processing new
+	// evidences. This is what makes bootstrap progress durable across restarts:
+	// a Babylon ListEvidences(startHeight) call cannot rediscover an FP whose
+	// first slashable evidence is below startHeight, so we keep our own queue.
+	if err := bs.replayPendingEvidences(); err != nil {
+		return fmt.Errorf("failed to replay pending evidences: %w", err)
+	}
+
 	lastSlashedHeight, err := bs.processEvidencesFromHeight(startHeight)
 	if err != nil {
 		return fmt.Errorf("failed to bootstrap BTC slasher: %w", err)
@@ -45,6 +53,56 @@ func (bs *BTCSlasher) Bootstrap(startHeight uint64) error {
 	}
 
 	return nil
+}
+
+// replayPendingEvidences reads all evidences from the pending bucket and
+// re-dispatches slashing for each. Bitcoin tx submission is idempotent via
+// isTxSubmittedToBitcoin, so replay is safe even if a tx was already
+// broadcast in a previous run.
+func (bs *BTCSlasher) replayPendingEvidences() error {
+	pending, err := bs.store.ListPendingEvidences()
+	if err != nil {
+		return fmt.Errorf("failed to list pending evidences: %w", err)
+	}
+	if len(pending) == 0 {
+		return nil
+	}
+	bs.logger.Infof("replaying %d pending evidences from previous run", len(pending))
+
+	var accumulatedErrs error
+	for _, ev := range pending {
+		btcPK, err := types.NewBIP340PubKeyFromHex(ev.FpBtcPkHex)
+		if err != nil {
+			bs.logger.Errorf("pending evidence has malformed fp_btc_pk_hex %q: %v", ev.FpBtcPkHex, err)
+			accumulatedErrs = multierror.Append(accumulatedErrs, err)
+
+			continue
+		}
+		e := ftypes.Evidence{
+			FpBtcPk:              btcPK,
+			BlockHeight:          ev.BlockHeight,
+			PubRand:              ev.PubRand,
+			CanonicalAppHash:     ev.CanonicalAppHash,
+			ForkAppHash:          ev.ForkAppHash,
+			CanonicalFinalitySig: ev.CanonicalFinalitySig,
+			ForkFinalitySig:      ev.ForkFinalitySig,
+		}
+		fpBTCSK, err := e.ExtractBTCSK()
+		if err != nil {
+			bs.logger.Errorf("pending evidence at height %d for fp %s is no longer slashable: %v", ev.BlockHeight, ev.FpBtcPkHex, err)
+			accumulatedErrs = multierror.Append(accumulatedErrs, err)
+
+			continue
+		}
+		if err := bs.SlashFinalityProvider(fpBTCSK); err != nil {
+			bs.logger.Errorf("failed to redispatch slashing for fp %s at height %d: %v", ev.FpBtcPkHex, ev.BlockHeight, err)
+			accumulatedErrs = multierror.Append(accumulatedErrs, err)
+
+			continue
+		}
+	}
+
+	return accumulatedErrs
 }
 
 func (bs *BTCSlasher) LastEvidencesHeight() (uint64, bool, error) {
@@ -81,6 +139,15 @@ func (bs *BTCSlasher) processEvidencesFromHeight(startHeight uint64) (uint64, er
 			fpBTCSK, err := e.ExtractBTCSK()
 			if err != nil {
 				bs.logger.Errorf("failed to extract BTC SK of the slashed finality provider %s: %v", fpBTCPKHex, err)
+				accumulatedErrs = multierror.Append(accumulatedErrs, err)
+
+				continue
+			}
+
+			// Persist the evidence to the pending bucket BEFORE dispatching slashing.
+			// On restart, pending entries will be replayed regardless of cursor.
+			if err := bs.store.PutPendingEvidence(evidence); err != nil {
+				bs.logger.Errorf("failed to persist pending evidence for fp %s at height %d: %v", fpBTCPKHex, evidence.BlockHeight, err)
 				accumulatedErrs = multierror.Append(accumulatedErrs, err)
 
 				continue

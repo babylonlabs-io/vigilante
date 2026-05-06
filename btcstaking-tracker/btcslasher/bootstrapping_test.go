@@ -19,6 +19,7 @@ import (
 	bstypes "github.com/babylonlabs-io/babylon/v4/x/btcstaking/types"
 	ftypes "github.com/babylonlabs-io/babylon/v4/x/finality/types"
 	"github.com/babylonlabs-io/vigilante/btcstaking-tracker/btcslasher"
+	storepkg "github.com/babylonlabs-io/vigilante/btcstaking-tracker/btcslasher/store"
 	"github.com/babylonlabs-io/vigilante/config"
 	"github.com/babylonlabs-io/vigilante/metrics"
 	"github.com/babylonlabs-io/vigilante/testutil/mocks"
@@ -219,4 +220,285 @@ func FuzzSlasher_Bootstrapping(f *testing.F) {
 
 		btcSlasher.WaitForShutdown()
 	})
+}
+
+func TestBootstrap_PersistsEvidenceToPendingBeforeDispatch(t *testing.T) {
+	t.Parallel()
+	r := rand.New(rand.NewSource(time.Now().UnixMilli()))
+	net := &chaincfg.SimNetParams
+	commonCfg := config.DefaultCommonConfig()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockBabylonQuerier := btcslasher.NewMockBabylonQueryClient(ctrl)
+	mockBTCClient := mocks.NewMockBTCClient(ctrl)
+	btccParams := &btcctypes.QueryParamsResponse{Params: btcctypes.Params{BtcConfirmationDepth: 10, CheckpointFinalizationTimeout: 100}}
+	mockBabylonQuerier.EXPECT().BTCCheckpointParams().Return(btccParams, nil).AnyTimes()
+	// Returning an error from FinalityProviderDelegations causes
+	// SlashFinalityProvider to fail before spawning the per-FP cleanup goroutine,
+	// so the pending entry remains in the kvdb and we can verify it was persisted.
+	mockBabylonQuerier.EXPECT().FinalityProviderDelegations(gomock.Any(), gomock.Any()).Return(
+		nil, fmt.Errorf("simulated query error to keep pending entry alive for inspection"),
+	).AnyTimes()
+
+	logger, err := config.NewRootLogger("auto", "debug")
+	require.NoError(t, err)
+	slashedFPSKChan := make(chan *btcec.PrivateKey, 100)
+	db := testutil.MakeTestBackend(t)
+	bs, err := btcslasher.New(
+		logger, mockBTCClient, mockBabylonQuerier, net,
+		commonCfg.RetrySleepTime, commonCfg.MaxRetrySleepTime, commonCfg.MaxRetryTimes,
+		config.MaxSlashingConcurrency, slashedFPSKChan,
+		metrics.NewBTCStakingTrackerMetrics().SlasherMetrics, 5*time.Second, db,
+	)
+	require.NoError(t, err)
+
+	fpSK, fpPK, err := datagen.GenRandomBTCKeyPair(r)
+	require.NoError(t, err)
+	fpBTCPK := bbn.NewBIP340PubKeyFromBTCPK(fpPK)
+	evidence, err := datagen.GenRandomEvidence(r, fpSK, 1234)
+	require.NoError(t, err)
+	er := &ftypes.EvidenceResponse{
+		FpBtcPkHex:           fpBTCPK.MarshalHex(),
+		BlockHeight:          evidence.BlockHeight,
+		PubRand:              evidence.PubRand,
+		CanonicalAppHash:     evidence.CanonicalAppHash,
+		ForkAppHash:          evidence.ForkAppHash,
+		CanonicalFinalitySig: evidence.CanonicalFinalitySig,
+		ForkFinalitySig:      evidence.ForkFinalitySig,
+	}
+	mockBabylonQuerier.EXPECT().ListEvidences(gomock.Any(), gomock.Any()).Return(
+		&ftypes.QueryListEvidencesResponse{
+			Evidences:  []*ftypes.EvidenceResponse{er},
+			Pagination: &query.PageResponse{NextKey: nil},
+		}, nil).Times(1)
+
+	// Bootstrap returns an error because the simulated SlashFinalityProvider
+	// failure is captured. The important assertion is that the pending entry
+	// was persisted before the dispatch failed, which is what makes the entry
+	// available for replay on restart.
+	require.Error(t, bs.Bootstrap(0))
+
+	inspectStore, err := storepkg.NewSlasherStore(db)
+	require.NoError(t, err)
+	pending, err := inspectStore.ListPendingEvidences()
+	require.NoError(t, err)
+	require.Len(t, pending, 1)
+	require.Equal(t, er.BlockHeight, pending[0].BlockHeight)
+	require.Equal(t, er.FpBtcPkHex, pending[0].FpBtcPkHex)
+}
+
+// Regression test for Immunify VIG-04/05: an evidence persisted in the pending
+// bucket from a prior run must be re-processed even if the stored cursor has
+// advanced past it (since Babylon's ListEvidences(startHeight) would filter
+// out an FP whose first slashable evidence is below startHeight).
+func TestBootstrap_ReplaysPendingFromPreviousRun(t *testing.T) {
+	t.Parallel()
+	r := rand.New(rand.NewSource(time.Now().UnixMilli()))
+	net := &chaincfg.SimNetParams
+	commonCfg := config.DefaultCommonConfig()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockBabylonQuerier := btcslasher.NewMockBabylonQueryClient(ctrl)
+	mockBTCClient := mocks.NewMockBTCClient(ctrl)
+	btccParams := &btcctypes.QueryParamsResponse{Params: btcctypes.Params{BtcConfirmationDepth: 10, CheckpointFinalizationTimeout: 100}}
+	mockBabylonQuerier.EXPECT().BTCCheckpointParams().Return(btccParams, nil).AnyTimes()
+
+	logger, err := config.NewRootLogger("auto", "debug")
+	require.NoError(t, err)
+	slashedFPSKChan := make(chan *btcec.PrivateKey, 100)
+	db := testutil.MakeTestBackend(t)
+
+	// Pre-seed the kvdb with: cursor advanced to H2, pending entry at H1<H2.
+	preStore, err := storepkg.NewSlasherStore(db)
+	require.NoError(t, err)
+	require.NoError(t, preStore.PutHeight(2000))
+
+	fpSK, fpPK, err := datagen.GenRandomBTCKeyPair(r)
+	require.NoError(t, err)
+	fpBTCPK := bbn.NewBIP340PubKeyFromBTCPK(fpPK)
+	evidence, err := datagen.GenRandomEvidence(r, fpSK, 1000) // H1 = 1000 < H2 = 2000
+	require.NoError(t, err)
+	pendingER := &ftypes.EvidenceResponse{
+		FpBtcPkHex:           fpBTCPK.MarshalHex(),
+		BlockHeight:          evidence.BlockHeight,
+		PubRand:              evidence.PubRand,
+		CanonicalAppHash:     evidence.CanonicalAppHash,
+		ForkAppHash:          evidence.ForkAppHash,
+		CanonicalFinalitySig: evidence.CanonicalFinalitySig,
+		ForkFinalitySig:      evidence.ForkFinalitySig,
+	}
+	require.NoError(t, preStore.PutPendingEvidence(pendingER))
+
+	bs, err := btcslasher.New(
+		logger, mockBTCClient, mockBabylonQuerier, net,
+		commonCfg.RetrySleepTime, commonCfg.MaxRetrySleepTime, commonCfg.MaxRetryTimes,
+		config.MaxSlashingConcurrency, slashedFPSKChan,
+		metrics.NewBTCStakingTrackerMetrics().SlasherMetrics, 5*time.Second, db,
+	)
+	require.NoError(t, err)
+
+	// Babylon ListEvidences (called for the cursor=2000 forward sweep) returns
+	// nothing — mirroring the post-restart scenario where FP1 is filtered out.
+	mockBabylonQuerier.EXPECT().ListEvidences(gomock.Any(), gomock.Any()).Return(
+		&ftypes.QueryListEvidencesResponse{
+			Evidences:  nil,
+			Pagination: &query.PageResponse{NextKey: nil},
+		}, nil).Times(1)
+
+	// FinalityProviderDelegations should be called specifically for FP1 because
+	// the pending entry replays it. Returning empty so we don't have to mock BTC.
+	mockBabylonQuerier.EXPECT().FinalityProviderDelegations(gomock.Eq(fpBTCPK.MarshalHex()), gomock.Any()).Return(
+		&bstypes.QueryFinalityProviderDelegationsResponse{
+			BtcDelegatorDelegations: nil,
+			Pagination:              &query.PageResponse{NextKey: nil},
+		}, nil).Times(1)
+
+	require.NoError(t, bs.Bootstrap(2000))
+}
+
+// After Bootstrap finishes and all per-delegation goroutines reach a terminal
+// state, the pending bucket should be empty. (With zero delegations, the
+// terminal condition is trivially met as soon as SlashFinalityProvider's wg
+// has nothing to wait on.)
+func TestBootstrap_DeletesPendingAfterCompletion(t *testing.T) {
+	t.Parallel()
+	r := rand.New(rand.NewSource(time.Now().UnixMilli()))
+	net := &chaincfg.SimNetParams
+	commonCfg := config.DefaultCommonConfig()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockBabylonQuerier := btcslasher.NewMockBabylonQueryClient(ctrl)
+	mockBTCClient := mocks.NewMockBTCClient(ctrl)
+	btccParams := &btcctypes.QueryParamsResponse{Params: btcctypes.Params{BtcConfirmationDepth: 10, CheckpointFinalizationTimeout: 100}}
+	mockBabylonQuerier.EXPECT().BTCCheckpointParams().Return(btccParams, nil).AnyTimes()
+	// FP has zero delegations, so completion is immediate.
+	mockBabylonQuerier.EXPECT().FinalityProviderDelegations(gomock.Any(), gomock.Any()).Return(
+		&bstypes.QueryFinalityProviderDelegationsResponse{
+			BtcDelegatorDelegations: nil,
+			Pagination:              &query.PageResponse{NextKey: nil},
+		}, nil).AnyTimes()
+
+	logger, err := config.NewRootLogger("auto", "debug")
+	require.NoError(t, err)
+	db := testutil.MakeTestBackend(t)
+	bs, err := btcslasher.New(
+		logger, mockBTCClient, mockBabylonQuerier, net,
+		commonCfg.RetrySleepTime, commonCfg.MaxRetrySleepTime, commonCfg.MaxRetryTimes,
+		config.MaxSlashingConcurrency, make(chan *btcec.PrivateKey, 100),
+		metrics.NewBTCStakingTrackerMetrics().SlasherMetrics, 5*time.Second, db,
+	)
+	require.NoError(t, err)
+
+	fpSK, fpPK, err := datagen.GenRandomBTCKeyPair(r)
+	require.NoError(t, err)
+	fpBTCPK := bbn.NewBIP340PubKeyFromBTCPK(fpPK)
+	evidence, err := datagen.GenRandomEvidence(r, fpSK, 1234)
+	require.NoError(t, err)
+	er := &ftypes.EvidenceResponse{
+		FpBtcPkHex:           fpBTCPK.MarshalHex(),
+		BlockHeight:          evidence.BlockHeight,
+		PubRand:              evidence.PubRand,
+		CanonicalAppHash:     evidence.CanonicalAppHash,
+		ForkAppHash:          evidence.ForkAppHash,
+		CanonicalFinalitySig: evidence.CanonicalFinalitySig,
+		ForkFinalitySig:      evidence.ForkFinalitySig,
+	}
+	mockBabylonQuerier.EXPECT().ListEvidences(gomock.Any(), gomock.Any()).Return(
+		&ftypes.QueryListEvidencesResponse{
+			Evidences:  []*ftypes.EvidenceResponse{er},
+			Pagination: &query.PageResponse{NextKey: nil},
+		}, nil).Times(1)
+
+	require.NoError(t, bs.Bootstrap(0))
+	bs.WaitForShutdown() // wait for any spawned goroutines to finish
+
+	inspect, err := storepkg.NewSlasherStore(db)
+	require.NoError(t, err)
+	pending, err := inspect.ListPendingEvidences()
+	require.NoError(t, err)
+	require.Empty(t, pending, "pending bucket should be empty after all delegations terminate")
+}
+
+// TestBootstrap_RestartReprocessesEarlierFP_VIG04 reproduces the Immunify VIG-04
+// scenario at unit level. Two evidences exist at heights H1 < H2. In the first
+// run we simulate a failed BTC broadcast for FP1 by canceling the slasher mid
+// Bootstrap, leaving the pending entry for FP1 in the store. Then we instantiate
+// a fresh slasher backed by the same kvdb and verify that on restart it
+// re-queries Babylon delegations specifically for FP1, even though the cursor
+// is at H2 (and ListEvidences(H2) does not return FP1).
+func TestBootstrap_RestartReprocessesEarlierFP_VIG04(t *testing.T) {
+	t.Parallel()
+	r := rand.New(rand.NewSource(time.Now().UnixMilli()))
+	net := &chaincfg.SimNetParams
+	commonCfg := config.DefaultCommonConfig()
+	logger, err := config.NewRootLogger("auto", "debug")
+	require.NoError(t, err)
+
+	// Shared kvdb between first and second slasher instance — simulates restart.
+	db := testutil.MakeTestBackend(t)
+
+	// FP1 keypair + evidence at H1 = 1000
+	fp1SK, fp1PK, err := datagen.GenRandomBTCKeyPair(r)
+	require.NoError(t, err)
+	fp1BTCPK := bbn.NewBIP340PubKeyFromBTCPK(fp1PK)
+	ev1, err := datagen.GenRandomEvidence(r, fp1SK, 1000)
+	require.NoError(t, err)
+	er1 := &ftypes.EvidenceResponse{
+		FpBtcPkHex:           fp1BTCPK.MarshalHex(),
+		BlockHeight:          ev1.BlockHeight,
+		PubRand:              ev1.PubRand,
+		CanonicalAppHash:     ev1.CanonicalAppHash,
+		ForkAppHash:          ev1.ForkAppHash,
+		CanonicalFinalitySig: ev1.CanonicalFinalitySig,
+		ForkFinalitySig:      ev1.ForkFinalitySig,
+	}
+
+	// Pre-seed the kvdb to look like a previous run that observed evidence at
+	// H1 and then crashed: pending bucket has FP1@H1, cursor = 2000.
+	preStore, err := storepkg.NewSlasherStore(db)
+	require.NoError(t, err)
+	require.NoError(t, preStore.PutPendingEvidence(er1))
+	require.NoError(t, preStore.PutHeight(2000))
+
+	// Second slasher starts up with an empty fresh ListEvidences result (since
+	// FP1 was filtered out by startHeight=2000+1 in the real chain) but should
+	// still query FP1's delegations because of the pending entry.
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockBabylonQuerier := btcslasher.NewMockBabylonQueryClient(ctrl)
+	mockBTCClient := mocks.NewMockBTCClient(ctrl)
+	btccParams := &btcctypes.QueryParamsResponse{Params: btcctypes.Params{BtcConfirmationDepth: 10, CheckpointFinalizationTimeout: 100}}
+	mockBabylonQuerier.EXPECT().BTCCheckpointParams().Return(btccParams, nil).AnyTimes()
+	mockBabylonQuerier.EXPECT().ListEvidences(gomock.Any(), gomock.Any()).Return(
+		&ftypes.QueryListEvidencesResponse{
+			Evidences:  nil,
+			Pagination: &query.PageResponse{NextKey: nil},
+		}, nil).Times(1)
+	mockBabylonQuerier.EXPECT().FinalityProviderDelegations(gomock.Eq(fp1BTCPK.MarshalHex()), gomock.Any()).Return(
+		&bstypes.QueryFinalityProviderDelegationsResponse{
+			BtcDelegatorDelegations: nil,
+			Pagination:              &query.PageResponse{NextKey: nil},
+		}, nil).Times(1)
+
+	bs, err := btcslasher.New(
+		logger, mockBTCClient, mockBabylonQuerier, net,
+		commonCfg.RetrySleepTime, commonCfg.MaxRetrySleepTime, commonCfg.MaxRetryTimes,
+		config.MaxSlashingConcurrency, make(chan *btcec.PrivateKey, 100),
+		metrics.NewBTCStakingTrackerMetrics().SlasherMetrics, 5*time.Second, db,
+	)
+	require.NoError(t, err)
+
+	require.NoError(t, bs.Bootstrap(2000))
+	bs.WaitForShutdown()
+
+	// Pending bucket should now be empty (FP1 was processed and the wrapper
+	// goroutine deleted it).
+	inspect, err := storepkg.NewSlasherStore(db)
+	require.NoError(t, err)
+	pending, err := inspect.ListPendingEvidences()
+	require.NoError(t, err)
+	require.Empty(t, pending)
 }
