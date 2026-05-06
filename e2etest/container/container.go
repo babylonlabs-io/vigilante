@@ -56,6 +56,13 @@ func NewManager(t *testing.T) (docker *Manager, err error) {
 	return docker, nil
 }
 
+// SetBabylonVersion overrides the babylond image tag for this manager. The
+// default is read from go.mod via NewImageConfig; tests that exercise
+// server-side behavior introduced after that version can opt into a newer tag.
+func (m *Manager) SetBabylonVersion(version string) {
+	m.cfg.BabylonVersion = version
+}
+
 func (m *Manager) ExecBitcoindCliCmd(t *testing.T, command []string) (bytes.Buffer, bytes.Buffer, error) {
 	// this is currently hardcoded, as it will be the same for all tests
 	cmd := []string{"bitcoin-cli", "-chain=regtest", "-rpcuser=user", "-rpcpassword=pass"}
