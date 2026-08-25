@@ -1034,6 +1034,14 @@ func (sew *StakingEventWatcher) fetchCometBftBlockOnce() error {
 
 	currentHeight := sew.currentCometTipHeight.Load()
 
+	// currentCometTipHeight is the next height to process (last processed + 1),
+	// so a tip exactly one below it means no new block has been produced yet.
+	if latestHeight == currentHeight-1 {
+		sew.logger.Debugf("no new comet bft blocks, next height to process: %d", currentHeight)
+
+		return nil
+	}
+
 	// Enforce monotonic block height processing
 	if latestHeight < currentHeight {
 		return fmt.Errorf("non-monotonic block height detected: latest height %d is less than current height %d",
