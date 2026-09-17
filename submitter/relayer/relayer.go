@@ -491,6 +491,13 @@ func (rl *Relayer) maybeResendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bu
 	balance := btcutil.Amount(tx2.Tx.TxOut[changePosition].Value)
 	originalTxID := tx2.Tx.TxID()
 
+	// resendTx is the replacement candidate and resendSize its vsize. They
+	// are committed to tx2 only after the replacement is signed and
+	// broadcast, so a failed attempt leaves tx2 untouched and a retry
+	// starts from the original outputs instead of compounding the fee bump.
+	resendTx := tx2.Tx
+	resendSize := tx2.Size
+
 	if balance-bumpedFee < dustThreshold {
 		// Convert transaction size to kilobytes
 		txSizeKB := float64(tx2.Size) / 1000.0
@@ -511,25 +518,42 @@ func (rl *Relayer) maybeResendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bu
 		if err != nil {
 			return nil, fmt.Errorf("failed to fund transaction: %w", err)
 		}
-		tx2.Tx = fundedTx.Transaction
+		resendTx = fundedTx.Transaction
 		bumpedFee = fundedTx.Fee
-		txSize, err := calculateTxVirtualSize(tx2.Tx)
+		txSize, err := calculateTxVirtualSize(resendTx)
 		if err != nil {
 			return nil, err
 		}
-		tx2.Size = txSize
+		resendSize = txSize
 	} else {
-		// We can proceed with existing input, just update the change output
-		tx2.Tx.TxOut[changePosition].Value = int64(balance - bumpedFee)
+		// The change output already had the original fee deducted when the
+		// transaction was funded, so only the increase over the recorded fee
+		// comes out of it. Subtracting the full replacement fee would pay
+		// oldFee + bumpedFee while recording only bumpedFee.
+		if bumpedFee <= tx2.Fee {
+			return nil, fmt.Errorf("replacement fee %v must exceed original fee %v: %w", bumpedFee, tx2.Fee, ErrInsufficientFee)
+		}
+		feeDelta := bumpedFee - tx2.Fee
+		// Work on a copy of the outputs: verification, signing, or broadcast
+		// below may fail, and tx2 must stay untouched in that case.
+		resendTx = &wire.MsgTx{
+			Version:  tx2.Tx.Version,
+			TxIn:     tx2.Tx.TxIn,
+			TxOut:    append([]*wire.TxOut(nil), tx2.Tx.TxOut...),
+			LockTime: tx2.Tx.LockTime,
+		}
+		changedOut := *resendTx.TxOut[changePosition]
+		changedOut.Value = int64(balance - feeDelta)
+		resendTx.TxOut[changePosition] = &changedOut
 	}
 
 	// Verify the transaction meets RBF requirements before sending
-	if err := rl.verifyRBFRequirements(originalTxID, bumpedFee, tx2.Size); err != nil {
+	if err := rl.verifyRBFRequirements(originalTxID, bumpedFee, resendSize); err != nil {
 		return nil, fmt.Errorf("RBF requirements not met: %w", err)
 	}
 
 	// Resign the tx as outputs changed
-	tx, err := rl.signTx(tx2.Tx)
+	tx, err := rl.signTx(resendTx)
 	if err != nil {
 		return nil, err
 	}
@@ -540,6 +564,8 @@ func (rl *Relayer) maybeResendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bu
 	}
 
 	// Update tx info
+	tx2.Tx = resendTx
+	tx2.Size = resendSize
 	tx2.Fee = bumpedFee
 	tx2.TxID = txID
 
