@@ -498,7 +498,12 @@ func (rl *Relayer) maybeResendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bu
 	resendTx := tx2.Tx
 	resendSize := tx2.Size
 
-	if balance-bumpedFee < dustThreshold {
+	if bumpedFee <= tx2.Fee {
+		return nil, fmt.Errorf("replacement fee %v must exceed original fee %v: %w", bumpedFee, tx2.Fee, ErrInsufficientFee)
+	}
+	feeDelta := bumpedFee - tx2.Fee
+
+	if balance-feeDelta < dustThreshold {
 		// Convert transaction size to kilobytes
 		txSizeKB := float64(tx2.Size) / 1000.0
 		// Calculate feeRate in BTC/kB
@@ -530,10 +535,6 @@ func (rl *Relayer) maybeResendSecondTxOfCheckpointToBTC(tx2 *types.BtcTxInfo, bu
 		// transaction was funded, so only the increase over the recorded fee
 		// comes out of it. Subtracting the full replacement fee would pay
 		// oldFee + bumpedFee while recording only bumpedFee.
-		if bumpedFee <= tx2.Fee {
-			return nil, fmt.Errorf("replacement fee %v must exceed original fee %v: %w", bumpedFee, tx2.Fee, ErrInsufficientFee)
-		}
-		feeDelta := bumpedFee - tx2.Fee
 		// Work on a copy of the outputs: verification, signing, or broadcast
 		// below may fail, and tx2 must stay untouched in that case.
 		resendTx = &wire.MsgTx{
