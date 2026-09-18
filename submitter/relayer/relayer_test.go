@@ -1210,8 +1210,13 @@ func TestRelayer_MaybeResendSecondTxOfCheckpointToBTC(t *testing.T) {
 
 				signedTx := wire.NewMsgTx(wire.TxVersion)
 				*signedTx = *tx.Tx // Copy the original tx
-				// Adjust the change output with the new fee
-				signedTx.TxOut[changePosition].Value = int64(10000 - bumpedFee)
+				// Copy the outputs before adjusting: the struct copy above
+				// shares the slice, and mutating it would change tx itself.
+				signedTx.TxOut = append([]*wire.TxOut(nil), tx.Tx.TxOut...)
+				adjustedOut := *signedTx.TxOut[changePosition]
+				// Adjust the change output by the fee delta (bumped - original fee)
+				adjustedOut.Value = int64(10000 - (bumpedFee - tx.Fee))
+				signedTx.TxOut[changePosition] = &adjustedOut
 
 				m.EXPECT().
 					SignRawTransactionWithWallet(gomock.Any()).
@@ -1221,7 +1226,7 @@ func TestRelayer_MaybeResendSecondTxOfCheckpointToBTC(t *testing.T) {
 					GetMempoolEntry(gomock.Any()).
 					Return(&btcjson.GetMempoolEntryResult{
 						DescendantCount: 50,
-						DescendantFees:  1000, // Higher than new fee, will cause RBF to fail
+						DescendantFees:  1000, // Below the bumped fee so RBF rule 3 passes
 						DescendantSize:  500,
 					}, nil).AnyTimes()
 
@@ -1242,8 +1247,8 @@ func TestRelayer_MaybeResendSecondTxOfCheckpointToBTC(t *testing.T) {
 				assert.NotNil(t, result)
 				assert.Equal(t, btcutil.Amount(2000), result.Fee) // Fee should be updated
 				assert.Equal(t, "000000000000000000000000000000000000000000000000000000000000abcd", result.TxID.String())
-				// Verify change output value is reduced by new fee
-				assert.Equal(t, int64(6000), result.Tx.TxOut[changePosition].Value) // 10000 - 2000
+				// Only the fee delta (2000 - 1000) comes out of change: 10000 - 1000 = 9000
+				assert.Equal(t, int64(9000), result.Tx.TxOut[changePosition].Value)
 			},
 		},
 		{
@@ -1464,7 +1469,12 @@ func TestRelayer_MaybeResendSecondTxOfCheckpointToBTC(t *testing.T) {
 
 				signedTx := wire.NewMsgTx(wire.TxVersion)
 				*signedTx = *tx.Tx // Copy the original tx
-				signedTx.TxOut[changePosition].Value = int64(10000 - bumpedFee)
+				// Copy the outputs before adjusting: the struct copy above
+				// shares the slice, and mutating it would change tx itself.
+				signedTx.TxOut = append([]*wire.TxOut(nil), tx.Tx.TxOut...)
+				adjustedOut := *signedTx.TxOut[changePosition]
+				adjustedOut.Value = int64(10000 - (bumpedFee - tx.Fee))
+				signedTx.TxOut[changePosition] = &adjustedOut
 
 				m.EXPECT().
 					SignRawTransactionWithWallet(gomock.Any()).
@@ -1535,6 +1545,141 @@ func TestRelayer_MaybeResendSecondTxOfCheckpointToBTC(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRelayer_MaybeResendSecondTxFeeDelta(t *testing.T) {
+	t.Parallel()
+	// Regression test for https://github.com/babylonlabs-io/vigilante/issues/552.
+	// The change output already had the original fee deducted at funding time,
+	// so an RBF resend must only take the fee delta out of change. Charging the
+	// full replacement fee overpays oldFee + bumpedFee while recording only
+	// bumpedFee, and mutating tx2 in place compounds the overpay across retries.
+	//
+	// By convention the single dummy input stands in for a 100,000-sat input,
+	// so change 90,000 is consistent with the recorded original fee of 10,000.
+	const (
+		inputValue     = int64(100000)
+		changeValue    = int64(90000)
+		originalFee    = btcutil.Amount(10000)
+		bumpedFee      = btcutil.Amount(20000)
+		expectedChange = int64(80000)
+	)
+
+	newTx2 := func() *types.BtcTxInfo {
+		tx := wire.NewMsgTx(wire.TxVersion)
+		hash, _ := chainhash.NewHashFromStr("0000000000000000000000000000000000000000000000000000000000000001")
+		tx.AddTxIn(wire.NewTxIn(wire.NewOutPoint(hash, 0), nil, nil))
+		builder := txscript.NewScriptBuilder()
+		dataScript, _ := builder.AddOp(txscript.OP_RETURN).AddData([]byte("test data")).Script()
+		tx.AddTxOut(wire.NewTxOut(0, dataScript))
+		r := rand.New(rand.NewSource(1))
+		address, err := datagen.GenRandomBTCAddress(r, &chaincfg.RegressionNetParams)
+		require.NoError(t, err)
+		pkScript, _ := txscript.PayToAddrScript(address)
+		tx.AddTxOut(wire.NewTxOut(changeValue, pkScript))
+		txID := tx.TxHash()
+
+		return &types.BtcTxInfo{
+			TxID: &txID,
+			Tx:   tx,
+			Size: 200,
+			Fee:  originalFee,
+		}
+	}
+
+	setupMocks := func(m *mocks.MockBTCWallet, sendErr error) {
+		m.EXPECT().
+			TxDetails(gomock.Any(), gomock.Any()).
+			Return(nil, btcclient.TxInMemPool, nil).AnyTimes()
+		m.EXPECT().
+			GetMempoolEntry(gomock.Any()).
+			Return(&btcjson.GetMempoolEntryResult{
+				DescendantCount: 1,
+				DescendantFees:  400,
+				DescendantSize:  500,
+			}, nil).AnyTimes()
+		m.EXPECT().
+			GetNetworkInfo().
+			Return(&btcjson.GetNetworkInfoResult{
+				IncrementalFee: 1,
+			}, nil).AnyTimes()
+		m.EXPECT().
+			WalletPassphrase(gomock.Any(), gomock.Any()).
+			Return(nil).AnyTimes()
+		m.EXPECT().
+			GetWalletPass().
+			Return("testpassword").
+			AnyTimes()
+		m.EXPECT().
+			GetWalletLockTime().
+			Return(int64(300)).
+			AnyTimes()
+		m.EXPECT().
+			SignRawTransactionWithWallet(gomock.Any()).
+			DoAndReturn(func(tx *wire.MsgTx) (*wire.MsgTx, bool, error) {
+				return tx, true, nil
+			}).AnyTimes()
+		if sendErr != nil {
+			m.EXPECT().
+				SendRawTransaction(gomock.Any(), gomock.Eq(true)).
+				Return(nil, sendErr).AnyTimes()
+		} else {
+			hash, _ := chainhash.NewHashFromStr("000000000000000000000000000000000000000000000000000000000000abcd")
+			m.EXPECT().
+				SendRawTransaction(gomock.Any(), gomock.Eq(true)).
+				Return(hash, nil).AnyTimes()
+		}
+	}
+
+	newRelayer := func(m *mocks.MockBTCWallet) *Relayer {
+		return &Relayer{
+			BTCWallet: m,
+			logger:    zaptest.NewLogger(t).Sugar(),
+		}
+	}
+
+	t.Run("charges only the fee delta", func(t *testing.T) {
+		t.Parallel()
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		mockBTCWallet := mocks.NewMockBTCWallet(ctrl)
+		setupMocks(mockBTCWallet, nil)
+
+		tx2 := newTx2()
+		result, err := newRelayer(mockBTCWallet).maybeResendSecondTxOfCheckpointToBTC(tx2, bumpedFee)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		assert.Equal(t, bumpedFee, result.Fee)
+		assert.Equal(t, expectedChange, result.Tx.TxOut[changePosition].Value)
+		// actual on-chain fee (inputs minus outputs) equals the recorded fee
+		assert.Equal(t, int64(bumpedFee), inputValue-result.Tx.TxOut[0].Value-result.Tx.TxOut[changePosition].Value)
+	})
+
+	t.Run("failed broadcast leaves tx2 untouched and retry does not compound", func(t *testing.T) {
+		t.Parallel()
+		tx2 := newTx2()
+
+		ctrl := gomock.NewController(t)
+		mockBTCWallet := mocks.NewMockBTCWallet(ctrl)
+		setupMocks(mockBTCWallet, errors.New("transaction rejected"))
+		_, err := newRelayer(mockBTCWallet).maybeResendSecondTxOfCheckpointToBTC(tx2, bumpedFee)
+		require.Error(t, err)
+		ctrl.Finish()
+
+		// the failed attempt must not have mutated tx2
+		assert.Equal(t, changeValue, tx2.Tx.TxOut[changePosition].Value)
+		assert.Equal(t, originalFee, tx2.Fee)
+
+		ctrl = gomock.NewController(t)
+		defer ctrl.Finish()
+		mockBTCWallet = mocks.NewMockBTCWallet(ctrl)
+		setupMocks(mockBTCWallet, nil)
+		result, err := newRelayer(mockBTCWallet).maybeResendSecondTxOfCheckpointToBTC(tx2, bumpedFee)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		assert.Equal(t, expectedChange, result.Tx.TxOut[changePosition].Value)
+		assert.Equal(t, bumpedFee, result.Fee)
+	})
 }
 
 func TestRelayer_BuildChainedDataTx(t *testing.T) {

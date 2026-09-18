@@ -39,6 +39,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Bug Fixes
 
+* [#556](https://github.com/babylonlabs-io/vigilante/pull/556) fix: charge only the RBF fee delta against the change output on submitter resends and commit the replacement only after successful broadcast
 * [#541](https://github.com/babylonlabs-io/vigilante/pull/541) fix: rehydrate submitter `lastSubmittedCheckpoint` from store on restart so the RBF path has valid Tx1/Tx2 info instead of panicking / looping on a nil Tx2
 * [#513](https://github.com/babylonlabs-io/vigilante/pull/513) fix: replace panic with error return for non-unbonding spending paths
 * [#549](https://github.com/babylonlabs-io/vigilante/pull/549) ci: fix goreleaser by running it inside `goreleaser-cross` so the darwin/arm64 pre-hook can write to `/lib` and use `oa64-clang`; add `workflow_dispatch` trigger to re-run releases for already-pushed tags and source the wasmvm version from `go.mod` instead of hardcoding it
