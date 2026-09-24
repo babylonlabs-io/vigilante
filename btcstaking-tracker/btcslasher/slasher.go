@@ -92,7 +92,7 @@ func New(
 }
 
 func (bs *BTCSlasher) quitContext() (context.Context, func()) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background()) // #nosec G118 -- cancel is deferred in the goroutine below and also returned to the caller
 	bs.wg.Add(1)
 	go func() {
 		defer cancel()

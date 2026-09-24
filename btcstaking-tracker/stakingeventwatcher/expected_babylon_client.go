@@ -39,6 +39,7 @@ type Delegation struct {
 	HasProof              bool
 	Status                string
 	IsStakeExpansion      bool
+	IsUnbonded            bool
 }
 
 type BabylonParams struct {
@@ -107,6 +108,7 @@ func (bca *BabylonClientAdapter) DelegationsByStatus(status btcstakingtypes.BTCD
 			UnbondingOutput:       unbondingTx.TxOut[0],
 			HasProof:              delegation.StartHeight > 0,
 			Status:                delegation.StatusDesc,
+			IsUnbonded:            delegation.UndelegationResponse != nil && delegation.UndelegationResponse.DelegatorUnbondingInfoResponse != nil,
 		}
 	}
 
@@ -374,5 +376,6 @@ func (bca *BabylonClientAdapter) BTCDelegation(stakingTxHash string) (*Delegatio
 		HasProof:              delegation.StartHeight > 0,
 		Status:                delegation.StatusDesc,
 		IsStakeExpansion:      delegation.StkExp != nil,
+		IsUnbonded:            delegation.UndelegationResponse != nil && delegation.UndelegationResponse.DelegatorUnbondingInfoResponse != nil,
 	}, nil
 }

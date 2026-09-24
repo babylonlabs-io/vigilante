@@ -157,7 +157,7 @@ func (r *Reporter) bootstrap() error {
 
 func (r *Reporter) reporterQuitCtx() (context.Context, func()) {
 	quit := r.quitChan()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background()) // #nosec G118 -- cancel is deferred in the goroutine below and also returned to the caller
 	r.wg.Add(1)
 	go func() {
 		defer cancel()
