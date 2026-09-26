@@ -320,6 +320,18 @@ func (r *Reporter) matchAndSubmitCheckpoints(signer string) int {
 					tx1Block.Txs[ckpt.Segments[0].TxIdx].Hash().String(),
 					tx2Block.Txs[ckpt.Segments[1].TxIdx].Hash().String(),
 				).Inc()
+
+				// Transient broadcast timeout: leave segments in the cache
+				// without marking the pair as attempted, so the next Match()
+				// will retry the same pair.
+			} else {
+				// Non-transient rejection (e.g. invalid BLS multi-sig from a
+				// poisoned part1, or any other validation error). Keep the
+				// segments cached so the legitimate part1, when it arrives,
+				// can still pair with this part0 (VIG-02). But mark this
+				// specific (part0, part1) pair as attempted so subsequent
+				// Match() calls do not resubmit the same rejected proof.
+				r.checkpointCache.MarkAttempted(ckpt)
 			}
 
 			continue
@@ -333,6 +345,11 @@ func (r *Reporter) matchAndSubmitCheckpoints(signer string) int {
 			r.logger.Infof("Successfully submitted checkpoint (MsgInsertBTCSpvProof) with response %d, for epoch %d, height %d",
 				res.Code, ckpt.Epoch, tx1Block.Height)
 		}
+
+		// Babylon accepted the proof (or returned an expected duplicate /
+		// already-finalized response). Drop the source segments from the
+		// cache so the pair is not re-matched on the next Match() cycle.
+		r.checkpointCache.RemoveSegments(ckpt)
 
 		// either way if we or some other reporter submitted the checkpoint, we want to update the metrics
 		r.metrics.SuccessfulCheckpointsCounter.Inc()
