@@ -258,7 +258,7 @@ func (bs *BTCSlasher) sendSlashingTx(
 	}
 
 	ckptParams := checkPointParams.Params
-	pkScript := slashingMsgTxWithWitness.TxOut[del.StakingOutputIdx].PkScript
+	pkScript := slashingMsgTxWithWitness.TxOut[0].PkScript
 	if err := bs.waitForTxKDeep(ctx, txHash, pkScript, ckptParams.BtcConfirmationDepth); err != nil {
 		return nil, err
 	}
