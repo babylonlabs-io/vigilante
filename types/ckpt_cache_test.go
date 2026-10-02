@@ -96,7 +96,23 @@ func FuzzCheckpointCache(f *testing.F) {
 
 		ckptCache.Match()
 
+		// VIG-02: Match() no longer deletes segments. Segments persist
+		// until either RemoveSegments (success path) or the cleanup TTL
+		// fires. Every cached part0/part1 stays in the segment maps
+		// regardless of whether it was matched into a Ckpt candidate.
 		require.Equal(t, numMatchedPairs, ckptCache.NumCheckpoints())
+		require.Equal(t, numPairs*2, ckptCache.NumSegments())
+
+		// After draining matched checkpoints with RemoveSegments (the
+		// path the reporter takes on a successful submission), only the
+		// segments from non-matching pairs should remain.
+		for {
+			ckpt := ckptCache.PopEarliestCheckpoint()
+			if ckpt == nil {
+				break
+			}
+			ckptCache.RemoveSegments(ckpt)
+		}
 		require.Equal(t, (numPairs-numMatchedPairs)*2, ckptCache.NumSegments())
 
 		go ckptCache.StartCleanupRoutine(nil, time.Second, time.Second)

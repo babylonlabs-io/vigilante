@@ -22,6 +22,13 @@ type CheckpointCache struct {
 	// first key: index of the segment in the checkpoint (0 or 1)
 	// second key: hash of the OP_RETURN data in this ckpt segment
 	Segments map[uint8]map[string]*CkptSegment
+
+	// attemptedPairs tracks (hash(part0) | hash(part1)) keys for matched pairs
+	// that have already been submitted to Babylon and rejected with a
+	// non-transient error. Match() skips these so the same poisoned proof
+	// is not resubmitted on every cycle. Entries are pruned by the cleanup
+	// routine using the same TTL applied to segments.
+	attemptedPairs map[string]time.Time
 }
 
 func NewCheckpointCache(tag btctxformatter.BabylonTag, version btctxformatter.FormatVersion) *CheckpointCache {
@@ -31,10 +38,11 @@ func NewCheckpointCache(tag btctxformatter.BabylonTag, version btctxformatter.Fo
 	}
 
 	return &CheckpointCache{
-		Tag:         tag,
-		Version:     version,
-		Checkpoints: []*Ckpt{},
-		Segments:    segMap,
+		Tag:            tag,
+		Version:        version,
+		Checkpoints:    []*Ckpt{},
+		Segments:       segMap,
+		attemptedPairs: map[string]time.Time{},
 	}
 }
 
@@ -63,30 +71,50 @@ func (c *CheckpointCache) sortCheckpoints() {
 	})
 }
 
+// pairKey returns a stable key identifying the (part0, part1) pair by the
+// sha256 of each segment's OP_RETURN data. This matches the key shape used
+// for c.Segments so the same hash bytes are reused.
+func pairKey(seg0, seg1 *CkptSegment) string {
+	h0 := sha256.Sum256(seg0.Data)
+	h1 := sha256.Sum256(seg1.Data)
+
+	return string(h0[:]) + "|" + string(h1[:])
+}
+
 // TODO: generalise to NumExpectedProofs > 2
 // TODO: optimise the complexity by hashmap
+//
+// Match scans cached part0/part1 segments and queues every (part0, part1)
+// pair that connects and decodes into a valid raw checkpoint. Pairs that
+// were previously submitted and rejected with a non-transient error are
+// skipped via attemptedPairs. Segments are NOT deleted here, so the same
+// part0 can later pair with a different part1 if the first attempt is
+// rejected by Babylon (see VIG-02 fix).
 func (c *CheckpointCache) Match() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	for hash1, ckptSeg1 := range c.Segments[uint8(0)] {
-		for hash2, ckptSeg2 := range c.Segments[uint8(1)] {
+	for _, ckptSeg1 := range c.Segments[uint8(0)] {
+		for _, ckptSeg2 := range c.Segments[uint8(1)] {
+			if _, ok := c.attemptedPairs[pairKey(ckptSeg1, ckptSeg2)]; ok {
+				// this pair was submitted before and rejected; skip it
+				// to avoid resubmitting the same proof
+				continue
+			}
 			connected, err := btctxformatter.ConnectParts(c.Version, ckptSeg1.Data, ckptSeg2.Data)
 			if err != nil {
 				continue
 			}
-			// found a pair, check if it is a validPop checkpoint
+			// found a pair, check if it is a valid checkpoint
 			rawCheckpoint, err := btctxformatter.DecodeRawCheckpoint(c.Version, connected)
 			if err != nil {
 				continue
 			}
-			// create the matched checkpoint
+			// queue the matched checkpoint candidate. Segments stay in the
+			// cache until submission succeeds (RemoveSegments) or the pair
+			// is rejected by Babylon (MarkAttempted).
 			ckpt := NewCkpt(ckptSeg1, ckptSeg2, rawCheckpoint.Epoch)
-			// add to the ckptList
 			c.AddCheckpoint(ckpt)
-			// remove the two ckptSeg in segMap
-			delete(c.Segments[uint8(0)], hash1)
-			delete(c.Segments[uint8(1)], hash2)
 		}
 	}
 
@@ -108,6 +136,39 @@ func (c *CheckpointCache) PopEarliestCheckpoint() *Ckpt {
 	return nil
 }
 
+// MarkAttempted records that the (part0, part1) pair backing the given
+// matched checkpoint was submitted to Babylon and rejected with a
+// non-transient error. Subsequent Match() calls will skip this pair so
+// the same poisoned proof is not resubmitted. Segments are intentionally
+// kept in the cache so part0 can still pair with a different part1
+// (e.g. the legitimate one) on a later Match() call.
+func (c *CheckpointCache) MarkAttempted(ckpt *Ckpt) {
+	if ckpt == nil || len(ckpt.Segments) != int(btctxformatter.NumberOfParts) {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.attemptedPairs[pairKey(ckpt.Segments[0], ckpt.Segments[1])] = time.Now()
+}
+
+// RemoveSegments removes the segments composing the given matched checkpoint
+// from the cache. Called after the proof is accepted by Babylon (or returns
+// an expected duplicate/finalized response) so the pair is not re-matched
+// on the next Match() call. Also clears any attemptedPairs entry for the
+// pair, since the pair has now been resolved.
+func (c *CheckpointCache) RemoveSegments(ckpt *Ckpt) {
+	if ckpt == nil || len(ckpt.Segments) != int(btctxformatter.NumberOfParts) {
+		return
+	}
+	h0 := sha256.Sum256(ckpt.Segments[0].Data)
+	h1 := sha256.Sum256(ckpt.Segments[1].Data)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.Segments[uint8(0)], string(h0[:]))
+	delete(c.Segments[uint8(1)], string(h1[:]))
+	delete(c.attemptedPairs, string(h0[:])+"|"+string(h1[:]))
+}
+
 func (c *CheckpointCache) NumSegments() int {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -127,6 +188,16 @@ func (c *CheckpointCache) NumCheckpoints() int {
 	return len(c.Checkpoints)
 }
 
+// NumAttemptedPairs reports how many (part0, part1) pairs are currently
+// blacklisted from re-matching due to prior rejection by Babylon. Intended
+// for tests and observability.
+func (c *CheckpointCache) NumAttemptedPairs() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return len(c.attemptedPairs)
+}
+
 func (c *CheckpointCache) StartCleanupRoutine(stopChan chan struct{}, cleanupInterval time.Duration, segmentTTL time.Duration) {
 	ticker := time.NewTicker(cleanupInterval)
 	defer ticker.Stop()
@@ -142,6 +213,13 @@ func (c *CheckpointCache) StartCleanupRoutine(stopChan chan struct{}, cleanupInt
 					if now.Sub(seg.Timestamp) > segmentTTL {
 						delete(segMap, hash)
 					}
+				}
+			}
+			// prune attemptedPairs entries that have outlived the segment
+			// TTL so the set does not grow unbounded
+			for key, ts := range c.attemptedPairs {
+				if now.Sub(ts) > segmentTTL {
+					delete(c.attemptedPairs, key)
 				}
 			}
 			c.mu.Unlock()
