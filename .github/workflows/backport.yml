@@ -12,15 +12,29 @@
 #       backported to both branches: `staging` and `production`.
 name: Backport
 on:
-  pull_request_target:
+  # pull_request, not pull_request_target: the job only cherry-picks commits
+  # already merged into this repository, so it needs no privileged trigger.
+  # Fork PRs get a read-only token and are not backported automatically.
+  pull_request:
     types:
       - closed
       - labeled
+
+permissions: {}
+
+# Each run reacts to one merge or label event, so it gets its own group and is
+# never cancelled or replaced by another.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.run_id }}
+  cancel-in-progress: false
 
 jobs:
   backport:
     name: Backport
     runs-on: ubuntu-latest
+    # Observed slowest of the last 10 successful runs: 5s. A real backport
+    # clones the repository and pushes a branch.
+    timeout-minutes: 10
     permissions:
       contents: write
       pull-requests: write

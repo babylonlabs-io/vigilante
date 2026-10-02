@@ -14,10 +14,20 @@ on:
 permissions:
   contents: write
 
+# Only pull request runs share a group, so a new push to a PR cancels its
+# superseded run. Every other run gets its own group and is never cancelled
+# or replaced, as without a concurrency block.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   goreleaser:
     name: Create release with assets
     runs-on: ubuntu-latest
+    # No successful run of this job yet; the previous release job failed after
+    # about 3.5 min. It pulls goreleaser-cross and cross-compiles with cgo.
+    timeout-minutes: 45
     env:
       GORELEASER_IMAGE: ghcr.io/goreleaser/goreleaser-cross:v1.27.0
       RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
