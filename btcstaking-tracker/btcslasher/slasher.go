@@ -196,9 +196,12 @@ func (bs *BTCSlasher) slashingEnforcer() {
 	}
 }
 
-// SlashFinalityProvider slashes all BTC delegations under a given finality provider
-// the checkBTC option indicates whether to check the slashing tx's input is still spendable
-// on Bitcoin (including mempool txs).
+// SlashFinalityProvider slashes all BTC delegations under a given finality provider.
+// It dispatches per-delegation goroutines and a wrapper goroutine that, once all
+// per-delegation goroutines reach a terminal state (BTC tx K-deep confirmed or
+// all paths non-slashable, or context canceled), deletes the matching pending
+// evidence entries from the kvdb. On graceful shutdown the entries are
+// intentionally left in place so the next Bootstrap replays them.
 func (bs *BTCSlasher) SlashFinalityProvider(extractedFpBTCSK *btcec.PrivateKey) error {
 	fpBTCPK := bbn.NewBIP340PubKeyFromBTCPK(extractedFpBTCSK.PubKey())
 	bs.logger.Infof("start slashing finality provider %s", fpBTCPK.MarshalHex())
@@ -217,12 +220,18 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedFpBTCSK *btcec.PrivateKey) 
 	activeBTCDels = append(activeBTCDels, unbondedBTCDels...)
 	delegations := activeBTCDels
 
+	// per-FP WaitGroup; the wrapper goroutine below uses this to know when
+	// every delegation goroutine for this FP has finished retrying.
+	perFP := &sync.WaitGroup{}
+
 	// try to slash both staking and unbonding txs for each BTC delegation
 	// sign and submit slashing tx for each active and unbonded delegation
 	for _, del := range delegations {
 		bs.wg.Add(1)
+		perFP.Add(1)
 		go func(d *bstypes.BTCDelegationResponse) {
 			defer bs.wg.Done()
+			defer perFP.Done()
 			ctx, cancel := bs.quitContext()
 			defer cancel()
 
@@ -239,6 +248,37 @@ func (bs *BTCSlasher) SlashFinalityProvider(extractedFpBTCSK *btcec.PrivateKey) 
 	}
 
 	bs.metrics.SlashedFinalityProvidersCounter.Inc()
+
+	// Wrapper goroutine: once every per-delegation goroutine has finished, the
+	// pending entries for this FP can be removed. On graceful shutdown the
+	// entries are left in place so the next Bootstrap replays them.
+	bs.wg.Add(1)
+	go func() {
+		defer bs.wg.Done()
+		perFP.Wait()
+		select {
+		case <-bs.quit:
+			bs.logger.Debugf("slasher shutting down, leaving pending entries for fp %s for next bootstrap", fpBTCPK.MarshalHex())
+
+			return
+		default:
+		}
+		fpHex := fpBTCPK.MarshalHex()
+		pending, err := bs.store.ListPendingEvidences()
+		if err != nil {
+			bs.logger.Errorf("failed to list pending evidences while clearing fp %s: %v", fpHex, err)
+
+			return
+		}
+		for _, ev := range pending {
+			if ev.FpBtcPkHex != fpHex {
+				continue
+			}
+			if err := bs.store.DeletePendingEvidence(ev.BlockHeight, fpHex); err != nil {
+				bs.logger.Errorf("failed to delete pending evidence at height %d for fp %s: %v", ev.BlockHeight, fpHex, err)
+			}
+		}
+	}()
 
 	return nil
 }
