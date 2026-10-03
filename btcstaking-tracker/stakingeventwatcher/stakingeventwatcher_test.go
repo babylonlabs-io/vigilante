@@ -693,3 +693,29 @@ func TestHandleSpend_StkExpUnbondedChildSkipsKDeepWait(t *testing.T) {
 		})
 	}
 }
+
+func TestFetchCometBftBlockOnceNoNewBlock(t *testing.T) {
+	t.Parallel()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	cfg := config.DefaultBTCStakingTrackerConfig()
+	mockBabylonNodeAdapter := NewMockBabylonNodeAdapter(ctrl)
+
+	sew := StakingEventWatcher{
+		logger:             zap.NewNop().Sugar(),
+		cfg:                &cfg,
+		babylonNodeAdapter: mockBabylonNodeAdapter,
+	}
+
+	// block 100 was processed, so 101 is the next height to process
+	sew.currentCometTipHeight.Store(101)
+
+	// tip still at 100 -> no new block yet, must be a quiet no-op
+	mockBabylonNodeAdapter.EXPECT().CometBFTTipHeight(gomock.Any()).Return(int64(100), nil).Times(1)
+	require.NoError(t, sew.fetchCometBftBlockOnce())
+
+	// tip at 99 -> genuine regression below the processed height, must error
+	mockBabylonNodeAdapter.EXPECT().CometBFTTipHeight(gomock.Any()).Return(int64(99), nil).Times(1)
+	require.ErrorContains(t, sew.fetchCometBftBlockOnce(), "non-monotonic block height")
+}
