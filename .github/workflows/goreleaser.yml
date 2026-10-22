@@ -29,7 +29,7 @@ jobs:
     # about 3.5 min. It pulls goreleaser-cross and cross-compiles with cgo.
     timeout-minutes: 45
     env:
-      GORELEASER_IMAGE: ghcr.io/goreleaser/goreleaser-cross:v1.27.0
+      GORELEASER_IMAGE: ghcr.io/goreleaser/goreleaser-cross:v1.26.10@sha256:4ddb0de02f2eaac64d2b33e16d1d702d800db6a110154f8768f283858fb26c02
       RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - name: Checkout
