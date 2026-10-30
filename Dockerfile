@@ -44,7 +44,7 @@ RUN CGO_LDFLAGS="$CGO_LDFLAGS -lstdc++ -lm -lsodium" \
 FROM alpine:3.21 AS run
 # Create a user
 RUN addgroup --gid 1138 -S vigilante && adduser --uid 1138 -S vigilante -G vigilante
-RUN apk add --no-cache bash=5.2.37-r0 curl=8.14.1-r2 jq=1.7.1-r0
+RUN apk add --no-cache bash=5.2.37-r0 curl=8.14.1-r3 jq=1.7.1-r0
 
 # Label should match your github repo
 LABEL org.opencontainers.image.source="https://github.com/babylonlabs-io/vigilante:${VERSION}"
