@@ -39,6 +39,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Bug Fixes
 
+* [#558](https://github.com/babylonlabs-io/vigilante/pull/558) fix: build with the Go 1.26.10 toolchain for the crypto/x509 CA-distrust fix (CVE-2026-111943, GO-2026-6809); bump sonic to v1.15.0 for Go 1.26 toolchain compatibility
 * [#541](https://github.com/babylonlabs-io/vigilante/pull/541) fix: rehydrate submitter `lastSubmittedCheckpoint` from store on restart so the RBF path has valid Tx1/Tx2 info instead of panicking / looping on a nil Tx2
 * [#513](https://github.com/babylonlabs-io/vigilante/pull/513) fix: replace panic with error return for non-unbonding spending paths
 * [#537](https://github.com/babylonlabs-io/vigilante/pull/537) fix(slasher): use correct tx output index in slashing confirmation

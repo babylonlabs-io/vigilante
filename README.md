@@ -11,7 +11,7 @@ There are four vigilante programs:
 
 ## Requirements
 
-- [Go 1.23](https://go.dev/dl/go1.23.0.src.tar.gz)
+- [Go 1.26.10](https://go.dev/dl/)
 - [Bitcoind](https://bitcoincore.org/bin)
 - Package [libzmq](https://github.com/zeromq/libzmq)
 
